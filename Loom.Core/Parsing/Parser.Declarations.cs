@@ -326,17 +326,33 @@ public sealed partial class Parser
 
         var parameters = ParseDelimited(ParseParameter);
         rightParen = Expect(SyntaxKind.RParen);
+        ValidateRestParameterPlacement(parameters);
 
         return new Parameters(leftParen, rightParen, parameters);
+    }
 
+    private void ValidateRestParameterPlacement(List<Parameter> parameters)
+    {
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            var parameter = parameters[i];
+            if (parameter.DotDot == null) continue;
+
+            if (i != parameters.Count - 1)
+                _diagnostics.Error(parameter, InternalCodes.RestParameterNotLast, "A rest parameter must be the last parameter.");
+
+            if (parameter.ColonTypeClause == null)
+                _diagnostics.Error(parameter, InternalCodes.MissingRestParameterType, "A rest parameter must have an explicit array type.");
+        }
     }
 
     private Parameter ParseParameter()
     {
+        var dotDot = Match(out var dots, SyntaxKind.DotDot) ? dots : null;
         var name = ExpectIdentifier("parameter name");
         var colonTypeClause = ParseColonTypeClause();
         var equalsValueClause = ParseEqualsValueClause();
-        return new Parameter(name, colonTypeClause, equalsValueClause);
+        return new Parameter(dotDot, name, colonTypeClause, equalsValueClause);
     }
 
     private EqualsValueClause? ParseEqualsValueClause() => Match(out var equals, SyntaxKind.Equals) ? new EqualsValueClause(equals, ParseExpression()) : null;

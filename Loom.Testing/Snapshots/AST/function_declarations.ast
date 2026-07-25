@@ -35,6 +35,7 @@ FunctionDeclaration(
     RightParen: Token(RParen, ")")
     ParameterList: [
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -86,6 +87,7 @@ FunctionDeclaration(
     RightParen: Token(RParen, ")")
     ParameterList: [
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -96,6 +98,7 @@ FunctionDeclaration(
         Name: Token(Identifier, "a")
       )
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -131,6 +134,7 @@ FunctionDeclaration(
     RightParen: Token(RParen, ")")
     ParameterList: [
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -170,6 +174,7 @@ FunctionDeclaration(
     RightParen: Token(RParen, ")")
     ParameterList: [
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: TypeName(
@@ -245,6 +250,7 @@ FunctionDeclaration(
     RightParen: Token(RParen, ")")
     ParameterList: [
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -255,6 +261,7 @@ FunctionDeclaration(
         Name: Token(Identifier, "a")
       )
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -265,6 +272,7 @@ FunctionDeclaration(
         Name: Token(Identifier, "b")
       )
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -304,6 +312,7 @@ FunctionDeclaration(
     RightParen: Token(RParen, ")")
     ParameterList: [
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: TypeName(
@@ -315,6 +324,7 @@ FunctionDeclaration(
         Name: Token(Identifier, "x")
       )
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: TypeName(
@@ -381,6 +391,7 @@ FunctionDeclaration(
     RightParen: Token(RParen, ")")
     ParameterList: [
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -391,6 +402,7 @@ FunctionDeclaration(
         Name: Token(Identifier, "x")
       )
       Parameter(
+        DotDot: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(

@@ -107,6 +107,7 @@ Implement(
           RightParen: Token(RParen, ")")
           ParameterList: [
             Parameter(
+              DotDot: null
               ColonTypeClause(
                 ColonToken: Token(Colon, ":")
                 Type: PrimitiveType(

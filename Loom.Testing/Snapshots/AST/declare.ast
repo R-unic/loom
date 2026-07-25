@@ -5,6 +5,7 @@
       RightParen: Token(RParen, ")")
       ParameterList: [
         Parameter(
+          DotDot: null
           ColonTypeClause(
             ColonToken: Token(Colon, ":")
             Type: TypeName(
@@ -50,6 +51,7 @@ Declare(
       RightParen: Token(RParen, ")")
       ParameterList: [
         Parameter(
+          DotDot: null
           ColonTypeClause(
             ColonToken: Token(Colon, ":")
             Type: PrimitiveType(
@@ -60,6 +62,7 @@ Declare(
           Name: Token(Identifier, "a")
         )
         Parameter(
+          DotDot: null
           ColonTypeClause(
             ColonToken: Token(Colon, ":")
             Type: PrimitiveType(
@@ -88,6 +91,7 @@ Declare(
       RightParen: Token(RParen, ")")
       ParameterList: [
         Parameter(
+          DotDot: null
           ColonTypeClause(
             ColonToken: Token(Colon, ":")
             Type: TypeName(

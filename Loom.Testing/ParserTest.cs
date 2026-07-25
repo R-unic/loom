@@ -44,6 +44,8 @@ public class ParserTest
         new("type Fn = fn(x: number = 5): number", InternalCodes.UseOfDeclareFnParameterDefaults, "Parameters may not have default values in function types.", null),
         new("type Fn = fn(x): number", InternalCodes.MissingDeclareFnParameterType, "Parameters must have types in function types.", null),
         new("type F = (fn())", InternalCodes.MissingDeclareFnReturnType, "Function types must have a return type.", null),
+        new("fn foo(..a: number[], b: number) { }", InternalCodes.RestParameterNotLast, "A rest parameter must be the last parameter.", null),
+        new("fn foo(..a) { }", InternalCodes.MissingRestParameterType, "A rest parameter must have an explicit array type.", null),
         new("interface I { name }", InternalCodes.ExpectedInterfaceMemberType, "Expected indexer type, got '}'.", null),
         new("interface I { [number] }", InternalCodes.UnexpectedToken, "Expected property name, got '}'.", null),
         new("interface { }", InternalCodes.UnexpectedToken, "Expected interface name, got '{'.", null),
@@ -718,4 +720,35 @@ public class ParserTest
         Assert.Equal(plainDiagnostics.Set.Count, attributedDiagnostics.Set.Count);
     }
     #endregion Event Attributes
+
+    #region Rest Parameters
+    [Fact]
+    public void Parses_RestParameter()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("fn foo(..data: unknown[]) { }"));
+        var functionDeclaration = Assert.IsType<FunctionDeclaration>(result.Tree.Statements.Single());
+        var parameter = Assert.Single(functionDeclaration.Parameters!.ParameterList);
+        Assert.NotNull(parameter.DotDot);
+        Assert.Equal(SyntaxKind.DotDot, parameter.DotDot!.Kind);
+        Assert.Equal("data", parameter.Name.Text);
+    }
+
+    [Fact]
+    public void Parses_RestParameter_AfterRequiredParameters()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("fn foo(a: number, ..rest: number[]) { }"));
+        var functionDeclaration = Assert.IsType<FunctionDeclaration>(result.Tree.Statements.Single());
+        Assert.Equal(2, functionDeclaration.Parameters!.ParameterList.Count);
+        Assert.Null(functionDeclaration.Parameters.ParameterList[0].DotDot);
+        Assert.NotNull(functionDeclaration.Parameters.ParameterList[1].DotDot);
+    }
+
+    [Fact]
+    public void Parses_NonRestParameter_HasNullDotDot()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("fn foo(a: number) { }"));
+        var functionDeclaration = Assert.IsType<FunctionDeclaration>(result.Tree.Statements.Single());
+        Assert.Null(functionDeclaration.Parameters!.ParameterList.Single().DotDot);
+    }
+    #endregion Rest Parameters
 }

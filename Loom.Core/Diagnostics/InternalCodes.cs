@@ -78,6 +78,9 @@ public static class InternalCodes
     public const string ReservedLuauKeyword = "L354";
     public const string NonExhaustiveMatch = "L355";
     public const string NoOverloadMatch = "L356";
+    public const string RestParameterNotLast = "L357";
+    public const string MissingRestParameterType = "L358";
+    public const string InvalidRestParameterType = "L359";
 
     public const string SimplifiableCode = "L400";
 }

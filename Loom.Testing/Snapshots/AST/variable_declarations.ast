@@ -187,6 +187,7 @@ VariableDeclaration(
         RightParen: Token(RParen, ")")
         ParameterList: [
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: PrimitiveType(
@@ -230,6 +231,7 @@ VariableDeclaration(
         RightParen: Token(RParen, ")")
         ParameterList: [
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: TypeName(
@@ -414,6 +416,7 @@ VariableDeclaration(
         RightParen: Token(RParen, ")")
         ParameterList: [
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: TypeName(
@@ -458,6 +461,7 @@ VariableDeclaration(
                 RightParen: Token(RParen, ")")
                 ParameterList: [
                   Parameter(
+                    DotDot: null
                     ColonTypeClause(
                       ColonToken: Token(Colon, ":")
                       Type: TypeName(
@@ -619,6 +623,7 @@ VariableDeclaration(
         RightParen: Token(RParen, ")")
         ParameterList: [
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: PrimitiveType(
@@ -629,6 +634,7 @@ VariableDeclaration(
             Name: Token(Identifier, "a")
           )
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: PrimitiveType(
@@ -661,6 +667,7 @@ VariableDeclaration(
                 RightParen: Token(RParen, ")")
                 ParameterList: [
                   Parameter(
+                    DotDot: null
                     ColonTypeClause(
                       ColonToken: Token(Colon, ":")
                       Type: PrimitiveType(
@@ -756,6 +763,7 @@ VariableDeclaration(
         RightParen: Token(RParen, ")")
         ParameterList: [
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: PrimitiveType(
@@ -792,6 +800,7 @@ VariableDeclaration(
         RightParen: Token(RParen, ")")
         ParameterList: [
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: PrimitiveType(
@@ -830,6 +839,7 @@ VariableDeclaration(
         RightParen: Token(RParen, ")")
         ParameterList: [
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: PrimitiveType(
@@ -881,6 +891,7 @@ VariableDeclaration(
             RightParen: Token(RParen, ")")
             ParameterList: [
               Parameter(
+                DotDot: null
                 ColonTypeClause(
                   ColonToken: Token(Colon, ":")
                   Type: PrimitiveType(
@@ -920,6 +931,7 @@ VariableDeclaration(
             RightParen: Token(RParen, ")")
             ParameterList: [
               Parameter(
+                DotDot: null
                 ColonTypeClause(
                   ColonToken: Token(Colon, ":")
                   Type: PrimitiveType(
@@ -968,6 +980,7 @@ VariableDeclaration(
         RightParen: Token(RParen, ")")
         ParameterList: [
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: TypeName(
@@ -1018,6 +1031,7 @@ VariableDeclaration(
         RightParen: Token(RParen, ")")
         ParameterList: [
           Parameter(
+            DotDot: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: TypeName(
