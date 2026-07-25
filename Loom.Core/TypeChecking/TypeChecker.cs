@@ -367,15 +367,19 @@ public sealed partial class TypeChecker
         return BindType(invocation, Types.PrimitiveType.Never);
     }
 
-    // A callee typed as an intersection of function signatures is an overload set (MergeOverloadedProperties); first candidate matching arity + argument assignability wins.
+    // A callee typed as an intersection of function signatures is an overload set (MergeOverloadedProperties); first candidate whose required/optional parameter count fits and whose arguments are assignable wins.
     private Type CheckOverloadedInvocation(Invocation invocation, List<Types.FunctionType> candidates)
     {
         var argumentList = invocation.Arguments.ArgumentList;
         var argumentTypes = argumentList.ConvertAll(Visit);
 
         var match = candidates.Find(candidate =>
-            candidate.ParameterTypes.Count == argumentTypes.Count
-            && !argumentTypes.Where((argumentType, i) => !argumentType.IsAssignableTo(candidate.ParameterTypes[i])).Any());
+        {
+            var requiredCount = candidate.ParameterTypes.Count(Type.IsNotOptional);
+            return argumentTypes.Count >= requiredCount
+                && argumentTypes.Count <= candidate.ParameterTypes.Count
+                && !argumentTypes.Where((argumentType, i) => !argumentType.IsAssignableTo(candidate.ParameterTypes[i])).Any();
+        });
 
         if (match == null)
         {

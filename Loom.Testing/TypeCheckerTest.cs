@@ -3851,6 +3851,27 @@ public class TypeCheckerTest
         var diagnostic = diagnostics.Find(d => d.Code == InternalCodes.NoOverloadMatch);
         Assert.NotNull(diagnostic);
     }
+
+    [Theory]
+    [InlineData("CFrame.create()")]
+    [InlineData("CFrame.create(Vector3.create())")]
+    [InlineData("CFrame.create(Vector3.create(), Vector3.create())")]
+    [InlineData("CFrame.create(1, 2, 3)")]
+    [InlineData("CFrame.create(1, 2, 3, 0, 0, 0, 1)")]
+    [InlineData("CFrame.create(1, 2, 3, 1, 0, 0, 0, 1, 0, 0, 0, 1)")]
+    public void Checks_CFrameCreate_ResolvesEachOverloadShape(string source)
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void ThrowsFor_CFrameCreate_NoOverloadMatches()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("CFrame.create(\"not a number\")");
+        var diagnostic = diagnostics.Find(d => d.Code == InternalCodes.NoOverloadMatch);
+        Assert.NotNull(diagnostic);
+    }
     #endregion Overloaded Interface Members
 
     [Fact]
