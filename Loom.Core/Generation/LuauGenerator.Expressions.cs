@@ -67,6 +67,14 @@ public sealed partial class LuauGenerator
         if (SyntaxFacts.IsBitwiseOperator(binaryOperator.Operator.Kind))
             return GenerateBitwiseOperator(binaryOperator);
 
+        if (binaryOperator.Operator.Kind == SyntaxKind.InKeyword)
+        {
+            var index = Visit(binaryOperator.Left);
+            var target = Visit(binaryOperator.Right);
+            var access = new Luau.AST.ElementAccess(target, index);
+            return new Luau.AST.BinaryOperator(access, "~=", new NilLiteral());
+        }
+
         var op = binaryOperator.Operator.Text;
         var leftType = _semanticModel.GetType(binaryOperator.Left);
         var rightType = _semanticModel.GetType(binaryOperator.Right);

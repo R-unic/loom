@@ -187,6 +187,8 @@ public class TypeCheckerTest
     }
 
     [Theory]
+    [InlineData("true in 1")]
+    [InlineData("1 in true")]
     [InlineData("1 + true")]
     [InlineData("true + 1")]
     [InlineData("'abc' + 69")]
@@ -226,6 +228,12 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
         Assert.Contains(diagnostics.Set, d => d.Code is InternalCodes.TypeMismatch or InternalCodes.InvalidUnaryOp);
     }
+    
+    [Fact]
+    public void Checks_InOperator_StringKeyOnInterface() =>
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(
+            "interface Foo { bar: string } let foo = new Foo { bar: \"abc\" }; \"bar\" in foo"
+        ));
 
     [Fact]
     public void ThrowsFor_NonGenericFunctionCall_ArgumentTypeMismatch()

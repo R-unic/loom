@@ -50,7 +50,8 @@ internal static class BinaryOperatorBinder
         new(SyntaxKind.LArrow, PrimitiveType.String, PrimitiveType.String, PrimitiveType.Bool),
         new(SyntaxKind.LArrowEquals, PrimitiveType.String, PrimitiveType.String, PrimitiveType.Bool),
         new(SyntaxKind.RArrow, PrimitiveType.String, PrimitiveType.String, PrimitiveType.Bool),
-        new(SyntaxKind.RArrowEquals, PrimitiveType.String, PrimitiveType.String, PrimitiveType.Bool)
+        new(SyntaxKind.RArrowEquals, PrimitiveType.String, PrimitiveType.String, PrimitiveType.Bool),
+        new(SyntaxKind.InKeyword, PrimitiveType.String, PrimitiveType.Unknown, PrimitiveType.Bool)
     ];
 
     public static BinaryOperatorRule? GetRule(BinaryOperator binaryOperator, Type leftType, Type rightType) =>

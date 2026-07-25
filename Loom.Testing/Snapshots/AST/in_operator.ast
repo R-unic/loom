@@ -1,0 +1,13 @@
+﻿ExpressionStatement(
+  Expression: BinaryOperator(
+    Operator: Token(InKeyword, "in")
+    Left: Literal(
+      Token(StringLiteral, ""bar"")
+      Value: "bar"
+    )
+    Right: Identifier(
+      Name: Token(Identifier, "foo")
+      Token(Identifier, "foo")
+    )
+  )
+)
