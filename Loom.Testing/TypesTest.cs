@@ -879,6 +879,18 @@ public class TypesTest
     }
 
     [Fact]
+    public void Union_Assignability_ToNonUnionTarget_RequiresEveryMemberAssignable()
+    {
+        var memberA = new ObjectType(null, [new ObjectProperty(false, "x", new LiteralType(1))]);
+        var memberB = new ObjectType(null, [new ObjectProperty(false, "x", new LiteralType(2))]);
+        var union = new UnionType([memberA, memberB]);
+        var target = new ObjectType(null, [new ObjectProperty(false, "x", Number)]);
+
+        Assert.True(union.IsAssignableTo(target));
+        Assert.False(union.IsAssignableTo(memberA));
+    }
+
+    [Fact]
     public void Union_Literal_Assignability()
     {
         var union = new UnionType([Bool, Number]);

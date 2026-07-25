@@ -12,8 +12,8 @@ fn find<K, V>(entries: Entry<K, V>[], key: K): Result<V, string> {
 }
 
 let entries = [
-    new Entry { key: "pi", value: 3.14159 } as Entry<string, number>,
-    new Entry { key: "e", value: 2.71828 } as Entry<string, number>
+    new Entry { key: "pi", value: 3.14159 },
+    new Entry { key: "e", value: 2.71828 }
 ];
 
 let result = find(entries, "pi");

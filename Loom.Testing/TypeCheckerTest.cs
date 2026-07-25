@@ -3750,6 +3750,33 @@ public class TypeCheckerTest
         Assert.All(union.Types, t => Assert.IsType<InterfaceType>(t));
     }
 
+    // Regression test for #16.
+    [Fact]
+    public void Checks_Inference_ArrayOfUnionOfGenericInterfaceInstantiations()
+    {
+        const string source = """
+            interface Entry<K, V> { key: K; value: V; }
+            fn find<K, V>(entries: Entry<K, V>[], key: K): Result<V, string> {
+                for entry : entries
+                    if entry.key == key
+                        return Result.ok(entry.value);
+
+                return Result.err("missing key");
+            }
+
+            let entries = [
+                new Entry { key: "pi", value: 3.14159 },
+                new Entry { key: "e", value: 2.71828 }
+            ];
+
+            let result = find(entries, "pi");
+            print(result.ok ? result.value : result.error);
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertNoErrors(diagnostics);
+    }
+
     [Fact]
     public void Checks_AsExpression_Chained_Unknown()
     {

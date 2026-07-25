@@ -123,6 +123,13 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
                 inferredTypes,
                 visitedPairs
             ),
+            (ObjectType parameterObject, UnionType argumentUnion) => TryInferFromObjectUnion(parameterObject, argumentUnion, inferredTypes, visitedPairs),
+            (InterfaceType parameterInterface, UnionType argumentUnion) => TryInferFromObjectUnion(
+                parameterInterface.ObjectType,
+                argumentUnion,
+                inferredTypes,
+                visitedPairs
+            ),
             (FunctionType parameterFunction, FunctionType argumentFunction) => MatchFunctionTypes(
                 parameterFunction,
                 argumentFunction,
@@ -150,6 +157,68 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
 
         var typeParams = union.Types.OfType<TypeParameter>().ToList();
         return typeParams.Count == 1 && BindTypeParameter(typeParams[0], argumentType, inferredTypes);
+    }
+
+    /// <summary>
+    /// Handles unifying a generic object/interface shape (e.g. an array element type `Entry&lt;K, V&gt;`)
+    /// against a union of structurally compatible object/interface arguments (e.g. the inferred element
+    /// type of `[new Entry {...}, new Entry {...}]`), which none of the other cases above cover since
+    /// they either require both sides to be unions of equal length or the parameter side to be the union.
+    /// Distributes property-by-property: a readonly property is covariant, so its type parameter is
+    /// unified against the union of that property's value type across every member; a mutable property is
+    /// invariant, so every member must already agree on its exact value type before unification proceeds.
+    /// </summary>
+    private static bool TryInferFromObjectUnion(
+        ObjectType parameterObject,
+        UnionType argumentUnion,
+        TypeParameterSubstitution inferredTypes,
+        HashSet<(Type, Type)> visitedPairs)
+    {
+        var memberObjects = new List<ObjectType>();
+        foreach (var member in argumentUnion.Types)
+        {
+            switch (member)
+            {
+                case ObjectType objectType:
+                    memberObjects.Add(objectType);
+                    break;
+                case InterfaceType interfaceType:
+                    memberObjects.Add(interfaceType.ObjectType);
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        foreach (var property in parameterObject.Properties)
+        {
+            var memberValueTypes = new List<Type>();
+            foreach (var member in memberObjects)
+            {
+                var memberProperty = member.GetProperty(property.Name);
+                if (memberProperty == null)
+                    return false;
+
+                memberValueTypes.Add(memberProperty.ValueType);
+            }
+
+            if (property.IsMutable)
+            {
+                if (memberValueTypes.Distinct().Count() > 1)
+                    return false;
+
+                if (!TryInferTypes(property.ValueType, memberValueTypes[0], inferredTypes, visitedPairs))
+                    return false;
+
+                continue;
+            }
+
+            var combinedValueType = TypeSimplifier.Simplify(new UnionType(memberValueTypes));
+            if (!TryInferTypes(property.ValueType, combinedValueType, inferredTypes, visitedPairs))
+                return false;
+        }
+
+        return true;
     }
 
     private static bool TryInferFromIntersection(IntersectionType union, Type argumentType, TypeParameterSubstitution inferredTypes)

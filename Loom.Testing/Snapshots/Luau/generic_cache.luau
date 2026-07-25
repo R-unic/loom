@@ -11,6 +11,6 @@ const function find<K, V>(entries: { Entry<K, V> }, key: K): Loom.Result<V, stri
   end
   return { ok = false, error = "missing key" }
 end
-const entries = {({ key = "pi", value = 3.14159 }) :: Entry<string, number>, ({ key = "e", value = 2.71828 }) :: Entry<string, number>}
+const entries = {{ key = "pi", value = 3.14159 }, { key = "e", value = 2.71828 }}
 const result = find(entries, "pi")
 print(if result.ok then result.value else result.error)
