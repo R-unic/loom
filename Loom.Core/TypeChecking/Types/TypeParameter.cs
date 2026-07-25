@@ -34,6 +34,6 @@ public sealed class TypeParameter(
         && Equals(DefaultType, parameter.DefaultType);
 
     public override string ToString() =>
-        Variance switch { Variance.Covariant => "out ", Variance.Contravariant => "in ", _ => "" }
+        (IsVarianceExplicit ? Variance switch { Variance.Covariant => "out ", Variance.Contravariant => "in ", _ => "" } : "")
         + Name + (Constraint != null ? ": " + Constraint : "") + (DefaultType != null ? " = " + DefaultType : "");
 }

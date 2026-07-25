@@ -1023,14 +1023,16 @@ public class TypesTest
     }
 
     [Fact]
-    public void TypeParameter_ToString_IncludesVariancePrefix()
+    public void TypeParameter_ToString_IncludesVariancePrefix_OnlyWhenExplicit()
     {
-        var covariant = new TypeParameter("T", variance: Variance.Covariant);
-        var contravariant = new TypeParameter("T", variance: Variance.Contravariant);
+        var explicitCovariant = new TypeParameter("T", variance: Variance.Covariant, isVarianceExplicit: true);
+        var explicitContravariant = new TypeParameter("T", variance: Variance.Contravariant, isVarianceExplicit: true);
+        var inferredCovariant = new TypeParameter("T", variance: Variance.Covariant);
         var invariant = new TypeParameter("T");
 
-        Assert.Equal("out T", covariant.ToString());
-        Assert.Equal("in T", contravariant.ToString());
+        Assert.Equal("out T", explicitCovariant.ToString());
+        Assert.Equal("in T", explicitContravariant.ToString());
+        Assert.Equal("T", inferredCovariant.ToString());
         Assert.Equal("T", invariant.ToString());
     }
 

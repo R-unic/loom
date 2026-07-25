@@ -3710,6 +3710,38 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_InterfaceDeclaration_InfersCovariance_ForReadonlyProperties()
+    {
+        var type = Utility.GetLastStatementType("interface Entry<K, V> { key: K; value: V; }");
+        var generic = Assert.IsType<GenericType>(type);
+        Assert.All(generic.Parameters, p => Assert.Equal(Variance.Covariant, p.Variance));
+    }
+
+    [Fact]
+    public void Checks_InterfaceDeclaration_InfersInvariance_ForMutableProperty()
+    {
+        var type = Utility.GetLastStatementType("interface Box<T> { mut value: T }");
+        var generic = Assert.IsType<GenericType>(type);
+        Assert.Equal(Variance.Invariant, generic.Parameters.Single().Variance);
+    }
+
+    [Fact]
+    public void Checks_InterfaceDeclaration_InfersContravariance_ForFunctionParameterPosition()
+    {
+        var type = Utility.GetLastStatementType("interface Sink<T> { accept: fn(value: T): void }");
+        var generic = Assert.IsType<GenericType>(type);
+        Assert.Equal(Variance.Contravariant, generic.Parameters.Single().Variance);
+    }
+
+    [Fact]
+    public void Checks_InterfaceDeclaration_ExplicitVariance_OverridesInference()
+    {
+        var type = Utility.GetLastStatementType("interface Box<in T> { value: T }");
+        var generic = Assert.IsType<GenericType>(type);
+        Assert.Equal(Variance.Contravariant, generic.Parameters.Single().Variance);
+    }
+
+    [Fact]
     public void Checks_AsExpression_Chained_Unknown()
     {
         var type = Utility.GetLastStatementType("69 as unknown as number");

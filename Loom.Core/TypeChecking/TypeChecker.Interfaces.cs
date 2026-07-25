@@ -65,7 +65,10 @@ public sealed partial class TypeChecker
         var properties = ResolveTraitProperties(traitDeclaration.Body.Members);
         objectType.AddProperties(properties);
 
-        return publishedType;
+        if (publishedType is GenericType generic)
+            publishedType = VarianceInferrer.ApplyInferredVariance(generic);
+
+        return BindType(traitDeclaration, publishedType);
     }
 
     public override Type VisitInterfaceDeclaration(InterfaceDeclaration interfaceDeclaration)
@@ -103,6 +106,9 @@ public sealed partial class TypeChecker
         var properties = ResolveInterfaceProperties(constraints, propertyDeclarations);
         objectType.AddProperties(events);
         objectType.AddProperties(properties);
+
+        if (publishedType is GenericType generic)
+            publishedType = VarianceInferrer.ApplyInferredVariance(generic);
 
         return BindType(interfaceDeclaration, publishedType);
     }
