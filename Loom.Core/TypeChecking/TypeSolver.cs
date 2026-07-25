@@ -98,7 +98,8 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             FunctionType functionType => new FunctionType(
                 functionType.TypeParameters,
                 functionType.ParameterTypes.ConvertAll(fn),
-                fn(functionType.ReturnType)
+                fn(functionType.ReturnType),
+                functionType.HasRestParameter
             ),
             GenericType genericType => new GenericType(
                 genericType.Declaration,

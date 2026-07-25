@@ -211,7 +211,7 @@ public sealed partial class TypeChecker
 
         var substitutedParameterTypes = SubstituteTypeParameters(failNode, genericFunction.ParameterTypes, substitution);
         var substitutedReturnType = SubstituteTypeParameters(failNode, genericFunction.ReturnType, substitution);
-        instantiated = new Types.FunctionType([], substitutedParameterTypes, substitutedReturnType);
+        instantiated = new Types.FunctionType([], substitutedParameterTypes, substitutedReturnType, genericFunction.HasRestParameter);
         return true;
     }
 }

@@ -45,7 +45,8 @@ public sealed class InstantiatedType(GenericType genericType, List<Type> argumen
                 FunctionType functionType => new FunctionType(
                     functionType.TypeParameters.FindAll(tp2 => !substitution.ContainsKey(tp2)),
                     functionType.ParameterTypes.ConvertAll(p => SubstituteTypeParameters(p, substitution)),
-                    SubstituteTypeParameters(functionType.ReturnType, substitution)
+                    SubstituteTypeParameters(functionType.ReturnType, substitution),
+                    functionType.HasRestParameter
                 ),
                 ArrayType arrayType => new ArrayType(SubstituteTypeParameters(arrayType.ElementType, substitution), arrayType.IsMutable),
                 InterfaceType interfaceType => SubstituteInterfaceType(interfaceType, substitution),

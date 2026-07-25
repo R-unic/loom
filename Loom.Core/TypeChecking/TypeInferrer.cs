@@ -297,7 +297,8 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
             argumentFunction = new FunctionType(
                 [],
                 argumentFunction.ParameterTypes.ConvertAll(t => Substitute(t, argumentSubstitution)),
-                Substitute(argumentFunction.ReturnType, argumentSubstitution)
+                Substitute(argumentFunction.ReturnType, argumentSubstitution),
+                argumentFunction.HasRestParameter
             );
         }
 
@@ -316,7 +317,8 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
             FunctionType functionType => new FunctionType(
                 functionType.TypeParameters,
                 functionType.ParameterTypes.ConvertAll(t => Substitute(t, substitution)),
-                Substitute(functionType.ReturnType, substitution)
+                Substitute(functionType.ReturnType, substitution),
+                functionType.HasRestParameter
             ),
             _ => type
         };
