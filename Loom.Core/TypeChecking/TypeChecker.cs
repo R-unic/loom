@@ -34,7 +34,7 @@ public sealed partial class TypeChecker
     private readonly TypeInferrer _inferrer;
     private readonly TypeNarrower _narrower;
     private FlowState _flowState;
-    private Symbol? _resolvingHoisted;
+    private readonly HashSet<Symbol> _resolvingHoisted = [];
 
     private MacroContext EmptyMacroContext => field ??= new MacroContext(_semanticModel, new LuauState(), _diagnostics);
 
@@ -1201,16 +1201,18 @@ public sealed partial class TypeChecker
 
     private Type ResolveHoistedType(Symbol symbol)
     {
-        var type = GetTypeFromSymbol(symbol);
-        if (ReferenceEquals(symbol, _resolvingHoisted) || type is not TypeVariable)
-            return type;
+        if (!_resolvingHoisted.Add(symbol))
+            return _semanticModel.GetType(symbol.Declaration);
 
-        var outer = _resolvingHoisted;
-        _resolvingHoisted = symbol;
-        type = Visit(symbol.Declaration);
-        _resolvingHoisted = outer;
-
-        return type;
+        try
+        {
+            var type = GetTypeFromSymbol(symbol);
+            return type is TypeVariable ? Visit(symbol.Declaration) : type;
+        }
+        finally
+        {
+            _resolvingHoisted.Remove(symbol);
+        }
     }
 
     private bool TryGetEventParameterTypes(Node failNode, Type type, [MaybeNullWhen(false)] out List<Type> typeArguments)

@@ -178,6 +178,15 @@ public class TypeCheckerTest
     }
 
     [Theory]
+    [InlineData("type A = B; type B = A")]
+    [InlineData("type A = B; type B = C; type C = A")]
+    public void ThrowsFor_MutuallyCircularTypeAlias_Reference(string source)
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Assert.Contains(diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.InfiniteType);
+    }
+
+    [Theory]
     [InlineData("1 + true")]
     [InlineData("true + 1")]
     [InlineData("'abc' + 69")]
@@ -2508,6 +2517,20 @@ public class TypeCheckerTest
         const string source = """
             type B = number;
             type A = B;
+            let x: A = 1;
+            x
+            """;
+
+        var type = Utility.GetLastStatementType(source);
+        Assert.True(type.Equals(PrimitiveType.Number), $"Expected 'number', got '{type}'");
+    }
+
+    [Fact]
+    public void Checks_TypeAlias_ForwardChainExpansion()
+    {
+        const string source = """
+            type A = B;
+            type B = number;
             let x: A = 1;
             x
             """;
