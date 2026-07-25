@@ -3681,6 +3681,35 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_InterfaceDeclaration_ExplicitOutVariance()
+    {
+        var type = Utility.GetLastStatementType("interface Box<out T> { value: T }");
+        var generic = Assert.IsType<GenericType>(type);
+        var parameter = generic.Parameters.Single();
+        Assert.True(parameter.IsVarianceExplicit);
+        Assert.Equal(Variance.Covariant, parameter.Variance);
+    }
+
+    [Fact]
+    public void Checks_InterfaceDeclaration_ExplicitInVariance()
+    {
+        var type = Utility.GetLastStatementType("interface Sink<in T> { accept: fn(value: T): void }");
+        var generic = Assert.IsType<GenericType>(type);
+        var parameter = generic.Parameters.Single();
+        Assert.True(parameter.IsVarianceExplicit);
+        Assert.Equal(Variance.Contravariant, parameter.Variance);
+    }
+
+    [Fact]
+    public void Checks_InterfaceDeclaration_NoVarianceKeyword_IsNotExplicit()
+    {
+        var type = Utility.GetLastStatementType("interface Box<T> { value: T }");
+        var generic = Assert.IsType<GenericType>(type);
+        var parameter = generic.Parameters.Single();
+        Assert.False(parameter.IsVarianceExplicit);
+    }
+
+    [Fact]
     public void Checks_AsExpression_Chained_Unknown()
     {
         var type = Utility.GetLastStatementType("69 as unknown as number");

@@ -1014,6 +1014,40 @@ public class TypesTest
     }
 
     [Fact]
+    public void TypeParameter_Equality_IgnoresVariance()
+    {
+        var a = new TypeParameter("T", variance: Variance.Covariant);
+        var b = new TypeParameter("T", variance: Variance.Contravariant);
+
+        Assert.True(a.Equals(b));
+    }
+
+    [Fact]
+    public void TypeParameter_ToString_IncludesVariancePrefix()
+    {
+        var covariant = new TypeParameter("T", variance: Variance.Covariant);
+        var contravariant = new TypeParameter("T", variance: Variance.Contravariant);
+        var invariant = new TypeParameter("T");
+
+        Assert.Equal("out T", covariant.ToString());
+        Assert.Equal("in T", contravariant.ToString());
+        Assert.Equal("T", invariant.ToString());
+    }
+
+    [Fact]
+    public void TypeParameter_WithVariance_PreservesOtherFields()
+    {
+        var original = new TypeParameter("T", Number, new LiteralType(42), isVarianceExplicit: true);
+        var updated = original.WithVariance(Variance.Covariant);
+
+        Assert.Equal(Variance.Covariant, updated.Variance);
+        Assert.Equal(original.Name, updated.Name);
+        Assert.Equal(original.Constraint, updated.Constraint);
+        Assert.Equal(original.DefaultType, updated.DefaultType);
+        Assert.True(updated.IsVarianceExplicit);
+    }
+
+    [Fact]
     public void InterfaceType_Equality_DifferentNames()
     {
         var obj = new ObjectType(null, [new ObjectProperty(false, "x", Number)]);

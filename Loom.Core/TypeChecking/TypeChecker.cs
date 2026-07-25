@@ -846,7 +846,14 @@ public sealed partial class TypeChecker
                 _semanticModel.TypeSolver.AddConstraint(defaultType, constraint, typeParameter.EqualsTypeClause!);
         }
 
-        var parameter = new Types.TypeParameter(typeParameter.Name.Text, constraint, defaultType);
+        var variance = typeParameter.VarianceKeyword?.Kind switch
+        {
+            SyntaxKind.OutKeyword => Types.Variance.Covariant,
+            SyntaxKind.InKeyword => Types.Variance.Contravariant,
+            _ => Types.Variance.Invariant
+        };
+
+        var parameter = new Types.TypeParameter(typeParameter.Name.Text, constraint, defaultType, variance, typeParameter.VarianceKeyword != null);
         return BindType(typeParameter, parameter);
     }
 
