@@ -34,8 +34,7 @@ public static class SyntaxFacts
             new("trait", SyntaxKind.TraitKeyword),
             new("implement", SyntaxKind.ImplementKeyword),
             new("match", SyntaxKind.MatchKeyword),
-            new("when", SyntaxKind.WhenKeyword),
-            new("out", SyntaxKind.OutKeyword)
+            new("when", SyntaxKind.WhenKeyword)
         ]
     );
     public static readonly Dictionary<string, SyntaxKind> OperatorMap = new(

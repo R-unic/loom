@@ -3681,35 +3681,6 @@ public class TypeCheckerTest
     }
 
     [Fact]
-    public void Checks_InterfaceDeclaration_ExplicitOutVariance()
-    {
-        var type = Utility.GetLastStatementType("interface Box<out T> { value: T }");
-        var generic = Assert.IsType<GenericType>(type);
-        var parameter = generic.Parameters.Single();
-        Assert.True(parameter.IsVarianceExplicit);
-        Assert.Equal(Variance.Covariant, parameter.Variance);
-    }
-
-    [Fact]
-    public void Checks_InterfaceDeclaration_ExplicitInVariance()
-    {
-        var type = Utility.GetLastStatementType("interface Sink<in T> { accept: fn(value: T): void }");
-        var generic = Assert.IsType<GenericType>(type);
-        var parameter = generic.Parameters.Single();
-        Assert.True(parameter.IsVarianceExplicit);
-        Assert.Equal(Variance.Contravariant, parameter.Variance);
-    }
-
-    [Fact]
-    public void Checks_InterfaceDeclaration_NoVarianceKeyword_IsNotExplicit()
-    {
-        var type = Utility.GetLastStatementType("interface Box<T> { value: T }");
-        var generic = Assert.IsType<GenericType>(type);
-        var parameter = generic.Parameters.Single();
-        Assert.False(parameter.IsVarianceExplicit);
-    }
-
-    [Fact]
     public void Checks_InterfaceDeclaration_InfersCovariance_ForReadonlyProperties()
     {
         var type = Utility.GetLastStatementType("interface Entry<K, V> { key: K; value: V; }");
@@ -3734,11 +3705,21 @@ public class TypeCheckerTest
     }
 
     [Fact]
-    public void Checks_InterfaceDeclaration_ExplicitVariance_OverridesInference()
+    public void Checks_TypeAlias_UnionOfGenericInstantiations_CollapsesUsingVariance()
     {
-        var type = Utility.GetLastStatementType("interface Box<in T> { value: T }");
-        var generic = Assert.IsType<GenericType>(type);
-        Assert.Equal(Variance.Contravariant, generic.Parameters.Single().Variance);
+        const string source = """
+            interface Entry<K, V> { key: K; value: V; }
+            type EntryKind = Entry<"pi", 3.14> | Entry<"e", 2.71>;
+            """;
+
+        var type = Utility.GetLastStatementType(source);
+        var interfaceType = Assert.IsType<InterfaceType>(type);
+
+        var keyUnion = Assert.IsType<UnionType>(interfaceType.GetProperty("key")!.ValueType);
+        Assert.Equal(2, keyUnion.Types.Count);
+
+        var valueUnion = Assert.IsType<UnionType>(interfaceType.GetProperty("value")!.ValueType);
+        Assert.Equal(2, valueUnion.Types.Count);
     }
 
     [Fact]

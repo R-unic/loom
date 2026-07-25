@@ -45,13 +45,11 @@ TypeAlias(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "A")
       )
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "B")
@@ -87,13 +85,11 @@ TypeAlias(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "A")
       )
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "B")
@@ -115,7 +111,6 @@ TypeAlias(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause(
           EqualsToken: Token(Equals, "=")
@@ -174,13 +169,11 @@ TypeAlias(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
       )
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "E")
@@ -238,7 +231,6 @@ TypeAlias(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
@@ -265,7 +257,6 @@ TypeAlias(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
@@ -305,7 +296,6 @@ TypeAlias(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
@@ -351,13 +341,11 @@ TypeAlias(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
       )
       TypeParameter(
-        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "R")
@@ -406,7 +394,6 @@ TypeAlias(
         RightArrow: Token(RArrow, ">")
         ParameterList: [
           TypeParameter(
-            VarianceKeyword: null
             ColonTypeClause: null
             EqualsTypeClause: null
             Name: Token(Identifier, "T")

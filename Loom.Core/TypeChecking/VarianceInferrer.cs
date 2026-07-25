@@ -9,23 +9,23 @@ using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 namespace Loom.Core.TypeChecking;
 
 /// <summary>
-/// Infers each type parameter's variance from how it's used within a generic declaration's body,
-/// unless the parameter was given an explicit <c>in</c>/<c>out</c> annotation. Nested generic
-/// instantiations (e.g. a type parameter passed as an argument to another generic) are treated as
-/// invariant occurrences rather than being recursively analyzed, since that would require resolving
-/// the nested generic's own variance and risks cycles for self-referential declarations.
+/// Infers each type parameter's variance from how it's used within a generic declaration's body.
+/// Nested generic instantiations (e.g. a type parameter passed as an argument to another generic)
+/// are treated as invariant occurrences rather than being recursively analyzed, since that would
+/// require resolving the nested generic's own variance and risks cycles for self-referential
+/// declarations.
 /// </summary>
 public static class VarianceInferrer
 {
     public static GenericType ApplyInferredVariance(GenericType generic)
     {
-        if (generic.Parameters.TrueForAll(p => p.IsVarianceExplicit))
+        if (generic.Parameters.Count == 0)
             return generic;
 
         var positions = generic.Parameters.ToDictionary(p => p, _ => (Variance?)null);
         Walk(generic.UnderlyingType, Variance.Covariant, positions, []);
 
-        var newParameters = generic.Parameters.ConvertAll(p => p.IsVarianceExplicit ? p : p.WithVariance(positions[p] ?? Variance.Invariant));
+        var newParameters = generic.Parameters.ConvertAll(p => p.WithVariance(positions[p] ?? Variance.Invariant));
         return new GenericType(generic.Declaration, newParameters, generic.UnderlyingType);
     }
 

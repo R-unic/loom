@@ -98,7 +98,6 @@ public enum SyntaxKind : ushort
     ImplementKeyword,
     MatchKeyword,
     WhenKeyword,
-    OutKeyword,
 
     Identifier,
     Eof
