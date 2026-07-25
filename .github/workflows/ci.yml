@@ -7,6 +7,9 @@ on:
     types:
       - checks_requested
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
