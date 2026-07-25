@@ -1,0 +1,6 @@
+* @R-unic
+
+/Loom.Config/Rojo*.cs @AlternativeLua
+/Loom.Core/TypeChecking/TypeChecker.Check.cs @jackprogramsjp
+/Loom.Core/TypeChecking/TypeChecker.Match.cs @jackprogramsjp
+/Loom.Core/Generation/LuauGenerator.Match.cs @jackprogramsjp

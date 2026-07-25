@@ -18,6 +18,9 @@
         <Content Include="..\AGENTS.md">
             <Link>AGENTS.md</Link>
         </Content>
+        <Content Include="..\CODEOWNERS">
+          <Link>CODEOWNERS</Link>
+        </Content>
         <Content Include="..\CONTRIBUTING.md">
           <Link>CONTRIBUTING.md</Link>
         </Content>
