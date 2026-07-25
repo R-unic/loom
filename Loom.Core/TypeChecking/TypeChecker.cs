@@ -357,11 +357,40 @@ public sealed partial class TypeChecker
                 ? CheckNonGenericInvocation(invocation, functionType)
                 : CheckGenericInvocation(invocation, functionType);
 
+        if (type is Types.IntersectionType { Types.Count: > 0 } intersection && intersection.Types.TrueForAll(t => t is Types.FunctionType))
+            return CheckOverloadedInvocation(invocation, intersection.Types.ConvertAll(t => (Types.FunctionType)t));
+
         if (IsEventType(invocation, type, strictlyConsumer: false, out var eventType))
             return CheckEventInvocation(invocation, eventType);
 
         _diagnostics.Error(invocation, InternalCodes.InvalidInvocation, $"Cannot call value of type '{type}'.");
         return BindType(invocation, Types.PrimitiveType.Never);
+    }
+
+    // A callee typed as an intersection of function signatures is an overload set (MergeOverloadedProperties); first candidate matching arity + argument assignability wins.
+    private Type CheckOverloadedInvocation(Invocation invocation, List<Types.FunctionType> candidates)
+    {
+        var argumentList = invocation.Arguments.ArgumentList;
+        var argumentTypes = argumentList.ConvertAll(Visit);
+
+        var match = candidates.Find(candidate =>
+            candidate.ParameterTypes.Count == argumentTypes.Count
+            && !argumentTypes.Where((argumentType, i) => !argumentType.IsAssignableTo(candidate.ParameterTypes[i])).Any());
+
+        if (match == null)
+        {
+            _diagnostics.Error(
+                invocation,
+                InternalCodes.NoOverloadMatch,
+                $"No overload matches this call. Candidates:\n{string.Join("\n", candidates.Select(c => "  " + c))}"
+            );
+
+            return BindType(invocation, Types.PrimitiveType.Never);
+        }
+
+        return match.TypeParameters.Count == 0
+            ? CheckNonGenericInvocation(invocation, match)
+            : CheckGenericInvocation(invocation, match);
     }
 
     private Type CheckNonGenericInvocation(Invocation invocation, Types.FunctionType functionType)

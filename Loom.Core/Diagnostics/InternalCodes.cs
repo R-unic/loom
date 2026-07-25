@@ -77,6 +77,7 @@ public static class InternalCodes
     public const string RuntimeLibraryNotFound = "L353";
     public const string ReservedLuauKeyword = "L354";
     public const string NonExhaustiveMatch = "L355";
+    public const string NoOverloadMatch = "L356";
 
     public const string SimplifiableCode = "L400";
 }

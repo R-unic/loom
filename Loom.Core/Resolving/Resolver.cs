@@ -592,16 +592,13 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
             AddDeclaration(symbol);
         }
 
-        var propertyNames = properties.Select(p => p.Name.Text);
-        var duplicates = propertyNames.GroupBy(x => x).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-        if (duplicates.Count <= 0)
+        var duplicateGroups = properties.GroupBy(p => p.Name.Text).Where(g => g.Count() > 1).ToList();
+        var invalidDuplicateGroups = duplicateGroups.Where(g => !g.All(p => p.ColonTypeClause.Type is FunctionType)).ToList();
+        if (invalidDuplicateGroups.Count <= 0)
             return true;
 
-        foreach (var duplicate in duplicates)
-        {
-            var property = properties.FindLast(p => p.Name.Text == duplicate)!;
-            _diagnostics.Error(property, InternalCodes.DuplicateName, $"Property '{duplicate}' already exists on type '{interfaceSymbol.Name}'");
-        }
+        foreach (var group in invalidDuplicateGroups)
+            _diagnostics.Error(group.Last(), InternalCodes.DuplicateName, $"Property '{group.Key}' already exists on type '{interfaceSymbol.Name}'");
 
         return false;
     }

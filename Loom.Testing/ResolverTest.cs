@@ -233,6 +233,13 @@ public class ResolverTest
     }
 
     [Fact]
+    public void Resolves_Interface_DuplicateFunctionProperty_AsOverloadSet()
+    {
+        var diagnostics = Utility.GetSemanticModel("interface I { create: fn(): number, create: fn(x: number): number }").Diagnostics;
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
     public void ThrowsFor_Parameter_MissingTypeAndDefault()
     {
         var diagnostics = Utility.GetSemanticModel("fn foo(x) {}").Diagnostics;

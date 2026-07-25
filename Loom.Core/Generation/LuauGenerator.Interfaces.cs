@@ -92,8 +92,9 @@ public sealed partial class LuauGenerator
             : null;
 
         var typeParameters = GenerateTypeParameters(interfaceDeclaration.TypeParameters);
-        var properties = propertyDeclarations
-            .Select(property => GenerateInterfacePropertyType(interfaceDeclaration, property, typeParameters))
+        var properties = MergeOverloadedPropertyTypes(
+                propertyDeclarations.Select(property => GenerateInterfacePropertyType(interfaceDeclaration, property, typeParameters)).ToList()
+            )
             .Concat(eventDeclarations.Select(GenerateInterfaceEventType))
             .ToList();
 
@@ -111,6 +112,29 @@ public sealed partial class LuauGenerator
                 )
                 : tableType
         );
+    }
+
+    // Mirrors TypeChecker.Interfaces.cs's MergeOverloadedProperties: same-named function-typed table properties become one field typed as their intersection.
+    private static List<TableTypeProperty> MergeOverloadedPropertyTypes(List<TableTypeProperty> properties)
+    {
+        var merged = new List<TableTypeProperty>();
+        var indexByName = new Dictionary<string, int>();
+        foreach (var property in properties)
+        {
+            if (indexByName.TryGetValue(property.Name, out var index)
+                && property.Type is FunctionType
+                && merged[index].Type is FunctionType or IntersectionType)
+            {
+                var existingSignatures = merged[index].Type is IntersectionType existingIntersection ? existingIntersection.Types : [merged[index].Type];
+                merged[index] = new TableTypeProperty(merged[index].Visibility, merged[index].Name, new IntersectionType([..existingSignatures, property.Type]));
+                continue;
+            }
+
+            indexByName[property.Name] = merged.Count;
+            merged.Add(property);
+        }
+
+        return merged;
     }
 
     private TableTypeProperty GenerateInterfacePropertyType(InterfaceDeclaration interfaceDeclaration, PropertyDeclaration property, TypeParameters typeParameters)
