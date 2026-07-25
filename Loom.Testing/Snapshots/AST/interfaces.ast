@@ -181,6 +181,7 @@ InterfaceDeclaration(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
@@ -214,11 +215,13 @@ InterfaceDeclaration(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
       )
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -276,11 +279,13 @@ InterfaceDeclaration(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
       )
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "U")

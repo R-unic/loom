@@ -43,6 +43,7 @@ TraitDeclaration(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
@@ -91,6 +92,7 @@ TraitDeclaration(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: PrimitiveType(
@@ -101,6 +103,7 @@ TraitDeclaration(
         Name: Token(Identifier, "T")
       )
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "U")

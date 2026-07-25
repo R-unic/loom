@@ -140,10 +140,11 @@ public sealed partial class Parser
 
     private TypeParameter ParseTypeParameter()
     {
+        var varianceKeyword = Match(out var variance, SyntaxKind.InKeyword, SyntaxKind.OutKeyword) ? variance : null;
         var name = ExpectIdentifier("type parameter name");
         var constraint = ParseColonTypeClause();
         var equalsTypeClause = ParseEqualsTypeClause();
-        return new TypeParameter(name, constraint, equalsTypeClause);
+        return new TypeParameter(varianceKeyword, name, constraint, equalsTypeClause);
     }
 
     private TypeArguments? ParseTypeArguments(bool forInvocation = false)

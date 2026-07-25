@@ -718,4 +718,44 @@ public class ParserTest
         Assert.Equal(plainDiagnostics.Set.Count, attributedDiagnostics.Set.Count);
     }
     #endregion Event Attributes
+
+    #region Type Parameter Variance
+    [Fact]
+    public void Parses_TypeParameter_WithOutVariance()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("interface Box<out T> { value: T }"));
+        var interfaceDeclaration = Assert.IsType<InterfaceDeclaration>(result.Tree.Statements.Single());
+        var typeParameter = Assert.Single(interfaceDeclaration.TypeParameters!.ParameterList);
+        Assert.NotNull(typeParameter.VarianceKeyword);
+        Assert.Equal(SyntaxKind.OutKeyword, typeParameter.VarianceKeyword!.Kind);
+        Assert.Equal("T", typeParameter.Name.Text);
+    }
+
+    [Fact]
+    public void Parses_TypeParameter_WithInVariance()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("interface Sink<in T> { accept: fn(value: T): void }"));
+        var interfaceDeclaration = Assert.IsType<InterfaceDeclaration>(result.Tree.Statements.Single());
+        var typeParameter = Assert.Single(interfaceDeclaration.TypeParameters!.ParameterList);
+        Assert.NotNull(typeParameter.VarianceKeyword);
+        Assert.Equal(SyntaxKind.InKeyword, typeParameter.VarianceKeyword!.Kind);
+    }
+
+    [Fact]
+    public void Parses_TypeParameter_WithoutVariance_HasNullVarianceKeyword()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("interface Box<T> { value: T }"));
+        var interfaceDeclaration = Assert.IsType<InterfaceDeclaration>(result.Tree.Statements.Single());
+        var typeParameter = Assert.Single(interfaceDeclaration.TypeParameters!.ParameterList);
+        Assert.Null(typeParameter.VarianceKeyword);
+    }
+
+    [Fact]
+    public void Parses_TypeParameters_MixedVariance()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("interface Entry<out K, out V> { key: K; value: V; }"));
+        var interfaceDeclaration = Assert.IsType<InterfaceDeclaration>(result.Tree.Statements.Single());
+        Assert.All(interfaceDeclaration.TypeParameters!.ParameterList, tp => Assert.Equal(SyntaxKind.OutKeyword, tp.VarianceKeyword!.Kind));
+    }
+    #endregion Type Parameter Variance
 }

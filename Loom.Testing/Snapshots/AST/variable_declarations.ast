@@ -219,6 +219,7 @@ VariableDeclaration(
         RightArrow: Token(RArrow, ">")
         ParameterList: [
           TypeParameter(
+            VarianceKeyword: null
             ColonTypeClause: null
             EqualsTypeClause: null
             Name: Token(Identifier, "T")
@@ -403,6 +404,7 @@ VariableDeclaration(
         RightArrow: Token(RArrow, ">")
         ParameterList: [
           TypeParameter(
+            VarianceKeyword: null
             ColonTypeClause: null
             EqualsTypeClause: null
             Name: Token(Identifier, "T")
@@ -447,6 +449,7 @@ VariableDeclaration(
                 RightArrow: Token(RArrow, ">")
                 ParameterList: [
                   TypeParameter(
+                    VarianceKeyword: null
                     ColonTypeClause: null
                     EqualsTypeClause: null
                     Name: Token(Identifier, "U")
@@ -957,6 +960,7 @@ VariableDeclaration(
         RightArrow: Token(RArrow, ">")
         ParameterList: [
           TypeParameter(
+            VarianceKeyword: null
             ColonTypeClause: null
             EqualsTypeClause: null
             Name: Token(Identifier, "T")
@@ -1002,6 +1006,7 @@ VariableDeclaration(
         RightArrow: Token(RArrow, ">")
         ParameterList: [
           TypeParameter(
+            VarianceKeyword: null
             ColonTypeClause(
               ColonToken: Token(Colon, ":")
               Type: PrimitiveType(

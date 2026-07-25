@@ -187,6 +187,7 @@ FunctionDeclaration(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
@@ -332,11 +333,13 @@ FunctionDeclaration(
     RightArrow: Token(RArrow, ">")
     ParameterList: [
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause: null
         EqualsTypeClause: null
         Name: Token(Identifier, "T")
       )
       TypeParameter(
+        VarianceKeyword: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
           Type: TypeName(
