@@ -1,0 +1,4 @@
+let name = "world";
+let s = $"Welcome, {name}!";
+let n = 5;
+let combo = $"n is {n + 1} and name is {name}";

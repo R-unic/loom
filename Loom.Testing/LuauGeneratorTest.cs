@@ -2528,6 +2528,35 @@ public class LuauGeneratorTest
     }
 
     [Fact]
+    public void Generates_InterpolatedStringLiterals()
+    {
+        var luauTree = Utility.GetLuauAST("""let name = "world"; $"Welcome, {name}!" """, typeCheck: true);
+        Assert.Equal(2, luauTree.Statements.Count);
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements[1]);
+        var interpolated = Assert.IsType<InterpolatedString>(variable.Initializer);
+        Assert.Equal(3, interpolated.Segments.Count);
+
+        var leading = Assert.IsType<InterpolatedStringTextSegment>(interpolated.Segments[0]);
+        Assert.Equal("Welcome, ", leading.Value);
+
+        var hole = Assert.IsType<InterpolatedStringExpressionSegment>(interpolated.Segments[1]);
+        Assert.IsType<Identifier>(hole.Expression);
+
+        var trailing = Assert.IsType<InterpolatedStringTextSegment>(interpolated.Segments[2]);
+        Assert.Equal("!", trailing.Value);
+    }
+
+    [Fact]
+    public void Generates_InterpolatedStringLiterals_WithBinaryExpressionHole_Parenthesized()
+    {
+        var luauTree = Utility.GetLuauAST("""let n = 1; $"{n + 1}" """, typeCheck: true);
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements[1]);
+        var interpolated = Assert.IsType<InterpolatedString>(variable.Initializer);
+        Assert.Equal("`{(n + 1)}`", interpolated.Render());
+    }
+
+    [Fact]
     public void Generates_BoolLiterals()
     {
         var luauTree = Utility.GetLuauAST("true");

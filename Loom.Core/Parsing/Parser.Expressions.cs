@@ -151,6 +151,9 @@ public sealed partial class Parser
         if (ParseArrayLiteral() is { } arrayLiteral)
             return arrayLiteral;
 
+        if (Match(out var interpolatedStart, SyntaxKind.InterpolatedStringStart))
+            return ParseInterpolatedStringLiteral(interpolatedStart);
+
         if (Match(out var nameOfKeyword, SyntaxKind.NameOfKeyword))
             return ParseNameOf(nameOfKeyword);
 
@@ -252,6 +255,24 @@ public sealed partial class Parser
         var expressions = ParseDelimited(ParseExpression);
         var rightBracket = Expect(SyntaxKind.RBracket);
         return new ArrayLiteral(mutKeyword, leftBracket, rightBracket, expressions);
+    }
+
+    private InterpolatedStringLiteral ParseInterpolatedStringLiteral(Token startToken)
+    {
+        var parts = new List<InterpolationPart>();
+        while (true)
+        {
+            if (Match(out var textToken, SyntaxKind.InterpolatedStringText))
+                parts.Add(new InterpolationTextPart(textToken));
+
+            if (Match(out var endToken, SyntaxKind.InterpolatedStringEnd))
+                return new InterpolatedStringLiteral(startToken, parts, endToken);
+
+            var leftBrace = Expect(SyntaxKind.LBrace);
+            var expression = ParseExpression();
+            var rightBrace = Expect(SyntaxKind.RBrace);
+            parts.Add(new InterpolationHolePart(leftBrace, expression, rightBrace));
+        }
     }
 
     private MatchExpression ParseMatchExpression(Token keyword)

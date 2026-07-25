@@ -66,6 +66,9 @@ public enum SyntaxKind : ushort
     TrueLiteral,
     FalseLiteral,
     NoneLiteral,
+    InterpolatedStringStart,
+    InterpolatedStringText,
+    InterpolatedStringEnd,
 
     LetKeyword,
     MutKeyword,

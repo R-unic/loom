@@ -358,6 +358,98 @@ public class LexerTest
         Assert.Equal(source.Trim(), token.Text);
     }
 
+    [Fact]
+    public void Tokenizes_InterpolatedStrings()
+    {
+        var tokens = Utility.GetTokens("$\"Welcome, {name}!\"");
+        Assert.Equal(
+            [
+                SyntaxKind.InterpolatedStringStart,
+                SyntaxKind.InterpolatedStringText,
+                SyntaxKind.LBrace,
+                SyntaxKind.Identifier,
+                SyntaxKind.RBrace,
+                SyntaxKind.InterpolatedStringText,
+                SyntaxKind.InterpolatedStringEnd,
+                SyntaxKind.Eof
+            ],
+            tokens.Select(t => t.Kind)
+        );
+
+        Assert.Equal("$\"", tokens[0].Text);
+        Assert.Equal("Welcome, ", tokens[1].Text);
+        Assert.Equal("name", tokens[3].Text);
+        Assert.Equal("!", tokens[5].Text);
+        Assert.Equal("\"", tokens[6].Text);
+    }
+
+    [Fact]
+    public void Tokenizes_InterpolatedStrings_WithSingleQuote()
+    {
+        var tokens = Utility.GetTokens("$'hi {name}'");
+        Assert.Equal(
+            [
+                SyntaxKind.InterpolatedStringStart,
+                SyntaxKind.InterpolatedStringText,
+                SyntaxKind.LBrace,
+                SyntaxKind.Identifier,
+                SyntaxKind.RBrace,
+                SyntaxKind.InterpolatedStringEnd,
+                SyntaxKind.Eof
+            ],
+            tokens.Select(t => t.Kind)
+        );
+    }
+
+    [Fact]
+    public void Tokenizes_InterpolatedStrings_WithNestedBraces()
+    {
+        var tokens = Utility.GetTokens("""$"{match 1 { 1 -> "a", _ -> "b" }}" """);
+        Assert.Equal(
+            [
+                SyntaxKind.InterpolatedStringStart,
+                SyntaxKind.LBrace,
+                SyntaxKind.MatchKeyword,
+                SyntaxKind.NumberLiteral,
+                SyntaxKind.LBrace,
+                SyntaxKind.NumberLiteral,
+                SyntaxKind.Arrow,
+                SyntaxKind.StringLiteral,
+                SyntaxKind.Comma,
+                SyntaxKind.Identifier,
+                SyntaxKind.Arrow,
+                SyntaxKind.StringLiteral,
+                SyntaxKind.RBrace,
+                SyntaxKind.RBrace,
+                SyntaxKind.InterpolatedStringEnd,
+                SyntaxKind.Eof
+            ],
+            tokens.Select(t => t.Kind)
+        );
+    }
+
+    [Fact]
+    public void Tokenizes_InterpolatedStrings_WithEscapedBrace()
+    {
+        var tokens = Utility.GetTokens(@"$""literal \{brace\} here""");
+        Assert.Equal(
+            [SyntaxKind.InterpolatedStringStart, SyntaxKind.InterpolatedStringText, SyntaxKind.InterpolatedStringEnd, SyntaxKind.Eof],
+            tokens.Select(t => t.Kind)
+        );
+
+        Assert.Equal(@"literal \{brace\} here", tokens[1].Text);
+    }
+
+    [Theory]
+    [InlineData("$\"unterminated", "'\"'")]
+    [InlineData("$'unterminated", "\"'\"")]
+    [InlineData("$\"unterminated {1 + 1}", "'\"'")]
+    public void ThrowsFor_UnterminatedInterpolatedString(string source, string quotedQuote)
+    {
+        var diagnostics = Utility.GetLexerDiagnostics(source);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.UnterminatedString, $"Unterminated string literal: expected closing {quotedQuote}.");
+    }
+
     [Theory]
     [InlineData("_abc_")]
     [InlineData("abc123")]

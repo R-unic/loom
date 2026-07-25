@@ -142,6 +142,26 @@ public class ResolverTest
     }
 
     [Fact]
+    public void ThrowsFor_UndefinedVariable_InInterpolationHole()
+    {
+        var diagnostics = Utility.GetSemanticModel("""$"{x}";""").Diagnostics;
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find name 'x'.");
+    }
+
+    [Fact]
+    public void Resolves_Variable_InInterpolationHole()
+    {
+        var model = Utility.GetSemanticModel("""let x = 1; $"{x}";""");
+        Utility.AssertNoErrors(model.Diagnostics);
+
+        var interpolated = Assert.IsType<InterpolatedStringLiteral>(
+            Assert.IsType<ExpressionStatement>(model.Tree.Statements[1]).Expression
+        );
+        var identifier = Assert.IsType<Identifier>(Assert.IsType<InterpolationHolePart>(interpolated.Parts[0]).Expression);
+        Assert.NotNull(model.GetSymbol(identifier));
+    }
+
+    [Fact]
     public void ThrowsFor_UndefinedType()
     {
         var diagnostics = Utility.GetSemanticModel("let x: Abc = 1").Diagnostics;

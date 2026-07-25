@@ -10,7 +10,11 @@ public sealed class Lexer(SourceFile file)
 
     private readonly DiagnosticBag _diagnostics = new();
     private readonly int _sourceLength = file.SourceText.Length;
+    private readonly Stack<InterpolationFrame> _interpolationStack = new();
     private int _position;
+
+    private enum InterpolationMode { Text, Hole }
+    private readonly record struct InterpolationFrame(char Terminator, InterpolationMode Mode, int BraceDepth);
 
     public LexerResult Tokenize()
     {
@@ -27,12 +31,29 @@ public sealed class Lexer(SourceFile file)
         return new LexerResult(significantTokens, allTokens, _diagnostics);
     }
 
+    private bool AtDanglingInterpolationText() =>
+        _interpolationStack.Count > 0 && _interpolationStack.Peek().Mode == InterpolationMode.Text;
+
     private IEnumerable<Token> GetTokens()
     {
-        while (!IsEof())
+        while (!IsEof() || AtDanglingInterpolationText())
         {
+            if (AtDanglingInterpolationText())
+            {
+                foreach (var token in LexInterpolationText())
+                    yield return token;
+
+                continue;
+            }
+
             var start = _position;
             var current = Current();
+            if (current == '$' && !IsEof(1) && Peek(1) is '"' or '\'')
+            {
+                yield return LexInterpolatedStringStart(start);
+                continue;
+            }
+
             if (char.IsLetter(current) || current == '_')
             {
                 yield return LexIdentifier(start);
@@ -44,7 +65,7 @@ public sealed class Lexer(SourceFile file)
                 yield return LexWhitespace(start);
                 continue;
             }
-            
+
             if (current is '"' or '\'')
             {
                 yield return LexString(start, current);
@@ -56,11 +77,13 @@ public sealed class Lexer(SourceFile file)
                 yield return LexNumber(start);
                 continue;
             }
-            
+
             if (OperatorTrie.TryMatch(file.SourceText, _position, out var operatorKind, out var operatorLength))
             {
                 Advance(operatorLength);
-                yield return CreateToken(operatorKind, start);
+                var token = CreateToken(operatorKind, start);
+                TrackInterpolationBraces(operatorKind);
+                yield return token;
                 continue;
             }
 
@@ -75,6 +98,74 @@ public sealed class Lexer(SourceFile file)
         }
 
         yield return CreateToken(SyntaxKind.Eof, _position);
+    }
+
+    private void TrackInterpolationBraces(SyntaxKind operatorKind)
+    {
+        if (_interpolationStack.Count == 0 || _interpolationStack.Peek().Mode != InterpolationMode.Hole) return;
+
+        if (operatorKind == SyntaxKind.LBrace)
+        {
+            var frame = _interpolationStack.Pop();
+            _interpolationStack.Push(frame with { BraceDepth = frame.BraceDepth + 1 });
+        }
+        else if (operatorKind == SyntaxKind.RBrace)
+        {
+            var frame = _interpolationStack.Pop();
+            _interpolationStack.Push(
+                frame.BraceDepth == 0
+                    ? frame with { Mode = InterpolationMode.Text }
+                    : frame with { BraceDepth = frame.BraceDepth - 1 }
+            );
+        }
+    }
+
+    private Token LexInterpolatedStringStart(int start)
+    {
+        Advance(); // '$'
+        var terminator = Current();
+        Advance(); // opening quote
+        _interpolationStack.Push(new InterpolationFrame(terminator, InterpolationMode.Text, 0));
+        return CreateToken(SyntaxKind.InterpolatedStringStart, start);
+    }
+
+    private IEnumerable<Token> LexInterpolationText()
+    {
+        var frame = _interpolationStack.Peek();
+        var start = _position;
+        while (!IsEof() && Current() != '\n' && Current() != frame.Terminator && Current() != '{')
+        {
+            if (Current() == '\\' && !IsEof(1))
+                Advance();
+            Advance();
+        }
+
+        if (_position > start)
+            yield return CreateToken(SyntaxKind.InterpolatedStringText, start);
+
+        if (IsEof() || Current() == '\n')
+        {
+            var quotedQuote = frame.Terminator == '"' ? "'\"'" : "\"'\"";
+            _diagnostics.Error(GetSpan(start), InternalCodes.UnterminatedString, $"Unterminated string literal: expected closing {quotedQuote}.");
+            _interpolationStack.Pop();
+            yield return CreateToken(SyntaxKind.InterpolatedStringEnd, _position);
+            yield break;
+        }
+
+        if (Current() == '{')
+        {
+            var braceStart = _position;
+            Advance();
+            yield return CreateToken(SyntaxKind.LBrace, braceStart);
+            _interpolationStack.Pop();
+            _interpolationStack.Push(frame with { Mode = InterpolationMode.Hole, BraceDepth = 0 });
+            yield break;
+        }
+
+        var endStart = _position;
+        Advance();
+        yield return CreateToken(SyntaxKind.InterpolatedStringEnd, endStart);
+        _interpolationStack.Pop();
     }
 
     private Token LexString(int start, char terminator)

@@ -632,6 +632,63 @@ public class ParserTest
     }
 
     [Fact]
+    public void Parses_InterpolatedStringLiteral()
+    {
+        var tree = Utility.GetAST("""$"Welcome, {name}!";""");
+        var statement = Assert.IsType<ExpressionStatement>(Assert.Single(tree.Statements));
+        var interpolated = Assert.IsType<InterpolatedStringLiteral>(statement.Expression);
+
+        Assert.Equal(3, interpolated.Parts.Count);
+        var leading = Assert.IsType<InterpolationTextPart>(interpolated.Parts[0]);
+        Assert.Equal("Welcome, ", leading.Text);
+
+        var hole = Assert.IsType<InterpolationHolePart>(interpolated.Parts[1]);
+        var identifier = Assert.IsType<Identifier>(hole.Expression);
+        Assert.Equal("name", identifier.Name.Text);
+
+        var trailing = Assert.IsType<InterpolationTextPart>(interpolated.Parts[2]);
+        Assert.Equal("!", trailing.Text);
+
+        Assert.Equal([hole.Expression], interpolated.Expressions);
+    }
+
+    [Fact]
+    public void Parses_InterpolatedStringLiteral_WithMultipleHoles()
+    {
+        var tree = Utility.GetAST("""$"{a}{b}";""");
+        var statement = Assert.IsType<ExpressionStatement>(Assert.Single(tree.Statements));
+        var interpolated = Assert.IsType<InterpolatedStringLiteral>(statement.Expression);
+
+        Assert.Equal(2, interpolated.Parts.Count);
+        Assert.All(interpolated.Parts, part => Assert.IsType<InterpolationHolePart>(part));
+        Assert.Equal(2, interpolated.Expressions.Count);
+    }
+
+    [Fact]
+    public void Parses_InterpolatedStringLiteral_WithNoHoles()
+    {
+        var tree = Utility.GetAST("""$"just text";""");
+        var statement = Assert.IsType<ExpressionStatement>(Assert.Single(tree.Statements));
+        var interpolated = Assert.IsType<InterpolatedStringLiteral>(statement.Expression);
+
+        var part = Assert.Single(interpolated.Parts);
+        var text = Assert.IsType<InterpolationTextPart>(part);
+        Assert.Equal("just text", text.Text);
+        Assert.Empty(interpolated.Expressions);
+    }
+
+    [Fact]
+    public void Parses_InterpolatedStringLiteral_WithNestedExpression()
+    {
+        var tree = Utility.GetAST("""$"n is {1 + 2}";""");
+        var statement = Assert.IsType<ExpressionStatement>(Assert.Single(tree.Statements));
+        var interpolated = Assert.IsType<InterpolatedStringLiteral>(statement.Expression);
+
+        var hole = Assert.IsType<InterpolationHolePart>(interpolated.Parts[1]);
+        Assert.IsType<BinaryOperator>(hole.Expression);
+    }
+
+    [Fact]
     public void Parses_TopLevelArrayLiteralStatement_NotMistakenForAttributes()
     {
         var tree = Utility.GetAST("[1, 2, 3];");

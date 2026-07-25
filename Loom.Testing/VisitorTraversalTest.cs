@@ -374,6 +374,16 @@ public class VisitorTraversalTest
         );
 
     [Fact]
+    public void InterpolatedStringLiteral_VisitsHoleExpressions() =>
+        AssertVisitOrder(
+            """$"a {1} b {2}";""",
+            "ExpressionStatement",
+            "InterpolatedStringLiteral",
+            "Literal",
+            "Literal"
+        );
+
+    [Fact]
     public void Parenthesized_VisitsInner() =>
         AssertVisitOrder(
             "(1)",

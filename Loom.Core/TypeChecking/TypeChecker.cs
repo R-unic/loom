@@ -702,6 +702,14 @@ public sealed partial class TypeChecker
 
     public override Type VisitLiteral(Literal literal) => BindType(literal, new Types.LiteralType(literal.Value));
 
+    public override Type VisitInterpolatedStringLiteral(InterpolatedStringLiteral interpolatedStringLiteral)
+    {
+        foreach (var expression in interpolatedStringLiteral.Expressions)
+            Visit(expression);
+
+        return BindType(interpolatedStringLiteral, Types.PrimitiveType.String);
+    }
+
     public override Type VisitParenthesized(Parenthesized parenthesized) => BindType(parenthesized, Visit(parenthesized.Expression));
 
     private bool TryGetNarrowedType(Expression expression, [MaybeNullWhen(false)] out Type narrowedType) =>

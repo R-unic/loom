@@ -766,6 +766,37 @@ public class LuauRenderingTest
         Assert.Equal("[[\n\nabc]]", literal.Render());
     }
 
+    [Fact]
+    public void Renders_InterpolatedString()
+    {
+        var interpolated = new InterpolatedString(
+            [
+                new InterpolatedStringTextSegment("Welcome, "),
+                new InterpolatedStringExpressionSegment(new Identifier("name")),
+                new InterpolatedStringTextSegment("!")
+            ]
+        );
+
+        Assert.Equal("`Welcome, {name}!`", interpolated.Render());
+    }
+
+    [Fact]
+    public void Renders_InterpolatedString_Empty() => Assert.Equal("``", new InterpolatedString([]).Render());
+
+    [Fact]
+    public void Renders_InterpolatedString_EscapesBacktick() =>
+        Assert.Equal("`say \\`hi\\``", new InterpolatedString([new InterpolatedStringTextSegment("say `hi`")]).Render());
+
+    [Fact]
+    public void Renders_InterpolatedString_ParenthesizesAmbiguousHoleExpression()
+    {
+        var interpolated = new InterpolatedString(
+            [new InterpolatedStringExpressionSegment(new BinaryOperator(new NumberLiteral(1), "+", new NumberLiteral(2)))]
+        );
+
+        Assert.Equal("`{(1 + 2)}`", interpolated.Render());
+    }
+
     [Theory]
     [InlineData(12, "12")]
     [InlineData(69.420, "69.42")]

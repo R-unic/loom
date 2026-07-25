@@ -1,0 +1,46 @@
+﻿VariableDeclaration(
+  EqualsValueClause(
+    EqualsToken: Token(Equals, "=")
+    Value: Literal(
+      Token(StringLiteral, ""world"")
+      Value: "world"
+    )
+  )
+  ColonTypeClause: null
+  Name: Token(Identifier, "name")
+)
+VariableDeclaration(
+  EqualsValueClause(
+    EqualsToken: Token(Equals, "=")
+    Value: InterpolatedStringLiteral(
+      StartToken: Token(InterpolatedStringStart, "$"")
+      Parts: [
+        InterpolationTextPart(
+          Token(InterpolatedStringText, "Welcome, ")
+          Text: "Welcome, "
+        )
+        InterpolationHolePart(
+          LeftBrace: Token(LBrace, "{")
+          Expression: Identifier(
+            Name: Token(Identifier, "name")
+            Token(Identifier, "name")
+          )
+          RightBrace: Token(RBrace, "}")
+        )
+        InterpolationTextPart(
+          Token(InterpolatedStringText, "!")
+          Text: "!"
+        )
+      ]
+      EndToken: Token(InterpolatedStringEnd, """)
+      Expressions: [
+        Identifier(
+          Name: Token(Identifier, "name")
+          Token(Identifier, "name")
+        )
+      ]
+    )
+  )
+  ColonTypeClause: null
+  Name: Token(Identifier, "s")
+)

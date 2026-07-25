@@ -107,6 +107,20 @@ public sealed partial class LuauGenerator
             _ => new NilLiteral()
         };
 
+    public override LuauNode VisitInterpolatedStringLiteral(InterpolatedStringLiteral interpolatedStringLiteral)
+    {
+        var segments = interpolatedStringLiteral.Parts.ConvertAll<InterpolatedStringSegment>(
+            part => part switch
+            {
+                InterpolationTextPart text => new InterpolatedStringTextSegment(text.Text),
+                InterpolationHolePart hole => new InterpolatedStringExpressionSegment(Visit(hole.Expression)),
+                _ => throw new ArgumentException($"Unknown interpolation part type: {part.GetType()}")
+            }
+        );
+
+        return new InterpolatedString(segments);
+    }
+
     public override LuauNode VisitIdentifier(Identifier identifier)
     {
         var luauIdentifier = new Luau.AST.Identifier(identifier.Name.Text);

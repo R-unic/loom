@@ -4602,6 +4602,28 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_InterpolatedStringLiteral_IsString()
+    {
+        var type = Utility.GetLastStatementType("""let name = "world"; $"Welcome, {name}!" """);
+        var primitive = Assert.IsType<PrimitiveType>(type);
+        Assert.Equal(PrimitiveTypeKind.String, primitive.Kind);
+    }
+
+    [Fact]
+    public void Checks_InterpolatedStringLiteral_NotLiteralType()
+    {
+        var type = Utility.GetLastStatementType("""$"just text" """);
+        Assert.IsType<PrimitiveType>(type);
+    }
+
+    [Fact]
+    public void Checks_InterpolatedStringLiteral_TypeChecksHoleExpressions()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("""$"{1 + "a"}" """);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidBinaryOp, "No binary operation for 'number' + 'string'.");
+    }
+
+    [Fact]
     public void Checks_ArrayLiterals()
     {
         var type = Utility.GetLastStatementType("[1, 2, 3]");
