@@ -3723,6 +3723,34 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_TypeAlias_UnionOfGenericInstantiations_ContravariantPosition_Intersects()
+    {
+        const string source = """
+            interface Sink<T> { accept: fn(value: T): void }
+            type S = Sink<number> | Sink<string>;
+            """;
+
+        var type = Utility.GetLastStatementType(source);
+        var interfaceType = Assert.IsType<InterfaceType>(type);
+        var acceptType = Assert.IsType<FunctionType>(interfaceType.GetProperty("accept")!.ValueType);
+        Assert.True(Type.IsNever(acceptType.ParameterTypes.Single()));
+    }
+
+    [Fact]
+    public void Checks_TypeAlias_UnionOfGenericInstantiations_InvariantPosition_DoesNotCollapse()
+    {
+        const string source = """
+            interface Box<T> { mut value: T }
+            type B = Box<number> | Box<string>;
+            """;
+
+        var type = Utility.GetLastStatementType(source);
+        var union = Assert.IsType<UnionType>(type);
+        Assert.Equal(2, union.Types.Count);
+        Assert.All(union.Types, t => Assert.IsType<InterfaceType>(t));
+    }
+
+    [Fact]
     public void Checks_AsExpression_Chained_Unknown()
     {
         var type = Utility.GetLastStatementType("69 as unknown as number");
