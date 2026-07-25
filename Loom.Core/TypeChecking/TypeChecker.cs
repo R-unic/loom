@@ -946,9 +946,14 @@ public sealed partial class TypeChecker
     private Type? GetInvocationArgumentType(Invocation invocation, Expression argument)
     {
         var index = invocation.Arguments.ArgumentList.IndexOf(argument);
-        return index < 0 || _semanticModel.GetType(invocation.Expression) is not Types.FunctionType functionType || index >= functionType.ParameterTypes.Count
-            ? null
-            : functionType.ParameterTypes[index];
+        if (index < 0 || _semanticModel.GetType(invocation.Expression) is not Types.FunctionType functionType)
+            return null;
+
+        var fixedCount = functionType.HasRestParameter ? functionType.ParameterTypes.Count - 1 : functionType.ParameterTypes.Count;
+        if (index < fixedCount)
+            return functionType.ParameterTypes[index];
+
+        return GetRestElementType(functionType.ParameterTypes, functionType.HasRestParameter);
     }
 
     private Type? GetEnclosingDeclaredReturnType(Return @return)

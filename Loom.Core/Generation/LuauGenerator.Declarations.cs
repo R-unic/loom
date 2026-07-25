@@ -22,11 +22,27 @@ public sealed partial class LuauGenerator
         var parameters = functionDeclaration.Parameters?.ParameterList.ConvertAll(VisitParameter) ?? [];
         var returnType = MaybeVisit<LuauType>(functionDeclaration.ReturnType);
         var statements = GenerateFunctionBody(functionDeclaration);
+        if (functionDeclaration.Parameters?.ParameterList is [.., { DotDot: not null } restParameter])
+            statements.Statements.Insert(0, GenerateRestParameterBinding(restParameter));
+
         return new Function(functionDeclaration.Name.Text, typeParameters, parameters, returnType, statements);
     }
 
+    // Luau's `...` isn't itself an indexable local, so a rest parameter's Loom name is bound to a fresh array capturing it: `local <name> = {...}`.
+    private static LocalVariable GenerateRestParameterBinding(Parameter restParameter) =>
+        new(restParameter.Name.Text, null, new Table([new TableInitializer(new Loom.Luau.AST.Identifier("..."))]));
+
     public override Luau.AST.Parameter VisitParameter(Parameter parameter)
     {
+        if (parameter.DotDot != null)
+        {
+            var elementType = parameter.ColonTypeClause?.Type is Loom.Core.Parsing.AST.ArrayType arrayType
+                ? MaybeVisit<LuauType>(arrayType.ElementType)
+                : null;
+
+            return Luau.AST.Parameter.Vararg(elementType);
+        }
+
         var type = MaybeVisit<LuauType>(parameter.ColonTypeClause?.Type);
         if (type != null && parameter.EqualsValueClause != null && type is not Luau.AST.OptionalType)
             type = new Luau.AST.OptionalType(type);

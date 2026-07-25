@@ -11,6 +11,6 @@ interface MutRecord<K, V> {
 declare fn luau_name(name: string): void;
 declare fn luau_method: void;
 
-declare fn print(a: unknown, b: unknown?, c: unknown?, d: unknown?, e: unknown?, f: unknown?, g: unknown?, h: unknown?): void;
+declare fn print(..data: unknown[]): void;
 declare fn string(value: unknown): string;
 declare fn number(value: unknown, radix: number?): number?;
