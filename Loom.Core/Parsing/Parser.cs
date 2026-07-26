@@ -38,60 +38,6 @@ public sealed partial class Parser(LexerResult lexerResult)
         return nodes;
     }
 
-    private Statement ParseImport(Token importKeyword)
-    {
-        if (Match(out var star, SyntaxKind.Star))
-            return ParseNamespaceImport(importKeyword, star);
-
-        Match(out var typeKeyword, SyntaxKind.TypeKeyword);
-
-        var leftBrace = Expect(SyntaxKind.LBrace, "'{' after 'import'");
-        var specifiers = !IsEof() && Current() is { Kind: SyntaxKind.Identifier }
-            ? ParseDelimited(ParseImportSpecifier).OfType<ImportSpecifier>().ToList()
-            : [];
-
-        var rightBrace = Expect(SyntaxKind.RBrace);
-        if (specifiers.Count == 0)
-            _diagnostics.Error(importKeyword, InternalCodes.EmptyImportClause, "Import declaration must name at least one member.");
-
-        var fromKeyword = ExpectContextualKeyword("from");
-        var pathToken = Expect(SyntaxKind.StringLiteral, "module path");
-
-        return new ImportDeclaration(
-            importKeyword,
-            typeKeyword,
-            leftBrace,
-            specifiers,
-            rightBrace,
-            fromKeyword,
-            new Literal(pathToken, LiteralUtility.ResolveValue(pathToken))
-        );
-    }
-
-    private Statement ParseNamespaceImport(Token importKeyword, Token star)
-    {
-        var asKeyword = Expect(SyntaxKind.AsKeyword, "'as' after 'import *'");
-        var name = ExpectIdentifier("namespace name");
-        var fromKeyword = ExpectContextualKeyword("from");
-        var pathToken = Expect(SyntaxKind.StringLiteral, "module path");
-
-        return new NamespaceImport(
-            importKeyword,
-            star,
-            asKeyword,
-            name,
-            fromKeyword,
-            new Literal(pathToken, LiteralUtility.ResolveValue(pathToken))
-        );
-    }
-
-    private ImportSpecifier? ParseImportSpecifier() =>
-        !Match(out var name, SyntaxKind.Identifier)
-            ? null
-            : Match(out var asKeyword, SyntaxKind.AsKeyword)
-                ? new ImportSpecifier(name, asKeyword, ExpectIdentifier("import alias"))
-                : new ImportSpecifier(name, null, null);
-
     private bool AtContextualKeyword(string text) => !IsEof() && Current() is { Kind: SyntaxKind.Identifier } token && token.Text == text;
 
     private Token ExpectContextualKeyword(string text)

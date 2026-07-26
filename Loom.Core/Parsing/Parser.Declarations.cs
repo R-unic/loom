@@ -7,63 +7,6 @@ namespace Loom.Core.Parsing;
 
 public sealed partial class Parser
 {
-    private Statement ParseExport(Token exportKeyword)
-    {
-        if (Current().Kind is SyntaxKind.LBrace || Current().Kind is SyntaxKind.TypeKeyword && PeekKind(1) is SyntaxKind.LBrace)
-            return ParseExportList(exportKeyword);
-
-        if (Match(out var keyword, SyntaxFacts.IsExportableKeyword))
-            return WrapExport(exportKeyword, StatementParsers[keyword.Kind](keyword));
-
-        _diagnostics.Error(
-            Current(),
-            InternalCodes.ExpectedExportableDeclaration,
-            $"Only 'fn', 'let', 'type', 'interface', 'enum', and 'trait' declarations can be exported, got {SafeTokenText(Current())}."
-        );
-
-        return new NullStatement(exportKeyword);
-    }
-
-    private ExportList ParseExportList(Token exportKeyword)
-    {
-        Match(out var typeKeyword, SyntaxKind.TypeKeyword);
-
-        var leftBrace = Expect(SyntaxKind.LBrace);
-        var specifiers = !IsEof() && Current() is { Kind: SyntaxKind.Identifier }
-            ? ParseDelimited(ParseExportSpecifier).OfType<ExportSpecifier>().ToList()
-            : [];
-
-        var rightBrace = Expect(SyntaxKind.RBrace);
-        if (specifiers.Count == 0)
-            _diagnostics.Error(exportKeyword, InternalCodes.EmptyExportList, "Export list must name at least one member.");
-
-        Token? fromKeyword = null;
-        Literal? moduleSpecifier = null;
-        if (AtContextualKeyword("from"))
-        {
-            fromKeyword = Advance();
-            var pathToken = Expect(SyntaxKind.StringLiteral, "module path");
-            moduleSpecifier = new Literal(pathToken, LiteralUtility.ResolveValue(pathToken));
-        }
-
-        return new ExportList(
-            exportKeyword,
-            typeKeyword,
-            leftBrace,
-            specifiers,
-            rightBrace,
-            fromKeyword,
-            moduleSpecifier
-        );
-    }
-
-    private ExportSpecifier? ParseExportSpecifier() =>
-        !Match(out var name, SyntaxKind.Identifier)
-            ? null
-            : Match(out var asKeyword, SyntaxKind.AsKeyword)
-                ? new ExportSpecifier(name, asKeyword, ExpectIdentifier("export alias"))
-                : new ExportSpecifier(name, null, null);
-
     private TraitDeclaration ParseTraitDeclaration(Token keyword)
     {
         var name = ExpectIdentifier("trait name");
@@ -368,11 +311,6 @@ public sealed partial class Parser
     private EqualsTypeClause? ParseEqualsTypeClause() => Match(out var equals, SyntaxKind.Equals) ? new EqualsTypeClause(equals, ParseType()) : null;
 
     private bool LooksLikeIndexer() => OffsetAfterBrackets() is { } end && PeekKind(end + 1) == SyntaxKind.Colon;
-
-    private static Statement WrapExport(Token exportKeyword, Statement declaration) =>
-        declaration is NamedDeclaration named
-            ? new ExportDeclaration(exportKeyword, named)
-            : declaration;
 
     private ColonTypeClause? ExpectInterfaceMemberColonTypeClause(string message)
     {
