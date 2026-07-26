@@ -12,6 +12,9 @@
         <Content Include="..\.editorconfig">
             <Link>.editorconfig</Link>
         </Content>
+        <Content Include="..\.gitignore">
+          <Link>.gitignore</Link>
+        </Content>
         <Content Include="..\CLAUDE.md">
             <Link>CLAUDE.md</Link>
         </Content>
