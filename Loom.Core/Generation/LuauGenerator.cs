@@ -37,7 +37,9 @@ public sealed partial class LuauGenerator
         _runtimeImport = runtimeImport ?? RuntimeImport.Default;
         _moduleRequirePaths = moduleRequirePaths;
         _macroExpander = new MacroExpander(semanticModel, _state, _diagnostics);
-        _localSafeConnections = new Lazy<HashSet<(EventTarget Target, Symbol Function)>>(ComputeLocalSafeConnections);
+        _localSafeConnections = new Lazy<HashSet<(EventTarget Target, Symbol Function)>>(
+            () => EventConnectionScopeAnalyzer.ComputeLocallySafeConnections(semanticModel)
+        );
     }
 
     public LuauGeneratorResult Generate()
