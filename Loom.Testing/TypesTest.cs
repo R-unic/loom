@@ -865,7 +865,7 @@ public class TypesTest
     }
 
     [Fact]
-    public void Union_Assignability()
+    public void UnionType_Assignability()
     {
         var union1 = new UnionType([Bool, Number]);
         var union2 = new UnionType([Bool, Number, String]);
@@ -879,7 +879,7 @@ public class TypesTest
     }
 
     [Fact]
-    public void Union_Assignability_ToNonUnionTarget_RequiresEveryMemberAssignable()
+    public void UnionType_Assignability_ToNonUnionTarget_RequiresEveryMemberAssignable()
     {
         var memberA = new ObjectType(null, [new ObjectProperty(false, "x", new LiteralType(1))]);
         var memberB = new ObjectType(null, [new ObjectProperty(false, "x", new LiteralType(2))]);
@@ -891,7 +891,7 @@ public class TypesTest
     }
 
     [Fact]
-    public void Union_Literal_Assignability()
+    public void UnionType_Literal_Assignability()
     {
         var union = new UnionType([Bool, Number]);
         var literal = new LiteralType(69.420);
@@ -1214,20 +1214,28 @@ public class TypesTest
         var a = new IntersectionType([new PrimitiveType(PrimitiveTypeKind.Bool), String]);
         var b = new IntersectionType([Bool, new PrimitiveType(PrimitiveTypeKind.String)]);
         var c = new IntersectionType([Number, Bool]);
+        var d = new IntersectionType([Bool, Number]);
         Assert.True(a.Equals(a));
         Assert.True(a.Equals(b));
+        Assert.True(b.Equals(a));
+        Assert.True(c.Equals(d));
+        Assert.True(d.Equals(c));
         Assert.False(a.Equals(c));
         Assert.False(b.Equals(c));
     }
 
     [Fact]
-    public void Union_Equality()
+    public void UnionType_Equality()
     {
         var a = new UnionType([new PrimitiveType(PrimitiveTypeKind.Bool), String]);
         var b = new UnionType([Bool, new PrimitiveType(PrimitiveTypeKind.String)]);
         var c = new UnionType([Number, Bool]);
+        var d = new UnionType([Bool, Number]);
         Assert.True(a.Equals(a));
         Assert.True(a.Equals(b));
+        Assert.True(b.Equals(a));
+        Assert.True(c.Equals(d));
+        Assert.True(d.Equals(c));
         Assert.False(a.Equals(c));
         Assert.False(b.Equals(c));
     }

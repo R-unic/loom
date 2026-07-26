@@ -9,14 +9,18 @@ public sealed class TypeParameter(string name, Type? constraint = null, Type? de
 
     public TypeParameter WithVariance(Variance newVariance) => new(Name, Constraint, DefaultType, newVariance);
 
+    public override bool IsAssignableTo(Type other) => base.IsAssignableTo(other) || other is TypeParameter parameter && Name == parameter.Name && Equals(parameter);
+
     public override int GetHashCode()
     {
         var hash = new HashCode();
+        hash.Add(Name);
         if (Constraint != null)
             hash.Add(Constraint.GetHashCode());
+
         if (DefaultType != null)
             hash.Add(DefaultType.GetHashCode());
-        
+
         return hash.ToHashCode();
     }
 

@@ -11,9 +11,9 @@ namespace Loom.Core.TypeChecking;
 /// <summary>
 /// Infers each type parameter's variance from how it's used within a generic declaration's body.
 /// Nested generic instantiations (e.g. a type parameter passed as an argument to another generic)
-/// are treated as invariant occurrences rather than being recursively analyzed, since that would
-/// require resolving the nested generic's own variance and risks cycles for self-referential
-/// declarations.
+/// are currently treated as invariant occurrences rather than being recursively analyzed.
+/// 
+/// Subject to change.
 /// </summary>
 public static class VarianceInferrer
 {
@@ -22,23 +22,22 @@ public static class VarianceInferrer
         if (generic.Parameters.Count == 0)
             return generic;
 
-        var positions = generic.Parameters.ToDictionary(p => p, _ => (Variance?)null);
+        var positions = generic.Parameters.Distinct().ToDictionary(p => p, _ => (Variance?)null);
         Walk(generic.UnderlyingType, Variance.Covariant, positions, []);
 
         var newParameters = generic.Parameters.ConvertAll(p => p.WithVariance(positions[p] ?? Variance.Invariant));
         return new GenericType(generic.Declaration, newParameters, generic.UnderlyingType);
     }
 
-    private static void Walk(Type type, Variance position, Dictionary<Types.TypeParameter, Variance?> positions, HashSet<Type> visiting)
+    private static void Walk(Type type, Variance position, Dictionary<TypeParameter, Variance?> positions, HashSet<Type> visiting)
     {
-        if (!visiting.Add(type))
-            return;
+        if (!visiting.Add(type)) return;
 
         try
         {
             switch (type)
             {
-                case Types.TypeParameter typeParameter when positions.ContainsKey(typeParameter):
+                case TypeParameter typeParameter when positions.ContainsKey(typeParameter):
                     Record(positions, typeParameter, position);
                     break;
                 case ArrayType arrayType:
@@ -91,7 +90,7 @@ public static class VarianceInferrer
         }
     }
 
-    private static void Record(Dictionary<Types.TypeParameter, Variance?> positions, Types.TypeParameter typeParameter, Variance position)
+    private static void Record(Dictionary<TypeParameter, Variance?> positions, TypeParameter typeParameter, Variance position)
     {
         var existing = positions[typeParameter];
         positions[typeParameter] = existing == null || existing == position ? position : Variance.Invariant;
