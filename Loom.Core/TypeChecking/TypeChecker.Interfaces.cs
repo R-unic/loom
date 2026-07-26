@@ -285,7 +285,7 @@ public sealed partial class TypeChecker
         var providedProperties = new HashSet<string>();
         switch (initializer)
         {
-            case InterfaceInvocationPropertyInitializer propertyInitializer:
+            case PropertyInitializer propertyInitializer:
             {
                 var propertyName = CheckPropertyInitializer(propertyInitializer, propertyInitializer.Name.Text, propertyInitializer.Expression, interfaceType);
                 if (propertyName != null)
@@ -293,7 +293,7 @@ public sealed partial class TypeChecker
 
                 break;
             }
-            case InterfaceInvocationShorthandPropertyInitializer shorthandPropertyInitializer:
+            case ShorthandPropertyInitializer shorthandPropertyInitializer:
                 var shorthandPropertyName = CheckPropertyInitializer(
                     shorthandPropertyInitializer,
                     shorthandPropertyInitializer.Identifier.Name.Text,
@@ -305,7 +305,7 @@ public sealed partial class TypeChecker
                     providedProperties.Add(shorthandPropertyName);
 
                 break;
-            case InterfaceInvocationIndexInitializer indexInitializer:
+            case IndexInitializer indexInitializer:
             {
                 CheckIndexInitializer(indexInitializer, interfaceType);
                 break;
@@ -333,7 +333,7 @@ public sealed partial class TypeChecker
         return name;
     }
 
-    private void CheckIndexInitializer(InterfaceInvocationIndexInitializer initializer, InterfaceType interfaceType)
+    private void CheckIndexInitializer(IndexInitializer initializer, InterfaceType interfaceType)
     {
         var indexer = interfaceType.Indexer;
         if (indexer == null)

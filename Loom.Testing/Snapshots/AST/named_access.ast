@@ -219,7 +219,7 @@ ExpressionStatement(
       TypeArguments: null
       Body: InterfaceInvocationBody(
         Initializers: [
-          InterfaceInvocationPropertyInitializer(
+          PropertyInitializer(
             Name: Token(Identifier, "x")
             Colon: Token(Colon, ":")
             Expression: Literal(

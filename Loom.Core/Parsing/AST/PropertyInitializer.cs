@@ -2,7 +2,7 @@ using Loom.Core.Text;
 
 namespace Loom.Core.Parsing.AST;
 
-public class InterfaceInvocationPropertyInitializer(Token name, Token colon, Expression expression)
+public class PropertyInitializer(Token name, Token colon, Expression expression)
     : InterfaceInvocationInitializer(expression, [name, colon])
 {
     public Token Name { get; } = name;

@@ -182,10 +182,10 @@ public sealed partial class Parser
         if (Match(out var name, SyntaxKind.Identifier))
         {
             if (!Match(out var colon, SyntaxKind.Colon))
-                return new InterfaceInvocationShorthandPropertyInitializer(new Identifier(name));
+                return new ShorthandPropertyInitializer(new Identifier(name));
 
             var expression = ParseExpression();
-            return new InterfaceInvocationPropertyInitializer(name, colon, expression);
+            return new PropertyInitializer(name, colon, expression);
         }
 
         var leftBracket = Expect(SyntaxKind.LBracket, "property name or index initializer");
@@ -193,7 +193,7 @@ public sealed partial class Parser
         var rightBracket = Expect(SyntaxKind.RBracket);
         var indexColon = Expect(SyntaxKind.Colon);
         var indexValueExpression = ParseExpression();
-        return new InterfaceInvocationIndexInitializer(leftBracket, rightBracket, indexColon, indexExpression, indexValueExpression);
+        return new IndexInitializer(leftBracket, rightBracket, indexColon, indexExpression, indexValueExpression);
     }
 
     private Arguments ParseArguments(Token leftParen)

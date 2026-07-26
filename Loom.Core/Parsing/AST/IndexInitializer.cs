@@ -2,7 +2,7 @@ using Loom.Core.Text;
 
 namespace Loom.Core.Parsing.AST;
 
-public class InterfaceInvocationIndexInitializer(Token leftBracket, Token rightBracket, Token colon, Expression indexExpression, Expression expression)
+public class IndexInitializer(Token leftBracket, Token rightBracket, Token colon, Expression indexExpression, Expression expression)
     : InterfaceInvocationInitializer(expression, [leftBracket, rightBracket, colon, ..indexExpression.Tokens], [indexExpression])
 {
     public Token RightBracket { get; } = rightBracket;

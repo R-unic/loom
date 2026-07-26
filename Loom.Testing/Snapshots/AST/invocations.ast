@@ -316,7 +316,7 @@ ExpressionStatement(
     )
     Body: InterfaceInvocationBody(
       Initializers: [
-        InterfaceInvocationPropertyInitializer(
+        PropertyInitializer(
           Name: Token(Identifier, "a")
           Colon: Token(Colon, ":")
           Expression: Literal(
@@ -324,7 +324,7 @@ ExpressionStatement(
             Value: 1
           )
         )
-        InterfaceInvocationPropertyInitializer(
+        PropertyInitializer(
           Name: Token(Identifier, "b")
           Colon: Token(Colon, ":")
           Expression: Literal(
@@ -347,7 +347,7 @@ ExpressionStatement(
     TypeArguments: null
     Body: InterfaceInvocationBody(
       Initializers: [
-        InterfaceInvocationIndexInitializer(
+        IndexInitializer(
           RightBracket: Token(RBracket, "]")
           LeftBracket: Token(LBracket, "[")
           Colon: Token(Colon, ":")
@@ -375,7 +375,7 @@ ExpressionStatement(
     TypeArguments: null
     Body: InterfaceInvocationBody(
       Initializers: [
-        InterfaceInvocationIndexInitializer(
+        IndexInitializer(
           RightBracket: Token(RBracket, "]")
           LeftBracket: Token(LBracket, "[")
           Colon: Token(Colon, ":")
@@ -403,7 +403,7 @@ ExpressionStatement(
     TypeArguments: null
     Body: InterfaceInvocationBody(
       Initializers: [
-        InterfaceInvocationIndexInitializer(
+        IndexInitializer(
           RightBracket: Token(RBracket, "]")
           LeftBracket: Token(LBracket, "[")
           Colon: Token(Colon, ":")
@@ -447,7 +447,7 @@ ExpressionStatement(
     TypeArguments: null
     Body: InterfaceInvocationBody(
       Initializers: [
-        InterfaceInvocationPropertyInitializer(
+        PropertyInitializer(
           Name: Token(Identifier, "a")
           Colon: Token(Colon, ":")
           Expression: Literal(
@@ -455,7 +455,7 @@ ExpressionStatement(
             Value: 1
           )
         )
-        InterfaceInvocationIndexInitializer(
+        IndexInitializer(
           RightBracket: Token(RBracket, "]")
           LeftBracket: Token(LBracket, "[")
           Colon: Token(Colon, ":")
@@ -468,7 +468,7 @@ ExpressionStatement(
             Value: "two"
           )
         )
-        InterfaceInvocationPropertyInitializer(
+        PropertyInitializer(
           Name: Token(Identifier, "c")
           Colon: Token(Colon, ":")
           Expression: Literal(
@@ -491,7 +491,7 @@ ExpressionStatement(
     TypeArguments: null
     Body: InterfaceInvocationBody(
       Initializers: [
-        InterfaceInvocationShorthandPropertyInitializer(
+        ShorthandPropertyInitializer(
           Identifier(
             Name: Token(Identifier, "a")
             Token(Identifier, "a")
@@ -501,7 +501,7 @@ ExpressionStatement(
             Token(Identifier, "a")
           )
         )
-        InterfaceInvocationShorthandPropertyInitializer(
+        ShorthandPropertyInitializer(
           Identifier(
             Name: Token(Identifier, "b")
             Token(Identifier, "b")

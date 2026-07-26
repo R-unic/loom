@@ -21,7 +21,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         {
             switch (initializer)
             {
-                case InterfaceInvocationPropertyInitializer propInit:
+                case PropertyInitializer propInit:
                 {
                     var prop = objectType.GetProperty(propInit.Name.Text);
                     if (prop == null) continue;
@@ -29,7 +29,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
                     pairs.Add((prop.ValueType, argType));
                     break;
                 }
-                case InterfaceInvocationShorthandPropertyInitializer shorthandPropInit:
+                case ShorthandPropertyInitializer shorthandPropInit:
                 {
                     var prop = objectType.GetProperty(shorthandPropInit.Identifier.Name.Text);
                     if (prop == null) continue;
@@ -37,8 +37,8 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
                     pairs.Add((prop.ValueType, argType));
                     break;
                 }
-                case InterfaceInvocationIndexInitializer when objectType.Indexer == null: continue;
-                case InterfaceInvocationIndexInitializer idxInit:
+                case IndexInitializer when objectType.Indexer == null: continue;
+                case IndexInitializer idxInit:
                 {
                     var keyArg = getType(idxInit.IndexExpression);
                     var valueArg = getType(idxInit.Expression);

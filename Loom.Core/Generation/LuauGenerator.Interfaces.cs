@@ -206,9 +206,9 @@ public sealed partial class LuauGenerator
     private Table GenerateInterfaceInvocationBody(InterfaceInvocationBody interfaceInvocationBody, InterfaceSymbol interfaceSymbol)
     {
         var unhandledInitializer = interfaceInvocationBody.Initializers
-            .Find(i => i is not InterfaceInvocationIndexInitializer
-                         or InterfaceInvocationPropertyInitializer
-                         or InterfaceInvocationShorthandPropertyInitializer
+            .Find(i => i is not (IndexInitializer
+                              or PropertyInitializer
+                              or ShorthandPropertyInitializer)
             );
 
         if (unhandledInitializer != null)
@@ -217,12 +217,12 @@ public sealed partial class LuauGenerator
         return new Table(
             interfaceInvocationBody.Initializers.ConvertAll(TableInitializer (i) => i switch
                 {
-                    InterfaceInvocationIndexInitializer indexInitializer => GenerateInterfaceInvocationIndexInitializer(indexInitializer),
-                    InterfaceInvocationPropertyInitializer propertyInitializer => GenerateInterfaceInvocationPropertyInitializer(
+                    IndexInitializer indexInitializer => GenerateInterfaceInvocationIndexInitializer(indexInitializer),
+                    PropertyInitializer propertyInitializer => GenerateInterfaceInvocationPropertyInitializer(
                         propertyInitializer,
                         interfaceSymbol
                     ),
-                    InterfaceInvocationShorthandPropertyInitializer shorthandPropertyInitializer => GenerateInterfaceInvocationShorthandPropertyInitializer(
+                    ShorthandPropertyInitializer shorthandPropertyInitializer => GenerateInterfaceInvocationShorthandPropertyInitializer(
                         shorthandPropertyInitializer,
                         interfaceSymbol
                     ),
@@ -232,11 +232,11 @@ public sealed partial class LuauGenerator
         );
     }
 
-    private ComputedPropertyTableInitializer GenerateInterfaceInvocationIndexInitializer(InterfaceInvocationIndexInitializer indexInitializer) =>
+    private ComputedPropertyTableInitializer GenerateInterfaceInvocationIndexInitializer(IndexInitializer indexInitializer) =>
         new(Visit(indexInitializer.IndexExpression), Visit(indexInitializer.Expression));
 
     private PropertyTableInitializer GenerateInterfaceInvocationPropertyInitializer(
-        InterfaceInvocationPropertyInitializer propertyInitializer,
+        PropertyInitializer propertyInitializer,
         InterfaceSymbol interfaceSymbol)
     {
         var name = GetRenamedPropertyName(interfaceSymbol, propertyInitializer.Name.Text);
@@ -255,7 +255,7 @@ public sealed partial class LuauGenerator
     }
 
     private PropertyTableInitializer GenerateInterfaceInvocationShorthandPropertyInitializer(
-        InterfaceInvocationShorthandPropertyInitializer shorthandPropertyInitializer,
+        ShorthandPropertyInitializer shorthandPropertyInitializer,
         InterfaceSymbol interfaceSymbol) =>
         new(GetRenamedPropertyName(interfaceSymbol, shorthandPropertyInitializer.Identifier.Name.Text), Visit(shorthandPropertyInitializer.Identifier));
 

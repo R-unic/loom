@@ -131,13 +131,13 @@ public abstract class Visitor<T>(Func<Node?, T> defaultValue)
 
     public virtual T VisitInterfaceInvocationBody(InterfaceInvocationBody interfaceInvocationBody) => VisitList(interfaceInvocationBody.Initializers);
 
-    public virtual T VisitInterfaceInvocationIndexInitializer(InterfaceInvocationIndexInitializer indexInitializer) =>
+    public virtual T VisitInterfaceInvocationIndexInitializer(IndexInitializer indexInitializer) =>
         CombineResults([Visit(indexInitializer.IndexExpression), Visit(indexInitializer.Expression)]);
 
-    public virtual T VisitInterfaceInvocationPropertyInitializer(InterfaceInvocationPropertyInitializer propertyInitializer) =>
+    public virtual T VisitInterfaceInvocationPropertyInitializer(PropertyInitializer propertyInitializer) =>
         Visit(propertyInitializer.Expression);
 
-    public virtual T VisitInterfaceInvocationShorthandPropertyInitializer(InterfaceInvocationShorthandPropertyInitializer shorthandPropertyInitializer) =>
+    public virtual T VisitInterfaceInvocationShorthandPropertyInitializer(ShorthandPropertyInitializer shorthandPropertyInitializer) =>
         Visit(shorthandPropertyInitializer.Expression);
 
     public virtual T VisitRangeLiteral(RangeLiteral rangeLiteral) => CombineResults([Visit(rangeLiteral.Minimum), Visit(rangeLiteral.Maximum)]);

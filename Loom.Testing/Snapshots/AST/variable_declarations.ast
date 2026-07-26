@@ -150,7 +150,7 @@ VariableDeclaration(
       TypeArguments: null
       Body: InterfaceInvocationBody(
         Initializers: [
-          InterfaceInvocationPropertyInitializer(
+          PropertyInitializer(
             Name: Token(Identifier, "a")
             Colon: Token(Colon, ":")
             Expression: Literal(
@@ -158,7 +158,7 @@ VariableDeclaration(
               Value: 1
             )
           )
-          InterfaceInvocationPropertyInitializer(
+          PropertyInitializer(
             Name: Token(Identifier, "b")
             Colon: Token(Colon, ":")
             Expression: Literal(

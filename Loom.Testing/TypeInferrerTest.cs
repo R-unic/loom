@@ -73,7 +73,7 @@ public class TypeInferrerTest
             var expr = new ExpressionStub();
             typeMap[expr] = propType;
             initializers.Add(
-                new InterfaceInvocationPropertyInitializer(
+                new PropertyInitializer(
                     TokenFactory.Identifier(name),
                     TokenFactory.Operator(SyntaxKind.Colon),
                     expr
@@ -88,7 +88,7 @@ public class TypeInferrerTest
             typeMap[keyExpr] = keyType;
             typeMap[valueExpr] = valueType;
             initializers.Add(
-                new InterfaceInvocationIndexInitializer(
+                new IndexInitializer(
                     TokenFactory.Operator(SyntaxKind.LBracket),
                     TokenFactory.Operator(SyntaxKind.RBracket),
                     TokenFactory.Operator(SyntaxKind.Colon),

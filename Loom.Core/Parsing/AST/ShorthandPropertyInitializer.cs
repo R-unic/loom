@@ -1,6 +1,6 @@
 namespace Loom.Core.Parsing.AST;
 
-public class InterfaceInvocationShorthandPropertyInitializer(Identifier identifier)
+public class ShorthandPropertyInitializer(Identifier identifier)
     : InterfaceInvocationInitializer(identifier, [])
 {
     public Identifier Identifier { get; } = identifier;

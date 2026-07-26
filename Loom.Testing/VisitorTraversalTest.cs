@@ -51,12 +51,12 @@ public class VisitorTraversalTest
             "TypeArguments",
             "PrimitiveType",
             "InterfaceInvocationBody",
-            "InterfaceInvocationPropertyInitializer",
+            "PropertyInitializer",
             "Literal",
-            "InterfaceInvocationIndexInitializer",
+            "IndexInitializer",
             "Literal",
             "Literal",
-            "InterfaceInvocationShorthandPropertyInitializer",
+            "ShorthandPropertyInitializer",
             "Identifier"
         );
 
