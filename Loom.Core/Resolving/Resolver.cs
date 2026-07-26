@@ -26,6 +26,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         {
             EmitDebugDiagnostics = compilationUnit.Config.Debug
         };
+
         PushScope();
         DeclareIntrinsicSymbols();
         DeclareGlobalSymbols();
@@ -59,6 +60,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
                 "Declarations can only be exported at the top level of a module.",
                 "move the 'export' declaration out of the enclosing block"
             );
+
             return false;
         }
 
@@ -70,6 +72,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
                 "Mutable variables cannot be exported.",
                 "use 'let' instead of 'mut'"
             );
+
             return false;
         }
 
@@ -77,7 +80,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         {
             return false;
         }
-        
+
         foreach (var symbol in _semanticModel.GetDeclarationSymbols(export.Declaration))
             AddExport(export.Declaration, ExportBinding.OfDeclaration(symbol));
 
@@ -162,9 +165,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
             null,
             moduleModel.Exports
                 .FindAll(export => export.EmitsRuntimeBinding)
-                .ConvertAll(export =>
-                    new TypeChecking.Types.ObjectProperty(false, export.Name, moduleModel.GetType(export.Symbol.Declaration))
-                )
+                .ConvertAll(export => new TypeChecking.Types.ObjectProperty(false, export.Name, moduleModel.GetType(export.Symbol.Declaration)))
         );
 
     /// <summary>Exports a name the module already declares, without introducing a new binding.</summary>
@@ -480,8 +481,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     {
         PushScope();
 
-        var success =
-            Visit(matchArm.Pattern)
+        var success = Visit(matchArm.Pattern)
             && (matchArm.Guard == null || Visit(matchArm.Guard))
             && Visit(matchArm.Body);
 
@@ -489,19 +489,18 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         return success;
     }
 
-    public override bool VisitIdentifierPattern(IdentifierPattern identifierPattern)
-        => DeclareVariable(identifierPattern, identifierPattern.Name.Text, SymbolKind.Variable);
+    public override bool VisitIdentifierPattern(IdentifierPattern identifierPattern) =>
+        DeclareVariable(identifierPattern, identifierPattern.Name.Text, SymbolKind.Variable);
 
-    public override bool VisitLetPattern(LetPattern letPattern)
-        => DeclareVariable(letPattern, letPattern.Name.Text, SymbolKind.Variable);
+    public override bool VisitLetPattern(LetPattern letPattern) => DeclareVariable(letPattern, letPattern.Name.Text, SymbolKind.Variable);
 
-    public override bool VisitTypedPattern(TypedPattern typedPattern)
-        => DeclareVariable(typedPattern, typedPattern.Name.Text, SymbolKind.Variable)
+    public override bool VisitTypedPattern(TypedPattern typedPattern) =>
+        DeclareVariable(typedPattern, typedPattern.Name.Text, SymbolKind.Variable)
         && Visit(typedPattern.Type)
         && (typedPattern.ObjectPattern == null || Visit(typedPattern.ObjectPattern));
 
-    public override bool VisitTypePattern(TypePattern typePattern)
-        => Visit(typePattern.Type)
+    public override bool VisitTypePattern(TypePattern typePattern) =>
+        Visit(typePattern.Type)
         && (typePattern.ObjectPattern == null || Visit(typePattern.ObjectPattern));
 
     public override bool VisitObjectPattern(ObjectPattern objectPattern)
@@ -513,8 +512,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         return true;
     }
 
-    public override bool VisitObjectPatternField(ObjectPatternField objectPatternField)
-        => Visit(objectPatternField.Pattern);
+    public override bool VisitObjectPatternField(ObjectPatternField objectPatternField) => Visit(objectPatternField.Pattern);
 
     public override bool VisitArrayPattern(ArrayPattern arrayPattern)
     {
@@ -525,8 +523,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         return arrayPattern.Rest == null || Visit(arrayPattern.Rest);
     }
 
-    public override bool VisitRestPattern(RestPattern restPattern)
-        => Visit(restPattern.Pattern);
+    public override bool VisitRestPattern(RestPattern restPattern) => Visit(restPattern.Pattern);
 
     public override bool VisitOrPattern(OrPattern orPattern)
     {
@@ -541,8 +538,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
 
     public override bool VisitLiteralPattern(LiteralPattern literalPattern) => true;
 
-    public override bool VisitRangePattern(RangePattern rangePattern)
-        => Visit(rangePattern.Minimum) && Visit(rangePattern.Maximum);
+    public override bool VisitRangePattern(RangePattern rangePattern) => Visit(rangePattern.Minimum) && Visit(rangePattern.Maximum);
 
     public override bool VisitNullPattern(NullPattern nullPattern) => true;
 
@@ -766,7 +762,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     {
         if (!DeclareVariable(eventDeclaration, SymbolKind.Event))
             return false;
-                
+
         PushScope();
         base.VisitEventDeclaration(eventDeclaration);
         PopScope();
@@ -1103,7 +1099,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     }
 
     private void AddToLookup(Symbol symbol) => AddToLookup(symbol.Name, symbol);
-    
+
     private void AddToLookup(string name, Symbol symbol)
     {
         var scope = CurrentScope();
@@ -1134,21 +1130,13 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
             _semanticModel.NonIntrinsicReferenceNodes.Add(node.Id);
     }
 
-    private Symbol? LookupTypeSymbol(string name) =>
-        LookupSymbol(name, SymbolKind.Type)
-        ?? LookupSymbol(name, SymbolKind.EnumType)
-        ?? LookupSymbol(name, SymbolKind.Trait)
-        ?? LookupSymbol(name, SymbolKind.Interface);
+    private Symbol? LookupTypeSymbol(string name) => LookupSymbol(name, true);
+    private Symbol? LookupValueSymbol(string name) => LookupSymbol(name, false);
+    private Symbol? LookupSymbol(string name, SymbolKind kind) => LookupSymbol(name, Symbol.IsTypeKind(kind));
 
-    private Symbol? LookupValueSymbol(string name) =>
-        LookupSymbol(name, SymbolKind.Variable)
-        ?? LookupSymbol(name, SymbolKind.InjectedPropertyVariable)
-        ?? LookupSymbol(name, SymbolKind.Function)
-        ?? LookupSymbol(name, SymbolKind.Parameter);
-
-    private Symbol? LookupSymbol(string name, SymbolKind kind)
+    private Symbol? LookupSymbol(string name, bool isType)
     {
-        var lookups = _scopes.Select(scope => GetLookup(kind, scope));
+        var lookups = _scopes.Select(scope => isType ? scope.TypeLookup : scope.VariableLookup);
         foreach (var lookup in lookups)
         {
             if (!lookup.TryGetValue(name, out var symbols)) continue;
