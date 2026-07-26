@@ -102,7 +102,7 @@ public sealed partial class LuauGenerator
 
         // When every disconnect for this (event, function) pair provably shares a Luau scope with
         // this connect, a plain local keeps the output as minimal as hand-written code would be.
-        if (_localSafeConnections.Contains((eventTarget, functionSymbol)))
+        if (_localSafeConnections.Value.Contains((eventTarget, functionSymbol)))
         {
             if (assignmentOperator.Parent is EqualsValueClause { Parent: VariableDeclaration declaration })
             {
@@ -174,8 +174,9 @@ public sealed partial class LuauGenerator
     /// <summary>
     /// Finds every '+=' whose matching '-=' calls (if any) are all provably reachable from a Luau
     /// local declared at the '+=' site - i.e. the connection can be a plain local instead of an entry
-    /// in the hidden per-event connection store. Runs once up front so each '+=' knows, at the point
-    /// it's generated, whether a later '-=' elsewhere in the file will need the store.
+    /// in the hidden per-event connection store. Computed lazily on the first '+=' so files with no
+    /// event connections never pay for the full-tree scan, but once computed it covers the whole file
+    /// so each '+=' knows, at the point it's generated, whether a later '-=' elsewhere will need the store.
     /// </summary>
     private HashSet<(EventTarget Target, Symbol Function)> ComputeLocalSafeConnections()
     {
@@ -246,33 +247,15 @@ public sealed partial class LuauGenerator
         if (earlier == later)
             return true;
 
-        var statements = id.Owner switch
-        {
-            Block block => (IReadOnlyList<Node>)block.Statements,
-            Tree tree => tree.Statements,
-            _ => null
-        };
-
         // Non-block scopes (a bare 'if cond stmt' body, etc.) hold exactly one statement, so distinct
         // connect/disconnect nodes can only share one by also sharing a Block/Tree ancestor already
         // handled above; treat any other equality-without-list case as unsafe.
-        if (statements == null)
+        if (id.Owner is not (Block or Tree))
             return false;
 
-        var earlierIndex = IndexOf(statements, earlier);
-        var laterIndex = IndexOf(statements, later);
-        return earlierIndex >= 0 && laterIndex >= 0 && earlierIndex < laterIndex;
-    }
-
-    private static int IndexOf(IReadOnlyList<Node> list, Node item)
-    {
-        for (var i = 0; i < list.Count; i++)
-        {
-            if (ReferenceEquals(list[i], item))
-                return i;
-        }
-
-        return -1;
+        // A Node's Children (and so a Block/Tree's Statements) are always kept in source order, so
+        // comparing positions is equivalent to comparing list indices without the linear scan.
+        return earlier.Span.Position < later.Span.Position;
     }
 
     private readonly record struct ScopeId(Node Owner, int Branch = 0);
