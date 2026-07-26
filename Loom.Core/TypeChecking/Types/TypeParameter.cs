@@ -12,7 +12,6 @@ public sealed class TypeParameter(string name, Type? constraint = null, Type? de
     public override int GetHashCode()
     {
         var hash = new HashCode();
-        hash.Add(Name);
         if (Constraint != null)
             hash.Add(Constraint.GetHashCode());
         if (DefaultType != null)
