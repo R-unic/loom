@@ -54,50 +54,6 @@ public sealed partial class Parser(LexerResult lexerResult)
         return MissingToken(SyntaxKind.Identifier);
     }
 
-    private bool ValidateFunctionSignature(string kind, LocationSpan span, [NotNullWhen(true)] ColonTypeClause? returnType, Parameters? parameters) =>
-        ValidateSignatureReturnType(kind, span, returnType) && ValidateSignatureParameters(kind, parameters);
-
-    private bool ValidateSignatureParameters(string kind, Parameters? parameters)
-    {
-        var parameterWithDefault = parameters?.ParameterList.Find(p => p.EqualsValueClause != null);
-        if (parameterWithDefault != null)
-        {
-            _diagnostics.Error(
-                parameterWithDefault,
-                InternalCodes.UseOfDeclareFnParameterDefaults,
-                $"Parameters may not have default values in {kind}."
-            );
-
-            return false;
-        }
-
-        var parameterWithoutType = parameters?.ParameterList.Find(p => p.ColonTypeClause == null);
-        if (parameterWithoutType == null)
-            return true;
-
-        _diagnostics.Error(
-            parameterWithoutType,
-            InternalCodes.MissingDeclareFnParameterType,
-            $"Parameters must have types in {kind}."
-        );
-
-        return false;
-    }
-
-    private bool ValidateSignatureReturnType(string kind, LocationSpan span, ColonTypeClause? returnType)
-    {
-        if (returnType != null)
-            return true;
-
-        _diagnostics.Error(
-            span,
-            InternalCodes.MissingDeclareFnReturnType,
-            $"{(kind.Length > 0 ? char.ToUpperInvariant(kind[0]) + kind[1..] : kind)} must have a return type."
-        );
-
-        return false;
-    }
-
     private bool AssertDeclarationInsideOfBlock(Statement statement)
     {
         if (statement is not NamedDeclaration namedDeclaration)
@@ -111,40 +67,6 @@ public sealed partial class Parser(LexerResult lexerResult)
         );
 
         return false;
-    }
-
-    private bool MatchClosingArrow([MaybeNullWhen(false)] out Token closingArrow)
-    {
-        closingArrow = null;
-        if (IsEof())
-            return false;
-
-        return Current().Kind switch
-        {
-            SyntaxKind.RArrow => (closingArrow = Advance()) != null,
-            SyntaxKind.RArrowRArrow => SplitAndAdvance(1, SyntaxKind.RArrow, out closingArrow),
-            SyntaxKind.RArrowRArrowRArrow => SplitAndAdvance(1, SyntaxKind.RArrowRArrow, out closingArrow),
-            _ => false
-        };
-    }
-
-    // evil token splitting function
-    private bool SplitAndAdvance(int splitIndex, SyntaxKind remainderKind, out Token closingArrow)
-    {
-        var token = Current();
-        closingArrow = new Token(SyntaxKind.RArrow, token.File, new TextSpan(token.Span.Position, splitIndex), token.Text[..splitIndex]);
-
-        var remainder = new Token(
-            remainderKind,
-            token.File,
-            new TextSpan(token.Span.Position + splitIndex, token.Span.Length - splitIndex),
-            token.Text[splitIndex..]
-        );
-
-        lexerResult.Tokens[_position] = closingArrow;
-        lexerResult.Tokens.Insert(_position + 1, remainder);
-        Advance();
-        return true;
     }
 
     private bool Match([MaybeNullWhen(false)] out Token token, SyntaxKind kindA, SyntaxKind kindB) => Match(out token, kind => kind == kindA || kind == kindB);
