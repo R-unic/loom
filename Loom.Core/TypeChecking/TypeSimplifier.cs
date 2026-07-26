@@ -10,6 +10,12 @@ namespace Loom.Core.TypeChecking;
 public static class TypeSimplifier
 {
     private static readonly ConditionalWeakTable<Type, Type> _simplifyCache = [];
+    
+    public static Type? GetMemberPropertyType(Type member, string propertyName) =>
+        GetMemberType(member, m => m is NativelyIndexableType indexableType ? indexableType.GetProperty(propertyName)?.ValueType : null);
+
+    public static Type? GetMemberElementType(Type member, Type indexType) =>
+        GetMemberType(member, m => m is NativelyIndexableType indexableType ? indexableType.GetTypeAtIndex(indexType).BodyType?.ValueType : null);
 
     public static Type Simplify(Type type)
     {
@@ -307,12 +313,6 @@ public static class TypeSimplifier
 
     private static List<Type> FlattenNestedIntersections(List<Type> types) =>
         types.SelectMany(t => t is IntersectionType intersection ? intersection.Types : [t]).ToList();
-
-    public static Type? GetMemberPropertyType(Type member, string propertyName) =>
-        GetMemberType(member, m => m is NativelyIndexableType indexableType ? indexableType.GetProperty(propertyName)?.ValueType : null);
-
-    public static Type? GetMemberElementType(Type member, Type indexType) =>
-        GetMemberType(member, m => m is NativelyIndexableType indexableType ? indexableType.GetTypeAtIndex(indexType).BodyType?.ValueType : null);
 
     private static Type? GetMemberType(Type member, Func<Type, Type?> extractMember)
     {

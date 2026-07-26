@@ -119,7 +119,7 @@ internal static class InvocationMacroReference
                 foundIndex = i;
             }
 
-            currentType = GetMemberPropertyType(currentType, names[i].Name.Text);
+            currentType = TypeSimplifier.GetMemberPropertyType(currentType, names[i].Name.Text);
             if (currentType is null)
                 return false;
         }
@@ -140,33 +140,4 @@ internal static class InvocationMacroReference
 
     private static IMacroProvider? GetProvider(MacroContext context, Type? type) =>
         type is not null ? MacroExpander.Providers.FirstOrDefault(provider => provider.Supports(context, type)) : null;
-
-    private static Type? GetMemberPropertyType(Type type, string propertyName)
-    {
-        if (type is InstantiatedType instantiated)
-            type = instantiated.Expand();
-
-        return type switch
-        {
-            UnionType union => ResolveUnionAccess(propertyName, union),
-            NativelyIndexableType indexableType => indexableType.GetProperty(propertyName)?.ValueType,
-            _ => null
-        };
-    }
-
-    private static Type? ResolveUnionAccess(string propertyName, UnionType union)
-    {
-        var members = union.Types
-            .Select(type => GetMemberPropertyType(type, propertyName))
-            .Where(type => type is not null)
-            .Cast<Type>()
-            .ToList();
-
-        return members.Count switch
-        {
-            0 => null,
-            1 => members[0],
-            _ => TypeSimplifier.Simplify(new UnionType(members))
-        };
-    }
 }

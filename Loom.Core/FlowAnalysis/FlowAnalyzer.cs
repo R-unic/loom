@@ -61,19 +61,6 @@ public sealed class FlowAnalyzer(SemanticModel semanticModel)
         return state;
     }
 
-    private FlowState AnalyzeImplement(Implement implement, FlowState state)
-    {
-        var bodyState = state
-            .WithInitialized(semanticModel.GetDeclarationSymbols(implement))
-            .WithInitialized(
-                implement.Body.Implementations
-                    .Select(declaration => semanticModel.GetDeclarationSymbol(declaration, SymbolKind.Function))
-                    .OfType<Symbol>()
-            );
-
-        return AnalyzeStatement(implement.Body, bodyState);
-    }
-
     private FlowState AnalyzeExpression(Expression expression, FlowState state)
     {
         BindState(expression, state);
@@ -153,6 +140,19 @@ public sealed class FlowAnalyzer(SemanticModel semanticModel)
 
         foreach (var symbol in CollectPatternBindingSymbols(typedPattern.ObjectPattern))
             yield return symbol;
+    }
+    
+    private FlowState AnalyzeImplement(Implement implement, FlowState state)
+    {
+        var bodyState = state
+            .WithInitialized(semanticModel.GetDeclarationSymbols(implement))
+            .WithInitialized(
+                implement.Body.Implementations
+                    .Select(declaration => semanticModel.GetDeclarationSymbol(declaration, SymbolKind.Function))
+                    .OfType<Symbol>()
+            );
+
+        return AnalyzeStatement(implement.Body, bodyState);
     }
 
     private FlowState AnalyzeBlock(Block block, FlowState state) => BindState(block, AnalyzeStatements(block.Statements, state));
