@@ -82,7 +82,7 @@ public sealed partial class LuauGenerator
         var isConcatenation = op.StartsWith('+') && leftType.IsAssignableTo(@string) && rightType.IsAssignableTo(@string);
         var left = Visit(binaryOperator.Left);
         var right = Visit(binaryOperator.Right);
-        var mappedOperator = isConcatenation ? op.Replace("+", "..") : MapLuau.BinaryOperator(op);
+        var mappedOperator = isConcatenation ? op.Replace("+", "..") : LuauOperatorMap.BinaryOperator(op);
         return new Luau.AST.BinaryOperator(left, mappedOperator, right);
     }
 
@@ -91,7 +91,7 @@ public sealed partial class LuauGenerator
         var operand = Visit(unaryOperator.Operand);
         return SyntaxFacts.IsBitwiseOperator(unaryOperator.Operator.Kind)
             ? LuauFactory.Bit32Call("bnot", [operand])
-            : new Luau.AST.UnaryOperator(MapLuau.UnaryOperator(unaryOperator.Operator.Text), operand);
+            : new Luau.AST.UnaryOperator(LuauOperatorMap.UnaryOperator(unaryOperator.Operator.Text), operand);
     }
 
     public override LuauNode VisitTernaryOperator(TernaryOperator ternaryOperator) =>
@@ -260,7 +260,7 @@ public sealed partial class LuauGenerator
         if (op.EndsWith('='))
             return GenerateBitwiseAssignmentOperator(op, left, right);
 
-        var name = MapLuau.BitwiseOperator(op);
+        var name = LuauOperatorMap.BitwiseOperator(op);
         var arguments = new List<LuauExpression>();
         var leftUpdated = AddBit32Arguments(left, name, arguments);
         var rightUpdated = AddBit32Arguments(right, name, arguments);
@@ -275,7 +275,7 @@ public sealed partial class LuauGenerator
 
     private static Luau.AST.BinaryOperator GenerateBitwiseAssignmentOperator(string op, LuauExpression left, LuauExpression right)
     {
-        var name = MapLuau.BitwiseOperator(op);
+        var name = LuauOperatorMap.BitwiseOperator(op);
         var arguments = new List<LuauExpression> { left };
         var rightUpdated = AddBit32Arguments(right, name, arguments);
         if (!rightUpdated)

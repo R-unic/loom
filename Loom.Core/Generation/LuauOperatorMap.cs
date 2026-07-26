@@ -2,7 +2,8 @@ using Loom.Luau.AST;
 
 namespace Loom.Core.Generation;
 
-internal static class MapLuau
+/// <summary>Maps Loom operator tokens and primitive-type kinds onto their Luau AST counterparts.</summary>
+internal static class LuauOperatorMap
 {
     public static PrimitiveTypeKind PrimitiveTypeKind(TypeChecking.Types.PrimitiveTypeKind kind) =>
         kind switch

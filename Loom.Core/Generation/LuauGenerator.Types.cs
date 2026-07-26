@@ -81,7 +81,7 @@ public sealed partial class LuauGenerator
     public override LuauNode VisitPrimitiveType(PrimitiveType primitiveType) =>
         primitiveType is { Kind: PrimitiveTypeKind.Void or PrimitiveTypeKind.None, Parent: ColonTypeClause { Parent: DeclareFunctionSignature or FunctionType } }
             ? new UnitType()
-            : new Luau.AST.PrimitiveType(MapLuau.PrimitiveTypeKind(primitiveType.Kind));
+            : new Luau.AST.PrimitiveType(LuauOperatorMap.PrimitiveTypeKind(primitiveType.Kind));
 
     public override LuauNode VisitLiteralType(LiteralType literalType) =>
         literalType.Value switch
