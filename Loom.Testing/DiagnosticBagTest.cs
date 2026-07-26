@@ -8,12 +8,10 @@ namespace Loom.Testing;
 public class DiagnosticBagTest
 {
     private readonly LocationSpan _span = LocationSpan.Empty(SourceFile.Empty);
-    
-    private Token NewToken(SyntaxKind kind = SyntaxKind.Identifier, string text = "x")
-        => new(kind, _span, text);
 
-    private Identifier NewIdentifier(string name = "x")
-        => new(new Token(SyntaxKind.Identifier, _span, name));
+    private Token NewToken(SyntaxKind kind = SyntaxKind.Identifier, string text = "x") => new(kind, _span, text);
+
+    private Identifier NewIdentifier(string name = "x") => new(new Token(SyntaxKind.Identifier, _span, name));
 
     [Fact]
     public void Debug_Node_RecordsDiagnostic()
@@ -22,7 +20,7 @@ public class DiagnosticBagTest
         var node = NewIdentifier();
         bag.Debug(node, "my-code", "hello");
         Assert.Single(bag.Set);
-        
+
         var diag = bag.Set.Single();
         Assert.Equal(DiagnosticSeverity.Debug, diag.Severity);
         Assert.Equal("my-code", diag.Code);
@@ -37,7 +35,7 @@ public class DiagnosticBagTest
         var node = NewIdentifier();
         bag.Info(node, "my-code", "hello");
         Assert.Single(bag.Set);
-        
+
         var diag = bag.Set.Single();
         Assert.Equal(DiagnosticSeverity.Info, diag.Severity);
         Assert.Equal("my-code", diag.Code);
@@ -52,7 +50,7 @@ public class DiagnosticBagTest
         var token = NewToken();
         bag.Warn(token, "w1", "watch out", "use bar");
         Assert.Single(bag.Set);
-        
+
         var diag = bag.Set.Single();
         Assert.Equal(DiagnosticSeverity.Warn, diag.Severity);
         Assert.Equal("w1", diag.Code);
@@ -68,7 +66,7 @@ public class DiagnosticBagTest
         var node = NewIdentifier();
         bag.Error(node, "e1", "oh no", "maybe x?");
         Assert.Single(bag.Set);
-        
+
         var diag = bag.Set.Single();
         Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
         Assert.Equal("e1", diag.Code);
@@ -82,7 +80,7 @@ public class DiagnosticBagTest
         var bag = new DiagnosticBag();
         bag.Info(_span, "info-span", "info message");
         Assert.Single(bag.Set);
-        
+
         var diag = bag.Set.Single();
         Assert.Equal(DiagnosticSeverity.Info, diag.Severity);
         Assert.Equal("info-span", diag.Code);
@@ -117,7 +115,7 @@ public class DiagnosticBagTest
         var node = NewIdentifier();
         bag.NotImplemented(node, "custom feature");
         Assert.Single(bag.Set);
-        
+
         var diag = bag.Set.Single();
         Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
         Assert.Equal(InternalCodes.NotImplemented, diag.Code);
@@ -129,7 +127,7 @@ public class DiagnosticBagTest
     {
         var bag = new DiagnosticBag();
         bag.NotImplemented(NewIdentifier());
-        
+
         Assert.Single(bag.Set);
         var diag = bag.Set.Single();
         Assert.Equal("This feature is not yet implemented.", diag.Message);
@@ -142,7 +140,7 @@ public class DiagnosticBagTest
     {
         var bag = new DiagnosticBag();
         bag.CompilerError(NewIdentifier(), "internal error");
-        
+
         Assert.Single(bag.Set);
         var diag = bag.Set.Single();
         Assert.Equal(InternalCodes.CompilerError, diag.Code);
@@ -155,25 +153,25 @@ public class DiagnosticBagTest
     {
         var bag = new DiagnosticBag();
         bag.CompilerError(SourceFile.Empty, "file error");
-        
+
         Assert.Single(bag.Set);
         var diag = bag.Set.Single();
         Assert.Equal(SourceFile.Empty, diag.Span.File);
         Assert.Equal(0, diag.Span.Start.Character);
     }
-    
+
     [Fact]
     public void Find_ReturnsMatchingDiagnostic()
     {
         var bag = new DiagnosticBag();
         bag.Error(_span, "e1", "first");
         bag.Warn(_span, "w1", "second");
-        
+
         var found = bag.Find(d => d.Code == "w1");
         Assert.NotNull(found);
         Assert.Equal("w1", found.Code);
     }
-    
+
     [Fact]
     public void WithoutInfo_RemovesInfoAndBelowDiagnostics()
     {
@@ -181,7 +179,7 @@ public class DiagnosticBagTest
         bag.Info(_span, "d", "debug");
         bag.Info(_span, "i", "info");
         bag.Warn(_span, "w", "warn");
-        
+
         var filtered = bag.WithoutInfo();
         Assert.Single(filtered.Set);
         Assert.Equal(DiagnosticSeverity.Warn, filtered.Set.First().Severity);
@@ -194,7 +192,7 @@ public class DiagnosticBagTest
         bag.Warn(_span, "w", "warn");
         bag.Error(_span, "e", "error");
         bag.Info(_span, "i", "info");
-        
+
         var errors = bag.Errors();
         Assert.Single(errors.Set);
         Assert.Equal("e", errors.Set.First().Code);
@@ -208,7 +206,7 @@ public class DiagnosticBagTest
         bag.Error(_span, "e", "err");
         Assert.True(bag.ContainsErrors());
     }
-    
+
     [Fact]
     public void Concat_CombinesMultipleBags()
     {
@@ -229,7 +227,6 @@ public class DiagnosticBagTest
         var combined = DiagnosticBag.Concat([bag1, bag2]);
         Assert.Single(combined.Set);
     }
-
 
     [Fact]
     public void Report_WithFailFastDisabled_StillRecordsErrorWithoutExiting()

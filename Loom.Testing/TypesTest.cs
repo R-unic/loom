@@ -26,7 +26,7 @@ public class TypesTest
 
         var (body, error) = obj.GetTypeAtIndex(new LiteralType("x"));
         Assert.Equal("", error);
-        
+
         var property = Assert.IsType<ObjectProperty>(body);
         Assert.True(property.IsMutable);
         Assert.Equal(Number, property.ValueType);
@@ -72,7 +72,7 @@ public class TypesTest
         var expected = TypeSimplifier.Simplify(new UnionType([Number, String]));
         Assert.True(indexer.ValueType.Equals(expected));
     }
-    
+
     [Fact]
     public void ObjectType_GetTypeAtIndex_WrongIndexerType()
     {
@@ -86,7 +86,7 @@ public class TypesTest
         Assert.Null(body);
         Assert.Contains("Index is not of type", error);
     }
-    
+
     [Fact]
     public void ObjectType_GetTypeAtIndex_UnconstrainedTypeParameter()
     {
@@ -101,7 +101,7 @@ public class TypesTest
         Assert.Null(body);
         Assert.Contains("unconstrained", error);
     }
-    
+
     [Fact]
     public void ObjectType_GetTypeAtIndex_ConstrainedTypeParameter()
     {
@@ -113,7 +113,7 @@ public class TypesTest
         Assert.Equal("", error);
         Assert.Same(indexer, body);
     }
-    
+
     [Fact]
     public void ObjectType_GetTypeAtIndex_UsesSelfInErrorMessage()
     {
@@ -123,7 +123,7 @@ public class TypesTest
         Assert.Null(body);
         Assert.Contains("Foo", error);
     }
-    
+
     [Fact]
     public void ObjectType_GetProperty()
     {
@@ -134,7 +134,7 @@ public class TypesTest
         Assert.Same(property, obj.GetProperty("name"));
         Assert.Null(obj.GetProperty("missing"));
     }
-    
+
     [Fact]
     public void InterfaceType_GetProperty_FromOwnObject()
     {
@@ -147,7 +147,7 @@ public class TypesTest
 
         Assert.Same(property, iface.GetProperty("id"));
     }
-    
+
     [Fact]
     public void InterfaceType_GetProperty_FromConstraint()
     {
@@ -167,7 +167,7 @@ public class TypesTest
 
         Assert.Same(property, derived.GetProperty("id"));
     }
-    
+
     [Fact]
     public void InterfaceType_Indexer_FromConstraint()
     {
@@ -187,7 +187,7 @@ public class TypesTest
 
         Assert.Same(indexer, derived.Indexer);
     }
-    
+
     [Fact]
     public void InterfaceType_Indexer_PrefersOwnIndexer()
     {
@@ -207,7 +207,7 @@ public class TypesTest
 
         Assert.Same(ownIndexer, derived.Indexer);
     }
-    
+
     [Fact]
     public void InterfaceType_AssignabilityType_NoConstraints()
     {
@@ -215,7 +215,7 @@ public class TypesTest
         var iface = new InterfaceType("I", [], obj);
         Assert.Same(obj, iface.AssignabilityType);
     }
-    
+
     [Fact]
     public void InterfaceType_AssignabilityType_WithConstraints()
     {
@@ -649,9 +649,9 @@ public class TypesTest
     [Fact]
     public void ArrayType_Assignability_CovariantImmutable()
     {
-        var immutBases = new ArrayType(Unknown, isMutable: false);
-        var immutSubtypes = new ArrayType(String, isMutable: false);
-        var immutNumbers = new ArrayType(Number, isMutable: false);
+        var immutBases = new ArrayType(Unknown, false);
+        var immutSubtypes = new ArrayType(String, false);
+        var immutNumbers = new ArrayType(Number, false);
         Assert.True(immutSubtypes.IsAssignableTo(immutBases));
         Assert.True(immutNumbers.IsAssignableTo(immutBases));
         Assert.False(immutSubtypes.IsAssignableTo(immutNumbers));
@@ -661,8 +661,8 @@ public class TypesTest
     [Fact]
     public void ArrayType_Assignability_ContravariantMutable()
     {
-        var immutBase = new ArrayType(Number, isMutable: true);
-        var immutSubtype = new ArrayType(Never, isMutable: true);
+        var immutBase = new ArrayType(Number, true);
+        var immutSubtype = new ArrayType(Never, true);
         Assert.True(immutSubtype.IsAssignableTo(immutBase));
         Assert.False(immutBase.IsAssignableTo(immutSubtype));
     }
@@ -670,29 +670,29 @@ public class TypesTest
     [Fact]
     public void ArrayType_Assignability_InvariantMutable()
     {
-        var mutNumbers = new ArrayType(Number, isMutable: true);
-        var mutStrings = new ArrayType(String, isMutable: true);
-        var mutUnknown = new ArrayType(Unknown, isMutable: true);
+        var mutNumbers = new ArrayType(Number, true);
+        var mutStrings = new ArrayType(String, true);
+        var mutUnknown = new ArrayType(Unknown, true);
         Assert.True(mutNumbers.IsAssignableTo(mutNumbers));
         Assert.True(mutStrings.IsAssignableTo(mutStrings));
         Assert.False(mutStrings.IsAssignableTo(mutUnknown));
         Assert.False(mutNumbers.IsAssignableTo(mutUnknown));
         Assert.False(mutStrings.IsAssignableTo(mutNumbers));
 
-        var mutStrings2 = new ArrayType(String, isMutable: true);
+        var mutStrings2 = new ArrayType(String, true);
         Assert.True(mutStrings.IsAssignableTo(mutStrings2));
     }
 
     [Fact]
     public void ArrayType_Assignability_CrossMutability()
     {
-        var immutNumbers = new ArrayType(Number, isMutable: false);
-        var mutNumbers = new ArrayType(Number, isMutable: true);
+        var immutNumbers = new ArrayType(Number, false);
+        var mutNumbers = new ArrayType(Number, true);
         Assert.False(immutNumbers.IsAssignableTo(mutNumbers));
         Assert.True(mutNumbers.IsAssignableTo(immutNumbers));
 
-        var immutStrings = new ArrayType(String, isMutable: false);
-        var mutStrings = new ArrayType(String, isMutable: true);
+        var immutStrings = new ArrayType(String, false);
+        var mutStrings = new ArrayType(String, true);
         Assert.False(immutStrings.IsAssignableTo(mutStrings));
         Assert.True(mutStrings.IsAssignableTo(immutStrings));
     }
@@ -702,13 +702,13 @@ public class TypesTest
     {
         var optionalNumber = new OptionalType(Number);
         var requiredNumber = Number;
-        var arrayOfOptional = new ArrayType(optionalNumber, isMutable: false);
-        var arrayOfRequired = new ArrayType(requiredNumber, isMutable: false);
+        var arrayOfOptional = new ArrayType(optionalNumber, false);
+        var arrayOfRequired = new ArrayType(requiredNumber, false);
         Assert.True(arrayOfRequired.IsAssignableTo(arrayOfOptional));
         Assert.False(arrayOfOptional.IsAssignableTo(arrayOfRequired));
 
-        var mutArrayOfOptional = new ArrayType(optionalNumber, isMutable: true);
-        var mutArrayOfRequired = new ArrayType(requiredNumber, isMutable: true);
+        var mutArrayOfOptional = new ArrayType(optionalNumber, true);
+        var mutArrayOfRequired = new ArrayType(requiredNumber, true);
         Assert.False(mutArrayOfRequired.IsAssignableTo(mutArrayOfOptional));
         Assert.False(mutArrayOfOptional.IsAssignableTo(mutArrayOfRequired));
     }
@@ -1154,19 +1154,19 @@ public class TypesTest
     [Fact]
     public void ArrayType_Equality()
     {
-        var arr1 = new ArrayType(Number, isMutable: true);
-        var arr2 = new ArrayType(Number, isMutable: true);
-        var arr3 = new ArrayType(Number, isMutable: false);
-        var arr4 = new ArrayType(String, isMutable: true);
+        var arr1 = new ArrayType(Number, true);
+        var arr2 = new ArrayType(Number, true);
+        var arr3 = new ArrayType(Number, false);
+        var arr4 = new ArrayType(String, true);
         Assert.True(arr1.Equals(arr1));
         Assert.True(arr1.Equals(arr2));
         Assert.False(arr1.Equals(arr3));
         Assert.False(arr1.Equals(arr4));
         Assert.False(arr1.Equals(Number));
 
-        var immut1 = new ArrayType(Bool, isMutable: false);
-        var immut2 = new ArrayType(Bool, isMutable: false);
-        var mutable = new ArrayType(Bool, isMutable: true);
+        var immut1 = new ArrayType(Bool, false);
+        var immut2 = new ArrayType(Bool, false);
+        var mutable = new ArrayType(Bool, true);
         Assert.True(immut1.Equals(immut2));
         Assert.False(immut1.Equals(mutable));
     }

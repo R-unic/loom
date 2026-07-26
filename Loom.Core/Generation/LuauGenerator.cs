@@ -23,12 +23,12 @@ public sealed partial class LuauGenerator
 {
     private readonly DiagnosticBag _diagnostics = new();
     private readonly EventConnectionTracker _eventConnections = new();
+    private readonly Lazy<HashSet<(EventTarget Target, Symbol Function)>> _localSafeConnections;
     private readonly MacroExpander _macroExpander;
+    private readonly ModuleRequirePathResolver? _moduleRequirePaths;
+    private readonly RuntimeImport _runtimeImport;
     private readonly SemanticModel _semanticModel;
     private readonly LuauState _state = new();
-    private readonly RuntimeImport _runtimeImport;
-    private readonly ModuleRequirePathResolver? _moduleRequirePaths;
-    private readonly Lazy<HashSet<(EventTarget Target, Symbol Function)>> _localSafeConnections;
 
     public LuauGenerator(SemanticModel semanticModel, RuntimeImport? runtimeImport = null, ModuleRequirePathResolver? moduleRequirePaths = null)
         : base(_ => new NoOpStatement())
@@ -54,7 +54,8 @@ public sealed partial class LuauGenerator
                     _semanticModel.Tree,
                     InternalCodes.RuntimeLibraryNotFound,
                     "Could not locate the Loom runtime library through the Rojo project; falling back to the default require path.",
-                    $"add a $path mapping to your default.project.json that includes the runtime, otherwise requires resolve to '{RuntimeImport.DefaultPath}'.");
+                    $"add a $path mapping to your default.project.json that includes the runtime, otherwise requires resolve to '{RuntimeImport.DefaultPath}'."
+                );
 
             luauTree.Statements.Insert(0, LuauFactory.RuntimeLibraryImport(_runtimeImport.Path));
         }
@@ -111,9 +112,9 @@ public sealed partial class LuauGenerator
     }
 
     /// <summary>
-    /// Detects a placeholder '_' binding whose value is nothing more than the identifier
-    /// a prereq statement in the same scope just declared. Emitting both would be redundant, so the
-    /// placeholder is elided in favor of the prereq statement that already exists.
+    ///     Detects a placeholder '_' binding whose value is nothing more than the identifier
+    ///     a prereq statement in the same scope just declared. Emitting both would be redundant, so the
+    ///     placeholder is elided in favor of the prereq statement that already exists.
     /// </summary>
     private static bool IsRedundantOrphanBinding(LuauStatement statement, LuauScope scope) =>
         statement is ConstVariable { Name: "_", Initializer: Identifier identifier }

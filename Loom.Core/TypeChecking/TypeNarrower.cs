@@ -13,10 +13,9 @@ namespace Loom.Core.TypeChecking;
 
 public sealed class TypeNarrower
 {
-    public sealed record BranchStates(FlowState True, FlowState False);
+    private readonly SemanticModel _semanticModel;
 
     private readonly Literal _trueLiteral = new(TokenFactory.Keyword(SyntaxKind.TrueLiteral), true);
-    private readonly SemanticModel _semanticModel;
 
     public TypeNarrower(SemanticModel semanticModel)
     {
@@ -63,7 +62,15 @@ public sealed class TypeNarrower
 
         var trueBuilder = current.ToBuilder();
         var falseBuilder = current.ToBuilder();
-        ApplyBinaryNarrowing(expression, _trueLiteral, SyntaxKind.EqualsEquals, current, trueBuilder, falseBuilder);
+        ApplyBinaryNarrowing(
+            expression,
+            _trueLiteral,
+            SyntaxKind.EqualsEquals,
+            current,
+            trueBuilder,
+            falseBuilder
+        );
+
         return new BranchStates(trueBuilder.ToImmutable(), falseBuilder.ToImmutable());
     }
 
@@ -71,13 +78,19 @@ public sealed class TypeNarrower
     {
         if (!TryGetExpressionAndLiteral(binaryOperator.Left, binaryOperator.Right, out var expression, out var literal)
             && !TryGetExpressionAndLiteral(binaryOperator.Right, binaryOperator.Left, out expression, out literal))
-        {
             return new BranchStates(current, current);
-        }
 
         var trueBuilder = current.ToBuilder();
         var falseBuilder = current.ToBuilder();
-        ApplyBinaryNarrowing(expression, literal, binaryOperator.Operator.Kind, current, trueBuilder, falseBuilder);
+        ApplyBinaryNarrowing(
+            expression,
+            literal,
+            binaryOperator.Operator.Kind,
+            current,
+            trueBuilder,
+            falseBuilder
+        );
+
         return new BranchStates(trueBuilder.ToImmutable(), falseBuilder.ToImmutable());
     }
 
@@ -85,7 +98,7 @@ public sealed class TypeNarrower
     {
         var (leftTrue, leftFalse) = ComputeBranchStates(andOp.Left, current);
         var (rightTrue, _) = ComputeBranchStates(andOp.Right, leftTrue);
-        var falseState = MergeStates(leftFalse, ApplyBranchState(andOp.Right, leftTrue, useTrue: false));
+        var falseState = MergeStates(leftFalse, ApplyBranchState(andOp.Right, leftTrue, false));
         return new BranchStates(rightTrue, falseState);
     }
 
@@ -93,7 +106,7 @@ public sealed class TypeNarrower
     {
         var (leftTrue, leftFalse) = ComputeBranchStates(orOp.Left, current);
         var (_, rightFalse) = ComputeBranchStates(orOp.Right, leftFalse);
-        var trueState = MergeStates(leftTrue, ApplyBranchState(orOp.Right, leftFalse, useTrue: true));
+        var trueState = MergeStates(leftTrue, ApplyBranchState(orOp.Right, leftFalse, true));
         return new BranchStates(trueState, rightFalse);
     }
 
@@ -483,4 +496,6 @@ public sealed class TypeNarrower
         var symbol = _semanticModel.GetSymbol(identifier);
         return symbol != null ? FlowAddress.Variable(symbol) : null;
     }
+
+    public sealed record BranchStates(FlowState True, FlowState False);
 }

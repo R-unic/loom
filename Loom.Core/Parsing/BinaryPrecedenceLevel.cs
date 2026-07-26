@@ -15,7 +15,14 @@ internal sealed record BinaryPrecedenceLevel(bool RightAssociative, Predicate<Sy
         new(false, SyntaxKind.Tilde),
         new(false, SyntaxKind.Ampersand),
         new(false, SyntaxKind.EqualsEquals, SyntaxKind.BangEquals),
-        new(false, SyntaxKind.LArrow, SyntaxKind.LArrowEquals, SyntaxKind.RArrow, SyntaxKind.RArrowEquals, SyntaxKind.InKeyword),
+        new(
+            false,
+            SyntaxKind.LArrow,
+            SyntaxKind.LArrowEquals,
+            SyntaxKind.RArrow,
+            SyntaxKind.RArrowEquals,
+            SyntaxKind.InKeyword
+        ),
         new(false, SyntaxKind.LArrowLArrow, SyntaxKind.RArrowRArrow, SyntaxKind.RArrowRArrowRArrow),
         new(false, SyntaxKind.Plus, SyntaxKind.Minus),
         new(false, SyntaxKind.Star, SyntaxKind.Slash, SyntaxKind.SlashSlash, SyntaxKind.Percent),

@@ -1,7 +1,3 @@
 namespace Loom.Luau;
 
-public enum LuauVisibility : byte
-{
-    Read,
-    Write
-}
+public enum LuauVisibility : byte { Read, Write }

@@ -5,6 +5,7 @@ using Loom.Core.Text;
 using Loom.Luau;
 using Loom.Luau.AST;
 using BinaryOperator = Loom.Luau.AST.BinaryOperator;
+using ElementAccess = Loom.Luau.AST.ElementAccess;
 using PropertyAccess = Loom.Core.Parsing.AST.PropertyAccess;
 using ExpressionStatement = Loom.Core.Parsing.AST.ExpressionStatement;
 using Identifier = Loom.Core.Parsing.AST.Identifier;
@@ -31,9 +32,7 @@ public sealed partial class LuauGenerator
     {
         if (assignmentOperator.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals
             && ResolveEventTarget(assignmentOperator.Left) is { } eventTarget)
-        {
             return GenerateEventAssignment(assignmentOperator, eventTarget);
-        }
 
         if (assignmentOperator.Parent is ExpressionStatement)
             return VisitBinaryOperator(assignmentOperator);
@@ -75,12 +74,13 @@ public sealed partial class LuauGenerator
         return new EventTarget(GetInstanceKey(left), propertySymbol);
     }
 
-    private object? GetInstanceKey(Expression left) => left switch
-    {
-        PropertyAccess { Expression: Identifier identifier } => _semanticModel.GetSymbol(identifier),
-        QualifiedName { Identifier: var identifier } => _semanticModel.GetSymbol(identifier),
-        _ => new object()
-    };
+    private object? GetInstanceKey(Expression left) =>
+        left switch
+        {
+            PropertyAccess { Expression: Identifier identifier } => _semanticModel.GetSymbol(identifier),
+            QualifiedName { Identifier: var identifier } => _semanticModel.GetSymbol(identifier),
+            _ => new object()
+        };
 
     private LuauExpression GenerateEventAssignment(AssignmentOperator assignmentOperator, EventTarget eventTarget)
     {
@@ -99,9 +99,6 @@ public sealed partial class LuauGenerator
             return connect;
 
         _eventConnections.MarkConnected(eventTarget, functionSymbol);
-
-        // When every disconnect for this (event, function) pair provably shares a Luau scope with
-        // this connect, a plain local keeps the output as minimal as hand-written code would be.
         if (_localSafeConnections.Value.Contains((eventTarget, functionSymbol)))
         {
             if (assignmentOperator.Parent is EqualsValueClause { Parent: VariableDeclaration declaration })
@@ -116,11 +113,8 @@ public sealed partial class LuauGenerator
         }
 
         var store = GetConnectionStore(eventTarget);
-        var connectionSlot = new Luau.AST.ElementAccess(store, luauFunction);
+        var connectionSlot = new ElementAccess(store, luauFunction);
         var assign = new BinaryOperator(connectionSlot, "=", connect);
-
-        // A bare 'event += fn;' statement doesn't need the connection's value, so the store
-        // assignment can be emitted directly instead of stashed as a prereq of an unused expression.
         if (assignmentOperator.Parent is ExpressionStatement)
             return assign;
 
@@ -137,7 +131,7 @@ public sealed partial class LuauGenerator
         {
             var connection = _eventConnections.TryGetLocalConnection(eventTarget, functionSymbol, out var localConnection)
                 ? (LuauExpression)localConnection
-                : new Luau.AST.ElementAccess(GetConnectionStore(eventTarget), Visit(function));
+                : new ElementAccess(GetConnectionStore(eventTarget), Visit(function));
 
             return new Call(new Luau.AST.PropertyAccess(connection, ["Disconnect"]), [], true);
         }
@@ -172,11 +166,11 @@ public sealed partial class LuauGenerator
             : $"_{eventTarget.Event.Name}_connections";
 
     /// <summary>
-    /// Finds every '+=' whose matching '-=' calls (if any) are all provably reachable from a Luau
-    /// local declared at the '+=' site - i.e. the connection can be a plain local instead of an entry
-    /// in the hidden per-event connection store. Computed lazily on the first '+=' so files with no
-    /// event connections never pay for the full-tree scan, but once computed it covers the whole file
-    /// so each '+=' knows, at the point it's generated, whether a later '-=' elsewhere will need the store.
+    ///     Finds every '+=' whose matching '-=' calls (if any) are all provably reachable from a Luau
+    ///     local declared at the '+=' site - i.e. the connection can be a plain local instead of an entry
+    ///     in the hidden per-event connection store. Computed lazily on the first '+=' so files with no
+    ///     event connections never pay for the full-tree scan, but once computed it covers the whole file
+    ///     so each '+=' knows, at the point it's generated, whether a later '-=' elsewhere will need the store.
     /// </summary>
     private HashSet<(EventTarget Target, Symbol Function)> ComputeLocalSafeConnections()
     {
@@ -205,11 +199,7 @@ public sealed partial class LuauGenerator
         var localSafe = new HashSet<(EventTarget, Symbol)>();
         foreach (var (key, connects) in connectsByKey)
         {
-            // More than one '+=' for the same target/function means a single local can't represent
-            // both connections unambiguously, so fall back to the store.
-            if (connects.Count != 1)
-                continue;
-
+            if (connects.Count != 1) continue;
             if (!disconnectsByKey.TryGetValue(key, out var disconnects) || disconnects.TrueForAll(d => CanShareLocalScope(connects[0], d)))
                 localSafe.Add(key);
         }
@@ -218,11 +208,11 @@ public sealed partial class LuauGenerator
     }
 
     /// <summary>
-    /// Whether a Luau local declared at <paramref name="connect"/> would still be in scope at
-    /// <paramref name="disconnect"/>: they must live in the exact same Luau scope, with the connect
-    /// coming first, or the disconnect must be nested somewhere inside a scope that starts after the
-    /// connect within that shared scope (nested scopes see enclosing locals as upvalues, but siblings
-    /// and outer scopes never see locals declared inside a nested one).
+    ///     Whether a Luau local declared at <paramref name="connect" /> would still be in scope at
+    ///     <paramref name="disconnect" />: they must live in the exact same Luau scope, with the connect
+    ///     coming first, or the disconnect must be nested somewhere inside a scope that starts after the
+    ///     connect within that shared scope (nested scopes see enclosing locals as upvalues, but siblings
+    ///     and outer scopes never see locals declared inside a nested one).
     /// </summary>
     private static bool CanShareLocalScope(Node connect, Node disconnect)
     {
@@ -247,23 +237,16 @@ public sealed partial class LuauGenerator
         if (earlier == later)
             return true;
 
-        // Non-block scopes (a bare 'if cond stmt' body, etc.) hold exactly one statement, so distinct
-        // connect/disconnect nodes can only share one by also sharing a Block/Tree ancestor already
-        // handled above; treat any other equality-without-list case as unsafe.
         if (id.Owner is not (Block or Tree))
             return false;
 
-        // A Node's Children (and so a Block/Tree's Statements) are always kept in source order, so
-        // comparing positions is equivalent to comparing list indices without the linear scan.
         return earlier.Span.Position < later.Span.Position;
     }
 
-    private readonly record struct ScopeId(Node Owner, int Branch = 0);
-
     /// <summary>
-    /// Walks up from <paramref name="node"/> to the nearest Luau-scope-introducing ancestor (a Block,
-    /// the file root, an if-branch, or a while/for/after/function body), returning that scope's
-    /// identity plus the direct child of the scope that <paramref name="node"/> descends through.
+    ///     Walks up from <paramref name="node" /> to the nearest Luau-scope-introducing ancestor (a Block,
+    ///     the file root, an if-branch, or a while/for/after/function body), returning that scope's
+    ///     identity plus the direct child of the scope that <paramref name="node" /> descends through.
     /// </summary>
     private static (ScopeId Id, Node EntryChild)? FindImmediateScope(Node node)
     {
@@ -278,7 +261,7 @@ public sealed partial class LuauGenerator
                 case Tree or Block:
                     return (new ScopeId(parent), current);
                 case If @if when current == @if.ThenBranch:
-                    return (new ScopeId(@if, 0), current);
+                    return (new ScopeId(@if), current);
                 case If @if when @if.ElseBranch?.Branch == current:
                     return (new ScopeId(@if, 1), current);
                 case While @while when @while.Body == current:
@@ -294,4 +277,6 @@ public sealed partial class LuauGenerator
             current = parent;
         }
     }
+
+    private readonly record struct ScopeId(Node Owner, int Branch = 0);
 }

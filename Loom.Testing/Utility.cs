@@ -6,6 +6,7 @@ using Loom.Core.Generation;
 using Loom.Core.Lexing;
 using Loom.Core.Parsing;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking;
 using Loom.Luau.AST;
@@ -43,7 +44,7 @@ internal static class Utility
     public static ParserResult Parse(string source) => new Parser(Tokenize(source)).Parse();
     public static DiagnosticBag GetParserDiagnostics(string source) => Parse(source).Diagnostics;
 
-    public static Core.Resolving.SemanticModel GetSemanticModel(string source, bool isDeclaration = false, bool disableRuntimeLib = true, bool debug = false)
+    public static SemanticModel GetSemanticModel(string source, bool isDeclaration = false, bool disableRuntimeLib = true, bool debug = false)
     {
         var parserResult = Parse(source);
         if (isDeclaration)
@@ -56,7 +57,7 @@ internal static class Utility
         return semanticModel;
     }
 
-    public static (FlowAnalyzerResult AnalyzerResult, Core.Resolving.SemanticModel SemanticModel, FlowAnalyzer Analyzer) FlowAnalyze(
+    public static (FlowAnalyzerResult AnalyzerResult, SemanticModel SemanticModel, FlowAnalyzer Analyzer) FlowAnalyze(
         string source,
         bool disableRuntimeLib = true)
     {
@@ -104,8 +105,8 @@ internal static class Utility
     public static SourceFile TestFile(string source) => new("test", source);
 
     /// <summary>
-    /// Compiles a throwaway project whose source directory holds <paramref name="files"/>, keyed by path
-    /// relative to that directory so nested modules can be written as <c>"util/init.loom"</c>.
+    ///     Compiles a throwaway project whose source directory holds <paramref name="files" />, keyed by path
+    ///     relative to that directory so nested modules can be written as <c>"util/init.loom"</c>.
     /// </summary>
     /// <param name="rojoProject">Contents of a default.project.json to place beside the config, if any.</param>
     public static void WithTempProject(

@@ -66,10 +66,12 @@ public class TypeSimplifierTest
         var simplified = TypeSimplifier.Simplify(intersection);
 
         Assert.True(
-            simplified.Equals(new ObjectType(
-                null,
-                [new ObjectProperty(false, "x", PrimitiveType.Never)]
-            )),
+            simplified.Equals(
+                new ObjectType(
+                    null,
+                    [new ObjectProperty(false, "x", PrimitiveType.Never)]
+                )
+            ),
             $"Expected never, but got {simplified}"
         );
     }
@@ -193,7 +195,7 @@ public class TypeSimplifierTest
             $"Expected {expected}, but got {simplified}"
         );
     }
-    
+
     [Fact]
     public void SimplifyDistributionOfIntersectionOverUnionWithComplexTypes()
     {

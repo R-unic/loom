@@ -10,7 +10,7 @@
 
     <ItemGroup>
         <Content Include="..\.editorconfig">
-          <Link>.editorconfig</Link>
+            <Link>.editorconfig</Link>
         </Content>
         <Content Include="..\CLAUDE.md">
             <Link>CLAUDE.md</Link>
@@ -19,22 +19,22 @@
             <Link>AGENTS.md</Link>
         </Content>
         <Content Include="..\CODEOWNERS">
-          <Link>CODEOWNERS</Link>
+            <Link>CODEOWNERS</Link>
         </Content>
         <Content Include="..\CONTRIBUTING.md">
-          <Link>CONTRIBUTING.md</Link>
+            <Link>CONTRIBUTING.md</Link>
         </Content>
         <Content Include="..\qodana.yaml">
-          <Link>qodana.yaml</Link>
+            <Link>qodana.yaml</Link>
         </Content>
         <Content Include="..\README.md">
-          <Link>README.md</Link>
+            <Link>README.md</Link>
         </Content>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Loom.Config\Loom.Config.csproj" />
-      <ProjectReference Include="..\Loom.Luau\Loom.Luau.csproj" />
+        <ProjectReference Include="..\Loom.Config\Loom.Config.csproj"/>
+        <ProjectReference Include="..\Loom.Luau\Loom.Luau.csproj"/>
     </ItemGroup>
 
 </Project>

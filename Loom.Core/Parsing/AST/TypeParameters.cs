@@ -8,6 +8,6 @@ public class TypeParameters(Token leftArrow, Token rightArrow, List<TypeParamete
     public Token LeftArrow { get; } = leftArrow;
     public Token RightArrow { get; } = rightArrow;
     public List<TypeParameter> ParameterList { get; } = parameterList;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitTypeParameters(this);
 }

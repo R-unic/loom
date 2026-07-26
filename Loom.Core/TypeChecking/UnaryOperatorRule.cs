@@ -1,8 +1,9 @@
 using Loom.Core.Text;
+using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Core.TypeChecking;
 
-internal sealed record UnaryOperatorRule(SyntaxKind OperatorKind, Types.Type OperandType, Types.Type? ReturnType = null)
+internal sealed record UnaryOperatorRule(SyntaxKind OperatorKind, Type OperandType, Type? ReturnType = null)
 {
-    public Types.Type ReturnType { get; } = ReturnType ?? OperandType;
+    public Type ReturnType { get; } = ReturnType ?? OperandType;
 }

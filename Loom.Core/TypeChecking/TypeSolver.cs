@@ -15,28 +15,14 @@ namespace Loom.Core.TypeChecking;
 
 public sealed class TypeSolver(DiagnosticBag diagnostics)
 {
-    private sealed record TypeConstraint
-    {
-        public Type Actual { get; }
-        public Type Expected { get; }
-        public LocationSpan Span { get; }
-
-        public TypeConstraint(Type actual, Type expected, LocationSpan span)
-        {
-            ArgumentNullException.ThrowIfNull(actual);
-            ArgumentNullException.ThrowIfNull(expected);
-            Actual = actual;
-            Expected = expected;
-            Span = span;
-        }
-    }
-
-    public DiagnosticBag Diagnostics { get; } = diagnostics;
-
     private readonly List<TypeConstraint> _constraints = [];
     private readonly Dictionary<NodeId, Type> _nodeTypes = [];
     private readonly Dictionary<int, Type> _substitutions = [];
+
+    private readonly HashSet<(Type, Type)> _unifyVisiting = new(ReferencePairComparer.Instance);
     private int _nextVariableId;
+
+    public DiagnosticBag Diagnostics { get; } = diagnostics;
 
     public bool CheckCircular(ref Type type, Token name)
     {
@@ -152,8 +138,6 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         ApplySubstitutions();
         return true;
     }
-    
-    private readonly HashSet<(Type, Type)> _unifyVisiting = new(ReferencePairComparer.Instance);
 
     private bool TryUnify(Type a, Type b, LocationSpan span, out bool updated)
     {
@@ -247,10 +231,8 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             CombineUnify(a.Indexer.ValueType, b.Indexer.ValueType, span, ref success, ref updated);
 
             if (a.Indexer.IsMutable != b.Indexer.IsMutable)
-            {
                 if (!ReportTypeMismatch(a, b, span, $"Indexer types match, but indexer mutability of type '{a}' does not match that of type '{b}'."))
                     success = false;
-            }
         }
         else if (a.Indexer == null && b.Indexer != null)
         {
@@ -322,11 +304,11 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         return success;
     }
 
-    private static bool OccursIn(TypeVariable variable, Type type) =>
-        OccursIn(variable, type, new HashSet<Type>(ReferenceEqualityComparer.Instance));
+    private static bool OccursIn(TypeVariable variable, Type type) => OccursIn(variable, type, new HashSet<Type>(ReferenceEqualityComparer.Instance));
 
     private static bool OccursIn(TypeVariable variable, Type type, HashSet<Type> visited) =>
-        visited.Add(type) && type switch
+        visited.Add(type)
+        && type switch
         {
             TypeVariable tv => tv.Id == variable.Id,
             IndexedType indexedType => OccursIn(variable, indexedType.Target, visited) || OccursIn(variable, indexedType.Index, visited),
@@ -340,7 +322,8 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             FunctionType fn => fn.TypeParameters.Any(p => OccursIn(variable, p, visited))
                 || fn.ParameterTypes.Any(t => OccursIn(variable, t, visited))
                 || OccursIn(variable, fn.ReturnType, visited),
-            TypeParameter tp => tp.Constraint != null && OccursIn(variable, tp.Constraint, visited) || tp.DefaultType != null && OccursIn(variable, tp.DefaultType, visited),
+            TypeParameter tp => tp.Constraint != null && OccursIn(variable, tp.Constraint, visited)
+                || tp.DefaultType != null && OccursIn(variable, tp.DefaultType, visited),
             _ => false
         };
 
@@ -354,7 +337,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
     private static Type SubstituteTypeParameters(Dictionary<TypeParameter, TypeVariable> mapping, Type type) =>
         SubstituteTypeParameters(mapping, type, new Dictionary<Type, Type>(ReferenceEqualityComparer.Instance));
-    
+
     private static Type SubstituteTypeParameters(Dictionary<TypeParameter, TypeVariable> mapping, Type type, Dictionary<Type, Type> visited)
     {
         if (type is TypeParameter typeParameter)
@@ -412,4 +395,20 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
     }
 
     private TypeVariable CreateTypeVariable() => new(Interlocked.Increment(ref _nextVariableId));
+
+    private sealed record TypeConstraint
+    {
+        public TypeConstraint(Type actual, Type expected, LocationSpan span)
+        {
+            ArgumentNullException.ThrowIfNull(actual);
+            ArgumentNullException.ThrowIfNull(expected);
+            Actual = actual;
+            Expected = expected;
+            Span = span;
+        }
+
+        public Type Actual { get; }
+        public Type Expected { get; }
+        public LocationSpan Span { get; }
+    }
 }

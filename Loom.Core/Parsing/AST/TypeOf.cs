@@ -9,6 +9,6 @@ public class TypeOf(Token keyword, Token leftParen, Token rightParen, Expression
     public Token LeftParen { get; } = leftParen;
     public Token RightParen { get; } = rightParen;
     public Expression Expression { get; } = expression;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitTypeOf(this);
 }

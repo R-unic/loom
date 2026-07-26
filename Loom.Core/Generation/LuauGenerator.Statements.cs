@@ -11,8 +11,8 @@ using ExpressionStatement = Loom.Core.Parsing.AST.ExpressionStatement;
 using Return = Loom.Core.Parsing.AST.Return;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
 using BinaryOperator = Loom.Luau.AST.BinaryOperator;
-using Identifier = Loom.Luau.AST.Identifier;
 using PropertyAccess = Loom.Luau.AST.PropertyAccess;
+using TypeAlias = Loom.Luau.AST.TypeAlias;
 using UnaryOperator = Loom.Luau.AST.UnaryOperator;
 
 namespace Loom.Core.Generation;
@@ -40,9 +40,7 @@ public sealed partial class LuauGenerator
         var valueExports = _semanticModel.Exports.FindAll(export => export.EmitsRuntimeBinding);
         if (valueExports.Count > 0)
         {
-            var initializers = valueExports.ConvertAll(TableInitializer (export) =>
-                new PropertyTableInitializer(export.Name, GenerateExportedValue(export))
-            );
+            var initializers = valueExports.ConvertAll(TableInitializer (export) => new PropertyTableInitializer(export.Name, GenerateExportedValue(export)));
 
             statements.Add(new Luau.AST.Return(new Table(initializers)));
         }
@@ -61,7 +59,7 @@ public sealed partial class LuauGenerator
     public override LuauNode VisitReturn(Return @return) => new Luau.AST.Return(MaybeVisit<LuauExpression>(@return.Expression));
     public override LuauNode VisitDeclare(Declare declare) => declare.Signature is InterfaceDeclaration ? Visit(declare.Signature) : new NoOpStatement();
     public override LuauNode VisitExpressionStatement(ExpressionStatement expressionStatement) => WrapExpressionAsStatement(Visit(expressionStatement.Expression));
-    
+
     public override LuauNode VisitImportDeclaration(ImportDeclaration import) => new NoOpStatement();
     public override LuauNode VisitNamespaceImport(NamespaceImport import) => new NoOpStatement();
     public override LuauNode VisitExportList(ExportList export) => new NoOpStatement();
@@ -69,9 +67,9 @@ public sealed partial class LuauGenerator
     public override LuauNode VisitExportDeclaration(ExportDeclaration export)
     {
         var generated = Visit(export.Declaration);
-        if (generated is Luau.AST.TypeAlias typeAlias)
+        if (generated is TypeAlias typeAlias)
             typeAlias.IsExported = true;
-        
+
         return generated;
     }
 

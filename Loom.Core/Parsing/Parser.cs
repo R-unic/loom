@@ -49,7 +49,7 @@ public sealed partial class Parser(LexerResult lexerResult)
         var specifiers = !IsEof() && Current() is { Kind: SyntaxKind.Identifier }
             ? ParseDelimited(ParseImportSpecifier).OfType<ImportSpecifier>().ToList()
             : [];
-        
+
         var rightBrace = Expect(SyntaxKind.RBrace);
         if (specifiers.Count == 0)
             _diagnostics.Error(importKeyword, InternalCodes.EmptyImportClause, "Import declaration must name at least one member.");
@@ -67,7 +67,7 @@ public sealed partial class Parser(LexerResult lexerResult)
             new Literal(pathToken, LiteralUtility.ResolveValue(pathToken))
         );
     }
-    
+
     private Statement ParseNamespaceImport(Token importKeyword, Token star)
     {
         var asKeyword = Expect(SyntaxKind.AsKeyword, "'as' after 'import *'");
@@ -98,13 +98,13 @@ public sealed partial class Parser(LexerResult lexerResult)
     {
         if (AtContextualKeyword(text))
             return Advance();
-        
+
         _diagnostics.Error(
             Current(),
             IsEof() ? InternalCodes.UnexpectedEof : InternalCodes.UnexpectedToken,
             $"Expected '{text}', got {SafeTokenText(IsEof() ? null : Current())}."
         );
-        
+
         return MissingToken(SyntaxKind.Identifier);
     }
 
@@ -225,27 +225,23 @@ public sealed partial class Parser(LexerResult lexerResult)
     {
         if (Current().Kind == kind)
             return Advance();
-        
+
         var current = Current();
         var expected = SyntaxFacts.GetText(kind) ?? kind.ToString();
-        
+
         if (IsEof())
-        {
             _diagnostics.Error(
                 current,
                 InternalCodes.UnexpectedEof,
                 message != null ? message(null) : $"Expected '{expected}', got EOF."
             );
-        }
         else
-        {
             _diagnostics.Error(
                 current,
                 InternalCodes.UnexpectedToken,
                 message != null ? message(current) : $"Expected '{expected}', got {SafeTokenText(current)}."
             );
-        }
-        
+
         return MissingToken(kind);
     }
 
@@ -257,13 +253,12 @@ public sealed partial class Parser(LexerResult lexerResult)
     }
 
     /// <summary>
-    /// Skip tokens until a statement boundary so later syntax can still be parsed.
-    /// Consumes ';' ; leaves '}' and statement keywords for the caller.
+    ///     Skip tokens until a statement boundary so later syntax can still be parsed.
+    ///     Consumes ';' ; leaves '}' and statement keywords for the caller.
     /// </summary>
     private void Synchronize()
     {
         while (!IsEof())
-        {
             switch (Current().Kind)
             {
                 case SyntaxKind.Semicolon:
@@ -278,7 +273,6 @@ public sealed partial class Parser(LexerResult lexerResult)
                     Advance();
                     break;
             }
-        }
     }
 
     private Token MissingToken(SyntaxKind kind)
@@ -293,7 +287,7 @@ public sealed partial class Parser(LexerResult lexerResult)
             text
         );
     }
-    
+
     private int? OffsetAfterBrackets(int startOffset = 0)
     {
         if (PeekKind(startOffset) != SyntaxKind.LBracket)
@@ -301,8 +295,7 @@ public sealed partial class Parser(LexerResult lexerResult)
 
         var depth = 1;
 
-        for (var i = startOffset + 1; ; i++)
-        {
+        for (var i = startOffset + 1;; i++)
             switch (PeekKind(i))
             {
                 case SyntaxKind.LBracket:
@@ -311,19 +304,21 @@ public sealed partial class Parser(LexerResult lexerResult)
                 case SyntaxKind.RBracket:
                     if (--depth == 0)
                         return i;
+
                     break;
                 case SyntaxKind.Eof:
                     return null;
             }
-        }
     }
 
     private Token Current() => lexerResult.Tokens[_position];
+
     private SyntaxKind PeekKind(int offset)
     {
         var index = _position + offset;
         return index >= 0 && index < lexerResult.Tokens.Count ? lexerResult.Tokens[index].Kind : SyntaxKind.Eof;
     }
+
     private bool IsEof() => Current().Kind == SyntaxKind.Eof;
     private static string SafeTokenText(Token? token) => token is { Kind: not SyntaxKind.Eof } ? $"'{token.Text}'" : "EOF";
 }

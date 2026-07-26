@@ -9,6 +9,6 @@ public sealed class ElementAccess(Token leftBracket, Token rightBracket, Express
     public Token RightBracket { get; } = rightBracket;
     public Expression Expression { get; } = expression;
     public Expression IndexExpression { get; } = indexExpression;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitElementAccess(this);
 }

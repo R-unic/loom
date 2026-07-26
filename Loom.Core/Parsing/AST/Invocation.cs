@@ -6,6 +6,6 @@ public class Invocation(Expression expression, TypeArguments? typeArguments, Arg
     public Expression Expression { get; } = expression;
     public TypeArguments? TypeArguments { get; } = typeArguments;
     public Arguments Arguments { get; } = arguments;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitInvocation(this);
 }

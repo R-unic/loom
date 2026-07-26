@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using Loom.Core;
 using Loom.Core.Debug;
 using Loom.Core.Lexing;
@@ -30,7 +31,7 @@ internal static class AstTools
         var tree = parser.Parse().Tree;
         return AstInspector.Inspect(tree);
     }
-    
+
     private static bool GenerateFileSnapshots(string loomFile, string snapshotsDirectory, bool skipUnchanged)
     {
         var astString = GetAstString(loomFile);
@@ -45,7 +46,7 @@ internal static class AstTools
         Console.WriteLine($"Processing: {Path.GetFileName(loomFile)} -> {baseName}.ast");
         try
         {
-            File.WriteAllText(outputFilePath, astString, System.Text.Encoding.UTF8);
+            File.WriteAllText(outputFilePath, astString, Encoding.UTF8);
         }
         catch (Exception ex)
         {

@@ -5,20 +5,6 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class VisitorTraversalTest
 {
-    private sealed class RecordingVisitor() : Visitor<bool>(_ => true)
-    {
-        public List<string> Log { get; } = [];
-
-        public bool Record(Tree tree) => Visit(tree);
-        protected override bool Visit(Node node) => LogAndVisit(node.GetType().Name, () => node.Accept(this));
-
-        private bool LogAndVisit(string name, Func<bool> visitChildren)
-        {
-            Log.Add(name);
-            return visitChildren();
-        }
-    }
-
     private static void AssertVisitOrder(string source, params string[] expectedOrder)
     {
         var tree = Utility.GetAST(source);
@@ -40,7 +26,7 @@ public class VisitorTraversalTest
         var recorder = new RecordingVisitor();
         Assert.True(recorder.Record(Utility.GetAST(source)));
     }
-    
+
     [Fact]
     public void InterfaceInvocation_VisitsTypeArgumentsAndBody() =>
         AssertVisitOrder(
@@ -90,8 +76,7 @@ public class VisitorTraversalTest
         );
 
     [Fact]
-    public void NamespaceImport_DoesNotVisitItsModulePath() =>
-        AssertVisitOrder("import * as math from \"./math\"", "NamespaceImport");
+    public void NamespaceImport_DoesNotVisitItsModulePath() => AssertVisitOrder("import * as math from \"./math\"", "NamespaceImport");
 
     [Fact]
     public void Interface_VisitsConstraintsAndMembers() =>
@@ -121,7 +106,7 @@ public class VisitorTraversalTest
             "ColonTypeClause",
             "PrimitiveType"
         );
-    
+
     [Fact]
     public void KeyOf_VisitsType() =>
         AssertVisitOrder(
@@ -131,7 +116,7 @@ public class VisitorTraversalTest
             "KeyOf",
             "PrimitiveType"
         );
-    
+
     [Fact]
     public void TypeOf_VisitsExpression() =>
         AssertVisitOrder(
@@ -176,7 +161,7 @@ public class VisitorTraversalTest
             "Return",
             "Literal"
         );
-    
+
     [Fact]
     public void ReturnInsideFunction_NoExpression() =>
         AssertVisitOrder(
@@ -197,13 +182,13 @@ public class VisitorTraversalTest
             "ExpressionStatement",
             "Literal"
         );
-    
+
     [Fact]
     public void Break() => AssertVisitOrder("break", "Break");
-    
+
     [Fact]
     public void Continue() => AssertVisitOrder("continue", "Continue");
-    
+
     [Fact]
     public void For_VisitsChildren() =>
         AssertVisitOrder(
@@ -217,7 +202,7 @@ public class VisitorTraversalTest
             "ExpressionStatement",
             "Literal"
         );
-    
+
     [Fact]
     public void After_VisitsChildren() =>
         AssertVisitOrder(
@@ -228,7 +213,7 @@ public class VisitorTraversalTest
             "ExpressionStatement",
             "Literal"
         );
-    
+
     [Fact]
     public void While_VisitsChildren() =>
         AssertVisitOrder(
@@ -435,7 +420,7 @@ public class VisitorTraversalTest
             "Parenthesized",
             "Literal"
         );
-    
+
     [Fact]
     public void NullExpression() =>
         AssertVisitOrder(
@@ -443,7 +428,7 @@ public class VisitorTraversalTest
             "ExpressionStatement",
             "NullExpression"
         );
-    
+
     [Fact]
     public void NullTypeExpression() =>
         AssertVisitOrder(
@@ -452,7 +437,7 @@ public class VisitorTraversalTest
             "EqualsTypeClause",
             "NullTypeExpression"
         );
-    
+
     [Fact]
     public void NullStatement() =>
         AssertVisitOrder(
@@ -522,7 +507,7 @@ public class VisitorTraversalTest
             "PrimitiveType",
             "PrimitiveType"
         );
-    
+
     [Fact]
     public void IndexedType_VisitsTypes() =>
         AssertVisitOrder(
@@ -573,7 +558,7 @@ public class VisitorTraversalTest
             "PrimitiveType",
             "Arguments"
         );
-    
+
     [Fact]
     public void LiteralType_VisitsLiteral() =>
         AssertVisitOrder(
@@ -601,4 +586,19 @@ public class VisitorTraversalTest
             "PropertyAccess",
             "Literal"
         );
+
+    private sealed class RecordingVisitor()
+        : Visitor<bool>(_ => true)
+    {
+        public List<string> Log { get; } = [];
+
+        public bool Record(Tree tree) => Visit(tree);
+        protected override bool Visit(Node node) => LogAndVisit(node.GetType().Name, () => node.Accept(this));
+
+        private bool LogAndVisit(string name, Func<bool> visitChildren)
+        {
+            Log.Add(name);
+            return visitChildren();
+        }
+    }
 }

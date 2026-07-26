@@ -4,12 +4,6 @@ public static class OperatorTrie
 {
     private const int AlphabetSize = 128;
 
-    private sealed class Node
-    {
-        public Node?[]? Children;
-        public SyntaxKind? Kind;
-    }
-
     private static readonly Node _root = new();
 
     static OperatorTrie()
@@ -26,7 +20,7 @@ public static class OperatorTrie
             node.Kind = kind;
         }
     }
-    
+
     public static bool TryMatch(string text, int initialPosition, out SyntaxKind kind, out int length)
     {
         var node = _root;
@@ -58,5 +52,11 @@ public static class OperatorTrie
         kind = default;
         length = 0;
         return false;
+    }
+
+    private sealed class Node
+    {
+        public Node?[]? Children;
+        public SyntaxKind? Kind;
     }
 }

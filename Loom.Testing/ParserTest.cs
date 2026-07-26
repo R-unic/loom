@@ -42,8 +42,18 @@ public class ParserTest
         ),
         new("declare fn foo(a): void", InternalCodes.MissingDeclareFnParameterType, "Parameters must have types in declared function signatures.", null),
         new("declare 123", InternalCodes.ExpectedDeclarationSignature, "Expected declaration signature, got '123'.", null),
-        new("export event Foo()", InternalCodes.ExpectedExportableDeclaration, "Only 'fn', 'let', 'type', 'interface', 'enum', and 'trait' declarations can be exported, got 'event'.", null),
-        new("export 123", InternalCodes.ExpectedExportableDeclaration, "Only 'fn', 'let', 'type', 'interface', 'enum', and 'trait' declarations can be exported, got '123'.", null),
+        new(
+            "export event Foo()",
+            InternalCodes.ExpectedExportableDeclaration,
+            "Only 'fn', 'let', 'type', 'interface', 'enum', and 'trait' declarations can be exported, got 'event'.",
+            null
+        ),
+        new(
+            "export 123",
+            InternalCodes.ExpectedExportableDeclaration,
+            "Only 'fn', 'let', 'type', 'interface', 'enum', and 'trait' declarations can be exported, got '123'.",
+            null
+        ),
         new("import from \"./math\"", InternalCodes.UnexpectedToken, "Expected '{' after 'import', got 'from'.", null),
         new("import { } from \"./math\"", InternalCodes.EmptyImportClause, "Import declaration must name at least one member.", null),
         new("import type { } from \"./math\"", InternalCodes.EmptyImportClause, "Import declaration must name at least one member.", null),
@@ -411,9 +421,7 @@ public class ParserTest
     public void Expect_MissingParen_AtEof_InsertsZeroWidthToken()
     {
         var result = Utility.Parse("let x = foo(");
-        var expectDiagnostic = result.Diagnostics.Find(d =>
-            d is { Code: InternalCodes.UnexpectedEof, Message: "Expected ')', got EOF." }
-        );
+        var expectDiagnostic = result.Diagnostics.Find(d => d is { Code: InternalCodes.UnexpectedEof, Message: "Expected ')', got EOF." });
         Assert.NotNull(expectDiagnostic);
 
         var declaration = Assert.IsType<VariableDeclaration>(Assert.Single(result.Tree.Statements));

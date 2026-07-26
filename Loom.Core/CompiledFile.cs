@@ -27,7 +27,7 @@ public sealed class CompiledFile(SourceFile sourceFile)
         bool debugDiagnostics = true)
     {
         var sb = new StringBuilder();
-        
+
         if (rebuilt)
         {
             appendHeader("Rebuilt program");

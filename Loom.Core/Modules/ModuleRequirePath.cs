@@ -13,12 +13,12 @@ public enum ModuleRequirePathStatus
 }
 
 /// <summary>
-/// How a module is named in the <c>require</c> that pulls it in.
+///     How a module is named in the <c>require</c> that pulls it in.
 /// </summary>
 /// <remarks>
-/// The fallback is the specifier as written. It resolves correctly on its own because the output tree
-/// mirrors the source tree, but only where relative require-by-string is available, so falling back to it
-/// is reported rather than silent.
+///     The fallback is the specifier as written. It resolves correctly on its own because the output tree
+///     mirrors the source tree, but only where relative require-by-string is available, so falling back to it
+///     is reported rather than silent.
 /// </remarks>
 public sealed record ModuleRequirePath(ModuleRequirePathStatus Status, string Path)
 {

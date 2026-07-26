@@ -10,7 +10,7 @@ namespace Loom.Core.TypeChecking;
 public static class TypeSimplifier
 {
     private static readonly ConditionalWeakTable<Type, Type> _simplifyCache = [];
-    
+
     public static Type? GetMemberPropertyType(Type member, string propertyName) =>
         GetMemberType(member, m => m is NativelyIndexableType indexableType ? indexableType.GetProperty(propertyName)?.ValueType : null);
 
@@ -46,8 +46,8 @@ public static class TypeSimplifier
         var mergedInstantiations = CollapseGenericInstantiations(union.Types);
         var flattened = FlattenNestedUnions(mergedInstantiations.ConvertAll(Simplify));
         var collapsed = CollapseBooleanLiterals(flattened);
-        var distinct = RemoveDuplicates(collapsed, isUnion: true);
-        var absorbed = ApplyAbsorption(distinct, isUnion: true);
+        var distinct = RemoveDuplicates(collapsed, true);
+        var absorbed = ApplyAbsorption(distinct, true);
         if (!absorbed.Any(Type.IsNone))
             return absorbed.Count switch
             {
@@ -64,7 +64,7 @@ public static class TypeSimplifier
             _ => new OptionalType(SimplifyUnion(new UnionType(nonNullable)))
         };
     }
-    
+
     private static List<Type> CollapseBooleanLiterals(List<Type> types)
     {
         var hasTrue = types.Any(t => t is LiteralType { Value: true });
@@ -84,7 +84,7 @@ public static class TypeSimplifier
     private static Type SimplifyIntersection(IntersectionType intersection)
     {
         var flattened = FlattenNestedIntersections(intersection.Types.ConvertAll(Simplify));
-        var distinct = RemoveDuplicates(flattened, isUnion: false);
+        var distinct = RemoveDuplicates(flattened, false);
 
         if (distinct.Count == 0 || distinct.Any(Type.IsNever))
             return PrimitiveType.Never;
@@ -95,7 +95,7 @@ public static class TypeSimplifier
         if (distinct.Any(t => t is UnionType))
             return Simplify(DistributeIntersection(distinct));
 
-        var absorbed = ApplyAbsorption(distinct, isUnion: false);
+        var absorbed = ApplyAbsorption(distinct, false);
         if (absorbed.Count > 1 && absorbed.All(t => t is PrimitiveType))
             return PrimitiveType.Never;
 
@@ -111,7 +111,6 @@ public static class TypeSimplifier
         foreach (var objectType in objectTypes)
         {
             foreach (var property in objectType.Properties)
-            {
                 if (propertyDictionary.TryGetValue(property.Name, out var existing))
                 {
                     var valueType = Simplify(new IntersectionType([existing.ValueType, property.ValueType]));
@@ -122,7 +121,6 @@ public static class TypeSimplifier
                 {
                     propertyDictionary[property.Name] = property;
                 }
-            }
 
             if (objectType.Indexer == null) continue;
             if (mergedIndexer == null)
@@ -239,12 +237,12 @@ public static class TypeSimplifier
             .ToList();
 
     /// <summary>
-    /// Collapses sibling union members that are instantiations of the same generic interface/trait/
-    /// alias into a single instantiation, combining each type-argument position per that parameter's
-    /// variance (union for covariant, intersection for contravariant). Invariant positions block the
-    /// collapse for that group unless every member already agrees on the argument. Must run before
-    /// each member is individually Simplify()'d, since that eagerly expands InstantiatedType into its
-    /// structural form and loses the shared generic identity this relies on.
+    ///     Collapses sibling union members that are instantiations of the same generic interface/trait/
+    ///     alias into a single instantiation, combining each type-argument position per that parameter's
+    ///     variance (union for covariant, intersection for contravariant). Invariant positions block the
+    ///     collapse for that group unless every member already agrees on the argument. Must run before
+    ///     each member is individually Simplify()'d, since that eagerly expands InstantiatedType into its
+    ///     structural form and loses the shared generic identity this relies on.
     /// </summary>
     private static List<Type> CollapseGenericInstantiations(List<Type> types)
     {
@@ -296,7 +294,7 @@ public static class TypeSimplifier
                     newArguments.Add(Simplify(new IntersectionType(argumentsAtIndex)));
                     break;
                 default:
-                    var distinct = RemoveDuplicates(argumentsAtIndex, isUnion: false);
+                    var distinct = RemoveDuplicates(argumentsAtIndex, false);
                     if (distinct.Count != 1)
                         return false;
 

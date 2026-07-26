@@ -8,6 +8,6 @@ public class InterfaceBody(Token leftBrace, Token rightBrace, List<Statement> me
     public Token LeftBrace { get; } = leftBrace;
     public Token RightBrace { get; } = rightBrace;
     public List<Statement> Members { get; } = members;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitInterfaceBody(this);
 }

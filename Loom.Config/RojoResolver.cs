@@ -5,9 +5,9 @@ public sealed class RojoResolver
     public const string ProjectFileName = "default.project.json";
     public const string RuntimeFileName = "loom_runtime.luau";
     private static readonly string[] _luauSuffixes = [".server.luau", ".client.luau", ".luau"];
+    private readonly RojoProject _project;
 
     private readonly string _projectDirectory;
-    private readonly RojoProject _project;
 
     private RojoResolver(string projectDirectory, RojoProject project)
     {
@@ -26,7 +26,7 @@ public sealed class RojoResolver
     }
 
     public IReadOnlyList<string>? ResolveRuntimePath() => FindFile(_project.Tree, [], RuntimeFileName);
-    
+
     public IReadOnlyList<string>? ResolvePath(string filePath) => FindPath(_project.Tree, [], Path.GetFullPath(filePath));
 
     private IReadOnlyList<string>? FindPath(RojoNode node, IReadOnlyList<string> segments, string filePath)
@@ -42,7 +42,7 @@ public sealed class RojoResolver
             return null;
 
         var mapped = Path.GetFullPath(Path.Combine(_projectDirectory, node.Path));
-        
+
         if (mapped == filePath)
             return segments;
 
@@ -95,7 +95,6 @@ public sealed class RojoResolver
     private static IEnumerable<string> ToInstanceSegments(IReadOnlyList<string> parts)
     {
         for (var i = 0; i < parts.Count; i++)
-        {
             if (i < parts.Count - 1)
             {
                 yield return parts[i];
@@ -106,7 +105,6 @@ public sealed class RojoResolver
                 if (name != "init")
                     yield return name;
             }
-        }
     }
 
     private static string StripLuauSuffix(string fileName)

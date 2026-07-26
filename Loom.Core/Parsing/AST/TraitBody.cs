@@ -8,6 +8,6 @@ public sealed class TraitBody(Token leftBrace, Token rightBrace, List<DeclareFun
     public Token LeftBrace { get; } = leftBrace;
     public Token RightBrace { get; } = rightBrace;
     public List<DeclareFunctionSignature> Members { get; } = members;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitTraitBody(this);
 }

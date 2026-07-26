@@ -6,6 +6,6 @@ public sealed class InjectedPropertyVariableSymbol(Implement implement, string n
     : Symbol(implement, SymbolKind.InjectedPropertyVariable, name, isMutable)
 {
     public InterfaceSymbol From { get; } = from;
-    
+
     public override string ToString() => $"InjectedPropertyVariableSymbol({Name}, From: {From})";
 }

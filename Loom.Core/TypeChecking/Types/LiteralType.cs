@@ -3,15 +3,6 @@ namespace Loom.Core.TypeChecking.Types;
 public sealed class LiteralType(object? value)
     : PrimitiveType(GetPrimitiveKind(value))
 {
-    private static PrimitiveTypeKind GetPrimitiveKind(object? value) =>
-        value switch
-        {
-            long or int or double => PrimitiveTypeKind.Number,
-            string => PrimitiveTypeKind.String,
-            bool => PrimitiveTypeKind.Bool,
-            _ => PrimitiveTypeKind.None
-        };
-
     public object? Value { get; } = value switch
     {
         long or int or double => value,
@@ -20,6 +11,15 @@ public sealed class LiteralType(object? value)
         null => value,
         _ => throw new ArgumentException($"Unsupported literal type: {value.GetType()}")
     };
+
+    private static PrimitiveTypeKind GetPrimitiveKind(object? value) =>
+        value switch
+        {
+            long or int or double => PrimitiveTypeKind.Number,
+            string => PrimitiveTypeKind.String,
+            bool => PrimitiveTypeKind.Bool,
+            _ => PrimitiveTypeKind.None
+        };
 
     public override int GetHashCode() => HashCode.Combine(typeof(LiteralType), Kind, Value);
     public override bool Equals(Type? other) => other is LiteralType literal && (Value?.Equals(literal.Value) ?? literal.Value == null);

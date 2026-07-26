@@ -5,8 +5,7 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class ImportGeneratorTest
 {
-    private const string MathModule =
-        """
+    private const string MathModule = """
         export let pi = 3;
         export fn square(x: number): number -> x * x;
         export type Scalar = number;
@@ -132,10 +131,7 @@ public class ImportGeneratorTest
     [Fact]
     public void Requires_ADirectoryModule_ByItsFolderName() =>
         Utility.WithTempProject(
-            [
-                ("main.loom", "import { helper } from \"./util\"\nprint(helper);"),
-                (Path.Combine("util", "init.loom"), "export let helper = 2;")
-            ],
+            [("main.loom", "import { helper } from \"./util\"\nprint(helper);"), (Path.Combine("util", "init.loom"), "export let helper = 2;")],
             (_, result) => AssertRendered(
                 result,
                 """

@@ -3,9 +3,7 @@ using Loom.Core.Generation.Macros.Providers;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Core.TypeChecking;
-using Loom.Core.TypeChecking.Types;
 using Type = Loom.Core.TypeChecking.Types.Type;
-using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
 namespace Loom.Core.Generation.Macros;
 

@@ -1,3 +1,4 @@
+using Loom.Core;
 using Loom.Core.Diagnostics;
 
 namespace Loom.Testing;
@@ -5,8 +6,7 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class ModuleRequirePathTest
 {
-    private const string OutputMappedProject =
-        """
+    private const string OutputMappedProject = """
         {
           "tree": {
             "$className": "DataModel",
@@ -17,8 +17,7 @@ public class ModuleRequirePathTest
         }
         """;
 
-    private const string OutputUnmappedProject =
-        """
+    private const string OutputUnmappedProject = """
         {
           "tree": {
             "$className": "DataModel",
@@ -28,6 +27,11 @@ public class ModuleRequirePathTest
           }
         }
         """;
+
+    private static (string Path, string Source)[] MathAndMain =>
+    [
+        ("main.loom", "import { square } from \"./math\"\nprint(square(2));"), ("math.loom", "export fn square(x: number): number -> x * x;")
+    ];
 
     [Fact]
     public void Requires_ByInstancePath_WhenRojoMapsTheOutput() =>
@@ -43,10 +47,7 @@ public class ModuleRequirePathTest
     [Fact]
     public void Requires_ADirectoryModule_ByItsFoldersInstancePath() =>
         Utility.WithTempProject(
-            [
-                ("main.loom", "import { helper } from \"./util\"\nprint(helper);"),
-                (Path.Combine("util", "init.loom"), "export let helper = 1;")
-            ],
+            [("main.loom", "import { helper } from \"./util\"\nprint(helper);"), (Path.Combine("util", "init.loom"), "export let helper = 1;")],
             (_, result) =>
             {
                 Utility.AssertNoErrors(result);
@@ -85,12 +86,6 @@ public class ModuleRequirePathTest
             }
         );
 
-    private static (string Path, string Source)[] MathAndMain =>
-    [
-        ("main.loom", "import { square } from \"./math\"\nprint(square(2));"),
-        ("math.loom", "export fn square(x: number): number -> x * x;")
-    ];
-
     private static void AssertMainRequires(string rojoProject, string expected) =>
         Utility.WithTempProject(
             MathAndMain,
@@ -105,6 +100,5 @@ public class ModuleRequirePathTest
             rojoProject
         );
 
-    private static string MainOutput(Loom.Core.CompilationResult result) =>
-        result.Files.Single(file => file.SourceFile.Name == "main.loom").RenderedLuau;
+    private static string MainOutput(CompilationResult result) => result.Files.Single(file => file.SourceFile.Name == "main.loom").RenderedLuau;
 }

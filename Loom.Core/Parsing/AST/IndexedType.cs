@@ -9,6 +9,6 @@ public class IndexedType(Token leftBracket, Token rightBracket, TypeExpression t
     public Token RightBracket { get; } = rightBracket;
     public TypeExpression TargetType { get; } = targetType;
     public TypeExpression IndexType { get; } = indexType;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitIndexedType(this);
 }

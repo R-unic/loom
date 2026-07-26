@@ -13,21 +13,21 @@ public sealed record ObjectProperty(bool IsMutable, string Name, Type ValueType)
 public class ObjectType(ObjectIndexer? indexer, List<ObjectProperty> properties) : NativelyIndexableType
 {
     public static readonly ObjectType Empty = new(null, []);
+    private int _cachedHash;
+    private int _hashVersion = -1;
+
+    private int _propertyMapVersion = -1;
 
     public override ObjectIndexer? Indexer { get; internal set; } = indexer;
     public override List<ObjectProperty> Properties { get; } = properties;
 
     /// <summary>
-    /// Bumped whenever <see cref="Properties"/> is mutated via <see cref="AddProperties"/>, since
-    /// <see cref="Properties"/> is populated incrementally during interface/trait resolution rather
-    /// than fully at construction time. Cached derived structures (property map, hash) are keyed on
-    /// this so they never observe a stale, partially-populated property list.
+    ///     Bumped whenever <see cref="Properties" /> is mutated via <see cref="AddProperties" />, since
+    ///     <see cref="Properties" /> is populated incrementally during interface/trait resolution rather
+    ///     than fully at construction time. Cached derived structures (property map, hash) are keyed on
+    ///     this so they never observe a stale, partially-populated property list.
     /// </summary>
     public int Version { get; private set; } = properties.Count;
-
-    private int _propertyMapVersion = -1;
-    private int _hashVersion = -1;
-    private int _cachedHash;
 
     private Dictionary<string, ObjectProperty> PropertyMap
     {
@@ -181,17 +181,13 @@ public class ObjectType(ObjectIndexer? indexer, List<ObjectProperty> properties)
                     if (!Indexer.IsMutable && objectType.Indexer.IsMutable
                         || !Indexer.KeyType.Equals(objectType.Indexer.KeyType)
                         || !Indexer.ValueType.Equals(objectType.Indexer.ValueType))
-                    {
                         return false;
-                    }
                 }
                 else
                 {
                     if (!Indexer.KeyType.IsAssignableTo(objectType.Indexer.KeyType)
                         || !Indexer.ValueType.IsAssignableTo(objectType.Indexer.ValueType))
-                    {
                         return false;
-                    }
                 }
 
                 return true;

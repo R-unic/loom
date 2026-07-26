@@ -36,6 +36,7 @@ public class TextSpanTest
         var c = new TextSpan(1, 3);
         Assert.True(a.Equals(b));
         Assert.False(a.Equals(c));
+
         // ReSharper disable once SuspiciousTypeConversion.Global
         Assert.False(a.Equals("not a span"));
         Assert.True(a.Equals((object)b));

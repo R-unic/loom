@@ -1,6 +1,7 @@
 namespace Loom.Luau.AST;
 
-public class StringLiteral(string value) : LuauLiteral<string>(value)
+public class StringLiteral(string value)
+    : LuauLiteral<string>(value)
 {
     public override string Render(RenderState state)
     {
@@ -9,6 +10,7 @@ public class StringLiteral(string value) : LuauLiteral<string>(value)
             return RenderState.StringDelimiter + RenderState.Escape(Value) + RenderState.StringDelimiter;
 
         var equals = GetSafeBracketEquals();
+
         // Luau long-bracket strings swallow a single newline immediately after the
         // opening bracket, so a value starting with '\n' would lose it. Emit an extra
         // leading newline to preserve it.

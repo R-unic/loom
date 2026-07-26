@@ -7,6 +7,6 @@ public class ExpressionBody(Token arrow, Expression expression)
 {
     public Token Arrow { get; } = arrow;
     public Expression Expression { get; } = expression;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitExpressionBody(this);
 }

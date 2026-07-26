@@ -43,7 +43,6 @@ internal partial class ReflectionMetadataReader
 
         var index = new Dictionary<string, XElement>();
         if (_classesByName.TryGetValue(className, out var classItem))
-        {
             foreach (var container in classItem.Elements("Item"))
             {
                 var containerClass = (string?)container.Attribute("class");
@@ -60,7 +59,6 @@ internal partial class ReflectionMetadataReader
                     index.TryAdd(name, memberItem);
                 }
             }
-        }
 
         _memberIndexCache[cacheKey] = index;
         return index;

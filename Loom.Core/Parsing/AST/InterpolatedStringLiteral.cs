@@ -12,8 +12,7 @@ public class InterpolatedStringLiteral(Token startToken, List<InterpolationPart>
 
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitInterpolatedStringLiteral(this);
 
-    private static IEnumerable<Expression> Holes(List<InterpolationPart> parts) =>
-        parts.OfType<InterpolationHolePart>().Select(p => p.Expression);
+    private static IEnumerable<Expression> Holes(List<InterpolationPart> parts) => parts.OfType<InterpolationHolePart>().Select(p => p.Expression);
 
     private static IEnumerable<Token?> PartTokens(InterpolationPart part) =>
         part switch

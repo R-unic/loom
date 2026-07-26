@@ -17,7 +17,6 @@ public sealed partial class Parser
     {
         var type = ParseUnaryType();
         while (true)
-        {
             if (Match(out var leftBracket, SyntaxKind.LBracket))
             {
                 if (Match(out var immediateRightBracket, SyntaxKind.RBracket))
@@ -45,7 +44,6 @@ public sealed partial class Parser
             {
                 break;
             }
-        }
 
         return type;
     }
@@ -67,7 +65,7 @@ public sealed partial class Parser
             var rightParen = Expect(SyntaxKind.RParen);
             return new TypeOf(typeOfKeyword, leftParen, rightParen, expression);
         }
-        
+
         return ParsePrimaryType();
     }
 
@@ -95,7 +93,12 @@ public sealed partial class Parser
         var typeParameters = ParseTypeParameters();
         var parameters = ParseParameters();
         var returnType = ParseColonTypeClause();
-        if (!ValidateFunctionSignature("function types", parameters?.LocationSpan ?? typeParameters?.LocationSpan ?? fnKeyword.GetLocation(), returnType, parameters))
+        if (!ValidateFunctionSignature(
+                "function types",
+                parameters?.LocationSpan ?? typeParameters?.LocationSpan ?? fnKeyword.GetLocation(),
+                returnType,
+                parameters
+            ))
             return new NullTypeExpression(fnKeyword);
 
         return new FunctionType(fnKeyword, typeParameters, parameters, returnType);

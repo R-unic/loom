@@ -8,6 +8,6 @@ public class As(Token keyword, Expression expression, TypeExpression type)
     public Token Keyword { get; } = keyword;
     public Expression Expression { get; } = expression;
     public TypeExpression Type { get; } = type;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitAs(this);
 }

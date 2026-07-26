@@ -4,6 +4,7 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
+using LiteralType = Loom.Core.TypeChecking.Types.LiteralType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Core.Resolving;
@@ -11,10 +12,11 @@ namespace Loom.Core.Resolving;
 public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolTable Declarations, SymbolTable References)
     : DiagnosedResult(Diagnostics)
 {
+    internal int RuntimeReferences = 0;
     public List<ExportBinding> Exports { get; } = [];
 
     private Dictionary<string, List<ExportBinding>> ExportsByName { get; } = [];
-    
+
     public List<ImportBinding> ImportBindings { get; } = [];
 
     private HashSet<Symbol> ImportedSymbols { get; } = [];
@@ -31,15 +33,16 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         );
 
     /// <summary>
-    /// Node IDs of reference-site nodes that originate from a non-intrinsic source file.
-    /// Populated by the resolver as references are recorded, so
-    /// <see cref="MustImportRuntimeLibrary"/> can filter references by the file of the
-    /// referencing node without holding on to the node instances themselves.
+    ///     Node IDs of reference-site nodes that originate from a non-intrinsic source file.
+    ///     Populated by the resolver as references are recorded, so
+    ///     <see cref="MustImportRuntimeLibrary" /> can filter references by the file of the
+    ///     referencing node without holding on to the node instances themselves.
     /// </summary>
     internal HashSet<NodeId> NonIntrinsicReferenceNodes { get; } = [];
-    internal int RuntimeReferences = 0;
     internal TypeSolver TypeSolver { get; } = new(new DiagnosticBag());
     private SymbolLookup DeclarationsByName => field ??= Declarations.Values.SelectMany(s => s).GroupBy(s => s.Name).ToDictionary(g => g.Key, g => g.ToList());
+
+    public List<NamespaceImportBinding> NamespaceImports { get; } = [];
 
     internal void AddExport(ExportBinding binding)
     {
@@ -49,10 +52,8 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
 
         bindings.Add(binding);
     }
-    
+
     public List<ExportBinding> FindExports(string name) => ExportsByName.GetValueOrDefault(name, []);
-    
-    public List<NamespaceImportBinding> NamespaceImports { get; } = [];
 
     internal void AddImportBinding(ImportBinding binding)
     {
@@ -67,12 +68,12 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
     }
 
     /// <summary>
-    /// Whether the symbol was declared by another module and brought in by an import. Its declaration
-    /// belongs to a tree this model never walked, so anything reasoning about the declaration's position —
-    /// flow analysis in particular — has to treat it as coming from outside.
+    ///     Whether the symbol was declared by another module and brought in by an import. Its declaration
+    ///     belongs to a tree this model never walked, so anything reasoning about the declaration's position —
+    ///     flow analysis in particular — has to treat it as coming from outside.
     /// </summary>
     public bool IsImported(Symbol symbol) => ImportedSymbols.Contains(symbol);
-    
+
     internal void MarkImportUsed(Symbol symbol)
     {
         if (!ImportedSymbols.Contains(symbol))
@@ -95,9 +96,9 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         expression switch
         {
             QualifiedName qn when GetType(qn.Identifier) is ObjectType objectType
-                && objectType.GetProperty(qn.Names.First().Name.Text) is { ValueType: TypeChecking.Types.LiteralType literalType } =>
+                && objectType.GetProperty(qn.Names.First().Name.Text) is { ValueType: LiteralType literalType } =>
                 literalType.Value,
-            _ when GetType(expression) is TypeChecking.Types.LiteralType literalType => literalType.Value,
+            _ when GetType(expression) is LiteralType literalType => literalType.Value,
             _ => null
         };
 

@@ -1,11 +1,9 @@
 const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
-const _abc_connections = {}
 const abc: Loom.Event = Loom.Event.new()
 const function handler(): ()
   print("handled")
 end
-_abc_connections[handler] = abc:Connect(handler)
-const my_conn = _abc_connections[handler]
+const my_conn = abc:Connect(handler)
 my_conn:Disconnect()
-_abc_connections[handler] = abc:Connect(handler)
-_abc_connections[handler]:Disconnect()
+const handler_conn = abc:Connect(handler)
+handler_conn:Disconnect()

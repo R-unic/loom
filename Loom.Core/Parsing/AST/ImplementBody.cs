@@ -8,6 +8,6 @@ public sealed class ImplementBody(Token leftBrace, Token rightBrace, List<Functi
     public Token LeftBrace { get; } = leftBrace;
     public Token RightBrace { get; } = rightBrace;
     public List<FunctionDeclaration> Implementations { get; } = implementations;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitImplementBody(this);
 }

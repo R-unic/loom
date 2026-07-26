@@ -11,8 +11,7 @@ public static class LexerRules
 {
     private static readonly (LexerRule Rule, IReadOnlyList<char> LeadChars)[] _regexRuleSpecs =
     [
-        (RegEx(BlockComment, @"#:[\s\S]*?:#"), ['#']),
-        (RegEx(Comment, @"##[^\n]*"), ['#'])
+        (RegEx(BlockComment, @"#:[\s\S]*?:#"), ['#']), (RegEx(Comment, @"##[^\n]*"), ['#'])
     ];
 
     public static readonly IReadOnlyDictionary<char, (LexerRule Rule, Regex CompiledRegex)[]> RegexRulesByFirstCharacter = _regexRuleSpecs

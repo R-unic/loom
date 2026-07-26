@@ -7,6 +7,6 @@ public class Return(Token keyword, Expression? expression)
 {
     public Token Keyword { get; } = keyword;
     public Expression? Expression { get; } = expression;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitReturn(this);
 }

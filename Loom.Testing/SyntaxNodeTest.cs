@@ -8,8 +8,8 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class SyntaxNodeTest
 {
-    private static Token T(string text, int start, int length, SyntaxKind kind = SyntaxKind.Identifier)
-        => new(kind, new LocationSpan(new Location(SourceFile.Empty, start), length), text);
+    private static Token T(string text, int start, int length, SyntaxKind kind = SyntaxKind.Identifier) =>
+        new(kind, new LocationSpan(new Location(SourceFile.Empty, start), length), text);
 
     [Fact]
     public void Node_Id_IsAssigned_AndIncrements()
@@ -61,7 +61,7 @@ public class SyntaxNodeTest
         Assert.Equal(1, ident.LocationSpan.Start.Line);
         Assert.Equal(0, ident.LocationSpan.End.Position);
     }
-    
+
     [Fact]
     public void GetDescendants_ReturnsChildrenAndGrandchildren()
     {
@@ -104,7 +104,7 @@ public class SyntaxNodeTest
         Assert.Single(identifiers);
         Assert.Contains(retExpr, identifiers);
     }
-    
+
     [Fact]
     public void IsDescendantOf()
     {
@@ -140,7 +140,7 @@ public class SyntaxNodeTest
         Assert.Same(ifStmt, found);
 
         var foundRoot = lit.FirstAncestorOfType<Block>();
-        Assert.Same(ifBody, foundRoot); 
+        Assert.Same(ifBody, foundRoot);
     }
 
     [Fact]

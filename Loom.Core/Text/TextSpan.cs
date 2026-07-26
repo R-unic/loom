@@ -1,10 +1,10 @@
 namespace Loom.Core.Text;
 
 /// <summary>
-/// A lightweight span over source text: just a start position and a length.
-/// Carries no file reference and computes no line/character info, so it is cheap
-/// to produce for every token. Convert to <see cref="LocationSpan"/> (via
-/// <see cref="Token.GetLocation"/>) only when a diagnostic needs line/character detail.
+///     A lightweight span over source text: just a start position and a length.
+///     Carries no file reference and computes no line/character info, so it is cheap
+///     to produce for every token. Convert to <see cref="LocationSpan" /> (via
+///     <see cref="Token.GetLocation" />) only when a diagnostic needs line/character detail.
 /// </summary>
 public readonly struct TextSpan(int position, int length) : IEquatable<TextSpan>
 {

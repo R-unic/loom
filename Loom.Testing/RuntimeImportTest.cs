@@ -11,12 +11,12 @@ public sealed class RuntimeImportTest : IDisposable
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "loom_runtime_import_test_" + Guid.NewGuid().ToString("N"));
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose() => Directory.Delete(_root, true);
 
     [Fact]
     public void Maps_To_Resolved_When_Rojo_Contains_Runtime()
     {
-        var dir = ProjectDir("resolved", rojo: RojoMapping("packages", "include"), withRuntime: true);
+        var dir = ProjectDir("resolved", RojoMapping("packages", "include"), true);
         var unit = new CompilationUnit(new LoomConfig { ProjectDirectory = dir });
 
         Assert.Equal(RuntimeImportStatus.Resolved, unit.RuntimeImport.Status);
@@ -26,7 +26,7 @@ public sealed class RuntimeImportTest : IDisposable
     [Fact]
     public void Maps_To_NotFoundInRojo_When_Runtime_Absent()
     {
-        var dir = ProjectDir("not_found", rojo: RojoMapping("packages", "include"), withRuntime: false);
+        var dir = ProjectDir("not_found", RojoMapping("packages", "include"), false);
         var unit = new CompilationUnit(new LoomConfig { ProjectDirectory = dir });
 
         Assert.Equal(RuntimeImportStatus.NotFoundInRojo, unit.RuntimeImport.Status);
@@ -36,7 +36,7 @@ public sealed class RuntimeImportTest : IDisposable
     [Fact]
     public void Maps_To_RojoMissing_Without_Project_File()
     {
-        var dir = ProjectDir("missing", rojo: null, withRuntime: false);
+        var dir = ProjectDir("missing", null, false);
         var unit = new CompilationUnit(new LoomConfig { ProjectDirectory = dir });
 
         Assert.Equal(RuntimeImportStatus.RojoMissing, unit.RuntimeImport.Status);
@@ -46,7 +46,7 @@ public sealed class RuntimeImportTest : IDisposable
     [Fact]
     public void Emits_Resolved_Require_Path_In_Output()
     {
-        var result = CompileProject(rojo: RojoMapping("packages", "include"), withRuntime: true);
+        var result = CompileProject(RojoMapping("packages", "include"), true);
         Assert.DoesNotContain(result.Diagnostics.Set, d => d.Code == InternalCodes.RuntimeLibraryNotFound);
         Assert.Contains("require(\"@game/ReplicatedStorage/packages/loom_runtime\")", ConcreteOutput(result));
     }
@@ -54,7 +54,7 @@ public sealed class RuntimeImportTest : IDisposable
     [Fact]
     public void Warns_And_Falls_Back_When_Runtime_Not_Found_In_Rojo()
     {
-        var result = CompileProject(rojo: RojoMapping("packages", "include"), withRuntime: false);
+        var result = CompileProject(RojoMapping("packages", "include"), false);
 
         var warning = Assert.Single(result.Diagnostics.Set, d => d.Code == InternalCodes.RuntimeLibraryNotFound);
         Assert.Equal(DiagnosticSeverity.Warn, warning.Severity);
@@ -74,21 +74,20 @@ public sealed class RuntimeImportTest : IDisposable
         return new CompilationUnit(config).Compile();
     }
 
-    private static string ConcreteOutput(CompilationResult result) =>
-        Assert.Single(result.Files, f => !f.SourceFile.IsDeclaration).RenderedLuau;
+    private static string ConcreteOutput(CompilationResult result) => Assert.Single(result.Files, f => !f.SourceFile.IsDeclaration).RenderedLuau;
 
     // Maps a runtime-containing folder ($path "include") at ReplicatedStorage.<instanceName>.
     private static string RojoMapping(string instanceName, string path) =>
         $$"""
-          {
-            "tree": {
-              "$className": "DataModel",
-              "ReplicatedStorage": {
-                "{{instanceName}}": { "$path": "{{path}}" }
-              }
+        {
+          "tree": {
+            "$className": "DataModel",
+            "ReplicatedStorage": {
+              "{{instanceName}}": { "$path": "{{path}}" }
             }
           }
-          """;
+        }
+        """;
 
     private string ProjectDir(string name, string? rojo, bool withRuntime)
     {
@@ -96,6 +95,7 @@ public sealed class RuntimeImportTest : IDisposable
         Directory.CreateDirectory(dir);
         if (rojo != null)
             Write(dir, RojoResolver.ProjectFileName, rojo);
+
         if (withRuntime)
             Write(dir, Path.Combine("include", RojoResolver.RuntimeFileName), "return {}");
 

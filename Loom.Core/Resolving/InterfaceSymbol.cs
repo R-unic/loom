@@ -15,11 +15,11 @@ public sealed class InterfaceSymbol(InterfaceDeclaration declaration, string nam
     {
         if (path.Count == 0)
             return null;
-        
+
         var firstName = path[0];
         var property = Properties.FirstOrDefault(p => p.Name == firstName)
             ?? GetConstraintProperties().FirstOrDefault(p => p.Name == firstName);
-        
+
         return property is { PointsTo: { } pointsTo } && path.Count > 1
             ? pointsTo.GetPropertyAtPath(path.Skip(1).ToArray())
             : property;
@@ -28,6 +28,5 @@ public sealed class InterfaceSymbol(InterfaceDeclaration declaration, string nam
     public override string ToString() =>
         $"InterfaceSymbol({Name}, IsSealed: {IsSealed}, Properties: [{string.Join(", ", Properties.Select(s => s.Name))}] Implements: [{string.Join(", ", Implements.Select(s => s.Name))}], Constraints: [{string.Join(", ", Constraints?.Select(s => s.Name) ?? [])}])";
 
-    private PropertySymbol[] GetConstraintProperties() =>
-        Constraints?.SelectMany(c => c.Properties.Concat(c.GetConstraintProperties())).ToArray() ?? [];
+    private PropertySymbol[] GetConstraintProperties() => Constraints?.SelectMany(c => c.Properties.Concat(c.GetConstraintProperties())).ToArray() ?? [];
 }

@@ -7,6 +7,16 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class ResolverTest
 {
+    [Fact]
+    public void WarnsFor_UseExpressionBody()
+    {
+        var diagnostics = Utility.GetSemanticModel("fn abc() { return 1; }").Diagnostics;
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.RedundantCode, "Use expression body.");
+    }
+
+    [Fact]
+    public void TracksInitialization_ThroughNestedBlocks() => Utility.AssertNoErrors(Utility.GetSemanticModel("mut x: number; { x = 42; } x;"));
+
     #region ThrowsFor
     [Fact]
     public void ThrowsFor_UninitializedConst()
@@ -154,9 +164,7 @@ public class ResolverTest
         var model = Utility.GetSemanticModel("""let x = 1; $"{x}";""");
         Utility.AssertNoErrors(model.Diagnostics);
 
-        var interpolated = Assert.IsType<InterpolatedStringLiteral>(
-            Assert.IsType<ExpressionStatement>(model.Tree.Statements[1]).Expression
-        );
+        var interpolated = Assert.IsType<InterpolatedStringLiteral>(Assert.IsType<ExpressionStatement>(model.Tree.Statements[1]).Expression);
         var identifier = Assert.IsType<Identifier>(Assert.IsType<InterpolationHolePart>(interpolated.Parts[0]).Expression);
         Assert.NotNull(model.GetSymbol(identifier));
     }
@@ -389,7 +397,7 @@ public class ResolverTest
     [Fact]
     public void ThrowsFor_RuntimeStatement_InDeclarationFile()
     {
-        var diagnostics = Utility.GetSemanticModel("let x = 1;", isDeclaration: true).Diagnostics;
+        var diagnostics = Utility.GetSemanticModel("let x = 1;", true).Diagnostics;
         Utility.AssertDiagnostic(diagnostics, InternalCodes.RuntimeInDeclarationFile, "Only type-level declarations are allowed in declaration files.");
     }
 
@@ -506,7 +514,7 @@ public class ResolverTest
 
         Utility.AssertDiagnostic(diagnostics, InternalCodes.MissingImplementation, "Implementation of trait 'Foo' on interface 'Bar' is missing method 'b'");
     }
-    
+
     [Fact]
     public void ThrowsFor_IntrinsicImplementation()
     {
@@ -588,13 +596,6 @@ public class ResolverTest
     }
     #endregion ThrowsFor
 
-    [Fact]
-    public void WarnsFor_UseExpressionBody()
-    {
-        var diagnostics = Utility.GetSemanticModel("fn abc() { return 1; }").Diagnostics;
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.RedundantCode, "Use expression body.");
-    }
-
     #region Resolves
     [Fact]
     public void Resolves_ExportedDeclarations()
@@ -626,16 +627,28 @@ public class ResolverTest
         // interfaces and enums declare a value symbol as well as a type symbol, and both are exported so
         // that an importer can use the name in either namespace
         Assert.Equal(
-            ["Alias", "Point", "Point", "Handle", "Handle", "Direction", "Direction", "Drawable"],
+            [
+                "Alias",
+                "Point",
+                "Point",
+                "Handle",
+                "Handle",
+                "Direction",
+                "Direction",
+                "Drawable"
+            ],
             model.Exports.Select(s => s.Name)
         );
 
         Assert.Equal(
             [
                 SymbolKind.Type,
-                SymbolKind.Variable, SymbolKind.Interface,
-                SymbolKind.Variable, SymbolKind.Interface,
-                SymbolKind.Variable, SymbolKind.EnumType,
+                SymbolKind.Variable,
+                SymbolKind.Interface,
+                SymbolKind.Variable,
+                SymbolKind.Interface,
+                SymbolKind.Variable,
+                SymbolKind.EnumType,
                 SymbolKind.Trait
             ],
             model.Exports.Select(s => s.Symbol.Kind)
@@ -675,11 +688,9 @@ public class ResolverTest
         var trait = Assert.IsType<TraitDeclaration>(model.Tree.Statements[0]);
         var iface = Assert.IsType<InterfaceDeclaration>(model.Tree.Statements[1]);
 
-        var traitSymbol = Assert.IsType<TraitSymbol>(
-            model.GetDeclarationSymbol(trait, SymbolKind.Trait));
+        var traitSymbol = Assert.IsType<TraitSymbol>(model.GetDeclarationSymbol(trait, SymbolKind.Trait));
 
-        var interfaceSymbol = Assert.IsType<InterfaceSymbol>(
-            model.GetDeclarationSymbol(iface, SymbolKind.Interface));
+        var interfaceSymbol = Assert.IsType<InterfaceSymbol>(model.GetDeclarationSymbol(iface, SymbolKind.Interface));
 
         Assert.Single(interfaceSymbol.Implements);
         Assert.Same(traitSymbol, interfaceSymbol.Implements[0]);
@@ -687,7 +698,7 @@ public class ResolverTest
         Assert.Single(traitSymbol.ImplementedBy);
         Assert.Same(interfaceSymbol, traitSymbol.ImplementedBy[0]);
     }
-    
+
     [Fact]
     public void Resolves_InterfaceImplementationDeclaration()
     {
@@ -710,14 +721,13 @@ public class ResolverTest
         var implement = Assert.IsType<Implement>(model.Tree.Statements[2]);
 
         var iface = Assert.IsType<InterfaceDeclaration>(model.Tree.Statements[1]);
-        var symbol = Assert.IsType<InterfaceSymbol>(
-            model.GetDeclarationSymbol(iface, SymbolKind.Interface));
+        var symbol = Assert.IsType<InterfaceSymbol>(model.GetDeclarationSymbol(iface, SymbolKind.Interface));
 
         var implementation = Assert.Single(symbol.Implementations);
 
         Assert.Same(implement, implementation);
     }
-    
+
     [Fact]
     public void Resolves_PropertyPointsToInterface()
     {
@@ -735,15 +745,14 @@ public class ResolverTest
 
         var person = Assert.IsType<InterfaceDeclaration>(model.Tree.Statements[1]);
 
-        var symbol = Assert.IsType<InterfaceSymbol>(
-            model.GetDeclarationSymbol(person, SymbolKind.Interface));
+        var symbol = Assert.IsType<InterfaceSymbol>(model.GetDeclarationSymbol(person, SymbolKind.Interface));
 
         var property = Assert.Single(symbol.Properties);
 
         Assert.NotNull(property.PointsTo);
         Assert.Equal("Address", property.PointsTo!.Name);
     }
-    
+
     [Fact]
     public void Resolves_PropertyPath()
     {
@@ -767,15 +776,14 @@ public class ResolverTest
 
         var person = Assert.IsType<InterfaceDeclaration>(model.Tree.Statements[2]);
 
-        var symbol = Assert.IsType<InterfaceSymbol>(
-            model.GetDeclarationSymbol(person, SymbolKind.Interface));
+        var symbol = Assert.IsType<InterfaceSymbol>(model.GetDeclarationSymbol(person, SymbolKind.Interface));
 
         var property = symbol.GetPropertyAtPath(["address", "city", "name"]);
 
         Assert.NotNull(property);
         Assert.Equal("name", property.Name);
     }
-    
+
     [Fact]
     public void Resolves_PropertyAttributes()
     {
@@ -798,7 +806,7 @@ public class ResolverTest
         var attribute = Assert.Single(property.Attributes);
         Assert.Equal("some_attribute", attribute.Name);
     }
-    
+
     [Fact]
     public void Resolves_MultipleImplementedTraits()
     {
@@ -823,13 +831,12 @@ public class ResolverTest
 
         var iface = Assert.IsType<InterfaceDeclaration>(model.Tree.Statements[2]);
 
-        var symbol = Assert.IsType<InterfaceSymbol>(
-            model.GetDeclarationSymbol(iface, SymbolKind.Interface));
+        var symbol = Assert.IsType<InterfaceSymbol>(model.GetDeclarationSymbol(iface, SymbolKind.Interface));
 
         Assert.Equal(2, symbol.Implements.Count);
         Assert.Equal(2, symbol.Implementations.Count);
     }
-    
+
     [Fact]
     public void Resolves_ImplementTraitReference()
     {
@@ -1064,7 +1071,7 @@ public class ResolverTest
         var block = Assert.IsType<Block>(fn.Body);
         var ifStmt = Assert.IsType<If>(block.Statements.First());
         Assert.NotNull(ifStmt.ElseBranch);
-        
+
         var elseBlock = Assert.IsType<Block>(ifStmt.ElseBranch!.Branch);
         var ret = Assert.IsType<Return>(elseBlock.Statements.First());
         var binary = Assert.IsType<BinaryOperator>(ret.Expression!);
@@ -1149,7 +1156,7 @@ public class ResolverTest
                 """
             )
         );
-    
+
     [Fact]
     public void Allows_ValidTraitImplementation() =>
         Utility.AssertNoErrors(
@@ -1317,8 +1324,7 @@ public class ResolverTest
         Utility.AssertNoErrors(Utility.GetSemanticModel("let condition = true; mut x = 1; if condition { x = 2; } x;"));
 
     [Fact]
-    public void Allows_Match_WildcardAndLiteralArms() =>
-        Utility.AssertNoErrors(Utility.GetSemanticModel("""match 1 { 0 -> "zero", _ -> "other" }"""));
+    public void Allows_Match_WildcardAndLiteralArms() => Utility.AssertNoErrors(Utility.GetSemanticModel("""match 1 { 0 -> "zero", _ -> "other" }"""));
 
     [Fact]
     public void Allows_Match_ArrayAndRestBindings() =>
@@ -1335,36 +1341,28 @@ public class ResolverTest
         );
 
     [Fact]
-    public void Allows_Match_ObjectShorthandBinding() =>
-        Utility.AssertNoErrors(Utility.GetSemanticModel("match 1 { { value } -> value }"));
+    public void Allows_Match_ObjectShorthandBinding() => Utility.AssertNoErrors(Utility.GetSemanticModel("match 1 { { value } -> value }"));
 
     [Fact]
-    public void Allows_Match_ObjectFieldBinding() =>
-        Utility.AssertNoErrors(Utility.GetSemanticModel("match 1 { { ok: true, value: v } -> v }"));
+    public void Allows_Match_ObjectFieldBinding() => Utility.AssertNoErrors(Utility.GetSemanticModel("match 1 { { ok: true, value: v } -> v }"));
 
     [Fact]
     public void Allows_Match_OrAndRangePatterns() =>
         Utility.AssertNoErrors(Utility.GetSemanticModel("match 1 { 2 | 3 | 4 -> true, 0..5 | 10..15 | 100 -> false, _ -> false }"));
 
     [Fact]
-    public void Allows_Match_LetPatternBinding() =>
-        Utility.AssertNoErrors(Utility.GetSemanticModel("match 1 { let name -> name }"));
+    public void Allows_Match_LetPatternBinding() => Utility.AssertNoErrors(Utility.GetSemanticModel("match 1 { let name -> name }"));
 
     [Fact]
-    public void Allows_Match_TypedPattern_WithPrimitive() =>
-        Utility.AssertNoErrors(Utility.GetSemanticModel("match 1 { s when string -> s, _ -> \"\" }"));
+    public void Allows_Match_TypedPattern_WithPrimitive() => Utility.AssertNoErrors(Utility.GetSemanticModel("match 1 { s when string -> s, _ -> \"\" }"));
 
     [Fact]
-    public void Allows_Match_PatternBinding_ShadowsOuterVariable() =>
-        Utility.AssertNoErrors(Utility.GetSemanticModel("let x = 1; match 2 { x -> x }"));
+    public void Allows_Match_PatternBinding_ShadowsOuterVariable() => Utility.AssertNoErrors(Utility.GetSemanticModel("let x = 1; match 2 { x -> x }"));
 
     [Fact]
     public void Allows_Match_AsVariableInitializer() =>
         Utility.AssertNoErrors(Utility.GetSemanticModel("""let n = 1; let x = match n { 0 -> "zero", _ -> "other" };"""));
     #endregion Allows
-
-    [Fact]
-    public void TracksInitialization_ThroughNestedBlocks() => Utility.AssertNoErrors(Utility.GetSemanticModel("mut x: number; { x = 42; } x;"));
 
     #region Declares
     [Theory]
@@ -1381,11 +1379,11 @@ public class ResolverTest
         var model = Utility.AssertNoErrors(Utility.GetSemanticModel("interface Foo { event abc; }"));
         var interfaceDeclaration = Assert.IsType<InterfaceDeclaration>(model.Tree.Statements.Single());
         Assert.NotNull(interfaceDeclaration.Body);
-        
+
         var eventDeclaration = Assert.IsType<EventDeclaration>(Assert.Single(interfaceDeclaration.Body.Members));
         var symbol = model.GetDeclarationSymbol(interfaceDeclaration, SymbolKind.Interface);
         Assert.NotNull(symbol);
-        
+
         var interfaceSymbol = Assert.IsType<InterfaceSymbol>(symbol);
         Assert.Equal("Foo", interfaceSymbol.Name);
         Assert.Single(interfaceSymbol.Properties);
@@ -1397,7 +1395,7 @@ public class ResolverTest
         Assert.False(property.IsIntrinsic);
         Assert.False(property.IsMutable);
     }
-    
+
     [Fact]
     public void Declares_EventSymbol()
     {
@@ -1458,7 +1456,6 @@ public class ResolverTest
         Assert.Equal(SymbolKind.Event, symbol.Kind);
         Assert.IsNotType<PropertySymbol>(symbol);
     }
-
 
     [Fact]
     public void Declares_TraitSymbol()
@@ -1592,7 +1589,7 @@ public class ResolverTest
         Assert.Equal(isAmbient, interfaceSymbol.IsAmbient);
         Assert.Empty(interfaceSymbol.Implementations);
         Assert.Empty(interfaceSymbol.Implements);
-        
+
         var property = Assert.Single(interfaceSymbol.Properties);
         Assert.Equal("foo", property.Name);
         Assert.False(property.HasIntrinsicAttribute("hello"));
@@ -1601,13 +1598,13 @@ public class ResolverTest
         Assert.False(property.IsMutable);
         Assert.Null(property.PointsTo);
         Assert.Empty(property.Attributes);
-        
+
         if (constraintCount > 0)
         {
             Assert.NotNull(interfaceSymbol.Constraints);
             Assert.Equal(constraintCount, interfaceSymbol.Constraints.Count);
         }
-        
+
         Assert.False(interfaceSymbol.IsIntrinsic);
         Assert.False(interfaceSymbol.IsMutable);
     }
@@ -1698,7 +1695,11 @@ public class ResolverTest
     public void ThrowsFor_ReservedLuauKeywordDeclaration(string source, string keyword)
     {
         var diagnostics = Utility.GetSemanticModel(source).Diagnostics;
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.ReservedLuauKeyword, $"'{keyword}' is a reserved Luau keyword and cannot be used as a declaration name.");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.ReservedLuauKeyword,
+            $"'{keyword}' is a reserved Luau keyword and cannot be used as a declaration name."
+        );
     }
 
     [Fact]
@@ -1716,7 +1717,11 @@ public class ResolverTest
     public void ThrowsFor_ReservedLuauKeywordName_InAmbientDeclaration(string source, string keyword)
     {
         var diagnostics = Utility.GetSemanticModel(source).Diagnostics;
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.ReservedLuauKeyword, $"'{keyword}' is a reserved Luau keyword and cannot be used as a declaration name.");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.ReservedLuauKeyword,
+            $"'{keyword}' is a reserved Luau keyword and cannot be used as a declaration name."
+        );
     }
 
     [Fact]
@@ -1748,7 +1753,7 @@ public class ResolverTest
     [Fact]
     public void Debug_True_AppliesGlobalFlag_InDeclarationFile()
     {
-        var model = Utility.GetSemanticModel("interface Foo;", isDeclaration: true, debug: true);
+        var model = Utility.GetSemanticModel("interface Foo;", true, debug: true);
         var diag = model.Diagnostics.Find(d => d.Severity == DiagnosticSeverity.Debug && d.Message.Contains("'Foo'") && d.Message.Contains("Interface"));
 
         Assert.NotNull(diag);

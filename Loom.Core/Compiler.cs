@@ -20,8 +20,8 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
     }
 
     /// <summary>
-    /// Phase one: lex and parse. Runs for every file in the unit before any file is analyzed, so
-    /// that module dependencies can be resolved from the parsed trees and analyzed in order.
+    ///     Phase one: lex and parse. Runs for every file in the unit before any file is analyzed, so
+    ///     that module dependencies can be resolved from the parsed trees and analyzed in order.
     /// </summary>
     public ParsedFile? Parse() =>
         RunPhase(() =>
@@ -36,9 +36,9 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
         );
 
     /// <summary>
-    /// Phase two: everything after the parser. Diagnostics from <see cref="Parse"/> are carried over, as
-    /// are <paramref name="moduleDiagnostics"/> from building the unit's module graph, so the returned
-    /// file reports every diagnostic raised against it regardless of which phase found it.
+    ///     Phase two: everything after the parser. Diagnostics from <see cref="Parse" /> are carried over, as
+    ///     are <paramref name="moduleDiagnostics" /> from building the unit's module graph, so the returned
+    ///     file reports every diagnostic raised against it regardless of which phase found it.
     /// </summary>
     public CompiledFile Analyze(ParsedFile parsedFile, DiagnosticBag? moduleDiagnostics = null) =>
         RunPhase(() =>

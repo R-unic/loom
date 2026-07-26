@@ -47,7 +47,9 @@ public sealed partial class LuauGenerator
                 thenBranch = armChunk;
             }
             else
+            {
                 elseIfBranches.Add(new ElseIfBranch(condition!, armChunk));
+            }
         }
 
         if (thenCondition == null)
@@ -56,7 +58,9 @@ public sealed partial class LuauGenerator
                 _state.Prereq([..elseBranch.Statements]);
         }
         else
+        {
             _state.Prereq(new IfStatement(thenCondition, thenBranch!, elseIfBranches, elseBranch));
+        }
 
         return matchIdentifier;
     }
@@ -70,19 +74,19 @@ public sealed partial class LuauGenerator
             scope,
             new ExpressionStatement(new BinaryOperator(matchIdentifier, "=", body))
         );
+
         return new Chunk(statements);
     }
 
     /// <summary>
-    /// Step 1 supports wildcard, literal (including <c>none</c>), and error-recovery null patterns.
-    /// Everything else diagnoses and returns false so the arm is skipped.
+    ///     Step 1 supports wildcard, literal (including <c>none</c>), and error-recovery null patterns.
+    ///     Everything else diagnoses and returns false so the arm is skipped.
     /// </summary>
     private bool TryCompilePatternTest(
         Pattern pattern,
         LuauExpression subject,
         out LuauExpression? condition,
-        out bool isIrrefutable
-    )
+        out bool isIrrefutable)
     {
         switch (pattern)
         {
@@ -106,6 +110,7 @@ public sealed partial class LuauGenerator
                     pattern,
                     $"Pattern kind '{pattern.GetType().Name}' is not yet supported in code generation."
                 );
+
                 condition = null;
                 isIrrefutable = false;
                 return false;

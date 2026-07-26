@@ -20,8 +20,8 @@ public sealed record Token
     public SourceFile File { get; }
     public TextSpan Span { get; }
 
+    public string Text => field ??= File.SourceText.AsSpan(Span.Position, Span.Length).ToString();
+
     /// <summary>Resolves the token's location with line/character info. Only needed for diagnostics.</summary>
     public LocationSpan GetLocation() => new(new Location(File, Span.Position), Span.Length);
-
-    public string Text => field ??= File.SourceText.AsSpan(Span.Position, Span.Length).ToString();
 }

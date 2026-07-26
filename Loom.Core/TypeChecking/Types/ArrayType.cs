@@ -3,6 +3,9 @@ namespace Loom.Core.TypeChecking.Types;
 public sealed class ArrayType(Type elementType, bool isMutable)
     : ObjectType(new ObjectIndexer(isMutable, PrimitiveType.Number, elementType), BuildProperties(elementType, isMutable))
 {
+    public Type ElementType { get; } = elementType;
+    public bool IsMutable { get; } = isMutable;
+
     private static List<ObjectProperty> BuildProperties(Type elementType, bool isMutable)
     {
         var optionalElement = new OptionalType(elementType);
@@ -24,9 +27,6 @@ public sealed class ArrayType(Type elementType, bool isMutable)
 
         return properties;
     }
-
-    public Type ElementType { get; } = elementType;
-    public bool IsMutable { get; } = isMutable;
 
     public override int GetHashCode() => HashCode.Combine(ElementType.GetHashCode(), IsMutable);
     public override bool Equals(Type? other) => other is ArrayType array && ElementType.Equals(array.ElementType) && IsMutable == array.IsMutable;

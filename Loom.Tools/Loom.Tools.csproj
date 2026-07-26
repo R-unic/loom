@@ -8,11 +8,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
+        <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Loom.Core\Loom.Core.csproj" />
+        <ProjectReference Include="..\Loom.Core\Loom.Core.csproj"/>
     </ItemGroup>
 
 </Project>

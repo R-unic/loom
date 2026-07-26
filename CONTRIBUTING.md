@@ -20,7 +20,8 @@ If everything passes, you're good to go.
 
 ## Before You Write Code
 
-Open an issue first. It doesn't have to be formal, just a quick description of what you want to do. This saves everyone time if the approach needs adjustment or someone else is already working on it.
+Open an issue first. It doesn't have to be formal, just a quick description of what you want to do. This saves everyone time if the approach needs adjustment or
+someone else is already working on it.
 
 Check existing issues and PRs to make sure you're not duplicating work.
 
@@ -28,37 +29,43 @@ Check existing issues and PRs to make sure you're not duplicating work.
 
 ## Tests
 
-The parser produces an AST, and the rest of the pipeline (resolver, type checker, Luau generator) walks that AST using the visitor pattern. Each stage depends on the AST being structured correctly. If the parser produces a node incorrectly or errors are not reported via diagnostics, everything downstream breaks.
+The parser produces an AST, and the rest of the pipeline (resolver, type checker, Luau generator) walks that AST using the visitor pattern. Each stage depends
+on the AST being structured correctly. If the parser produces a node incorrectly or errors are not reported via diagnostics, everything downstream breaks.
 
-Changes to the parser often require updates to visitor implementations as well. Adding new syntax isn't solely parsing it and generating Luau, you also need to handle it in the resolver and type checker.
+Changes to the parser often require updates to visitor implementations as well. Adding new syntax isn't solely parsing it and generating Luau, you also need to
+handle it in the resolver and type checker.
 
 Tests are required for all PRs.
 
 ### What to Test
 
 Parser changes:
+
 - Valid syntax parses correctly
 - Invalid syntax produces errors
 - The AST structure matches what you expect
 
 Resolver changes:
+
 - Nodes which declare symbols should test that the symbol is declared and properties match what is expected
 - Scope rules are enforced
 - What's expected to be allowed is allowed
 - Code is semantically valid
 
 Type checker changes:
+
 - Type inference produces the right types
 - Assignability passes or fails appropriately
 - Type errors are reported clearly
 - For new types:
-  - Equals, IsAssignableTo, and ToString are tested
-  
+    - Equals, IsAssignableTo, and ToString are tested
+
 Code generation changes:
+
 - The Luau AST represents the source correctly
 - For new Luau nodes:
-  - Rendering produces valid Luau
-  - Edge cases are handled (escaping, formatting, empty collections, etc.)
+    - Rendering produces valid Luau
+    - Edge cases are handled (escaping, formatting, empty collections, etc.)
 
 ---
 

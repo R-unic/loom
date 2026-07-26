@@ -16,7 +16,7 @@ public class CompilationUnitTest
     {
         var config = GetConfig();
         config.NoEmit = true;
-        
+
         var compilationUnit = new CompilationUnit(config);
         var result = compilationUnit.Compile();
         Utility.AssertNoErrors(result);
@@ -26,11 +26,11 @@ public class CompilationUnitTest
         Directory.Delete(path, true);
         Directory.CreateDirectory(path);
         File.Create(Path.Combine(path, ".gitkeep"));
-        
+
         var luauFiles = Directory.EnumerateFiles(path, "*.luau", SearchOption.TopDirectoryOnly);
         Assert.Empty(luauFiles);
     }
-    
+
     [Fact]
     public void Compiles_Project()
     {
@@ -68,6 +68,7 @@ public class CompilationUnitTest
                 Path.Combine(dir, "loom-config.toml"),
                 "project_type = \"game\"\n[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n"
             );
+
             File.WriteAllText(Path.Combine(srcDir, "types.d.loom"), "declare let global_number: number;");
             File.WriteAllText(Path.Combine(srcDir, "main.loom"), "let x = 1;");
 
@@ -89,8 +90,7 @@ public class CompilationUnitTest
     }
 
     [Fact]
-    public void Compiles_EveryFile_WhenAnotherFileHasDiagnostics()
-    {
+    public void Compiles_EveryFile_WhenAnotherFileHasDiagnostics() =>
         Utility.WithTempProject(
             [("bad.loom", "import { } from \"./math\""), ("good.loom", "let x = 1;")],
             (_, result) =>
@@ -102,7 +102,6 @@ public class CompilationUnitTest
                 Assert.Contains("const x = 1", good.RenderedLuau);
             }
         );
-    }
 
     private static LoomConfig GetConfig()
     {

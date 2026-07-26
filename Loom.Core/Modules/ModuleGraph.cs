@@ -6,14 +6,14 @@ using Loom.Core.Text;
 namespace Loom.Core.Modules;
 
 /// <summary>
-/// The import dependency graph of a compilation unit. Resolves every import specifier to a source file,
-/// orders the files so that a module is analyzed before anything importing it, and reports imports that
-/// cannot be resolved along with dependency cycles.
+///     The import dependency graph of a compilation unit. Resolves every import specifier to a source file,
+///     orders the files so that a module is analyzed before anything importing it, and reports imports that
+///     cannot be resolved along with dependency cycles.
 /// </summary>
 public sealed class ModuleGraph
 {
-    private readonly Dictionary<NodeId, SourceFile> _resolvedModules;
     private readonly Dictionary<SourceFile, DiagnosticBag> _diagnostics;
+    private readonly Dictionary<NodeId, SourceFile> _resolvedModules;
 
     private ModuleGraph(
         List<ParsedFile> order,
@@ -27,10 +27,10 @@ public sealed class ModuleGraph
 
     /// <summary>Every parsed file, dependencies before their importers.</summary>
     public List<ParsedFile> Order { get; }
-    
+
     public SourceFile? GetResolvedModule(Node moduleReference) => _resolvedModules.GetValueOrDefault(moduleReference.Id);
 
-    /// <summary>Module diagnostics belonging to <paramref name="file"/>, reported at its import sites.</summary>
+    /// <summary>Module diagnostics belonging to <paramref name="file" />, reported at its import sites.</summary>
     public DiagnosticBag? GetDiagnostics(SourceFile file) => _diagnostics.GetValueOrDefault(file);
 
     public static ModuleGraph Build(List<ParsedFile> parsedFiles, LoomConfig config)
@@ -49,7 +49,16 @@ public sealed class ModuleGraph
             var edges = new List<ModuleEdge>();
             foreach (var (node, specifier, path) in ModuleReferencesOf(parsedFile))
             {
-                var target = ResolveModuleReference(resolver, parsedFile, node, specifier, path, parsedFilesByFile, diagnostics);
+                var target = ResolveModuleReference(
+                    resolver,
+                    parsedFile,
+                    node,
+                    specifier,
+                    path,
+                    parsedFilesByFile,
+                    diagnostics
+                );
+
                 if (target == null)
                     continue;
 
@@ -160,9 +169,9 @@ public sealed class ModuleGraph
     }
 
     /// <summary>
-    /// Depth-first post-order traversal: a file is appended once every module it imports has been
-    /// appended. An edge back into a file still being visited closes a cycle, which is reported at the
-    /// import that closed it and then ignored so the remaining files can still be ordered.
+    ///     Depth-first post-order traversal: a file is appended once every module it imports has been
+    ///     appended. An edge back into a file still being visited closes a cycle, which is reported at the
+    ///     import that closed it and then ignored so the remaining files can still be ordered.
     /// </summary>
     private static List<ParsedFile> Sort(
         List<ParsedFile> parsedFiles,

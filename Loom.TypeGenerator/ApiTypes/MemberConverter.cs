@@ -23,7 +23,6 @@ internal sealed class MemberConverter : JsonConverter<MemberBase>
             Log.Fatal($"MemberType '{memberType}' is not supported.");
 
         foreach (var property in root.EnumerateObject())
-        {
             switch (property.Name)
             {
                 case "MemberType":
@@ -84,7 +83,6 @@ internal sealed class MemberConverter : JsonConverter<MemberBase>
 
                     break;
             }
-        }
 
         return member;
     }

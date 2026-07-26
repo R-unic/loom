@@ -63,6 +63,20 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(diagnostics);
     }
 
+    [Fact]
+    public void WarnsFor_NullCoalescing_NonOptional()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("1 ?? 2");
+        Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.RedundantCode);
+    }
+
+    [Fact]
+    public void WarnsFor_UseRangeLiteral()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("new Range { minimum: 69, maximum: 420 }");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.SimplifiableCode, "Use a range literal.");
+    }
+
     #region ThrowsFor
     [Fact]
     public void ThrowsFor_Variable_DeclaredType_Mismatch()
@@ -228,12 +242,10 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
         Assert.Contains(diagnostics.Set, d => d.Code is InternalCodes.TypeMismatch or InternalCodes.InvalidUnaryOp);
     }
-    
+
     [Fact]
     public void Checks_InOperator_StringKeyOnInterface() =>
-        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(
-            "interface Foo { bar: string } let foo = new Foo { bar: \"abc\" }; \"bar\" in foo"
-        ));
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics("interface Foo { bar: string } let foo = new Foo { bar: \"abc\" }; \"bar\" in foo"));
 
     [Fact]
     public void ThrowsFor_NonGenericFunctionCall_ArgumentTypeMismatch()
@@ -1000,20 +1012,6 @@ public class TypeCheckerTest
     }
     #endregion ThrowsFor
 
-    [Fact]
-    public void WarnsFor_NullCoalescing_NonOptional()
-    {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("1 ?? 2");
-        Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.RedundantCode);
-    }
-
-    [Fact]
-    public void WarnsFor_UseRangeLiteral()
-    {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("new Range { minimum: 69, maximum: 420 }");
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.SimplifiableCode, "Use a range literal.");
-    }
-    
     #region Checks
     [Theory]
     [InlineData("number", PrimitiveTypeKind.Number)]
@@ -2099,7 +2097,7 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(result);
 
         var optional = Assert.IsType<OptionalType>(result.ReturnType);
-        Assert.IsType<PrimitiveType>(optional.NonNullableType, exactMatch: false);
+        Assert.IsType<PrimitiveType>(optional.NonNullableType, false);
         Assert.Equal(typeString, optional.NonNullableType.ToString());
     }
 
@@ -5466,6 +5464,7 @@ public class TypeCheckerTest
             }
             """
         );
+
         Utility.AssertNoErrors(diagnostics);
     }
 
@@ -5482,6 +5481,7 @@ public class TypeCheckerTest
             }
             """
         );
+
         Utility.AssertNoErrors(diagnostics);
     }
 
@@ -5499,6 +5499,7 @@ public class TypeCheckerTest
             }
             """
         );
+
         Utility.AssertNoErrors(diagnostics);
     }
 
@@ -5514,6 +5515,7 @@ public class TypeCheckerTest
             }
             """
         );
+
         Utility.AssertNoErrors(diagnostics);
     }
 
@@ -5528,6 +5530,7 @@ public class TypeCheckerTest
             }
             """
         );
+
         Utility.AssertNoErrors(diagnostics);
     }
 
@@ -5613,6 +5616,7 @@ public class TypeCheckerTest
             match box { { missing } -> missing }
             """
         );
+
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.InvalidAccess,
@@ -5631,6 +5635,7 @@ public class TypeCheckerTest
             }
             """
         );
+
         Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type 'number' is not assignable to type 'bool'.");
     }
 

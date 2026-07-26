@@ -2,9 +2,9 @@ namespace Loom.Core.TypeChecking.Types;
 
 public sealed class InstantiatedType(GenericType genericType, List<Type> arguments) : Type
 {
+    private Type? _instantiatedBase;
     public GenericType GenericType { get; } = genericType;
     public List<Type> Arguments { get; } = arguments;
-    private Type? _instantiatedBase;
 
     public override bool Equals(Type? other) =>
         GuardedEquals(

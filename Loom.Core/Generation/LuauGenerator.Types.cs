@@ -21,6 +21,18 @@ namespace Loom.Core.Generation;
 
 public sealed partial class LuauGenerator
 {
+    private static readonly HashSet<string> _loomRuntimeTypeNames =
+    [
+        "ResultOk",
+        "ResultError",
+        "Result",
+        "Range",
+        "Event",
+        "ConsumerEvent",
+        "CreatableInstance",
+        "ServiceInstance"
+    ];
+
     public override LuauNode VisitTypeName(TypeName typeName)
     {
         var symbol = _semanticModel.GetSymbol(typeName);
@@ -38,18 +50,6 @@ public sealed partial class LuauGenerator
         var constraint = symbol.Declaration is TypeParameter { ColonTypeClause: { } clause } ? Visit(clause) : null;
         return constraint != null ? new Luau.AST.IntersectionType([luauTypeName, constraint]) : luauTypeName;
     }
-
-    private static readonly HashSet<string> _loomRuntimeTypeNames =
-    [
-        "ResultOk",
-        "ResultError",
-        "Result",
-        "Range",
-        "Event",
-        "ConsumerEvent",
-        "CreatableInstance",
-        "ServiceInstance"
-    ];
 
     private static bool IsLoomRuntimeType(Symbol symbol) =>
         symbol is { IsIntrinsic: true, File.Name: "runtime.loom" or "None.loom" or "PluginSecurity.loom" } && _loomRuntimeTypeNames.Contains(symbol.Name);

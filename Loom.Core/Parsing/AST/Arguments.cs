@@ -8,6 +8,6 @@ public class Arguments(Token leftParen, Token rightParen, List<Expression> argum
     public Token LeftParen { get; } = leftParen;
     public Token RightParen { get; } = rightParen;
     public List<Expression> ArgumentList { get; } = arguments;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitArguments(this);
 }

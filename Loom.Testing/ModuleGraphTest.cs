@@ -9,11 +9,7 @@ public class ModuleGraphTest
     [Fact]
     public void Orders_Dependencies_BeforeTheirImporters() =>
         Utility.WithTempProject(
-            [
-                ("a.loom", "import { b } from \"./b\"\nlet used_a = 1;"),
-                ("b.loom", "import { c } from \"./c\"\nexport let b = 2;"),
-                ("c.loom", "export let c = 3;")
-            ],
+            [("a.loom", "import { b } from \"./b\"\nlet used_a = 1;"), ("b.loom", "import { c } from \"./c\"\nexport let b = 2;"), ("c.loom", "export let c = 3;")],
             (unit, _) =>
             {
                 var graph = Assert.IsType<ModuleGraph>(unit.ModuleGraph);
@@ -24,10 +20,7 @@ public class ModuleGraphTest
     [Fact]
     public void Resolves_Import_ToModuleFile() =>
         Utility.WithTempProject(
-            [
-                ("main.loom", "import { pi } from \"./math\""),
-                ("math.loom", "export let pi = 3;")
-            ],
+            [("main.loom", "import { pi } from \"./math\""), ("math.loom", "export let pi = 3;")],
             (unit, _) =>
             {
                 var graph = Assert.IsType<ModuleGraph>(unit.ModuleGraph);
@@ -41,10 +34,7 @@ public class ModuleGraphTest
     [Fact]
     public void Resolves_Import_ToInitFileOfDirectory() =>
         Utility.WithTempProject(
-            [
-                ("main.loom", "import { helper } from \"./util\""),
-                (Path.Combine("util", "init.loom"), "export let helper = 1;")
-            ],
+            [("main.loom", "import { helper } from \"./util\""), (Path.Combine("util", "init.loom"), "export let helper = 1;")],
             (unit, result) =>
             {
                 var graph = Assert.IsType<ModuleGraph>(unit.ModuleGraph);
@@ -67,10 +57,7 @@ public class ModuleGraphTest
     [Fact]
     public void Reports_ModuleNotFound_HintingAtTheExtension() =>
         Utility.WithTempProject(
-            [
-                ("main.loom", "import { pi } from \"./math.loom\""),
-                ("math.loom", "export let pi = 3;")
-            ],
+            [("main.loom", "import { pi } from \"./math.loom\""), ("math.loom", "export let pi = 3;")],
             (_, result) => Utility.AssertDiagnostic(
                 result.Diagnostics,
                 InternalCodes.ModuleNotFound,
@@ -82,10 +69,7 @@ public class ModuleGraphTest
     [Fact]
     public void Reports_DeclarationFiles_AsNotImportable() =>
         Utility.WithTempProject(
-            [
-                ("main.loom", "import { thing } from \"./types\""),
-                ("types.d.loom", "declare let thing: number;")
-            ],
+            [("main.loom", "import { thing } from \"./types\""), ("types.d.loom", "declare let thing: number;")],
             (_, result) => Utility.AssertDiagnostic(
                 result.Diagnostics,
                 InternalCodes.ModuleNotFound,
@@ -121,10 +105,7 @@ public class ModuleGraphTest
     [Fact]
     public void Reports_ImportInDeclarationFile() =>
         Utility.WithTempProject(
-            [
-                ("types.d.loom", "import { x } from \"./math\""),
-                ("math.loom", "export let x = 1;")
-            ],
+            [("types.d.loom", "import { x } from \"./math\""), ("math.loom", "export let x = 1;")],
             (_, result) => Utility.AssertDiagnostic(
                 result.Diagnostics,
                 InternalCodes.ImportInDeclarationFile,
@@ -136,10 +117,7 @@ public class ModuleGraphTest
     [Fact]
     public void Reports_CircularDependency_AndStillOrdersEveryFile() =>
         Utility.WithTempProject(
-            [
-                ("a.loom", "import { b } from \"./b\"\nexport let a = 1;"),
-                ("b.loom", "import { a } from \"./a\"\nexport let b = 2;")
-            ],
+            [("a.loom", "import { b } from \"./b\"\nexport let a = 1;"), ("b.loom", "import { a } from \"./a\"\nexport let b = 2;")],
             (unit, result) =>
             {
                 var diagnostic = result.Diagnostics.Find(d => d.Code == InternalCodes.CircularModuleDependency);

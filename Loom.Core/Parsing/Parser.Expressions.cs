@@ -64,7 +64,7 @@ public sealed partial class Parser
     private InterfaceInvocation ParseInterfaceInvocation(Token keyword)
     {
         var name = new Identifier(ExpectIdentifier());
-        var typeArguments = ParseTypeArguments(forInvocation: true);
+        var typeArguments = ParseTypeArguments(true);
         var leftBrace = Expect(SyntaxKind.LBrace);
         var initializers = new List<InterfaceInvocationInitializer>();
         if (!Match(out var rightBrace, SyntaxKind.RBrace))
@@ -86,7 +86,6 @@ public sealed partial class Parser
     {
         var expression = ParsePrimary();
         while (!IsEof())
-        {
             if (AtInvocationStart())
                 expression = ParseInvocation(expression);
             else if (Match(out var leftBracket, SyntaxKind.LBracket))
@@ -95,7 +94,6 @@ public sealed partial class Parser
                 expression = ParseNamedAccess(dot, expression);
             else
                 break;
-        }
 
         return expression;
     }
@@ -123,7 +121,7 @@ public sealed partial class Parser
 
     private Invocation ParseInvocation(Expression callee)
     {
-        var typeArguments = ParseTypeArguments(forInvocation: true);
+        var typeArguments = ParseTypeArguments(true);
         var leftParen = Expect(SyntaxKind.LParen);
         var arguments = ParseArguments(leftParen);
         return new Invocation(callee, typeArguments, arguments);
@@ -445,9 +443,7 @@ public sealed partial class Parser
                 rest = new RestPattern(dotDot, ParsePrimaryPattern());
                 Match(SyntaxKind.Comma, SyntaxKind.Semicolon);
                 if (!IsEof() && Current() is not { Kind: SyntaxKind.RBracket })
-                {
                     _diagnostics.Error(Current(), InternalCodes.UnexpectedToken, "Rest pattern must be the last element in an array pattern.");
-                }
 
                 break;
             }

@@ -9,6 +9,6 @@ public class KeyOf(Token keyword, Token leftParen, Token rightParen, TypeExpress
     public Token LeftParen { get; } = leftParen;
     public Token RightParen { get; } = rightParen;
     public TypeExpression Type { get; } = type;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitKeyOf(this);
 }

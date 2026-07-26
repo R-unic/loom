@@ -15,7 +15,6 @@ public sealed class RojoNode
         var children = new Dictionary<string, RojoNode>();
 
         foreach (var property in element.EnumerateObject())
-        {
             switch (property.Name)
             {
                 case "$path" when property.Value.ValueKind == JsonValueKind.String:
@@ -30,7 +29,6 @@ public sealed class RojoNode
 
                     break;
             }
-        }
 
         return new RojoNode { Path = path, ClassName = className, Children = children };
     }

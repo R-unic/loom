@@ -17,7 +17,7 @@ public sealed class GenericType(GenericNamedDeclaration declaration, List<TypePa
                 && ListEquals(Parameters, generic.Parameters)
                 && UnderlyingType.Equals(generic.UnderlyingType)
         );
-    
+
     public override int GetHashCode() => HashCode.Combine(Declaration.Id, Parameters.Count);
 
     public override string ToString() => $"{Declaration.Name.Text}<{string.Join(", ", Parameters.ConvertAll(p => p.ToString()))}>";

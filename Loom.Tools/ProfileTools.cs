@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Loom.Config;
 using Loom.Core;
 using Loom.Core.FlowAnalysis;
 using Loom.Core.Generation;
@@ -6,7 +7,6 @@ using Loom.Core.Lexing;
 using Loom.Core.Parsing;
 using Loom.Core.Resolving;
 using Loom.Core.TypeChecking;
-using Loom.Config;
 
 namespace Loom.Tools;
 
@@ -23,6 +23,7 @@ internal static class ProfileTools
 
         var iterations = int.TryParse(arguments.ElementAtOrDefault(2), out var n) ? n : 1;
         var file = FileManager.LoadSingle(filePath);
+
         // Use ProjectType.Plugin so Intrinsics.Register auto-injects PluginSecurity.loom
         // instead of None.loom, avoiding a duplicate-symbol collision when the profiled
         // file itself is None.loom (which is otherwise always auto-injected as intrinsics).

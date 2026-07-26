@@ -15,7 +15,7 @@ public class TypeNarrowerTest
     {
         var (_, semanticModel, flowAnalyzer) = Utility.FlowAnalyze(source);
         new TypeChecker(semanticModel, flowAnalyzer).Check();
-        
+
         var tree = semanticModel.Tree;
         var conditionalNode = tree.GetDescendants<If>().FirstOrDefault() ?? tree.GetDescendants<While>().FirstOrDefault() as Statement;
 
@@ -41,7 +41,7 @@ public class TypeNarrowerTest
         var (trueState, falseState) = narrower.ComputeBranchStates(condition, current);
         var narrowed = narrower.TryGetNarrowedType(left, trueState, out _);
         Assert.False(narrowed);
-        
+
         narrowed = narrower.TryGetNarrowedType(left, falseState, out _);
         Assert.False(narrowed);
     }
@@ -85,7 +85,7 @@ public class TypeNarrowerTest
         Assert.False(narrower.TryGetNarrowedType(left, trueState, out _));
         Assert.False(narrower.TryGetNarrowedType(left, falseState, out _));
     }
-    
+
     [Fact]
     public void ComputeBranchStates_CallExpressionEqualsLiteral_DoesNotNarrow()
     {

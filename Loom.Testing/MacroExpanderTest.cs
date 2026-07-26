@@ -36,7 +36,7 @@ public class MacroExpanderTest
         var call = Assert.IsType<Call>(variable.Initializer);
         Assert.Equal("Part", Assert.IsType<StringLiteral>(Assert.Single(call.Arguments)).Value);
     }
-    
+
     [Fact]
     public void Generates_InvocationMacroReference_AsFunctionArgument_Ok()
     {
@@ -44,7 +44,7 @@ public class MacroExpanderTest
             declare fn consume<T, E>(callback: fn(value: T): Result<T, E>): void;
             consume(Result.ok);
             """;
-        
+
         var luauTree = Utility.GetLuauAST(source, true);
         Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
 
@@ -91,12 +91,12 @@ public class MacroExpanderTest
         var tonumberCall = Assert.IsType<Call>(expressionStatement.Expression);
         var identifier = Assert.IsType<Identifier>(tonumberCall.Callee);
         Assert.Equal("tonumber", identifier.Name);
-        
+
         Assert.Equal(2, tonumberCall.Arguments.Count);
         Assert.IsType<StringLiteral>(tonumberCall.Arguments.First());
         Assert.IsType<NumberLiteral>(tonumberCall.Arguments.Last());
     }
-    
+
     [Fact]
     public void Generates_GlobalInvocation_Number()
     {
@@ -111,7 +111,7 @@ public class MacroExpanderTest
         Assert.Equal("tonumber", identifier.Name);
         Assert.IsType<StringLiteral>(Assert.Single(tonumberCall.Arguments));
     }
-    
+
     [Fact]
     public void Generates_GlobalInvocation_String()
     {
@@ -126,7 +126,7 @@ public class MacroExpanderTest
         Assert.Equal("tostring", identifier.Name);
         Assert.IsType<NumberLiteral>(Assert.Single(tostringCall.Arguments));
     }
-    
+
     [Fact]
     public void Generates_ResultStatic_Ok()
     {

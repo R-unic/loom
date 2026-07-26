@@ -8,6 +8,7 @@ public static class LiteralUtility
         token.Kind switch
         {
             SyntaxKind.NumberLiteral => ResolveNumber(token),
+
             // synthesized tokens from failed parses carry no quotes to strip
             SyntaxKind.StringLiteral => token.Text.Length < 2 ? null : token.Text[1..^1],
             SyntaxKind.TrueLiteral => true,
@@ -23,7 +24,7 @@ public static class LiteralUtility
         const double epsilon = 2.220446049250313e-16;
         if (Math.Abs(Math.Floor(value) - value) < epsilon)
             return (long)value;
-        
+
         return value;
     }
 

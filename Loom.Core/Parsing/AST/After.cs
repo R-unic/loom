@@ -8,6 +8,6 @@ public class After(Token keyword, Expression duration, Statement body)
     public Token Keyword { get; } = keyword;
     public Expression Duration { get; } = duration;
     public Statement Body { get; } = body;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitAfter(this);
 }

@@ -8,7 +8,7 @@ public readonly struct LocationSpan
         Start = start;
         End = end;
     }
-    
+
     public LocationSpan(Location start, int length)
     {
         Start = start;
@@ -25,7 +25,7 @@ public readonly struct LocationSpan
     public static bool operator !=(LocationSpan left, LocationSpan right) => !(left == right);
 
     public ReadOnlySpan<char> GetText() => File.SourceText.AsSpan(Start.Position, Length);
-    
+
     public bool Equals(LocationSpan other) =>
         File.Equals(other.File)
         && Start.Equals(other.Start)

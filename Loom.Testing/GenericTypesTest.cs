@@ -17,17 +17,6 @@ using static PrimitiveType;
 [Collection("Assembly")]
 public class GenericTypesTest
 {
-    private class MockGenericNamedDeclaration(string name)
-        : GenericNamedDeclaration(
-            [],
-            new Token(SyntaxKind.TypeKeyword, LocationSpan.Empty(), "type"),
-            new Token(SyntaxKind.Identifier, LocationSpan.Empty(), name),
-            new TypeParameters(new Token(SyntaxKind.LArrow, LocationSpan.Empty(), "<"), new Token(SyntaxKind.LArrow, LocationSpan.Empty(), ">"), [])
-        )
-    {
-        public override T Accept<T>(Visitor<T> visitor) => default!;
-    }
-
     [Fact]
     public void GenericType_Equality_SameParameters()
     {
@@ -441,5 +430,16 @@ public class GenericTypesTest
         var indexer = Assert.IsType<ObjectIndexer>(objectType.Indexer);
         Assert.Equal(String, indexer.KeyType);
         Assert.Equal(Bool, indexer.ValueType);
+    }
+
+    private class MockGenericNamedDeclaration(string name)
+        : GenericNamedDeclaration(
+            [],
+            new Token(SyntaxKind.TypeKeyword, LocationSpan.Empty(), "type"),
+            new Token(SyntaxKind.Identifier, LocationSpan.Empty(), name),
+            new TypeParameters(new Token(SyntaxKind.LArrow, LocationSpan.Empty(), "<"), new Token(SyntaxKind.LArrow, LocationSpan.Empty(), ">"), [])
+        )
+    {
+        public override T Accept<T>(Visitor<T> visitor) => default!;
     }
 }

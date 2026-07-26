@@ -1,7 +1,12 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.FlowAnalysis;
 using Loom.Core.Parsing.AST;
+using Loom.Core.TypeChecking.Types;
+using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
+using LiteralType = Loom.Core.TypeChecking.Types.LiteralType;
+using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
+using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
 namespace Loom.Core.TypeChecking;
 
@@ -11,21 +16,21 @@ public sealed partial class TypeChecker
     {
         var scrutineeType = Visit(matchExpression.Expression);
         if (matchExpression.Arms.Count == 0)
-            return BindType(matchExpression, Types.PrimitiveType.Never);
+            return BindType(matchExpression, PrimitiveType.Never);
 
         var armTypes = new List<Type>(matchExpression.Arms.Count);
         foreach (var arm in matchExpression.Arms)
-            armTypes.Add(CheckMatchArm(arm, scrutineeType, expected: null));
+            armTypes.Add(CheckMatchArm(arm, scrutineeType, null));
 
         CheckExhaustiveness(matchExpression);
 
-        return BindType(matchExpression, TypeSimplifier.Simplify(new Types.UnionType(armTypes)));
+        return BindType(matchExpression, TypeSimplifier.Simplify(new UnionType(armTypes)));
     }
 
     /// <summary>
-    /// Tier 0 exhaustiveness: a match must contain at least one irrefutable arm (a bare identifier,
-    /// <c>let</c>, or wildcard pattern with no guard), otherwise the compiled match can fall through
-    /// and leave its result nil at runtime.
+    ///     Tier 0 exhaustiveness: a match must contain at least one irrefutable arm (a bare identifier,
+    ///     <c>let</c>, or wildcard pattern with no guard), otherwise the compiled match can fall through
+    ///     and leave its result nil at runtime.
     /// </summary>
     private void CheckExhaustiveness(MatchExpression matchExpression)
     {
@@ -40,8 +45,7 @@ public sealed partial class TypeChecker
         );
     }
 
-    private static bool IsIrrefutableArm(MatchArm arm) =>
-        arm.Guard == null && IsIrrefutablePattern(arm.Pattern);
+    private static bool IsIrrefutableArm(MatchArm arm) => arm.Guard == null && IsIrrefutablePattern(arm.Pattern);
 
     private static bool IsIrrefutablePattern(Pattern pattern) =>
         pattern switch
@@ -58,7 +62,7 @@ public sealed partial class TypeChecker
         if (matchArm.Guard != null)
         {
             var guardType = Visit(matchArm.Guard, null);
-            _semanticModel.TypeSolver.AddConstraint(guardType, Types.PrimitiveType.Bool, matchArm.Guard);
+            _semanticModel.TypeSolver.AddConstraint(guardType, PrimitiveType.Bool, matchArm.Guard);
         }
 
         if (expected == null)
@@ -71,6 +75,7 @@ public sealed partial class TypeChecker
             baseState.IsUnreachable,
             _flowState.NarrowedTypes
         );
+
         return Check(matchArm.Body, expected, armState);
     }
 
@@ -109,40 +114,36 @@ public sealed partial class TypeChecker
                 CheckOrPattern(orPattern, inputType);
                 break;
             case NullPattern nullPattern:
-                BindType(nullPattern, Types.PrimitiveType.Never);
+                BindType(nullPattern, PrimitiveType.Never);
                 break;
         }
     }
 
     private void CheckLiteralPattern(LiteralPattern pattern, Type inputType)
     {
-        var literalType = new Types.LiteralType(pattern.Value);
+        var literalType = new LiteralType(pattern.Value);
         if (!IsPatternCompatible(literalType, inputType))
-        {
             _diagnostics.Error(
                 pattern,
                 InternalCodes.TypeMismatch,
                 $"Pattern of type '{literalType}' cannot match value of type '{inputType}'."
             );
-        }
 
         BindType(pattern, literalType);
     }
 
     private void CheckRangePattern(RangePattern pattern, Type inputType)
     {
-        BindType(pattern.Minimum, Types.PrimitiveType.Number);
-        BindType(pattern.Maximum, Types.PrimitiveType.Number);
-        if (!IsPatternCompatible(Types.PrimitiveType.Number, inputType))
-        {
+        BindType(pattern.Minimum, PrimitiveType.Number);
+        BindType(pattern.Maximum, PrimitiveType.Number);
+        if (!IsPatternCompatible(PrimitiveType.Number, inputType))
             _diagnostics.Error(
                 pattern,
                 InternalCodes.TypeMismatch,
                 $"Range pattern can only match values of type 'number', not '{inputType}'."
             );
-        }
 
-        BindType(pattern, Types.PrimitiveType.Number);
+        BindType(pattern, PrimitiveType.Number);
     }
 
     private void CheckTypedPattern(TypedPattern pattern, Type inputType)
@@ -177,15 +178,13 @@ public sealed partial class TypeChecker
         if (propertyType == null)
         {
             if (Type.IsNotUnknown(inputType) && Type.IsNotNever(inputType))
-            {
                 _diagnostics.Error(
                     field,
                     InternalCodes.InvalidAccess,
                     $"Property '{field.Name.Text}' does not exist on type '{inputType}'."
                 );
-            }
 
-            propertyType = Types.PrimitiveType.Unknown;
+            propertyType = PrimitiveType.Unknown;
         }
 
         CheckPattern(field.Pattern, propertyType);
@@ -197,15 +196,13 @@ public sealed partial class TypeChecker
         if (elementType == null)
         {
             if (Type.IsNotUnknown(inputType) && Type.IsNotNever(inputType))
-            {
                 _diagnostics.Error(
                     pattern,
                     InternalCodes.TypeMismatch,
                     $"Array pattern cannot match value of type '{inputType}'."
                 );
-            }
 
-            elementType = Types.PrimitiveType.Unknown;
+            elementType = PrimitiveType.Unknown;
         }
 
         foreach (var element in pattern.Elements)
@@ -219,7 +216,7 @@ public sealed partial class TypeChecker
 
     private void CheckRestPattern(RestPattern pattern, Type elementType)
     {
-        var arrayType = new Types.ArrayType(elementType, isMutable: false);
+        var arrayType = new ArrayType(elementType, false);
         CheckPattern(pattern.Pattern, arrayType);
         BindType(pattern, arrayType);
     }
@@ -234,11 +231,11 @@ public sealed partial class TypeChecker
 
     private static Type NarrowToType(Type inputType, Type patternType)
     {
-        if (inputType is Types.UnionType union)
+        if (inputType is UnionType union)
         {
             var members = union.Types.FindAll(member => member.IsAssignableTo(patternType));
             if (members.Count > 0)
-                return TypeSimplifier.Simplify(new Types.UnionType(members));
+                return TypeSimplifier.Simplify(new UnionType(members));
         }
 
         return patternType;
@@ -246,17 +243,17 @@ public sealed partial class TypeChecker
 
     private static Type? GetArrayElementType(Type type)
     {
-        if (type is Types.InstantiatedType instantiated)
+        if (type is InstantiatedType instantiated)
             type = instantiated.Expand();
 
-        return type is Types.ArrayType array ? array.ElementType : null;
+        return type is ArrayType array ? array.ElementType : null;
     }
 
     /// <summary>
-    /// A pattern only has to be able to match <em>some</em> value the scrutinee can hold, so both
-    /// sides are widened first: matching a literal scrutinee like `match 1` against `0` is a normal
-    /// (if never-taken) arm rather than a type error, while `match "hi"` against `0` still fails
-    /// because no widening makes a number and a string overlap.
+    ///     A pattern only has to be able to match <em>some</em> value the scrutinee can hold, so both
+    ///     sides are widened first: matching a literal scrutinee like `match 1` against `0` is a normal
+    ///     (if never-taken) arm rather than a type error, while `match "hi"` against `0` still fails
+    ///     because no widening makes a number and a string overlap.
     /// </summary>
     private static bool IsPatternCompatible(Type patternType, Type inputType)
     {

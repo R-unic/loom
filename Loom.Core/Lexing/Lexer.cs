@@ -5,16 +5,13 @@ namespace Loom.Core.Lexing;
 
 public sealed class Lexer(SourceFile file)
 {
-    private static readonly Dictionary<string, SyntaxKind>.AlternateLookup<ReadOnlySpan<char>> _keywordLookup =
-        SyntaxFacts.KeywordMap.GetAlternateLookup<ReadOnlySpan<char>>();
+    private static readonly Dictionary<string, SyntaxKind>.AlternateLookup<ReadOnlySpan<char>> _keywordLookup = SyntaxFacts.KeywordMap
+        .GetAlternateLookup<ReadOnlySpan<char>>();
 
     private readonly DiagnosticBag _diagnostics = new();
-    private readonly int _sourceLength = file.SourceText.Length;
     private readonly Stack<InterpolationFrame> _interpolationStack = new();
+    private readonly int _sourceLength = file.SourceText.Length;
     private int _position;
-
-    private enum InterpolationMode { Text, Hole }
-    private readonly record struct InterpolationFrame(char Terminator, InterpolationMode Mode, int BraceDepth);
 
     public LexerResult Tokenize()
     {
@@ -31,8 +28,7 @@ public sealed class Lexer(SourceFile file)
         return new LexerResult(significantTokens, allTokens, _diagnostics);
     }
 
-    private bool AtDanglingInterpolationText() =>
-        _interpolationStack.Count > 0 && _interpolationStack.Peek().Mode == InterpolationMode.Text;
+    private bool AtDanglingInterpolationText() => _interpolationStack.Count > 0 && _interpolationStack.Peek().Mode == InterpolationMode.Text;
 
     private IEnumerable<Token> GetTokens()
     {
@@ -137,6 +133,7 @@ public sealed class Lexer(SourceFile file)
         {
             if (Current() == '\\' && !IsEof(1))
                 Advance();
+
             Advance();
         }
 
@@ -175,6 +172,7 @@ public sealed class Lexer(SourceFile file)
         {
             if (Current() == '\\' && !IsEof(1))
                 Advance();
+
             Advance();
         }
 
@@ -194,7 +192,6 @@ public sealed class Lexer(SourceFile file)
     private bool TryLexRegexRule(int start, out Token token)
     {
         if (LexerRules.RegexRulesByFirstCharacter.TryGetValue(Current(), out var candidates))
-        {
             foreach (var (rule, regex) in candidates)
             {
                 var match = regex.Match(file.SourceText, _position);
@@ -204,7 +201,6 @@ public sealed class Lexer(SourceFile file)
                 token = CreateToken(rule.Syntax, start);
                 return true;
             }
-        }
 
         token = null!;
         return false;
@@ -309,7 +305,7 @@ public sealed class Lexer(SourceFile file)
     {
         if (IsEof() || Current() != '.')
             return null;
-        
+
         if (!IsEof(1) && Peek(1) == '.')
             return null;
 
@@ -454,4 +450,7 @@ public sealed class Lexer(SourceFile file)
     private char Peek(int offset) => file.SourceText[_position + offset];
     private bool IsEof(int offset = 0) => _position + offset >= _sourceLength;
     private LocationSpan GetSpan(int start) => new(new Location(file, start), _position - start);
+
+    private enum InterpolationMode { Text, Hole }
+    private readonly record struct InterpolationFrame(char Terminator, InterpolationMode Mode, int BraceDepth);
 }

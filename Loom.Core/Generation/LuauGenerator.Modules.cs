@@ -25,7 +25,7 @@ public sealed partial class LuauGenerator
             .._semanticModel.ImportBindings.Select(binding => binding.LocalName), // aliases live only in the lookup
             LuauFactory.RuntimeImportName
         ];
-    
+
     private List<LuauStatement> GenerateModuleImports()
     {
         var statements = new List<LuauStatement>();
@@ -36,18 +36,14 @@ public sealed partial class LuauGenerator
             statements.Add(new ConstVariable(moduleName, null, LuauFactory.RequireCall(GetRequirePath(module, specifier))));
 
             var bindings = _semanticModel.ImportBindings.FindAll(binding => binding.Module == module);
-            statements.AddRange(
-                bindings.FindAll(binding => binding.RequiresModuleAtRuntime).ConvertAll(binding => GenerateValueImport(binding, moduleName))
-            );
+            statements.AddRange(bindings.FindAll(binding => binding.RequiresModuleAtRuntime).ConvertAll(binding => GenerateValueImport(binding, moduleName)));
 
-            statements.AddRange(
-                bindings.FindAll(binding => binding.Symbol.IsTypeSymbol).ConvertAll(binding => GenerateTypeImport(binding, moduleName))
-            );
+            statements.AddRange(bindings.FindAll(binding => binding.Symbol.IsTypeSymbol).ConvertAll(binding => GenerateTypeImport(binding, moduleName)));
         }
 
         return statements;
     }
-    
+
     private List<(SourceFile Module, string Specifier, string? LocalName)> GetRequiredModules()
     {
         var modules = new List<(SourceFile, string, string?)>();
@@ -64,7 +60,7 @@ public sealed partial class LuauGenerator
 
         return modules;
     }
-    
+
     private string GetRequirePath(SourceFile module, string specifier)
     {
         var requirePath = _moduleRequirePaths?.Resolve(module, specifier)
@@ -83,15 +79,15 @@ public sealed partial class LuauGenerator
 
     private static LuauStatement GenerateValueImport(ImportBinding binding, string moduleName) =>
         new ConstVariable(binding.LocalName, null, new PropertyAccess(new Identifier(moduleName), [binding.ExportedName]));
-    
+
     private static LuauStatement GenerateTypeImport(ImportBinding binding, string moduleName) =>
-        GenerateTypeAlias(binding.LocalName, binding.ExportedName, binding.Symbol, moduleName, isExported: false);
-    
+        GenerateTypeAlias(binding.LocalName, binding.ExportedName, binding.Symbol, moduleName, false);
+
     private LuauExpression GenerateExportedValue(ExportBinding export) =>
         export.Module == null
             ? new Identifier(export.SourceName)
             : new PropertyAccess(new Identifier(_moduleLocals[export.Module]), [export.SourceName]);
-    
+
     private void MarkListExportedTypes(List<LuauStatement> statements)
     {
         foreach (var export in _semanticModel.Exports)
@@ -103,17 +99,16 @@ public sealed partial class LuauGenerator
                 typeAlias.IsExported = true;
         }
     }
-    
+
     private List<LuauStatement> GenerateExportedTypeAliases() =>
         _semanticModel.Exports
             .FindAll(export => export.Symbol.IsTypeSymbol && (export.IsReExport || export.Name != export.SourceName))
-            .ConvertAll(export =>
-                GenerateTypeAlias(
+            .ConvertAll(export => GenerateTypeAlias(
                     export.Name,
                     export.SourceName,
                     export.Symbol,
                     export.Module == null ? null : _moduleLocals[export.Module],
-                    isExported: true
+                    true
                 )
             );
 
@@ -128,12 +123,8 @@ public sealed partial class LuauGenerator
             name,
             new TypeParameters(parameterNames.ConvertAll(parameter => new TypeParameter(parameter))),
             moduleName == null ? source : new QualifiedTypeName([moduleName], source)
-        )
-        {
-            IsExported = isExported
-        };
+        ) { IsExported = isExported };
     }
-
 
     private string ReserveModuleLocalName(string specifier)
     {

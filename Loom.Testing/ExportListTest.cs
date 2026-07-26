@@ -7,8 +7,7 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class ExportListTest
 {
-    private const string MathModule =
-        """
+    private const string MathModule = """
         export let pi = 3;
         export type Scalar = number;
         export interface Point { x: number y: number }

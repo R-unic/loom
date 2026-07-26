@@ -1,4 +1,5 @@
 #pragma warning disable CS8618
+
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 using System.Text.Json.Serialization;
 
@@ -29,7 +30,6 @@ internal class Callback : MemberBase
 }
 
 internal sealed class Event : Callback;
-
 internal sealed class Function : Callback;
 
 internal sealed class Property : MemberBase
@@ -49,6 +49,7 @@ internal sealed class Class
     public string ThreadSafety { get; set; }
     public string Name { get; set; }
     public string Superclass { get; set; }
+
     // public HashSet<string> Subclasses { get; set; }
     public string? Description { get; set; }
 }

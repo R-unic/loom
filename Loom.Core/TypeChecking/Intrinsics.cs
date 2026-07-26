@@ -49,15 +49,16 @@ public static class Intrinsics
         var compilationUnit = new CompilationUnit(loomConfig);
         var compiledFiles = compilationUnit.SourceFiles
             .Where(file =>
-            {
-                file.IsIntrinsic = true;
+                {
+                    file.IsIntrinsic = true;
 
-                var projectType = injectInto.Config.ProjectType;
-                if (projectType != ProjectType.Plugin && file.Name == "PluginSecurity.loom")
-                    return false;
-                
-                return projectType != ProjectType.Plugin || file.Name != "None.loom";
-            })
+                    var projectType = injectInto.Config.ProjectType;
+                    if (projectType != ProjectType.Plugin && file.Name == "PluginSecurity.loom")
+                        return false;
+
+                    return projectType != ProjectType.Plugin || file.Name != "None.loom";
+                }
+            )
             .Select(compilationUnit.Compile)
             .ToArray();
 

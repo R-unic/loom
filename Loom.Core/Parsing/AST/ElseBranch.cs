@@ -7,6 +7,6 @@ public class ElseBranch(Token keyword, Statement branch)
 {
     public Token Keyword { get; } = keyword;
     public Statement Branch { get; } = branch;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitElseBranch(this);
 }

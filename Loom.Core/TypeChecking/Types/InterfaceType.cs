@@ -7,6 +7,10 @@ public sealed class InterfaceType(
     HashSet<string>? traitMethodNames = null
 ) : NativelyIndexableType
 {
+    private List<ObjectProperty>? _cachedProperties;
+
+    private int _propertiesVersion = -1;
+    private Dictionary<string, ObjectProperty>? _propertyMap;
     public string Name { get; } = name;
     public List<InterfaceType> Constraints { get; } = constraints;
     public ObjectType ObjectType { get; } = objectType;
@@ -23,17 +27,13 @@ public sealed class InterfaceType(
     }
 
     /// <summary>
-    /// Cheap-to-recompute version signal combining this interface's own <see cref="ObjectType.Version"/>
-    /// with each constraint's effective version, so caches invalidate when a constraint's properties
-    /// grow (via <see cref="ObjectType.AddProperties"/>) after this interface was constructed. Constraint
-    /// lists are small (0-3 typically), so summing across them on every access is cheap - only the
-    /// expensive merged-list rebuild below is actually guarded by it.
+    ///     Cheap-to-recompute version signal combining this interface's own <see cref="ObjectType.Version" />
+    ///     with each constraint's effective version, so caches invalidate when a constraint's properties
+    ///     grow (via <see cref="ObjectType.AddProperties" />) after this interface was constructed. Constraint
+    ///     lists are small (0-3 typically), so summing across them on every access is cheap - only the
+    ///     expensive merged-list rebuild below is actually guarded by it.
     /// </summary>
     private int EffectiveVersion => ObjectType.Version + Constraints.Sum(c => c.EffectiveVersion);
-
-    private int _propertiesVersion = -1;
-    private List<ObjectProperty>? _cachedProperties;
-    private Dictionary<string, ObjectProperty>? _propertyMap;
 
     public override List<ObjectProperty> Properties
     {

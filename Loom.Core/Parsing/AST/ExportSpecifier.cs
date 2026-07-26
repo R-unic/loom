@@ -9,7 +9,7 @@ public sealed class ExportSpecifier(Token name, Token? asKeyword, Token? alias)
 
     public Token? AsKeyword { get; } = asKeyword;
     public Token? Alias { get; } = alias;
-    
+
     public Token ExportedName => Alias ?? Name;
 
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitExportSpecifier(this);

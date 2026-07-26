@@ -4,18 +4,10 @@ namespace Loom.Luau;
 
 public sealed class RenderState
 {
-    public static string Indent { get; set; } = "  ";
-    public static char StringDelimiter { get; set; } = '"';
-
     private readonly List<string> _indentCache = [""];
     private int _depth;
-
-    public List<string> RenderList<T>(List<T> nodes)
-        where T : LuauNode =>
-        nodes.ConvertAll(a => a.Render(this));
-
-    public string IndentedLine(string text) => Indented(text) + '\n';
-    public string Indented(string text) => CurrentIndent + text;
+    public static string Indent { get; set; } = "  ";
+    public static char StringDelimiter { get; set; } = '"';
 
     private string CurrentIndent
     {
@@ -27,6 +19,13 @@ public sealed class RenderState
             return _indentCache[_depth];
         }
     }
+
+    public List<string> RenderList<T>(List<T> nodes)
+        where T : LuauNode =>
+        nodes.ConvertAll(a => a.Render(this));
+
+    public string IndentedLine(string text) => Indented(text) + '\n';
+    public string Indented(string text) => CurrentIndent + text;
 
     public string ParenthesizeIfNeeded(LuauNode node) => RequiresParentheses(node) ? $"({node.Render(this)})" : node.Render(this);
 

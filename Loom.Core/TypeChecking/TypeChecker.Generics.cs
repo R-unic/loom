@@ -3,9 +3,11 @@ using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.TypeChecking.Types;
+using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
 using IndexedType = Loom.Core.TypeChecking.Types.IndexedType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
+using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 
 namespace Loom.Core.TypeChecking;
 
@@ -25,12 +27,12 @@ public sealed partial class TypeChecker
         return substitution;
     }
 
-    private static List<Type> FillGenericArguments(List<Types.TypeParameter> parameters, List<Type> given) =>
+    private static List<Type> FillGenericArguments(List<TypeParameter> parameters, List<Type> given) =>
         parameters.Select((t, i) => i < given.Count ? given[i] : t.DefaultType ?? PrimitiveType.Unknown).ToList();
 
     private TypeParameterSubstitution? ResolveTypeArguments(
         Invocation invocation,
-        Types.FunctionType functionType,
+        FunctionType functionType,
         List<Type> argumentTypes,
         Type? expectedReturnType)
     {
@@ -78,12 +80,12 @@ public sealed partial class TypeChecker
         return BindType(node, instantiated);
     }
 
-    private bool CheckTypeParameterConstraints(Node node, Type type, Types.TypeParameter parameter)
+    private bool CheckTypeParameterConstraints(Node node, Type type, TypeParameter parameter)
     {
         if (parameter.Constraint == null) return true;
-        if (type is Types.TypeParameter otherParameter)
+        if (type is TypeParameter otherParameter)
             type = otherParameter.Constraint ?? PrimitiveType.Unknown;
-        
+
         if (type.IsAssignableTo(parameter.Constraint)) return true;
 
         _diagnostics.Error(
@@ -95,7 +97,7 @@ public sealed partial class TypeChecker
         return false;
     }
 
-    private bool CheckGenericArity(Node node, List<Types.TypeParameter> parameters, List<Type> arguments, string genericKind)
+    private bool CheckGenericArity(Node node, List<TypeParameter> parameters, List<Type> arguments, string genericKind)
     {
         var minimum = parameters.Count(p => p.DefaultType == null);
         var maximum = parameters.Count;
@@ -123,17 +125,15 @@ public sealed partial class TypeChecker
 
         ObjectIndexer? newIndexer = null;
         if (objectType.Indexer != null)
-        {
             newIndexer = new ObjectIndexer(
                 objectType.Indexer.IsMutable,
                 SubstituteTypeParameters(failNode, objectType.Indexer.KeyType, substitution),
                 SubstituteTypeParameters(failNode, objectType.Indexer.ValueType, substitution)
             );
-        }
 
         return new ObjectType(newIndexer, newProperties);
     }
-    
+
     private Type SubstituteIndexedType(Node failNode, TypeParameterSubstitution substitution, IndexedType indexedType, Dictionary<Type, Type> cache)
     {
         var target = SubstituteTypeParameters(failNode, indexedType.Target, substitution, cache);
@@ -143,19 +143,20 @@ public sealed partial class TypeChecker
 
     private List<Type> SubstituteTypeParameters(Node failNode, List<Type> types, TypeParameterSubstitution substitution) =>
         types.ConvertAll(t => SubstituteTypeParameters(failNode, t, substitution));
-    
+
     private Type SubstituteTypeParameters(Node failNode, Type type, TypeParameterSubstitution substitution) =>
         SubstituteTypeParameters(
             failNode,
             type,
             substitution,
-            new Dictionary<Type, Type>());
+            new Dictionary<Type, Type>()
+        );
 
     private Type SubstituteTypeParameters(Node failNode, Type type, TypeParameterSubstitution substitution, Dictionary<Type, Type> cache)
     {
         if (cache.TryGetValue(type, out var cached))
             return cached;
-        
+
         cache[type] = PrimitiveType.Never;
         var substitutedType = TrySubstituteTypeParameter(type, substitution, out var substituted)
             ? substituted
@@ -177,41 +178,35 @@ public sealed partial class TypeChecker
     private static bool TrySubstituteTypeParameter(Type type, TypeParameterSubstitution substitution, [MaybeNullWhen(false)] out Type substituted)
     {
         substituted = null;
-        return type is Types.TypeParameter tp && substitution.TryGetValue(tp, out substituted);
+        return type is TypeParameter tp && substitution.TryGetValue(tp, out substituted);
     }
 
     /// <summary>
-    /// A generic-valued argument (e.g. passing `id` where `id&lt;T&gt;(n: T): T`) is otherwise
-    /// compared structurally against its expected type with no attempt to specialize it first,
-    /// so a type-parameter-count mismatch (the argument has its own free type parameters, the
-    /// expected shape has none) fails immediately even when the expected shape fully determines
-    /// what the argument's type parameters should be. Infer and substitute them here so `id`
-    /// becomes e.g. `fn(number): number` before the normal assignability/unification check runs.
+    ///     A generic-valued argument (e.g. passing `id` where `id&lt;T&gt;(n: T): T`) is otherwise
+    ///     compared structurally against its expected type with no attempt to specialize it first,
+    ///     so a type-parameter-count mismatch (the argument has its own free type parameters, the
+    ///     expected shape has none) fails immediately even when the expected shape fully determines
+    ///     what the argument's type parameters should be. Infer and substitute them here so `id`
+    ///     becomes e.g. `fn(number): number` before the normal assignability/unification check runs.
     /// </summary>
     private bool TryInstantiateGenericFunctionArgument(Node failNode, Type actual, Type expected, [NotNullWhen(true)] out Type? instantiated)
     {
         instantiated = null;
-        if (actual is not Types.FunctionType { TypeParameters.Count: > 0 } genericFunction
-            || expected is not Types.FunctionType expectedFunction
+        if (actual is not FunctionType { TypeParameters.Count: > 0 } genericFunction
+            || expected is not FunctionType expectedFunction
             || genericFunction.TypeParameters.Count == expectedFunction.TypeParameters.Count)
-        {
             return false;
-        }
 
         var substitution = TypeInferrer.InferFunctionTypeArguments(genericFunction, expectedFunction.ParameterTypes);
         foreach (var typeParameter in genericFunction.TypeParameters)
-        {
             if (substitution.TryGetValue(typeParameter, out var substitutedType)
                 && typeParameter.Constraint != null
                 && !substitutedType.IsAssignableTo(typeParameter.Constraint))
-            {
                 return false;
-            }
-        }
 
         var substitutedParameterTypes = SubstituteTypeParameters(failNode, genericFunction.ParameterTypes, substitution);
         var substitutedReturnType = SubstituteTypeParameters(failNode, genericFunction.ReturnType, substitution);
-        instantiated = new Types.FunctionType([], substitutedParameterTypes, substitutedReturnType, genericFunction.HasRestParameter);
+        instantiated = new FunctionType([], substitutedParameterTypes, substitutedReturnType, genericFunction.HasRestParameter);
         return true;
     }
 }

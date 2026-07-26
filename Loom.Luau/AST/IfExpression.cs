@@ -2,7 +2,12 @@ namespace Loom.Luau.AST;
 
 public record ElseIfExpressionBranch(LuauExpression Condition, LuauExpression Branch);
 
-public class IfExpression(LuauExpression condition, LuauExpression thenBranch, List<ElseIfExpressionBranch> elseIfBranches, LuauExpression? elseBranch) : LuauExpression
+public class IfExpression(
+    LuauExpression condition,
+    LuauExpression thenBranch,
+    List<ElseIfExpressionBranch> elseIfBranches,
+    LuauExpression? elseBranch
+) : LuauExpression
 {
     public LuauExpression Condition { get; } = condition;
     public LuauExpression ThenBranch { get; } = thenBranch;

@@ -7,6 +7,6 @@ public class PropertyInitializer(Token name, Token colon, Expression expression)
 {
     public Token Name { get; } = name;
     public Token Colon { get; } = colon;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitInterfaceInvocationPropertyInitializer(this);
 }

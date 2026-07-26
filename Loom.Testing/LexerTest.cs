@@ -129,7 +129,7 @@ public class LexerTest
         var diagnostics = Utility.GetLexerDiagnostics("#: hello!");
         Utility.AssertDiagnostic(diagnostics, InternalCodes.UnterminatedComment, "Unterminated block comment: expected closing ':#'.");
     }
-    
+
     [Theory]
     [InlineData("s")]
     [InlineData("ms")]
@@ -233,11 +233,11 @@ public class LexerTest
 
         Assert.Equal(2, tokens[1].GetLocation().Start.Line);
     }
-    
+
     [Fact]
     public void Tokenizes_WithTriviaFalse_ExcludesWhitespaceAndComments()
     {
-        var tokens = Utility.GetTokens("true  ## comment\nfalse", withTrivia: false);
+        var tokens = Utility.GetTokens("true  ## comment\nfalse", false);
         Assert.Equal(3, tokens.Count);
         Assert.Equal(SyntaxKind.TrueLiteral, tokens[0].Kind);
         Assert.Equal(SyntaxKind.FalseLiteral, tokens[1].Kind);
@@ -247,7 +247,7 @@ public class LexerTest
     [Fact]
     public void Tokenizes_WithTriviaTrue_IncludesWhitespaceAndComments()
     {
-        var tokens = Utility.GetTokens("true  ## comment\nfalse", withTrivia: true);
+        var tokens = Utility.GetTokens("true  ## comment\nfalse", true);
         Assert.Equal(6, tokens.Count);
         Assert.Equal(SyntaxKind.TrueLiteral, tokens[0].Kind);
         Assert.Equal(SyntaxKind.Whitespace, tokens[1].Kind);
@@ -256,7 +256,7 @@ public class LexerTest
         Assert.Equal(SyntaxKind.FalseLiteral, tokens[4].Kind);
         Assert.Equal(SyntaxKind.Eof, tokens[5].Kind);
     }
-    
+
     [Fact]
     public void Tokenizes_Range()
     {
@@ -474,11 +474,11 @@ public class LexerTest
         var token = tokens[0];
         Assert.Equal(expected, token.Kind);
     }
-    
+
     [Fact]
     public void Tokenizes_TracksLineAndColumnNumbers()
     {
-        var tokens = Utility.GetTokens("abc\n123\nxyz", withTrivia: true);
+        var tokens = Utility.GetTokens("abc\n123\nxyz", true);
         Assert.Equal(6, tokens.Count);
 
         var first = tokens[0];
@@ -497,7 +497,7 @@ public class LexerTest
         Assert.Equal(0, number.GetLocation().Start.Character);
         Assert.Equal(3, number.GetLocation().End.Character);
     }
-    
+
     [Theory]
     [InlineData("hello_world", SyntaxKind.Identifier)]
     [InlineData("'abcdef'", SyntaxKind.StringLiteral)]
@@ -508,7 +508,7 @@ public class LexerTest
     {
         const int identifierCount = 60000;
         var source = string.Join('\n', Enumerable.Repeat(lineText, identifierCount));
-        var tokens = Utility.GetTokens(source, withTrivia: true);
+        var tokens = Utility.GetTokens(source, true);
         Assert.Equal(identifierCount * 2, tokens.Count);
 
         for (var i = 0; i < identifierCount; i += 2)

@@ -8,14 +8,17 @@ public sealed class RojoResolverTest : IDisposable
 
     public RojoResolverTest() => Directory.CreateDirectory(_root);
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose() => Directory.Delete(_root, true);
 
     [Fact]
     public void Resolves_Runtime_Through_Directory_Mapping()
     {
         var dir = ProjectDir("dir_mapping");
         Write(dir, Path.Combine("include", RojoResolver.RuntimeFileName), "return {}");
-        Write(dir, RojoResolver.ProjectFileName, """
+        Write(
+            dir,
+            RojoResolver.ProjectFileName,
+            """
             {
               "tree": {
                 "$className": "DataModel",
@@ -24,7 +27,8 @@ public sealed class RojoResolverTest : IDisposable
                 }
               }
             }
-            """);
+            """
+        );
 
         var resolver = RojoResolver.FromProjectDirectory(dir);
         Assert.NotNull(resolver);
@@ -36,7 +40,10 @@ public sealed class RojoResolverTest : IDisposable
     {
         var dir = ProjectDir("nested_mapping");
         Write(dir, Path.Combine("out", "vendor", RojoResolver.RuntimeFileName), "return {}");
-        Write(dir, RojoResolver.ProjectFileName, """
+        Write(
+            dir,
+            RojoResolver.ProjectFileName,
+            """
             {
               "tree": {
                 "$className": "DataModel",
@@ -45,7 +52,8 @@ public sealed class RojoResolverTest : IDisposable
                 }
               }
             }
-            """);
+            """
+        );
 
         var resolver = RojoResolver.FromProjectDirectory(dir);
         Assert.NotNull(resolver);
@@ -57,7 +65,10 @@ public sealed class RojoResolverTest : IDisposable
     {
         var dir = ProjectDir("file_mapping");
         Write(dir, Path.Combine("runtime", RojoResolver.RuntimeFileName), "return {}");
-        Write(dir, RojoResolver.ProjectFileName, """
+        Write(
+            dir,
+            RojoResolver.ProjectFileName,
+            """
             {
               "tree": {
                 "$className": "DataModel",
@@ -66,7 +77,8 @@ public sealed class RojoResolverTest : IDisposable
                 }
               }
             }
-            """);
+            """
+        );
 
         var resolver = RojoResolver.FromProjectDirectory(dir);
         Assert.NotNull(resolver);
@@ -78,7 +90,10 @@ public sealed class RojoResolverTest : IDisposable
     {
         var dir = ProjectDir("no_runtime");
         Write(dir, Path.Combine("src", "main.luau"), "return {}");
-        Write(dir, RojoResolver.ProjectFileName, """
+        Write(
+            dir,
+            RojoResolver.ProjectFileName,
+            """
             {
               "tree": {
                 "$className": "DataModel",
@@ -87,7 +102,8 @@ public sealed class RojoResolverTest : IDisposable
                 }
               }
             }
-            """);
+            """
+        );
 
         var resolver = RojoResolver.FromProjectDirectory(dir);
         Assert.NotNull(resolver);
@@ -129,7 +145,10 @@ public sealed class RojoResolverTest : IDisposable
     {
         var dir = ProjectDir("path_file");
         Write(dir, Path.Combine("dist", "math.luau"), "return {}");
-        Write(dir, RojoResolver.ProjectFileName, """
+        Write(
+            dir,
+            RojoResolver.ProjectFileName,
+            """
             {
               "tree": {
                 "$className": "DataModel",
@@ -138,7 +157,8 @@ public sealed class RojoResolverTest : IDisposable
                 }
               }
             }
-            """);
+            """
+        );
 
         var resolver = RojoResolver.FromProjectDirectory(dir);
         Assert.NotNull(resolver);
@@ -152,7 +172,10 @@ public sealed class RojoResolverTest : IDisposable
     {
         var dir = ProjectDir("path_nested_mapping");
         Write(dir, Path.Combine("dist", "vendor", "math.luau"), "return {}");
-        Write(dir, RojoResolver.ProjectFileName, """
+        Write(
+            dir,
+            RojoResolver.ProjectFileName,
+            """
             {
               "tree": {
                 "$className": "DataModel",
@@ -162,7 +185,8 @@ public sealed class RojoResolverTest : IDisposable
                 }
               }
             }
-            """);
+            """
+        );
 
         var resolver = RojoResolver.FromProjectDirectory(dir);
         Assert.NotNull(resolver);
@@ -184,8 +208,7 @@ public sealed class RojoResolverTest : IDisposable
     }
 
     [Fact]
-    public void FromProjectDirectory_Returns_Null_For_Missing_Directory() =>
-        Assert.Null(RojoResolver.FromProjectDirectory(Path.Combine(_root, "does_not_exist")));
+    public void FromProjectDirectory_Returns_Null_For_Missing_Directory() => Assert.Null(RojoResolver.FromProjectDirectory(Path.Combine(_root, "does_not_exist")));
 
     private RojoResolver ProjectWithOutputMapping(string name, out string directory)
     {
@@ -193,7 +216,10 @@ public sealed class RojoResolverTest : IDisposable
         Write(directory, Path.Combine("dist", "math.luau"), "return {}");
         Write(directory, Path.Combine("dist", "util", "init.luau"), "return {}");
         Write(directory, Path.Combine("dist", "util", "helpers.luau"), "return {}");
-        Write(directory, RojoResolver.ProjectFileName, """
+        Write(
+            directory,
+            RojoResolver.ProjectFileName,
+            """
             {
               "tree": {
                 "$className": "DataModel",
@@ -202,7 +228,8 @@ public sealed class RojoResolverTest : IDisposable
                 }
               }
             }
-            """);
+            """
+        );
 
         var resolver = RojoResolver.FromProjectDirectory(directory);
         Assert.NotNull(resolver);

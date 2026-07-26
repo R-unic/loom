@@ -3,6 +3,8 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Core.TypeChecking.Types;
+using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
+using IntersectionType = Loom.Core.TypeChecking.Types.IntersectionType;
 using LiteralType = Loom.Core.TypeChecking.Types.LiteralType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
@@ -17,7 +19,7 @@ public sealed partial class TypeChecker
         var interfaceType = Visit(implement.InterfaceName);
         foreach (var declaration in implement.Body.Implementations)
         {
-            var declarationType = (Types.FunctionType)GetTypeAtIndex(declaration, traitType, new LiteralType(declaration.Name.Text));
+            var declarationType = (FunctionType)GetTypeAtIndex(declaration, traitType, new LiteralType(declaration.Name.Text));
             BindType(declaration, declarationType);
             MaybeVisit(declaration.TypeParameters);
 
@@ -47,7 +49,7 @@ public sealed partial class TypeChecker
             Visit(declaration.Body);
         }
 
-        return TypeSimplifier.Simplify(new Types.IntersectionType([traitType, interfaceType]));
+        return TypeSimplifier.Simplify(new IntersectionType([traitType, interfaceType]));
     }
 
     public override Type VisitTraitDeclaration(TraitDeclaration traitDeclaration)
@@ -183,10 +185,11 @@ public sealed partial class TypeChecker
 
     private List<ObjectProperty> ResolveInterfaceEvents(List<EventDeclaration> eventDeclarations) =>
         eventDeclarations.ConvertAll(e =>
-        {
-            MaybeVisit(e.Attributes);
-            return new ObjectProperty(false, e.Name.Text, Visit(e));
-        });
+            {
+                MaybeVisit(e.Attributes);
+                return new ObjectProperty(false, e.Name.Text, Visit(e));
+            }
+        );
 
     private List<ObjectProperty> ResolveInterfaceProperties(List<InterfaceType> constraints, List<PropertyDeclaration> propertyDeclarations)
     {
@@ -219,11 +222,11 @@ public sealed partial class TypeChecker
         foreach (var property in properties)
         {
             if (indexByName.TryGetValue(property.Name, out var index)
-                && property.ValueType is Types.FunctionType newSignature
+                && property.ValueType is FunctionType newSignature
                 && TryGetSignatures(merged[index].ValueType, out var existingSignatures))
             {
                 existingSignatures.Add(newSignature);
-                merged[index] = new ObjectProperty(merged[index].IsMutable, property.Name, new Types.IntersectionType([..existingSignatures]));
+                merged[index] = new ObjectProperty(merged[index].IsMutable, property.Name, new IntersectionType([..existingSignatures]));
                 continue;
             }
 
@@ -234,15 +237,15 @@ public sealed partial class TypeChecker
         return merged;
     }
 
-    private static bool TryGetSignatures(Type type, [MaybeNullWhen(false)] out List<Types.FunctionType> signatures)
+    private static bool TryGetSignatures(Type type, [MaybeNullWhen(false)] out List<FunctionType> signatures)
     {
         switch (type)
         {
-            case Types.FunctionType functionType:
+            case FunctionType functionType:
                 signatures = [functionType];
                 return true;
-            case Types.IntersectionType intersection when intersection.Types.TrueForAll(t => t is Types.FunctionType):
-                signatures = intersection.Types.ConvertAll(t => (Types.FunctionType)t);
+            case IntersectionType intersection when intersection.Types.TrueForAll(t => t is FunctionType):
+                signatures = intersection.Types.ConvertAll(t => (FunctionType)t);
                 return true;
             default:
                 signatures = null;

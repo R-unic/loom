@@ -12,8 +12,8 @@ public sealed class RojoProject
             return null;
 
         using var document = JsonDocument.Parse(File.ReadAllText(projectFilePath));
-        return !document.RootElement.TryGetProperty("tree", out var treeElement) 
-            ? null : 
-            new RojoProject { Tree = RojoNode.Parse(treeElement) };
+        return !document.RootElement.TryGetProperty("tree", out var treeElement)
+            ? null
+            : new RojoProject { Tree = RojoNode.Parse(treeElement) };
     }
 }

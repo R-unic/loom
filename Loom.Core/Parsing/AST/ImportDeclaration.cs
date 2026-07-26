@@ -12,7 +12,15 @@ public sealed class ImportDeclaration(
     Literal moduleSpecifier
 )
     : Statement(
-        [importKeyword, typeKeyword, leftBrace, rightBrace, fromKeyword, ..specifiers.SelectMany(s => s.Tokens), ..moduleSpecifier.Tokens],
+        [
+            importKeyword,
+            typeKeyword,
+            leftBrace,
+            rightBrace,
+            fromKeyword,
+            ..specifiers.SelectMany(s => s.Tokens),
+            ..moduleSpecifier.Tokens
+        ],
         [..specifiers, moduleSpecifier]
     )
 {

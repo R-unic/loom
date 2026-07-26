@@ -7,8 +7,7 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class ImportResolverTest
 {
-    private const string MathModule =
-        """
+    private const string MathModule = """
         export let pi = 3;
         export fn square(x: number): number -> x * x;
         export type Scalar = number;

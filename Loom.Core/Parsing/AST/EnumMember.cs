@@ -7,6 +7,6 @@ public class EnumMember(Token name, EqualsValueClause? equalsValueClause)
 {
     public Token Name { get; } = name;
     public EqualsValueClause? EqualsValueClause { get; } = equalsValueClause;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitEnumMember(this);
 }

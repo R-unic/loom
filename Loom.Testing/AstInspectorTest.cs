@@ -105,10 +105,10 @@ public class AstInspectorTest
     public void IgnoresProperties_InIgnoreSet()
     {
         var node = new IndexedType(
-            leftBracket: new Token(SyntaxKind.LBracket, LocationSpan.Empty(), "["),
-            rightBracket: new Token(SyntaxKind.RBracket, LocationSpan.Empty(), "]"),
-            targetType: new InspectorTestType("MyArray"),
-            indexType: new InspectorTestType("number")
+            new Token(SyntaxKind.LBracket, LocationSpan.Empty(), "["),
+            new Token(SyntaxKind.RBracket, LocationSpan.Empty(), "]"),
+            new InspectorTestType("MyArray"),
+            new InspectorTestType("number")
         );
 
         var inspectionResult = Inspect(node);
@@ -139,10 +139,10 @@ public class AstInspectorTest
     public void Inspects_IndexedType()
     {
         var indexType = new IndexedType(
-            leftBracket: new Token(SyntaxKind.LBracket, LocationSpan.Empty(), "["),
-            rightBracket: new Token(SyntaxKind.RBracket, LocationSpan.Empty(), "]"),
-            targetType: new InspectorTestType("MyArray"),
-            indexType: new InspectorTestType("number")
+            new Token(SyntaxKind.LBracket, LocationSpan.Empty(), "["),
+            new Token(SyntaxKind.RBracket, LocationSpan.Empty(), "]"),
+            new InspectorTestType("MyArray"),
+            new InspectorTestType("number")
         );
 
         var inspectionResult = Inspect(indexType);

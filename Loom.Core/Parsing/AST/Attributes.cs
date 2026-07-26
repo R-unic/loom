@@ -8,6 +8,6 @@ public class Attributes(Token leftBracket, Token rightBracket, List<Attribute> a
     public Token LeftBracket { get; } = leftBracket;
     public Token RightBracket { get; } = rightBracket;
     public List<Attribute> AttributeList { get; } = attributeList;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitAttributes(this);
 }

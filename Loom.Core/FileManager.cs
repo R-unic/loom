@@ -6,15 +6,16 @@ namespace Loom.Core;
 public static class FileManager
 {
     public const string LoomExtension = ".loom";
-    
+
     public static void WriteCompiledFile(CompiledFile file)
     {
         var directory = Path.GetDirectoryName(file.Path);
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
+
         File.WriteAllText(file.Path, file.RenderedLuau);
     }
-    
+
     public static string GetOutputPath(SourceFile file, LoomConfig config) =>
         file.AbsolutePath
             .Replace(
@@ -25,8 +26,7 @@ public static class FileManager
 
     public static SourceFile LoadSingle(string path) => new(Path.GetFullPath(path));
 
-    public static List<SourceFile> LoadDirectory(string directoryPath) =>
-        LoadDirectory(directoryPath, SearchOption.AllDirectories);
+    public static List<SourceFile> LoadDirectory(string directoryPath) => LoadDirectory(directoryPath, SearchOption.AllDirectories);
 
     private static List<SourceFile> LoadDirectory(string directoryPath, SearchOption searchOption) =>
         !string.IsNullOrWhiteSpace(directoryPath) && Directory.Exists(directoryPath)

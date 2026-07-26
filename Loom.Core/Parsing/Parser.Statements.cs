@@ -89,7 +89,7 @@ public sealed partial class Parser
 
         return new Block(leftBrace, MissingToken(SyntaxKind.RBrace), statements);
     }
-    
+
     private Implement ParseImplement(Token keyword)
     {
         var traitNameIdentifier = ExpectIdentifier("trait name");
@@ -107,10 +107,10 @@ public sealed partial class Parser
         var leftBrace = Expect(SyntaxKind.LBrace);
         var implementations = ParseImplementMethods();
         var rightBrace = Expect(SyntaxKind.RBrace);
-        
+
         return new ImplementBody(leftBrace, rightBrace, implementations);
     }
-    
+
     private List<FunctionDeclaration> ParseImplementMethods()
     {
         var members = new List<Statement>();

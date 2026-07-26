@@ -8,8 +8,7 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class NamespaceImportTest
 {
-    private const string MathModule =
-        """
+    private const string MathModule = """
         export let pi: number = 3;
         export fn square(x: number): number -> x * x;
         export type Scalar = number;

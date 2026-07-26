@@ -10,6 +10,6 @@ public sealed class Implement(Token keyword, TypeName traitName, Token forKeywor
     public Token ForKeyword { get; } = forKeyword;
     public TypeName InterfaceName { get; } = interfaceName;
     public ImplementBody Body { get; } = body;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitImplement(this);
 }

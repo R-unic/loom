@@ -6,10 +6,10 @@ namespace Loom.Core.Diagnostics;
 public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null)
 {
     public static bool FailFast { get; set; } = true;
-    public static DiagnosticBag Concat(List<DiagnosticBag> bags) => new(bags.SelectMany(bag => bag.Set).ToHashSet());
-    
+
     public HashSet<Diagnostic> Set { get; } = diagnostics ?? [];
-    
+    public static DiagnosticBag Concat(List<DiagnosticBag> bags) => new(bags.SelectMany(bag => bag.Set).ToHashSet());
+
     public void Debug(Node node, string message) => Debug(node.LocationSpan, message);
     public void Debug(LocationSpan span, string message) => Report(span, DiagnosticSeverity.Debug, null, message, null);
     public void Debug(Node node, string code, string message) => Debug(node.LocationSpan, code, message);

@@ -1,5 +1,7 @@
 using Loom.Core.FlowAnalysis;
 using Loom.Core.Parsing.AST;
+using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
+using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Core.TypeChecking;
@@ -10,7 +12,7 @@ public sealed partial class TypeChecker
 
     private Type Check(Expression expression, Type expected, FlowState state)
     {
-        if (expression is ArrayLiteral arrayLiteral && expected is Types.ArrayType arrayType)
+        if (expression is ArrayLiteral arrayLiteral && expected is ArrayType arrayType)
             return CheckArrayLiteral(arrayLiteral, arrayType, state);
 
         if (expression is MatchExpression matchExpression)
@@ -33,7 +35,7 @@ public sealed partial class TypeChecker
         return actual;
     }
 
-    private Types.ArrayType CheckArrayLiteral(ArrayLiteral arrayLiteral, Types.ArrayType expected, FlowState state)
+    private ArrayType CheckArrayLiteral(ArrayLiteral arrayLiteral, ArrayType expected, FlowState state)
     {
         foreach (var element in arrayLiteral.Expressions)
             Check(element, expected.ElementType, state);
@@ -45,12 +47,13 @@ public sealed partial class TypeChecker
     {
         var scrutineeType = Visit(matchExpression.Expression, state);
         if (matchExpression.Arms.Count == 0)
-            return BindType(matchExpression, Types.PrimitiveType.Never);
+            return BindType(matchExpression, PrimitiveType.Never);
 
         var lastState = _flowState;
         _flowState = state;
         foreach (var arm in matchExpression.Arms)
             CheckMatchArm(arm, scrutineeType, expected);
+
         _flowState = lastState;
 
         return BindType(matchExpression, expected);

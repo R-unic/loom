@@ -4,20 +4,24 @@ using Loom.Core.Parsing;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking;
+using Loom.Core.TypeChecking.Types;
 using Loom.Luau;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
+using FunctionType = Loom.Core.Parsing.AST.FunctionType;
+using Type = Loom.Core.TypeChecking.Types.Type;
+using TypeParameter = Loom.Core.Parsing.AST.TypeParameter;
 
 namespace Loom.Core.Resolving;
 
 public sealed class Resolver(ParserResult parserResult, CompilationUnit compilationUnit)
     : Visitor<bool>(_ => true)
 {
-    private readonly DiagnosticBag _diagnostics = new();
     private readonly SymbolTable _allDeclarations = [];
     private readonly SymbolTable _allReferences = [];
+    private readonly DiagnosticBag _diagnostics = new();
     private readonly Stack<ResolverScope> _scopes = [];
-    private SemanticModel _semanticModel = null!;
     private ResolverContext _context = ResolverContext.None;
+    private SemanticModel _semanticModel = null!;
 
     [MemberNotNull(nameof(_semanticModel))]
     public SemanticModel Resolve()
@@ -77,9 +81,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         }
 
         if (!Visit(export.Declaration))
-        {
             return false;
-        }
 
         foreach (var symbol in _semanticModel.GetDeclarationSymbols(export.Declaration))
             AddExport(export.Declaration, ExportBinding.OfDeclaration(symbol));
@@ -157,15 +159,15 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     }
 
     /// <summary>
-    /// The type of a namespace import: an object whose properties are the module's runtime exports, so
-    /// member access on it type-checks against what the module actually returns.
+    ///     The type of a namespace import: an object whose properties are the module's runtime exports, so
+    ///     member access on it type-checks against what the module actually returns.
     /// </summary>
-    private static TypeChecking.Types.Type GetNamespaceType(SemanticModel moduleModel) =>
-        new TypeChecking.Types.ObjectType(
+    private static Type GetNamespaceType(SemanticModel moduleModel) =>
+        new ObjectType(
             null,
             moduleModel.Exports
                 .FindAll(export => export.EmitsRuntimeBinding)
-                .ConvertAll(export => new TypeChecking.Types.ObjectProperty(false, export.Name, moduleModel.GetType(export.Symbol.Declaration)))
+                .ConvertAll(export => new ObjectProperty(false, export.Name, moduleModel.GetType(export.Symbol.Declaration)))
         );
 
     /// <summary>Exports a name the module already declares, without introducing a new binding.</summary>
@@ -312,9 +314,9 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     }
 
     /// <summary>
-    /// Binds the exporting module's own symbol instance into this scope under the local name. The instance
-    /// is reused rather than copied — the same thing <see cref="DeclareGlobalSymbols"/> does for globals —
-    /// so that an imported interface still resolves to an <see cref="InterfaceSymbol"/>.
+    ///     Binds the exporting module's own symbol instance into this scope under the local name. The instance
+    ///     is reused rather than copied — the same thing <see cref="DeclareGlobalSymbols" /> does for globals —
+    ///     so that an imported interface still resolves to an <see cref="InterfaceSymbol" />.
     /// </summary>
     private bool DeclareImportedSymbol(
         ImportDeclaration import,
@@ -416,9 +418,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         traitSymbol.ImplementedBy.Add(interfaceSymbol);
         if (interfaceSymbol.Properties
             .Any(property => !DeclareVariable(implement, new InjectedPropertyVariableSymbol(implement, property.Name, interfaceSymbol, property.IsMutable))))
-        {
             return false;
-        }
 
         Visit(implement.Body);
         PopScope();
@@ -646,9 +646,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         if (!DeclareVariable(interfaceDeclaration, SymbolKind.Variable)
             || DeclareInterface(interfaceDeclaration, isSealed) is not { } symbol
             || !ResolveInterfaceConstraints(interfaceDeclaration.ColonTypeListClause, symbol))
-        {
             return false;
-        }
 
         PushScope();
         base.VisitInterfaceDeclaration(interfaceDeclaration);
@@ -932,7 +930,6 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     private void HoistDeclarations(List<Statement> statements)
     {
         foreach (var statement in statements)
-        {
             switch (statement)
             {
                 case TypeAlias typeAlias:
@@ -958,7 +955,6 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
                     DeclareInterface(nested, nested.SealedKeyword != null);
                     break;
             }
-        }
     }
 
     private bool ResolveStatement(Statement statement)
@@ -1066,13 +1062,11 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         AddToLookup(symbol);
         AddDeclaration(symbol);
         if (LuauFactory.Keywords.Contains(symbol.Name))
-        {
             _diagnostics.Error(
                 symbol.Declaration,
                 InternalCodes.ReservedLuauKeyword,
                 $"'{symbol.Name}' is a reserved Luau keyword and cannot be used as a declaration name."
             );
-        }
 
         if (IsDeclarationFile())
             symbol.IsGlobal = true;
@@ -1170,8 +1164,8 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     }
 
     /// <remarks>
-    /// One specifier can produce a binding per namespace, so an interface referenced only as a type still
-    /// counts as used. Runs once the whole tree is resolved, since a name may be used above its import.
+    ///     One specifier can produce a binding per namespace, so an interface referenced only as a type still
+    ///     counts as used. Runs once the whole tree is resolved, since a name may be used above its import.
     /// </remarks>
     private void ReportUnusedImports()
     {
@@ -1190,14 +1184,12 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         }
 
         foreach (var binding in _semanticModel.NamespaceImports.Where(binding => !binding.IsUsed))
-        {
             _diagnostics.Warn(
                 binding.Import,
                 InternalCodes.UnusedImport,
                 $"'{binding.LocalName}' is imported but never used.",
                 "remove the import"
             );
-        }
     }
 
     private void DeclareGlobalSymbols()

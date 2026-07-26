@@ -9,7 +9,7 @@ public sealed partial class Parser
 {
     private Statement ParseExport(Token exportKeyword)
     {
-        if (Current().Kind is SyntaxKind.LBrace || (Current().Kind is SyntaxKind.TypeKeyword && PeekKind(1) is SyntaxKind.LBrace))
+        if (Current().Kind is SyntaxKind.LBrace || Current().Kind is SyntaxKind.TypeKeyword && PeekKind(1) is SyntaxKind.LBrace)
             return ParseExportList(exportKeyword);
 
         if (Match(out var keyword, SyntaxFacts.IsExportableKeyword))

@@ -9,6 +9,6 @@ public class InterfaceInvocation(Token keyword, Name name, TypeArguments? typeAr
     public Name Name { get; } = name;
     public TypeArguments? TypeArguments { get; } = typeArguments;
     public InterfaceInvocationBody Body { get; } = body;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitInterfaceInvocation(this);
 }

@@ -1,8 +1,3 @@
 namespace Loom.Core.TypeChecking.Types;
 
-public enum Variance
-{
-    Invariant,
-    Covariant,
-    Contravariant
-}
+public enum Variance { Invariant, Covariant, Contravariant }

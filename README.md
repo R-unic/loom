@@ -32,7 +32,8 @@
 - **Traits** – Define reusable behavior that interfaces can implement, enabling shared APIs and generic constraints that reflect behavior
 - **Indices starting at one** – Same as Luau for familiarity
 - **Zero-cost abstractions** – Transpiles to idiomatic Luau with minimal overhead
-- **Batteries included** - Comes with a set of built-in compile-time macros included with data types such as [Array.join()](#arrayjoin) or [Range.clamp()](#rangeclamp)
+- **Batteries included** - Comes with a set of built-in compile-time macros included with data types such as [Array.join()](#arrayjoin)
+  or [Range.clamp()](#rangeclamp)
 
 ## Upcoming Features
 
@@ -904,7 +905,9 @@ print(user:serialize())
 ```
 
 ## typeof
+
 Inspect types of dynamic expressions.
+
 ```ts
 mut my_number = 69;
 type NumberType = typeof(my_number);
@@ -918,6 +921,7 @@ const x: NumberType = 420
 ```
 
 ## Events
+
 Built-in syntaxes for creating, connecting, and disconnecting.
 
 ```cs

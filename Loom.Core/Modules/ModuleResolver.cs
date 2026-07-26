@@ -3,14 +3,14 @@ using Loom.Core.Text;
 namespace Loom.Core.Modules;
 
 /// <summary>
-/// Maps a module specifier as written in source (<c>"./math"</c>) onto a <see cref="SourceFile"/> of the
-/// compilation unit. Specifiers are extension-less and relative to the importing file's directory;
-/// <c>"./math"</c> matches either <c>math.loom</c> or <c>math/init.loom</c>, mirroring how Rojo folds an
-/// <c>init</c> file into its folder.
+///     Maps a module specifier as written in source (<c>"./math"</c>) onto a <see cref="SourceFile" /> of the
+///     compilation unit. Specifiers are extension-less and relative to the importing file's directory;
+///     <c>"./math"</c> matches either <c>math.loom</c> or <c>math/init.loom</c>, mirroring how Rojo folds an
+///     <c>init</c> file into its folder.
 /// </summary>
 /// <remarks>
-/// Paths are compared case-sensitively even where the file system is not, because Roblox requires are.
-/// Declaration files are ambient globals rather than modules, so they are never importable.
+///     Paths are compared case-sensitively even where the file system is not, because Roblox requires are.
+///     Declaration files are ambient globals rather than modules, so they are never importable.
 /// </remarks>
 public sealed class ModuleResolver
 {

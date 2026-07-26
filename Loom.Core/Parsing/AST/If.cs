@@ -9,6 +9,6 @@ public class If(Token keyword, Expression condition, Statement thenBranch, ElseB
     public Expression Condition { get; } = condition;
     public Statement ThenBranch { get; } = thenBranch;
     public ElseBranch? ElseBranch { get; } = elseBranch;
-    
+
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitIf(this);
 }

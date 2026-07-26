@@ -9,11 +9,10 @@ using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 namespace Loom.Core.TypeChecking;
 
 /// <summary>
-/// Infers each type parameter's variance from how it's used within a generic declaration's body.
-/// Nested generic instantiations (e.g. a type parameter passed as an argument to another generic)
-/// are currently treated as invariant occurrences rather than being recursively analyzed.
-/// 
-/// Subject to change.
+///     Infers each type parameter's variance from how it's used within a generic declaration's body.
+///     Nested generic instantiations (e.g. a type parameter passed as an argument to another generic)
+///     are currently treated as invariant occurrences rather than being recursively analyzed.
+///     Subject to change.
 /// </summary>
 public static class VarianceInferrer
 {
@@ -49,10 +48,12 @@ public static class VarianceInferrer
                 case UnionType unionType:
                     foreach (var member in unionType.Types)
                         Walk(member, position, positions, visiting);
+
                     break;
                 case IntersectionType intersectionType:
                     foreach (var member in intersectionType.Types)
                         Walk(member, position, positions, visiting);
+
                     break;
                 case FunctionType functionType:
                     foreach (var parameterType in functionType.ParameterTypes)

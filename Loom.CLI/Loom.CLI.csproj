@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Loom.Core\Loom.Core.csproj" />
+        <ProjectReference Include="..\Loom.Core\Loom.Core.csproj"/>
     </ItemGroup>
 
 </Project>

@@ -16,13 +16,13 @@ internal class Generator(
         try
         {
             Write("## This is an automatically generated file and it should not be edited manually.");
-            
+
             var enumGenerator = new EnumGenerator(FilePath, Metadata);
             enumGenerator.Generate(dump.Enums);
 
             var classGenerator = new ClassGenerator(FilePath, Metadata, definedClassNames, security, lowerSecurity);
             classGenerator.Generate(dump.Classes);
-            
+
             WriteContentsOfFile("roblox.loom");
             Stream.Append(enumGenerator.Stream);
             Stream.Append(classGenerator.Stream);
