@@ -261,13 +261,10 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
             return true; // only reachable through a dependency cycle, which the module graph reported
 
         var localNames = new HashSet<string>();
-        foreach (var specifier in import.Specifiers)
-            ResolveImportSpecifier(import, specifier, module, moduleModel, localNames);
-
-        return true;
+        return import.Specifiers.All(specifier => ResolveImportSpecifier(import, specifier, module, moduleModel, localNames));
     }
 
-    private void ResolveImportSpecifier(
+    private bool ResolveImportSpecifier(
         ImportDeclaration import,
         ImportSpecifier specifier,
         SourceFile module,
@@ -287,35 +284,30 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
                 exported.Count > 0 ? $"it exports {string.Join(", ", exported.Select(n => $"'{n}'"))}" : "it exports nothing"
             );
 
-            return;
+            return false;
         }
 
         if (!localNames.Add(localName))
         {
             _diagnostics.Error(specifier, InternalCodes.DuplicateImport, $"'{localName}' is imported more than once.");
-            return;
+            return false;
         }
 
-        if (import.IsTypeOnly)
-        {
-            var typeExports = exports.FindAll(export => export.Symbol.IsTypeSymbol);
-            if (typeExports.Count == 0)
-            {
-                _diagnostics.Error(
-                    specifier,
-                    InternalCodes.TypeOnlyImportOfValue,
-                    $"'{name}' is a value, not a type.",
-                    "remove 'type' from the import"
-                );
+        if (!import.IsTypeOnly)
+            return exports.All(export => DeclareImportedSymbol(import, specifier, export.Symbol, module, moduleModel));
 
-                return;
-            }
+        var typeExports = exports.FindAll(export => export.Symbol.IsTypeSymbol);
+        if (typeExports.Count != 0)
+            return typeExports.All(export => DeclareImportedSymbol(import, specifier, export.Symbol, module, moduleModel));
 
-            exports = typeExports;
-        }
+        _diagnostics.Error(
+            specifier,
+            InternalCodes.TypeOnlyImportOfValue,
+            $"'{name}' is a value, not a type.",
+            "remove 'type' from the import"
+        );
 
-        foreach (var export in exports)
-            DeclareImportedSymbol(import, specifier, export.Symbol, module, moduleModel);
+        return false;
     }
 
     /// <summary>
@@ -323,7 +315,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     /// is reused rather than copied — the same thing <see cref="DeclareGlobalSymbols"/> does for globals —
     /// so that an imported interface still resolves to an <see cref="InterfaceSymbol"/>.
     /// </summary>
-    private void DeclareImportedSymbol(
+    private bool DeclareImportedSymbol(
         ImportDeclaration import,
         ImportSpecifier specifier,
         Symbol export,
@@ -333,7 +325,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
         var localName = specifier.LocalName.Text;
         var duplicateKind = export.IsTypeSymbol ? "Type" : "Variable";
         if (HasDuplicateSymbol(specifier, localName, !export.IsTypeSymbol, $"{duplicateKind} '{localName}' is already declared in this scope."))
-            return;
+            return false;
 
         if (LuauFactory.Keywords.Contains(localName))
         {
@@ -343,14 +335,14 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
                 $"'{localName}' is a reserved Luau keyword and cannot be used as a declaration name."
             );
 
-            return;
+            return false;
         }
 
         AddToLookup(localName, export);
         AddDeclaration(export);
         _semanticModel.AddImportBinding(new ImportBinding(import, specifier, export, module));
-        
         _semanticModel.TypeSolver.SetType(export.Declaration, moduleModel.GetType(export.Declaration));
+        return true;
     }
 
     public override bool VisitImplement(Implement implement)
@@ -1043,7 +1035,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     private bool DeclareVariable(Node node, Symbol symbol)
     {
         if (HasDuplicateSymbol(node, symbol.Name, true, $"Variable '{symbol.Name}' is already declared in this scope."))
-            return true;
+            return false;
 
         DeclareSymbol(symbol);
         return true;
@@ -1053,7 +1045,7 @@ public sealed class Resolver(ParserResult parserResult, CompilationUnit compilat
     {
         var name = node.Name.Text;
         if (HasDuplicateSymbol(node, false, $"Type '{name}' is already declared in this scope."))
-            return true;
+            return false;
 
         var symbol = new Symbol(node, symbolKind, name);
         DeclareSymbol(symbol);
