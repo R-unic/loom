@@ -26,40 +26,11 @@ public sealed partial class LuauGenerator
         return new ConstVariable(eventDeclaration.Name.Text, eventType, LuauFactory.RuntimeLibraryCall(["Event", "new"], []));
     }
 
-    public override LuauNode VisitAssignmentOperator(AssignmentOperator assignmentOperator)
-    {
-        if (assignmentOperator.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals
-            && EventConnectionScopeAnalyzer.ResolveEventTarget(_semanticModel, assignmentOperator.Left) is { } eventTarget)
-            return GenerateEventAssignment(assignmentOperator, eventTarget);
-
-        if (assignmentOperator.Parent is ExpressionStatement)
-            return VisitBinaryOperator(assignmentOperator);
-
-        if (assignmentOperator.Left is Identifier)
-        {
-            var binary = (BinaryOperator)VisitBinaryOperator(assignmentOperator);
-            var assignmentStatement = new Luau.AST.ExpressionStatement(binary);
-            _state.Prereq(assignmentStatement);
-
-            return binary.Left;
-        }
-
-        var left = Visit(assignmentOperator.Left);
-        var right = Visit(assignmentOperator.Right);
-        if (assignmentOperator.Parent is EqualsValueClause { Parent: NamedDeclaration declaration })
-        {
-            var identifierAssignment = new BinaryOperator(left, "=", new Luau.AST.Identifier(declaration.Name.Text));
-            _state.Postreq(new Luau.AST.ExpressionStatement(identifierAssignment));
-
-            return right;
-        }
-
-        var assigned = _state.PushToVariable("_assigned", right);
-        var boundAssignment = new BinaryOperator(left, "=", assigned);
-        _state.Prereq(new Luau.AST.ExpressionStatement(boundAssignment));
-
-        return assigned;
-    }
+    public override LuauNode VisitAssignmentOperator(AssignmentOperator assignmentOperator) =>
+        assignmentOperator.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals
+        && EventConnectionScopeAnalyzer.ResolveEventTarget(_semanticModel, assignmentOperator.Left) is { } eventTarget
+            ? GenerateEventAssignment(assignmentOperator, eventTarget)
+            : GenerateAssignment(assignmentOperator);
 
     private LuauExpression GenerateEventAssignment(AssignmentOperator assignmentOperator, EventTarget eventTarget)
     {

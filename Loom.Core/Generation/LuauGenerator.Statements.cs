@@ -5,9 +5,11 @@ using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using Loom.Luau;
 using Loom.Luau.AST;
+using BinaryOperator = Loom.Luau.AST.BinaryOperator;
 using Break = Loom.Core.Parsing.AST.Break;
 using Continue = Loom.Core.Parsing.AST.Continue;
 using ExpressionStatement = Loom.Core.Parsing.AST.ExpressionStatement;
+using Identifier = Loom.Core.Parsing.AST.Identifier;
 using Return = Loom.Core.Parsing.AST.Return;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
 
@@ -96,6 +98,37 @@ public sealed partial class LuauGenerator
         }
 
         return new NumericForStatement(names.First(), start, end, incrementBy, body);
+    }
+
+    private LuauNode GenerateAssignment(AssignmentOperator assignmentOperator)
+    {
+        if (assignmentOperator.Parent is ExpressionStatement)
+            return VisitBinaryOperator(assignmentOperator);
+
+        if (assignmentOperator.Left is Identifier)
+        {
+            var binary = (BinaryOperator)VisitBinaryOperator(assignmentOperator);
+            var assignmentStatement = new Luau.AST.ExpressionStatement(binary);
+            _state.Prereq(assignmentStatement);
+
+            return binary.Left;
+        }
+
+        var left = Visit(assignmentOperator.Left);
+        var right = Visit(assignmentOperator.Right);
+        if (assignmentOperator.Parent is EqualsValueClause { Parent: NamedDeclaration declaration })
+        {
+            var identifierAssignment = new BinaryOperator(left, "=", new Luau.AST.Identifier(declaration.Name.Text));
+            _state.Postreq(new Luau.AST.ExpressionStatement(identifierAssignment));
+
+            return right;
+        }
+
+        var assigned = _state.PushToVariable("_assigned", right);
+        var boundAssignment = new BinaryOperator(left, "=", assigned);
+        _state.Prereq(new Luau.AST.ExpressionStatement(boundAssignment));
+
+        return assigned;
     }
 
     public override IfStatement VisitIf(If @if)
