@@ -64,28 +64,8 @@ public sealed partial class Parser
 
     private bool LooksLikeAttributesBeforeEvent()
     {
-        var i = 0;
-        if (PeekKind(i) != SyntaxKind.LBracket)
-            return false;
-
-        var depth = 1;
-        i++;
-        while (depth > 0)
-        {
-            switch (PeekKind(i))
-            {
-                case SyntaxKind.LBracket:
-                    depth++;
-                    break;
-                case SyntaxKind.RBracket:
-                    depth--;
-                    break;
-            }
-
-            i++;
-        }
-
-        return PeekKind(i) == SyntaxKind.EventKeyword;
+        var end = OffsetAfterBrackets();
+        return end != null && PeekKind(end.Value + 1) == SyntaxKind.EventKeyword;
     }
 
     private Block ParseBlock(Token leftBrace)

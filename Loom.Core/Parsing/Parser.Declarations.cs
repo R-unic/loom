@@ -7,36 +7,24 @@ namespace Loom.Core.Parsing;
 
 public sealed partial class Parser
 {
-    private static readonly SyntaxKind[] _exportableKeywords =
-    [
-        SyntaxKind.FnKeyword,
-        SyntaxKind.LetKeyword,
-        SyntaxKind.MutKeyword,
-        SyntaxKind.TypeKeyword,
-        SyntaxKind.InterfaceKeyword,
-        SyntaxKind.SealedKeyword,
-        SyntaxKind.EnumKeyword,
-        SyntaxKind.TraitKeyword
-    ];
-    
     private Statement ParseExport(Token exportKeyword)
     {
         if (Current().Kind is SyntaxKind.LBrace || (Current().Kind is SyntaxKind.TypeKeyword && PeekKind(1) is SyntaxKind.LBrace))
             return ParseExportList(exportKeyword);
 
-        if(Match(out var keyword, kind => _exportableKeywords.Contains(kind)))
+        if (Match(out var keyword, SyntaxFacts.IsExportableKeyword))
             return WrapExport(exportKeyword, StatementParsers[keyword.Kind](keyword));
 
         _diagnostics.Error(
             Current(),
             InternalCodes.ExpectedExportableDeclaration,
-            $"Only 'fn', 'let', 'type', 'interface', 'enum' and 'trait' declarations can be exported, got {SafeTokenText(Current())}."
+            $"Only 'fn', 'let', 'type', 'interface', 'enum', and 'trait' declarations can be exported, got {SafeTokenText(Current())}."
         );
 
         return new NullStatement(exportKeyword);
     }
 
-    private Statement ParseExportList(Token exportKeyword)
+    private ExportList ParseExportList(Token exportKeyword)
     {
         Match(out var typeKeyword, SyntaxKind.TypeKeyword);
 
@@ -58,7 +46,15 @@ public sealed partial class Parser
             moduleSpecifier = new Literal(pathToken, LiteralUtility.ResolveValue(pathToken));
         }
 
-        return new ExportList(exportKeyword, typeKeyword, leftBrace, specifiers, rightBrace, fromKeyword, moduleSpecifier);
+        return new ExportList(
+            exportKeyword,
+            typeKeyword,
+            leftBrace,
+            specifiers,
+            rightBrace,
+            fromKeyword,
+            moduleSpecifier
+        );
     }
 
     private ExportSpecifier? ParseExportSpecifier() =>
@@ -67,11 +63,6 @@ public sealed partial class Parser
             : Match(out var asKeyword, SyntaxKind.AsKeyword)
                 ? new ExportSpecifier(name, asKeyword, ExpectIdentifier("export alias"))
                 : new ExportSpecifier(name, null, null);
-
-    private Statement WrapExport(Token exportKeyword, Statement declaration) =>
-        declaration is NamedDeclaration named
-            ? new ExportDeclaration(exportKeyword, named)
-            : declaration;
 
     private TraitDeclaration ParseTraitDeclaration(Token keyword)
     {
@@ -175,10 +166,10 @@ public sealed partial class Parser
 
         if (mutKeyword == null && Match(out var keyword, SyntaxKind.EventKeyword))
             return ParseEventDeclaration(keyword, null);
-        
+
         return ParsePropertyDeclaration(mutKeyword, null);
     }
-    
+
     private IndexerDeclaration? ParseIndexerDeclaration(Token? mutKeyword, Token leftBracket)
     {
         var indexType = ParseType();
@@ -192,44 +183,6 @@ public sealed partial class Parser
         var name = ExpectIdentifier("property name");
         var propertyType = ExpectInterfaceMemberColonTypeClause($"Expected indexer type, got {SafeTokenText(Current())}.");
         return propertyType == null ? null : new PropertyDeclaration(mutKeyword, name, propertyType, attributes);
-    }
-
-    private bool LooksLikeIndexer()
-    {
-        var i = 0;
-        if (PeekKind(i) != SyntaxKind.LBracket)
-            return false;
-
-        var depth = 1;
-        i++;
-
-        while (depth > 0)
-        {
-            switch (PeekKind(i))
-            {
-                case SyntaxKind.LBracket:
-                    depth++;
-                    break;
-
-                case SyntaxKind.RBracket:
-                    depth--;
-                    break;
-            }
-
-            i++;
-        }
-
-        return PeekKind(i) == SyntaxKind.Colon;
-    }
-
-    private ColonTypeClause? ExpectInterfaceMemberColonTypeClause(string message)
-    {
-        var colonTypeClause = ParseColonTypeClause();
-        if (colonTypeClause != null)
-            return colonTypeClause;
-
-        _diagnostics.Error(Current(), InternalCodes.ExpectedInterfaceMemberType, message);
-        return null;
     }
 
     private Attributes ParseAttributes(Token leftBracket)
@@ -397,21 +350,6 @@ public sealed partial class Parser
         return new Parameters(leftParen, rightParen, parameters);
     }
 
-    private void ValidateRestParameterPlacement(List<Parameter> parameters)
-    {
-        for (var i = 0; i < parameters.Count; i++)
-        {
-            var parameter = parameters[i];
-            if (parameter.DotDot == null) continue;
-
-            if (i != parameters.Count - 1)
-                _diagnostics.Error(parameter, InternalCodes.RestParameterNotLast, "A rest parameter must be the last parameter.");
-
-            if (parameter.ColonTypeClause == null)
-                _diagnostics.Error(parameter, InternalCodes.MissingRestParameterType, "A rest parameter must have an explicit array type.");
-        }
-    }
-
     private Parameter ParseParameter()
     {
         var dotDot = Match(out var dots, SyntaxKind.DotDot) ? dots : null;
@@ -428,4 +366,36 @@ public sealed partial class Parser
         Match(out var colon, SyntaxKind.Colon) ? new ColonTypeListClause(colon, ParseDelimited(ParseType)) : null;
 
     private EqualsTypeClause? ParseEqualsTypeClause() => Match(out var equals, SyntaxKind.Equals) ? new EqualsTypeClause(equals, ParseType()) : null;
+
+    private bool LooksLikeIndexer() => OffsetAfterBrackets() is { } end && PeekKind(end + 1) == SyntaxKind.Colon;
+
+    private static Statement WrapExport(Token exportKeyword, Statement declaration) =>
+        declaration is NamedDeclaration named
+            ? new ExportDeclaration(exportKeyword, named)
+            : declaration;
+
+    private ColonTypeClause? ExpectInterfaceMemberColonTypeClause(string message)
+    {
+        var colonTypeClause = ParseColonTypeClause();
+        if (colonTypeClause != null)
+            return colonTypeClause;
+
+        _diagnostics.Error(Current(), InternalCodes.ExpectedInterfaceMemberType, message);
+        return null;
+    }
+
+    private void ValidateRestParameterPlacement(List<Parameter> parameters)
+    {
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            var parameter = parameters[i];
+            if (parameter.DotDot == null) continue;
+
+            if (i != parameters.Count - 1)
+                _diagnostics.Error(parameter, InternalCodes.RestParameterNotLast, "A rest parameter must be the last parameter.");
+
+            if (parameter.ColonTypeClause == null)
+                _diagnostics.Error(parameter, InternalCodes.MissingRestParameterType, "A rest parameter must have an explicit array type.");
+        }
+    }
 }

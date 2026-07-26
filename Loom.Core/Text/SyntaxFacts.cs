@@ -11,8 +11,8 @@ public static class SyntaxFacts
             new("mut", SyntaxKind.MutKeyword),
             new("type", SyntaxKind.TypeKeyword),
             new("interface", SyntaxKind.InterfaceKeyword),
-            new ("export", SyntaxKind.ExportKeyword),
-            new ("import", SyntaxKind.ImportKeyword),
+            new("export", SyntaxKind.ExportKeyword),
+            new("import", SyntaxKind.ImportKeyword),
             new("fn", SyntaxKind.FnKeyword),
             new("return", SyntaxKind.ReturnKeyword),
             new("continue", SyntaxKind.ContinueKeyword),
@@ -113,6 +113,17 @@ public static class SyntaxFacts
     [
         SyntaxKind.NumberLiteral, SyntaxKind.StringLiteral, SyntaxKind.TrueLiteral, SyntaxKind.FalseLiteral, SyntaxKind.NoneLiteral
     ];
+    private static readonly HashSet<SyntaxKind> _exportableKeywords =
+    [
+        SyntaxKind.FnKeyword,
+        SyntaxKind.LetKeyword,
+        SyntaxKind.MutKeyword,
+        SyntaxKind.TypeKeyword,
+        SyntaxKind.InterfaceKeyword,
+        SyntaxKind.SealedKeyword,
+        SyntaxKind.EnumKeyword,
+        SyntaxKind.TraitKeyword
+    ];
     private static readonly HashSet<SyntaxKind> _assignmentOperators =
     [
         SyntaxKind.Equals,
@@ -149,11 +160,10 @@ public static class SyntaxFacts
         SyntaxKind.LArrowLArrowEquals
     ];
     private static readonly HashSet<SyntaxKind> _unaryOperators = [SyntaxKind.Minus, SyntaxKind.Tilde, SyntaxKind.Bang];
-    private static readonly Dictionary<SyntaxKind, string> _operatorTextByKind =
-        OperatorMap.ToDictionary(kv => kv.Value, kv => kv.Key);
-    private static readonly Dictionary<SyntaxKind, string> _keywordTextByKind =
-        KeywordMap.ToDictionary(kv => kv.Value, kv => kv.Key);
+    private static readonly Dictionary<SyntaxKind, string> _operatorTextByKind = OperatorMap.ToDictionary(kv => kv.Value, kv => kv.Key);
+    private static readonly Dictionary<SyntaxKind, string> _keywordTextByKind = KeywordMap.ToDictionary(kv => kv.Value, kv => kv.Key);
 
+    public static bool IsExportableKeyword(SyntaxKind kind) => _exportableKeywords.Contains(kind);
     public static bool IsNotTrivia(SyntaxKind kind) => !IsTrivia(kind);
     public static bool IsTrivia(SyntaxKind kind) => _triviaSyntaxes.Contains(kind);
     public static bool IsLiteral(SyntaxKind kind) => _literalSyntaxes.Contains(kind);

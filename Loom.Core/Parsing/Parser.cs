@@ -293,6 +293,30 @@ public sealed partial class Parser(LexerResult lexerResult)
             text
         );
     }
+    
+    private int? OffsetAfterBrackets(int startOffset = 0)
+    {
+        if (PeekKind(startOffset) != SyntaxKind.LBracket)
+            return null;
+
+        var depth = 1;
+
+        for (var i = startOffset + 1; ; i++)
+        {
+            switch (PeekKind(i))
+            {
+                case SyntaxKind.LBracket:
+                    depth++;
+                    break;
+                case SyntaxKind.RBracket:
+                    if (--depth == 0)
+                        return i;
+                    break;
+                case SyntaxKind.Eof:
+                    return null;
+            }
+        }
+    }
 
     private Token Current() => lexerResult.Tokens[_position];
     private SyntaxKind PeekKind(int offset)

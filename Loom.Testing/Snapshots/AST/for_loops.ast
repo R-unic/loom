@@ -267,9 +267,24 @@ For(
     )
   ]
   Colon: Token(Colon, ":")
-  CollectionExpression: Identifier(
-    Name: Token(Identifier, "arr")
-    Token(Identifier, "arr")
+  CollectionExpression: ArrayLiteral(
+    MutKeyword: Token(MutKeyword, "mut")
+    LeftBracket: Token(LBracket, "[")
+    RightBracket: Token(RBracket, "]")
+    Expressions: [
+      Literal(
+        Token(NumberLiteral, "1")
+        Value: 1
+      )
+      Literal(
+        Token(NumberLiteral, "2")
+        Value: 2
+      )
+      Literal(
+        Token(NumberLiteral, "3")
+        Value: 3
+      )
+    ]
   )
   Body: Block(
     LeftBrace: Token(LBrace, "{")
