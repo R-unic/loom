@@ -166,11 +166,14 @@ public sealed partial class LuauGenerator
             : $"_{eventTarget.Event.Name}_connections";
 
     /// <summary>
-    ///     Finds every '+=' whose matching '-=' calls (if any) are all provably reachable from a Luau
-    ///     local declared at the '+=' site - i.e. the connection can be a plain local instead of an entry
-    ///     in the hidden per-event connection store. Computed lazily on the first '+=' so files with no
-    ///     event connections never pay for the full-tree scan, but once computed it covers the whole file
-    ///     so each '+=' knows, at the point it's generated, whether a later '-=' elsewhere will need the store.
+    ///     Finds every (event, function) pair whose '+=' calls can each become a plain Luau local instead
+    ///     of an entry in the hidden per-event connection store. A '-=' always rebinds to whichever '+='
+    ///     most recently ran for that pair, so a connect only needs to prove local-safety against the
+    ///     disconnects that fall between it and the next connect for the same pair (if any); if every
+    ///     connect for a pair clears that bar, the whole pair can use locals. Computed lazily on the first
+    ///     '+=' so files with no event connections never pay for the full-tree scan, but once computed it
+    ///     covers the whole file so each '+=' knows, at the point it's generated, whether a later '-='
+    ///     elsewhere will need the store.
     /// </summary>
     private HashSet<(EventTarget Target, Symbol Function)> ComputeLocalSafeConnections()
     {
@@ -179,14 +182,9 @@ public sealed partial class LuauGenerator
 
         foreach (var assignment in _semanticModel.Tree.GetDescendants<AssignmentOperator>())
         {
-            if (assignment.Operator.Kind is not (SyntaxKind.PlusEquals or SyntaxKind.MinusEquals))
-                continue;
-
-            if (ResolveEventTarget(assignment.Left) is not { } target)
-                continue;
-
-            if (assignment.Right is not Identifier identifier || _semanticModel.GetSymbol(identifier) is not { } functionSymbol)
-                continue;
+            if (assignment.Operator.Kind is not (SyntaxKind.PlusEquals or SyntaxKind.MinusEquals)) continue;
+            if (ResolveEventTarget(assignment.Left) is not { } target) continue;
+            if (assignment.Right is not Identifier identifier || _semanticModel.GetSymbol(identifier) is not { } functionSymbol) continue;
 
             var key = (target, functionSymbol);
             var bucket = assignment.Operator.Kind == SyntaxKind.PlusEquals ? connectsByKey : disconnectsByKey;
@@ -199,8 +197,23 @@ public sealed partial class LuauGenerator
         var localSafe = new HashSet<(EventTarget, Symbol)>();
         foreach (var (key, connects) in connectsByKey)
         {
-            if (connects.Count != 1) continue;
-            if (!disconnectsByKey.TryGetValue(key, out var disconnects) || disconnects.TrueForAll(d => CanShareLocalScope(connects[0], d)))
+            var orderedConnects = connects.OrderBy(connect => connect.Span.Position).ToList();
+            disconnectsByKey.TryGetValue(key, out var disconnects);
+
+            var safe = true;
+            for (var i = 0; i < orderedConnects.Count && safe; i++)
+            {
+                var connect = orderedConnects[i];
+                var nextConnectPosition = i + 1 < orderedConnects.Count ? orderedConnects[i + 1].Span.Position : int.MaxValue;
+
+                safe = disconnects == null
+                    || disconnects.TrueForAll(disconnect => disconnect.Span.Position <= connect.Span.Position
+                        || disconnect.Span.Position >= nextConnectPosition
+                        || CanShareLocalScope(connect, disconnect)
+                    );
+            }
+
+            if (safe)
                 localSafe.Add(key);
         }
 
