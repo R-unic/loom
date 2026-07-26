@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Loom: domain-specific language for Roblox, transpiles to Luau. C# / .NET 9, xUnit tests. WIP — breaking changes allowed. Repo: https://github.com/R-unic/loom
+Loom: domain-specific language for Roblox, transpiles to Luau. C# / .NET 10, xUnit tests. WIP — breaking changes allowed. Repo: https://github.com/rbx-loom/loom
 
 ## Commands
 
@@ -9,7 +9,7 @@ dotnet restore
 dotnet build
 dotnet test                     # full test suite (Loom.Testing, xUnit)
 dotnet test --filter "FullyQualifiedName~ParserTest"   # single test class
-dotnet run --project Loom.CLI -- <dir>                 # compile a Loom project (dir with loom-config.toml, default ".")
+dotnet run --project Loom.CLI -- <dir>                 # compile a Loom project (dir with loom-config.toml, default "."), TestProject exists for testing changes
 dotnet run --project Loom.Tools -- ast <file.loom>     # dump AST for a file
 dotnet run --project Loom.Tools -- generate-ast-snapshots  # regenerate AST snapshot files
 ```
@@ -22,18 +22,26 @@ before claiming done.
 - `Loom.Core/` — the compiler.
     - `Lexing/` — `Lexer`, rule-based (`LexerRules.cs`)
     - `Parsing/` — `Parser` (partial class split: `.Declarations`, `.Expressions`, `.Statements`, `.Types`), `AST/` one file per node type (~90 files)
-    - `Resolving/` — `Resolver`, `SemanticModel`, `Symbol`/`SymbolKind`, scopes
+    - `Resolving/` — `Resolver` (partial: `.ControlFlow`, `.Declarations`, `.Interfaces`, `.Modules`, `.Patterns`, `.SymbolTable`), `SemanticModel`, scopes +
+      `Symbols/`
     - `FlowAnalysis/` — `FlowAnalyzer`, flow state for control-flow reasoning
-    - `TypeChecking/` — `TypeChecker` (partial: `.Enums`, `.Generics`, `.Interfaces`), plus `TypeInferrer`, `TypeNarrower`, `TypeSimplifier`, `TypeSolver`;
+    - `TypeChecking/` — `TypeChecker` (partial: `.Enums`, `.Generics`, `.Interfaces`, `.ControlFlow`, `.Declarations`, `.Invocations`, `.Match`, `.MemberAcess`,
+      `.Operators`, `.TypeNodes`, , `.Check` (bidirectional/contextual typing)), plus `TypeInferrer`, `TypeNarrower`, `TypeSimplifier`, `TypeSolver`; Intrinsics
+      for injecting .loom files into all Loom programs
       `Types/` one file per type kind (union, intersection, literal, generic, etc.); `Intrinsic/` + operator binders/rules
-    - `Generation/` — `LuauGenerator` (partial: `.Basic`), `MapLuau.cs`, `Macros/` with `IMacroProvider` implementations under `Macros/Providers/` (Array,
-      Range, Number, Result, global invocations)
+    - `Generation/` — `LuauGenerator` (partial: `.Declarations`, `.Events`, `.Expressions`, `.Interfaces`, `.Match`, `.Statements`, `.Types`),
+      `LuauOperatorMap.cs`, `Macros/` with `IMacroProvider` implementations under `Macros/Providers/` (Array, Range, Number, Result, Instance, global
+      invocations)
+    - `Modules/` — import/export graphing, resolution, and Luau require() path resolution
     - `Diagnostics/` — `DiagnosticBag`, severities, `InternalCodes.cs`. Errors flow through diagnostics, never exceptions (top-level `Compiler.Compile` catch =
       compiler bug path).
-    - `Compiler.cs` — pipeline orchestration; `CompilationUnit.cs` — multi-file compile driven by `LoomConfig`
+    - `Pipeline/` — `Compiler.cs` pipeline orchestration; `CompilationUnit.cs` multi-file compile driven by `LoomConfig` and two-phase parse-analyze step to
+      support modules
 - `Loom.Luau/` — Luau output AST + renderer (`LuauFactory`, `RenderState`, `AST/`)
-- `Loom.Config/` — `loom-config.toml` reader (Tomlyn). `FilesConfig`: `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`)
+- `Loom.Config/` — `loom-config.toml` reader (Tomlyn). `ProjectType` (default `game`), `Debug` (default `false`, for emitting debug diagnostics) `FilesConfig`:
+  `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`)
 - `Loom.CLI/` — entry point; locates config, compiles unit, prints debug info. `Include/loom_runtime.luau` = runtime support emitted alongside output
+- `Loom.TypeGenerator/` — Loom code generator to define types for the Roblox API; tests depend on these types to be generated to pass
 - `Loom.Tools/` — dev tooling (AST dump, snapshot generation)
 - `Loom.Testing/` — all tests, one test class per compiler stage/component
 - `TestProject/` — sample Loom project (src/dist + loom-config.toml) for end-to-end runs
@@ -59,7 +67,7 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - Nullable + ImplicitUsings enabled everywhere; primary constructors used (e.g. `Compiler(CompilationUnit unit, SourceFile file)`).
 - Big classes split as partial files by concern (`Parser.Expressions.cs`, `TypeChecker.Generics.cs`) — follow that pattern when a stage grows.
 - One AST node / one type kind per file.
-- Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:` (see git log).
+- Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:`/`ref:` (see git log).
 - Source files: Loom source uses `.loom` extension; output `.luau`. Indices are 1-based (Luau semantics). Immutability by default (`let` → `const`/local, `mut`
   for mutable).
 - ReSharper/Rider settings in `Loom.sln.DotSettings`; formatting handled by linter, don't hand-fight it.
@@ -70,4 +78,6 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - `DiagnosticBag.FailFast` is a global static toggle used by CLI/compiler error paths.
 - Output path derived by string-replacing source dir name with output dir name in the absolute path ([Compiler.cs:33](Loom.Core/Compiler.cs)) — fragile with
   nested same-named dirs.
+- `Loom.TypeGenerator` generates intrinsic types from the Roblox API that the test suite relies on to pass. The intrinsics are stored in
+  `Loom.Core/TypeChecking/Intrinsics`.
 - PRs target `master`; open an issue before writing code (CONTRIBUTING.md).
