@@ -37,52 +37,19 @@ public sealed class InstantiatedType(GenericType genericType, List<Type> argumen
         return _instantiatedBase;
     }
 
+    // FunctionType needs its own case (unlike every other composite type) because a nested function's own
+    // type parameters must be filtered out of its declaration once substitution binds them, not merely have
+    // their usages replaced - TypeSolver.Transform's generic per-child recursion has no way to know that.
     private Type SubstituteTypeParameters(Type type, TypeParameterSubstitution substitution) =>
-        type is TypeParameter tp && substitution.TryGetValue(tp, out var substituted)
-            ? substituted
-            : type switch
-            {
-                FunctionType functionType => new FunctionType(
-                    functionType.TypeParameters.FindAll(tp2 => !substitution.ContainsKey(tp2)),
-                    functionType.ParameterTypes.ConvertAll(p => SubstituteTypeParameters(p, substitution)),
-                    SubstituteTypeParameters(functionType.ReturnType, substitution),
-                    functionType.HasRestParameter
-                ),
-                ArrayType arrayType => new ArrayType(SubstituteTypeParameters(arrayType.ElementType, substitution), arrayType.IsMutable),
-                InterfaceType interfaceType => SubstituteInterfaceType(interfaceType, substitution),
-                ObjectType objectType => SubstituteObjectType(objectType, substitution),
-                TypeParameter tp2 when substitution.TryGetValue(tp2, out var s) => s,
-                _ => TypeSolver.Transform(type, t => SubstituteTypeParameters(t, substitution), simplify: false)
-            };
-
-    private InterfaceType SubstituteInterfaceType(InterfaceType interfaceType, TypeParameterSubstitution substitution)
-    {
-        var substitutedObject = SubstituteObjectType(interfaceType.ObjectType, substitution);
-        var substitutedConstraints = interfaceType.Constraints
-            .ConvertAll(c => SubstituteTypeParameters(c, substitution))
-            .OfType<InterfaceType>()
-            .ToList();
-
-        return new InterfaceType(interfaceType.Name, substitutedConstraints, substitutedObject);
-    }
-
-    private ObjectType SubstituteObjectType(ObjectType objectType, TypeParameterSubstitution substitution)
-    {
-        ObjectIndexer? substitutedIndexer = null;
-        if (objectType.Indexer != null)
+        type switch
         {
-            var substitutedKeyType = SubstituteTypeParameters(objectType.Indexer.KeyType, substitution);
-            var substitutedValueType = SubstituteTypeParameters(objectType.Indexer.ValueType, substitution);
-            substitutedIndexer = new ObjectIndexer(
-                objectType.Indexer.IsMutable,
-                substitutedKeyType,
-                substitutedValueType
-            );
-        }
-
-        var substitutedProperties = objectType.Properties
-            .ConvertAll(p => new ObjectProperty(p.IsMutable, p.Name, SubstituteTypeParameters(p.ValueType, substitution)));
-
-        return new ObjectType(substitutedIndexer, substitutedProperties);
-    }
+            TypeParameter typeParameter when substitution.TryGetValue(typeParameter, out var substituted) => substituted,
+            FunctionType functionType => new FunctionType(
+                functionType.TypeParameters.FindAll(tp => !substitution.ContainsKey(tp)),
+                functionType.ParameterTypes.ConvertAll(p => SubstituteTypeParameters(p, substitution)),
+                SubstituteTypeParameters(functionType.ReturnType, substitution),
+                functionType.HasRestParameter
+            ),
+            _ => TypeSolver.Transform(type, t => SubstituteTypeParameters(t, substitution), simplify: false)
+        };
 }
