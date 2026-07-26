@@ -141,6 +141,81 @@ public sealed partial class LuauGenerator
     public override LuauNode VisitAs(As @as) => new TypeCast(Visit(@as.Expression), Visit(@as.Type));
     public override LuauNode VisitNameOf(NameOf nameOf) => new StringLiteral(((LiteralType)_semanticModel.GetType(nameOf)).Value!.ToString()!);
 
+    public override LuauNode VisitInterfaceInvocation(InterfaceInvocation interfaceInvocation)
+    {
+        var symbol = _semanticModel.GetSymbol(interfaceInvocation.Name, SymbolKind.Interface);
+
+        // the resolver already reported why this is not an interface; an invocation sits in expression
+        // position, so a statement placeholder here would fail to cast and surface as a compiler crash
+        if (symbol is not InterfaceSymbol interfaceSymbol)
+            return new NilLiteral();
+
+        var table = GenerateInterfaceInvocationBody(interfaceInvocation.Body, interfaceSymbol);
+        if (interfaceSymbol.Implements.Count == 0)
+            return table;
+
+        _semanticModel.RuntimeReferences += 1; // merge_meta;
+        var metaNames = interfaceSymbol.Implementations.ConvertAll(LuauExpression (i) => new Luau.AST.Identifier(GetImplementationMetaName(i)));
+        var call = LuauFactory.SetMetatableCall(table, LuauFactory.RuntimeLibraryCall(["merge_meta"], metaNames));
+        return new TypeCast(call, new Luau.AST.TypeName(interfaceInvocation.Name.Token.Text));
+    }
+
+    private Table GenerateInterfaceInvocationBody(InterfaceInvocationBody interfaceInvocationBody, InterfaceSymbol interfaceSymbol)
+    {
+        var unhandledInitializer = interfaceInvocationBody.Initializers
+            .Find(i => i is not (IndexInitializer
+                              or PropertyInitializer
+                              or ShorthandPropertyInitializer)
+            );
+
+        if (unhandledInitializer != null)
+            _diagnostics.CompilerError(unhandledInitializer, "Unhandled interface invocation initializer type");
+
+        return new Table(
+            interfaceInvocationBody.Initializers.ConvertAll(TableInitializer (i) => i switch
+                {
+                    IndexInitializer indexInitializer => GenerateInterfaceInvocationIndexInitializer(indexInitializer),
+                    PropertyInitializer propertyInitializer => GenerateInterfaceInvocationPropertyInitializer(
+                        propertyInitializer,
+                        interfaceSymbol
+                    ),
+                    ShorthandPropertyInitializer shorthandPropertyInitializer => GenerateInterfaceInvocationShorthandPropertyInitializer(
+                        shorthandPropertyInitializer,
+                        interfaceSymbol
+                    ),
+                    _ => null!
+                }
+            )
+        );
+    }
+
+    private ComputedPropertyTableInitializer GenerateInterfaceInvocationIndexInitializer(IndexInitializer indexInitializer) =>
+        new(Visit(indexInitializer.IndexExpression), Visit(indexInitializer.Expression));
+
+    private PropertyTableInitializer GenerateInterfaceInvocationPropertyInitializer(
+        PropertyInitializer propertyInitializer,
+        InterfaceSymbol interfaceSymbol)
+    {
+        var name = GetRenamedPropertyName(interfaceSymbol, propertyInitializer.Name.Text);
+        var initializedValue = Visit(propertyInitializer.Expression);
+        return new PropertyTableInitializer(name, initializedValue);
+    }
+
+    private string GetRenamedPropertyName(InterfaceSymbol interfaceSymbol, string name)
+    {
+        var propertySymbol = interfaceSymbol.GetPropertyAtPath([name]);
+        return propertySymbol == null
+            || !propertySymbol.TryGetIntrinsicAttribute("luau_name", out var luauNameAttribute)
+            || !ValidateLuauNameAttribute(luauNameAttribute, out var nameLiteral)
+                ? name
+                : nameLiteral.Value;
+    }
+
+    private PropertyTableInitializer GenerateInterfaceInvocationShorthandPropertyInitializer(
+        ShorthandPropertyInitializer shorthandPropertyInitializer,
+        InterfaceSymbol interfaceSymbol) =>
+        new(GetRenamedPropertyName(interfaceSymbol, shorthandPropertyInitializer.Identifier.Name.Text), Visit(shorthandPropertyInitializer.Identifier));
+
     private Luau.AST.PropertyAccess GenerateRenamedAccess(Expression access, LuauExpression target, List<string> names) =>
         _semanticModel.TryGetIntrinsicAttribute(access, "luau_name", out var attr) && ValidateLuauNameAttribute(attr, out var nameLiteral)
             ? new Luau.AST.PropertyAccess(target, [..names.SkipLast(1), nameLiteral.Value])
