@@ -310,17 +310,8 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         type switch
         {
             TypeParameter typeParameter => substitution.TryGetValue(typeParameter, out var substituted) ? substituted : type,
-            ArrayType arrayType => new ArrayType(Substitute(arrayType.ElementType, substitution), arrayType.IsMutable),
             OptionalType optionalType => new OptionalType(Substitute(optionalType.NonNullableType, substitution)),
-            UnionType unionType => new UnionType(unionType.Types.ConvertAll(t => Substitute(t, substitution))),
-            IntersectionType intersectionType => new IntersectionType(intersectionType.Types.ConvertAll(t => Substitute(t, substitution))),
-            FunctionType functionType => new FunctionType(
-                functionType.TypeParameters,
-                functionType.ParameterTypes.ConvertAll(t => Substitute(t, substitution)),
-                Substitute(functionType.ReturnType, substitution),
-                functionType.HasRestParameter
-            ),
-            _ => type
+            _ => TypeSolver.Transform(type, t => Substitute(t, substitution), simplify: false)
         };
 
     private static bool MatchUnionTypes(
