@@ -1,2 +1,1 @@
-const _ = ""
-const _ = ""
+const _ = {1, 2, 3}

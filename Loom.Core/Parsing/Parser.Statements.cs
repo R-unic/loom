@@ -158,10 +158,6 @@ public sealed partial class Parser
     {
         var names = ParseDelimited(() => new Identifier(ExpectIdentifier()));
         var colon = Expect(SyntaxKind.Colon);
-
-        if (PeekKind(0) == SyntaxKind.MutKeyword && PeekKind(1) != SyntaxKind.LBracket)
-            Advance();
-
         var expression = ParseExpression();
         var body = ParseStatement();
         return new For(keyword, names, colon, expression, body);
