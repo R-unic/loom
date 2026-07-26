@@ -1,6 +1,7 @@
 using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Pipeline;
 using Loom.Core.Text;
 
 namespace Loom.Core.Modules;
@@ -14,6 +15,16 @@ public sealed class ModuleGraph
 {
     private readonly Dictionary<SourceFile, DiagnosticBag> _diagnostics;
     private readonly Dictionary<NodeId, SourceFile> _resolvedModules;
+    
+    private enum VisitState
+    {
+        /// <summary>Must stay the default value: an absent file reads back as this from the state lookup.</summary>
+        Unvisited,
+        Visiting,
+        Ordered
+    }
+
+    private sealed record ModuleEdge(Node ModuleReference, ParsedFile Target);
 
     private ModuleGraph(
         List<ParsedFile> order,
@@ -43,7 +54,6 @@ public sealed class ModuleGraph
         var resolvedModules = new Dictionary<NodeId, SourceFile>();
         var diagnostics = new Dictionary<SourceFile, DiagnosticBag>();
         var dependencies = new Dictionary<SourceFile, List<ModuleEdge>>();
-
         foreach (var parsedFile in parsedFiles)
         {
             var edges = new List<ModuleEdge>();
@@ -152,6 +162,7 @@ public sealed class ModuleGraph
 
                 return null;
 
+            case ModuleResolutionStatus.NotFound:
             default:
                 Report(
                     diagnostics,
@@ -159,7 +170,7 @@ public sealed class ModuleGraph
                     moduleSpecifier,
                     InternalCodes.ModuleNotFound,
                     $"Could not find module '{specifier}'.",
-                    specifier.EndsWith(FileManager.LoomExtension, StringComparison.Ordinal)
+                    FileManager.IsLoomFile(specifier)
                         ? $"drop the '{FileManager.LoomExtension}' extension from the path"
                         : null
                 );
@@ -182,7 +193,6 @@ public sealed class ModuleGraph
         var order = new List<ParsedFile>(parsedFiles.Count);
         var states = new Dictionary<SourceFile, VisitState>();
         var path = new List<SourceFile>();
-
         foreach (var parsedFile in parsedFiles)
             visit(parsedFile);
 
@@ -241,14 +251,4 @@ public sealed class ModuleGraph
 
         bag.Error(node, code, message, hint);
     }
-
-    private enum VisitState
-    {
-        /// <summary>Must stay the default value: an absent file reads back as this from the state lookup.</summary>
-        Unvisited,
-        Visiting,
-        Ordered
-    }
-
-    private sealed record ModuleEdge(Node ModuleReference, ParsedFile Target);
 }

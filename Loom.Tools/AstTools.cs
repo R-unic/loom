@@ -4,6 +4,7 @@ using Loom.Core;
 using Loom.Core.Debug;
 using Loom.Core.Lexing;
 using Loom.Core.Parsing;
+using Loom.Core.Pipeline;
 
 namespace Loom.Tools;
 

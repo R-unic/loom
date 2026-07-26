@@ -1,4 +1,5 @@
 using Loom.Config;
+using Loom.Core.Pipeline;
 using Loom.Core.Text;
 
 namespace Loom.Core.Modules;

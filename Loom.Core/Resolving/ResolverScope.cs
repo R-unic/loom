@@ -1,4 +1,4 @@
-global using SymbolLookup = System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<Loom.Core.Resolving.Symbol>>;
+global using SymbolLookup = System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<Loom.Core.Resolving.Symbols.Symbol>>;
 
 namespace Loom.Core.Resolving;
 

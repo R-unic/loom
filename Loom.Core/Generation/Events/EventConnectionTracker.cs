@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Resolving;
+using Loom.Core.Resolving.Symbols;
 using Loom.Luau.AST;
 
 namespace Loom.Core.Generation.Events;

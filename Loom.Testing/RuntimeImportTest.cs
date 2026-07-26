@@ -1,6 +1,8 @@
 using Loom.Config;
 using Loom.Core;
 using Loom.Core.Diagnostics;
+using Loom.Core.Generation;
+using Loom.Core.Pipeline;
 
 namespace Loom.Testing;
 

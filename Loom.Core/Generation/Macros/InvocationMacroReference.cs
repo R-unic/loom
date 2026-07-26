@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Generation.Macros.Providers;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
+using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking;
 using Type = Loom.Core.TypeChecking.Types.Type;
 

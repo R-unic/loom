@@ -1,6 +1,6 @@
 using Loom.Core.Parsing.AST;
 
-namespace Loom.Core.Resolving;
+namespace Loom.Core.Resolving.Symbols;
 
 public sealed class InterfaceSymbol(InterfaceDeclaration declaration, string name, bool isSealed, List<InterfaceSymbol>? constraints)
     : Symbol(declaration, SymbolKind.Interface, name)

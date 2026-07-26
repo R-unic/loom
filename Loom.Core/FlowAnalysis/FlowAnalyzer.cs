@@ -1,6 +1,7 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
+using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
 
 namespace Loom.Core.FlowAnalysis;

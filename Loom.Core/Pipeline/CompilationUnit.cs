@@ -1,11 +1,13 @@
 using Loom.Config;
 using Loom.Core.Diagnostics;
+using Loom.Core.Generation;
 using Loom.Core.Modules;
 using Loom.Core.Resolving;
+using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
-namespace Loom.Core;
+namespace Loom.Core.Pipeline;
 
 public sealed class CompilationUnit(LoomConfig config)
 {

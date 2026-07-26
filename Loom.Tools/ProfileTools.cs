@@ -5,6 +5,7 @@ using Loom.Core.FlowAnalysis;
 using Loom.Core.Generation;
 using Loom.Core.Lexing;
 using Loom.Core.Parsing;
+using Loom.Core.Pipeline;
 using Loom.Core.Resolving;
 using Loom.Core.TypeChecking;
 

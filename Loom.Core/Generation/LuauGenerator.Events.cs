@@ -2,6 +2,7 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Events;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
+using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
 using Loom.Luau;
 using Loom.Luau.AST;

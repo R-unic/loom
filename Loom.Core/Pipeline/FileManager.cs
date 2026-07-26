@@ -1,7 +1,7 @@
 using Loom.Config;
 using Loom.Core.Text;
 
-namespace Loom.Core;
+namespace Loom.Core.Pipeline;
 
 public static class FileManager
 {
@@ -23,6 +23,8 @@ public static class FileManager
                 Path.GetFileName(config.Files.OutputDirectory) + Path.DirectorySeparatorChar
             )
             .Replace(LoomExtension, ".luau");
+
+    public static bool IsLoomFile(string path) => Path.GetExtension(path) == LoomExtension;
 
     public static SourceFile LoadSingle(string path) => new(Path.GetFullPath(path));
 

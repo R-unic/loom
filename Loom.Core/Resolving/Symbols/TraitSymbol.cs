@@ -1,6 +1,6 @@
 using Loom.Core.Parsing.AST;
 
-namespace Loom.Core.Resolving;
+namespace Loom.Core.Resolving.Symbols;
 
 public sealed class TraitSymbol(TraitDeclaration declaration, string name)
     : Symbol(declaration, SymbolKind.Trait, name)

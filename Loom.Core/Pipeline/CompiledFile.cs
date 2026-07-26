@@ -6,7 +6,7 @@ using Loom.Core.Text;
 using Loom.Luau.AST;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
-namespace Loom.Core;
+namespace Loom.Core.Pipeline;
 
 public sealed class CompiledFile(SourceFile sourceFile)
 {

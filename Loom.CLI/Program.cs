@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using Loom.Config;
 using Loom.Core;
+using Loom.Core.Pipeline;
 
 Console.OutputEncoding = Encoding.UTF8;
 

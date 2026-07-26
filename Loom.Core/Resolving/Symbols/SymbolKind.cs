@@ -1,4 +1,4 @@
-namespace Loom.Core.Resolving;
+namespace Loom.Core.Resolving.Symbols;
 
 public enum SymbolKind : byte
 {

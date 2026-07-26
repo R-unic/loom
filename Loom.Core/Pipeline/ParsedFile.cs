@@ -3,7 +3,7 @@ using Loom.Core.Parsing;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
 
-namespace Loom.Core;
+namespace Loom.Core.Pipeline;
 
 /// <summary>
 ///     A source file that has been lexed and parsed but not yet analyzed.

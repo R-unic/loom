@@ -1,3 +1,5 @@
+using Loom.Core.Generation;
+
 namespace Loom.Core.Modules;
 
 public enum ModuleRequirePathStatus

@@ -1,6 +1,6 @@
 using Loom.Core.Parsing.AST;
 
-namespace Loom.Core.Resolving;
+namespace Loom.Core.Resolving.Symbols;
 
 public sealed class InjectedPropertyVariableSymbol(Implement implement, string name, InterfaceSymbol from, bool isMutable = false)
     : Symbol(implement, SymbolKind.InjectedPropertyVariable, name, isMutable)

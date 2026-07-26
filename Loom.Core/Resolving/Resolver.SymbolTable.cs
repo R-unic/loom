@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving.Symbols;
 using Loom.Luau;
 
 namespace Loom.Core.Resolving;

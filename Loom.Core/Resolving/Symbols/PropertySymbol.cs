@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
 
-namespace Loom.Core.Resolving;
+namespace Loom.Core.Resolving.Symbols;
 
 public class PropertySymbol(NamedDeclaration declaration, InterfaceSymbol? pointsTo, List<AttributeSymbol> attributes, SymbolKind kind = SymbolKind.Property)
     : Symbol(declaration, kind, declaration.Name.Text, declaration is PropertyDeclaration { MutKeyword: not null })

@@ -1,4 +1,5 @@
 using Loom.Core;
+using Loom.Core.Pipeline;
 
 namespace Loom.Testing;
 

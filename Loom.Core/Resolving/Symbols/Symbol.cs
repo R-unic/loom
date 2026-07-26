@@ -1,7 +1,7 @@
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
 
-namespace Loom.Core.Resolving;
+namespace Loom.Core.Resolving.Symbols;
 
 public class Symbol(Node declaration, SymbolKind kind, string name, bool isMutable = false)
 {

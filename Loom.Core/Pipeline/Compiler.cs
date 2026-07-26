@@ -7,7 +7,7 @@ using Loom.Core.Resolving;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking;
 
-namespace Loom.Core;
+namespace Loom.Core.Pipeline;
 
 public sealed class Compiler(CompilationUnit unit, SourceFile file)
 {

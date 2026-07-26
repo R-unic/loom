@@ -1,6 +1,7 @@
 using Loom.Config;
 using Loom.Core;
 using Loom.Core.Diagnostics;
+using Loom.Core.Pipeline;
 using Loom.Luau.AST;
 using BinaryOperator = Loom.Core.Parsing.AST.BinaryOperator;
 using ExpressionStatement = Loom.Core.Parsing.AST.ExpressionStatement;
