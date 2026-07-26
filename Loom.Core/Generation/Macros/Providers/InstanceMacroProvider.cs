@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving;
 using Loom.Core.TypeChecking.Types;
 using Loom.Luau.AST;
 using Identifier = Loom.Luau.AST.Identifier;
@@ -11,10 +12,10 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 internal sealed class InstanceMacroProvider : IMacroProvider
 {
-    public bool Supports(MacroContext _, Type type) =>
+    public bool Supports(SemanticModel _, Type type) =>
         type is InterfaceType interfaceType && interfaceType.MatchOrMatchConstraint(i => i.Name is "Instance" or "Object");
 
-    public bool Supports(MacroContext context, Expression expression) => false;
+    public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) =>
         memberName is "is_a" or "find_first_child_of_class" or "find_first_child_which_is_a" or "find_first_ancestor_of_class" or "find_first_ancestor_which_is_a";

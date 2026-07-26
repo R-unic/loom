@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving;
 using Loom.Luau;
 using Loom.Luau.AST;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
@@ -11,8 +12,8 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 internal sealed class ArrayMacroProvider : IMacroProvider
 {
-    public bool Supports(MacroContext _, Type type) => type is ArrayType;
-    public bool Supports(MacroContext _, Expression __) => false;
+    public bool Supports(SemanticModel _, Type type) => type is ArrayType;
+    public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) => memberName is "join" or "push" or "pop" or "insert" or "remove" or "index_of" or "has";
 

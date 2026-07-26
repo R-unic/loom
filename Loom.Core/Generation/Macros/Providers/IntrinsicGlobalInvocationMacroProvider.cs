@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving;
 using Loom.Luau;
 using Loom.Luau.AST;
 using Identifier = Loom.Luau.AST.Identifier;
@@ -9,10 +10,10 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 internal sealed class IntrinsicGlobalInvocationMacroProvider : IMacroProvider
 {
-    public bool Supports(MacroContext _, Type __) => false;
+    public bool Supports(SemanticModel _, Type __) => false;
 
-    public bool Supports(MacroContext context, Expression expression) =>
-        expression is Parsing.AST.Identifier && context.SemanticModel.GetSymbol(expression) is { IsIntrinsic: true };
+    public bool Supports(SemanticModel semanticModel, Expression expression) =>
+        expression is Parsing.AST.Identifier && semanticModel.GetSymbol(expression) is { IsIntrinsic: true };
 
     public bool IsInvocationOnlyMember(string memberName) => memberName is "string" or "number" or "new_instance" or "get_service";
 

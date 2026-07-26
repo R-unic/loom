@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving;
 using Loom.Luau.AST;
 using ElementAccess = Loom.Luau.AST.ElementAccess;
 using Type = Loom.Core.TypeChecking.Types.Type;
@@ -8,8 +9,11 @@ namespace Loom.Core.Generation.Macros;
 
 internal interface IMacroProvider
 {
-    public bool Supports(MacroContext _, Type type);
-    public bool Supports(MacroContext context, Expression expression);
+    // Classification (does this type/expression have a provider at all?) only ever needs the semantic
+    // model, unlike the Try* codegen methods below which need the full MacroContext - see
+    // InvocationMacroReference, which classifies during type checking with no MacroContext available.
+    public bool Supports(SemanticModel semanticModel, Type type);
+    public bool Supports(SemanticModel semanticModel, Expression expression);
 
     public bool IsInvocationOnlyMember(string memberName);
 

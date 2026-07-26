@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving;
 using Loom.Core.TypeChecking;
 using Loom.Luau;
 using Loom.Luau.AST;
@@ -15,8 +16,8 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 internal sealed class RangeMacroProvider : IMacroProvider
 {
-    public bool Supports(MacroContext _, Type type) => type.Equals(Intrinsics.Range);
-    public bool Supports(MacroContext _, Expression __) => false;
+    public bool Supports(SemanticModel _, Type type) => type.Equals(Intrinsics.Range);
+    public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) => memberName is "clamp";
 

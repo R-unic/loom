@@ -270,7 +270,7 @@ public sealed partial class TypeChecker
     /// </summary>
     private bool CheckInvocationMacroReference(Expression expression)
     {
-        if (!InvocationMacroReference.TryClassify(EmptyMacroContext, expression, out _, out var memberName))
+        if (!InvocationMacroReference.TryClassify(_semanticModel, expression, out _, out var memberName))
             return false;
 
         if (InvocationMacroReference.IsValidReferenceContext(expression, _semanticModel) || InvocationMacroReference.IsDirectInvocationCallee(expression))

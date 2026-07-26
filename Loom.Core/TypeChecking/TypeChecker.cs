@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Diagnostics;
 using Loom.Core.FlowAnalysis;
-using Loom.Core.Generation;
 using Loom.Core.Generation.Macros;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
@@ -45,8 +44,6 @@ public sealed partial class TypeChecker
         _narrower = new TypeNarrower(semanticModel);
         _flowState = null!;
     }
-
-    private MacroContext EmptyMacroContext => field ??= new MacroContext(_semanticModel, new LuauState(), _diagnostics);
 
     public TypeCheckerResult Check()
     {

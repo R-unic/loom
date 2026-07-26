@@ -44,10 +44,10 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
     {
         _context.Node = expression;
         referenceExpression = null;
-        if (!InvocationMacroReference.TryClassify(_context, expression, out var provider, out var memberName))
+        if (!InvocationMacroReference.TryClassify(semanticModel, expression, out var provider, out var memberName))
             return false;
 
-        if (!InvocationMacroReference.IsValidReferenceContext(expression, _context.SemanticModel))
+        if (!InvocationMacroReference.IsValidReferenceContext(expression, semanticModel))
             return false;
 
         if (semanticModel.GetType(expression) is not FunctionType functionType)
@@ -243,7 +243,7 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
     }
 
     private IMacroProvider? GetProvider(Expression receiver) =>
-        GetProvider(semanticModel.GetType(receiver)) ?? Providers.FirstOrDefault(provider => provider.Supports(_context, receiver));
+        GetProvider(semanticModel.GetType(receiver)) ?? Providers.FirstOrDefault(provider => provider.Supports(semanticModel, receiver));
 
-    private IMacroProvider? GetProvider(Type type) => Providers.FirstOrDefault(provider => provider.Supports(_context, type));
+    private IMacroProvider? GetProvider(Type type) => Providers.FirstOrDefault(provider => provider.Supports(semanticModel, type));
 }

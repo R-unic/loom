@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving;
 using Loom.Luau;
 using Loom.Luau.AST;
 using ElementAccess = Loom.Luau.AST.ElementAccess;
@@ -10,8 +11,8 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 internal sealed class NumberMacroProvider : IMacroProvider
 {
-    public bool Supports(MacroContext _, Type type) => type.IsAssignableTo(PrimitiveType.Number);
-    public bool Supports(MacroContext _, Expression __) => false;
+    public bool Supports(SemanticModel _, Type type) => type.IsAssignableTo(PrimitiveType.Number);
+    public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string _) => false;
 
