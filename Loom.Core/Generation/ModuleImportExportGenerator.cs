@@ -14,19 +14,26 @@ using TypeParameters = Loom.Luau.AST.TypeParameters;
 
 namespace Loom.Core.Generation;
 
-public sealed partial class LuauGenerator
+/// <summary>
+///     Generates the require()/type-import statements a file needs and the export table/type-alias
+///     statements it produces, plus resolves which local name a given export's value expression should
+///     read through. Only depends on the semantic model and diagnostics - unlike the rest of
+///     <see cref="LuauGenerator" /> it never visits AST nodes or touches generation state, so it lives as
+///     its own class instead of another <c>LuauGenerator.*.cs</c> partial.
+/// </summary>
+internal sealed class ModuleImportExportGenerator(SemanticModel semanticModel, DiagnosticBag diagnostics, ModuleRequirePathResolver? moduleRequirePaths)
 {
     private readonly Dictionary<SourceFile, string> _moduleLocals = [];
 
     private HashSet<string> TakenModuleLocalNames =>
         field ??=
         [
-            .._semanticModel.Declarations.Values.SelectMany(symbols => symbols).Select(symbol => symbol.Name),
-            .._semanticModel.ImportBindings.Select(binding => binding.LocalName), // aliases live only in the lookup
+            ..semanticModel.Declarations.Values.SelectMany(symbols => symbols).Select(symbol => symbol.Name),
+            ..semanticModel.ImportBindings.Select(binding => binding.LocalName), // aliases live only in the lookup
             LuauFactory.RuntimeImportName
         ];
 
-    private List<LuauStatement> GenerateModuleImports()
+    public List<LuauStatement> GenerateImports()
     {
         var statements = new List<LuauStatement>();
         foreach (var (module, specifier, localName) in GetRequiredModules())
@@ -35,7 +42,7 @@ public sealed partial class LuauGenerator
             _moduleLocals[module] = moduleName;
             statements.Add(new ConstVariable(moduleName, null, LuauFactory.RequireCall(GetRequirePath(module, specifier))));
 
-            var bindings = _semanticModel.ImportBindings.FindAll(binding => binding.Module == module);
+            var bindings = semanticModel.ImportBindings.FindAll(binding => binding.Module == module);
             statements.AddRange(bindings.FindAll(binding => binding.RequiresModuleAtRuntime).ConvertAll(binding => GenerateValueImport(binding, moduleName)));
 
             statements.AddRange(bindings.FindAll(binding => binding.Symbol.IsTypeSymbol).ConvertAll(binding => GenerateTypeImport(binding, moduleName)));
@@ -49,13 +56,13 @@ public sealed partial class LuauGenerator
         var modules = new List<(SourceFile, string, string?)>();
         var seen = new HashSet<SourceFile>();
 
-        foreach (var binding in _semanticModel.NamespaceImports.Where(binding => seen.Add(binding.Module)))
+        foreach (var binding in semanticModel.NamespaceImports.Where(binding => seen.Add(binding.Module)))
             modules.Add((binding.Module, binding.ModulePath, binding.LocalName));
 
-        foreach (var binding in _semanticModel.ImportBindings.Where(binding => seen.Add(binding.Module)))
+        foreach (var binding in semanticModel.ImportBindings.Where(binding => seen.Add(binding.Module)))
             modules.Add((binding.Module, binding.Import.ModulePath!, null));
 
-        foreach (var export in _semanticModel.Exports.Where(export => export.Module != null && seen.Add(export.Module)))
+        foreach (var export in semanticModel.Exports.Where(export => export.Module != null && seen.Add(export.Module)))
             modules.Add((export.Module!, export.ModulePath!, null));
 
         return modules;
@@ -63,12 +70,12 @@ public sealed partial class LuauGenerator
 
     private string GetRequirePath(SourceFile module, string specifier)
     {
-        var requirePath = _moduleRequirePaths?.Resolve(module, specifier)
+        var requirePath = moduleRequirePaths?.Resolve(module, specifier)
             ?? ModuleRequirePath.Fallback(ModuleRequirePathStatus.RojoMissing, specifier);
 
         if (requirePath.Status == ModuleRequirePathStatus.NotFoundInRojo)
-            _diagnostics.Warn(
-                _semanticModel.Tree,
+            diagnostics.Warn(
+                semanticModel.Tree,
                 InternalCodes.ModuleNotFoundInRojo,
                 $"Could not locate module '{specifier}' through the Rojo project; falling back to a relative require.",
                 "add a $path mapping to your default.project.json that includes the output directory"
@@ -83,14 +90,14 @@ public sealed partial class LuauGenerator
     private static LuauStatement GenerateTypeImport(ImportBinding binding, string moduleName) =>
         GenerateTypeAlias(binding.LocalName, binding.ExportedName, binding.Symbol, moduleName, false);
 
-    private LuauExpression GenerateExportedValue(ExportBinding export) =>
+    public LuauExpression GenerateExportedValue(ExportBinding export) =>
         export.Module == null
             ? new Identifier(export.SourceName)
             : new PropertyAccess(new Identifier(_moduleLocals[export.Module]), [export.SourceName]);
 
-    private void MarkListExportedTypes(List<LuauStatement> statements)
+    public void MarkListExportedTypes(List<LuauStatement> statements)
     {
-        foreach (var export in _semanticModel.Exports)
+        foreach (var export in semanticModel.Exports)
         {
             if (export.IsReExport || !export.Symbol.IsTypeSymbol || export.Name != export.SourceName)
                 continue;
@@ -100,8 +107,8 @@ public sealed partial class LuauGenerator
         }
     }
 
-    private List<LuauStatement> GenerateExportedTypeAliases() =>
-        _semanticModel.Exports
+    public List<LuauStatement> GenerateExportedTypeAliases() =>
+        semanticModel.Exports
             .FindAll(export => export.Symbol.IsTypeSymbol && (export.IsReExport || export.Name != export.SourceName))
             .ConvertAll(export => GenerateTypeAlias(
                     export.Name,

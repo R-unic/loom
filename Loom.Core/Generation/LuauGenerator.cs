@@ -25,6 +25,7 @@ public sealed partial class LuauGenerator
     private readonly EventConnectionTracker _eventConnections = new();
     private readonly Lazy<HashSet<(EventTarget Target, Symbol Function)>> _localSafeConnections;
     private readonly MacroExpander _macroExpander;
+    private readonly ModuleImportExportGenerator _moduleGenerator;
     private readonly ModuleRequirePathResolver? _moduleRequirePaths;
     private readonly RuntimeImport _runtimeImport;
     private readonly SemanticModel _semanticModel;
@@ -37,6 +38,7 @@ public sealed partial class LuauGenerator
         _runtimeImport = runtimeImport ?? RuntimeImport.Default;
         _moduleRequirePaths = moduleRequirePaths;
         _macroExpander = new MacroExpander(semanticModel, _state, _diagnostics);
+        _moduleGenerator = new ModuleImportExportGenerator(semanticModel, _diagnostics, moduleRequirePaths);
         _localSafeConnections = new Lazy<HashSet<(EventTarget Target, Symbol Function)>>(
             () => EventConnectionScopeAnalyzer.ComputeLocallySafeConnections(semanticModel)
         );
@@ -44,7 +46,7 @@ public sealed partial class LuauGenerator
 
     public LuauGeneratorResult Generate()
     {
-        var moduleImports = GenerateModuleImports();
+        var moduleImports = _moduleGenerator.GenerateImports();
         var luauTree = VisitTree(_semanticModel.Tree);
         luauTree.Statements.InsertRange(0, _eventConnections.StoreDeclarations);
         luauTree.Statements.InsertRange(0, moduleImports);

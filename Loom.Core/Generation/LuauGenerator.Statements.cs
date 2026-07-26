@@ -30,13 +30,13 @@ public sealed partial class LuauGenerator
 
         statements.AddRange(GenerateStatements(tree.Statements));
 
-        MarkListExportedTypes(statements);
-        statements.AddRange(GenerateExportedTypeAliases());
+        _moduleGenerator.MarkListExportedTypes(statements);
+        statements.AddRange(_moduleGenerator.GenerateExportedTypeAliases());
 
         var valueExports = _semanticModel.Exports.FindAll(export => export.EmitsRuntimeBinding);
         if (valueExports.Count > 0)
         {
-            var initializers = valueExports.ConvertAll(TableInitializer (export) => new PropertyTableInitializer(export.Name, GenerateExportedValue(export)));
+            var initializers = valueExports.ConvertAll(TableInitializer (export) => new PropertyTableInitializer(export.Name, _moduleGenerator.GenerateExportedValue(export)));
 
             statements.Add(new Luau.AST.Return(new Table(initializers)));
         }
