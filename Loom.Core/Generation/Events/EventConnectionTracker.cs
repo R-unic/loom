@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Resolving;
 using Loom.Luau.AST;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Events;
 
 /// <summary>
 ///     Identifies the target of an event connection/disconnection: the event member itself, plus

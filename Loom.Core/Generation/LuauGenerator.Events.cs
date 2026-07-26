@@ -1,4 +1,5 @@
 using Loom.Core.Diagnostics;
+using Loom.Core.Generation.Events;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Core.Text;
