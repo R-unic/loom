@@ -18,6 +18,8 @@ public class ParserTest
         new("nameof(123)", InternalCodes.InvalidNameOf, "'123' is not a valid name.", null),
         new("(1 + 2", InternalCodes.UnexpectedEof, "Expected ')' here to close '(' at character 0, got EOF.", null),
         new("(1 + 2]", InternalCodes.UnexpectedToken, "Expected ')' here to close '(' at character 0, got ']'.", null),
+        new("[1, 2", InternalCodes.UnexpectedEof, "Expected ']', got EOF.", null),
+        new("interface I { [number }", InternalCodes.UnexpectedToken, "Expected ']', got '}'.", null),
         new("arr[0", InternalCodes.UnexpectedEof, "Expected ']', got EOF.", null),
         new("1 = 1", InternalCodes.InvalidAssignmentTarget, "Invalid assignment target.", null),
         new("a ? b : c = d", InternalCodes.InvalidAssignmentTarget, "Invalid assignment target.", null),
