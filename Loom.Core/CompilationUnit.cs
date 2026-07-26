@@ -83,9 +83,7 @@ public sealed class CompilationUnit(LoomConfig config)
 
         return parsedFiles;
     }
-
-    private static CompiledFile Analyze((Compiler Compiler, ParsedFile ParsedFile) parsed) => parsed.Compiler.Analyze(parsed.ParsedFile);
-
+    
     private void PopulateGlobals(List<CompiledFile> compiledDeclarationFiles)
     {
         foreach (var compiledFile in compiledDeclarationFiles)

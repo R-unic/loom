@@ -51,11 +51,12 @@ public static class Intrinsics
             .Where(file =>
             {
                 file.IsIntrinsic = true;
-                
-                if (injectInto.Config.ProjectType != ProjectType.Plugin && file.Name == "PluginSecurity.loom")
+
+                var projectType = injectInto.Config.ProjectType;
+                if (projectType != ProjectType.Plugin && file.Name == "PluginSecurity.loom")
                     return false;
                 
-                return injectInto.Config.ProjectType != ProjectType.Plugin || file.Name != "None.loom";
+                return projectType != ProjectType.Plugin || file.Name != "None.loom";
             })
             .Select(compilationUnit.Compile)
             .ToArray();
