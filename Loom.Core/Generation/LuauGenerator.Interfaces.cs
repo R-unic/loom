@@ -203,8 +203,18 @@ public sealed partial class LuauGenerator
         return new TypeCast(call, new TypeName(interfaceInvocation.Name.Token.Text));
     }
 
-    private Table GenerateInterfaceInvocationBody(InterfaceInvocationBody interfaceInvocationBody, InterfaceSymbol interfaceSymbol) =>
-        new(
+    private Table GenerateInterfaceInvocationBody(InterfaceInvocationBody interfaceInvocationBody, InterfaceSymbol interfaceSymbol)
+    {
+        var unhandledInitializer = interfaceInvocationBody.Initializers
+            .Find(i => i is not InterfaceInvocationIndexInitializer
+                         or InterfaceInvocationPropertyInitializer
+                         or InterfaceInvocationShorthandPropertyInitializer
+            );
+
+        if (unhandledInitializer != null)
+            _diagnostics.CompilerError(unhandledInitializer, "Unhandled interface invocation initializer type");
+
+        return new Table(
             interfaceInvocationBody.Initializers.ConvertAll(TableInitializer (i) => i switch
                 {
                     InterfaceInvocationIndexInitializer indexInitializer => GenerateInterfaceInvocationIndexInitializer(indexInitializer),
@@ -216,10 +226,11 @@ public sealed partial class LuauGenerator
                         shorthandPropertyInitializer,
                         interfaceSymbol
                     ),
-                    _ => (_diagnostics.CompilerError(i, "Unhandled interface invocation initializer type") as TableInitializer)!
+                    _ => null!
                 }
             )
         );
+    }
 
     private ComputedPropertyTableInitializer GenerateInterfaceInvocationIndexInitializer(InterfaceInvocationIndexInitializer indexInitializer) =>
         new(Visit(indexInitializer.IndexExpression), Visit(indexInitializer.Expression));
