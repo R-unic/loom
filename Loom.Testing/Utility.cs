@@ -108,7 +108,6 @@ internal static class Utility
     ///     Compiles a throwaway project whose source directory holds <paramref name="files" />, keyed by path
     ///     relative to that directory so nested modules can be written as <c>"util/init.loom"</c>.
     /// </summary>
-    /// <param name="rojoProject">Contents of a default.project.json to place beside the config, if any.</param>
     public static void WithTempProject(
         IEnumerable<(string Path, string Source)> files,
         Action<CompilationUnit, CompilationResult> assert,

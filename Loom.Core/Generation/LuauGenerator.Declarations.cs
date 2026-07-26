@@ -1,4 +1,5 @@
 using Loom.Core.Parsing.AST;
+using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 using Loom.Luau;
 using Loom.Luau.AST;
@@ -16,6 +17,34 @@ namespace Loom.Core.Generation;
 
 public sealed partial class LuauGenerator
 {
+    public override LuauNode VisitDeclare(Declare declare) => declare.Signature is InterfaceDeclaration ? Visit(declare.Signature) : new NoOpStatement();
+    public override LuauNode VisitImportDeclaration(ImportDeclaration import) => new NoOpStatement();
+    public override LuauNode VisitNamespaceImport(NamespaceImport import) => new NoOpStatement();
+    public override LuauNode VisitExportList(ExportList export) => new NoOpStatement();
+
+    public override LuauNode VisitExportDeclaration(ExportDeclaration export)
+    {
+        var generated = Visit(export.Declaration);
+        if (generated is Luau.AST.TypeAlias typeAlias)
+            typeAlias.IsExported = true;
+
+        return generated;
+    }
+
+    public override LuauNode VisitVariableDeclaration(VariableDeclaration variableDeclaration)
+    {
+        var isConst = variableDeclaration.Keyword is { Kind: SyntaxKind.LetKeyword };
+        var name = variableDeclaration.Name.Text;
+        var type = variableDeclaration.ColonTypeClause != null ? Visit(variableDeclaration.ColonTypeClause.Type) : null;
+        var initializer = variableDeclaration.EqualsValueClause != null ? Visit(variableDeclaration.EqualsValueClause.Value) : null;
+        if (initializer != null)
+            initializer = LuauFactory.UnwrapParentheses(initializer);
+
+        return isConst
+            ? new ConstVariable(name, type, initializer!)
+            : new LocalVariable(name, type, initializer);
+    }
+    
     public override LuauNode VisitFunctionDeclaration(FunctionDeclaration functionDeclaration)
     {
         var typeParameters = MaybeVisit<TypeParameters>(functionDeclaration.TypeParameters);
@@ -32,7 +61,6 @@ public sealed partial class LuauGenerator
         return new Function(functionDeclaration.Name.Text, typeParameters, parameters, returnType, statements);
     }
 
-    // Luau's `...` isn't itself an indexable local, so a rest parameter's Loom name is bound to a fresh array capturing it: `local <name> = {...}`.
     private static LocalVariable GenerateRestParameterBinding(Parameter restParameter) =>
         new(restParameter.Name.Text, null, new Table([new TableInitializer(new Identifier("..."))]));
 

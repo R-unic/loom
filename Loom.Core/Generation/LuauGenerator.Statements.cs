@@ -10,10 +10,6 @@ using Continue = Loom.Core.Parsing.AST.Continue;
 using ExpressionStatement = Loom.Core.Parsing.AST.ExpressionStatement;
 using Return = Loom.Core.Parsing.AST.Return;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
-using BinaryOperator = Loom.Luau.AST.BinaryOperator;
-using PropertyAccess = Loom.Luau.AST.PropertyAccess;
-using TypeAlias = Loom.Luau.AST.TypeAlias;
-using UnaryOperator = Loom.Luau.AST.UnaryOperator;
 
 namespace Loom.Core.Generation;
 
@@ -57,35 +53,7 @@ public sealed partial class LuauGenerator
         new Luau.AST.ExpressionStatement(LuauFactory.TaskCall("delay", [Visit(after.Duration), ..UnwrapFunctionArgument(after.Body)]));
 
     public override LuauNode VisitReturn(Return @return) => new Luau.AST.Return(MaybeVisit<LuauExpression>(@return.Expression));
-    public override LuauNode VisitDeclare(Declare declare) => declare.Signature is InterfaceDeclaration ? Visit(declare.Signature) : new NoOpStatement();
     public override LuauNode VisitExpressionStatement(ExpressionStatement expressionStatement) => WrapExpressionAsStatement(Visit(expressionStatement.Expression));
-
-    public override LuauNode VisitImportDeclaration(ImportDeclaration import) => new NoOpStatement();
-    public override LuauNode VisitNamespaceImport(NamespaceImport import) => new NoOpStatement();
-    public override LuauNode VisitExportList(ExportList export) => new NoOpStatement();
-
-    public override LuauNode VisitExportDeclaration(ExportDeclaration export)
-    {
-        var generated = Visit(export.Declaration);
-        if (generated is TypeAlias typeAlias)
-            typeAlias.IsExported = true;
-
-        return generated;
-    }
-
-    public override LuauNode VisitVariableDeclaration(VariableDeclaration variableDeclaration)
-    {
-        var isConst = variableDeclaration.Keyword is { Kind: SyntaxKind.LetKeyword };
-        var name = variableDeclaration.Name.Text;
-        var type = variableDeclaration.ColonTypeClause != null ? Visit(variableDeclaration.ColonTypeClause.Type) : null;
-        var initializer = variableDeclaration.EqualsValueClause != null ? Visit(variableDeclaration.EqualsValueClause.Value) : null;
-        if (initializer != null)
-            initializer = LuauFactory.UnwrapParentheses(initializer);
-
-        return isConst
-            ? new ConstVariable(name, type, initializer!)
-            : new LocalVariable(name, type, initializer);
-    }
 
     public override LuauNode VisitFor(For @for)
     {
@@ -108,23 +76,23 @@ public sealed partial class LuauGenerator
         LuauExpression end;
         LuauExpression? incrementBy;
         var one = new NumberLiteral(1);
-        var negativeOne = new UnaryOperator("-", one);
+        var negativeOne = new Luau.AST.UnaryOperator("-", one);
         if (@for.CollectionExpression is RangeLiteral range)
         {
             start = Visit(range.Minimum);
             end = Visit(range.Maximum);
             incrementBy = MacroContext.TryComputeConstantArithmetic(start, out var minimum) && MacroContext.TryComputeConstantArithmetic(end, out var maximum)
                 ? maximum < minimum ? negativeOne : null
-                : new IfExpression(new BinaryOperator(end, "<", start), negativeOne, [], one);
+                : new IfExpression(new Luau.AST.BinaryOperator(end, "<", start), negativeOne, [], one);
         }
         else
         {
             var rangeIdentifier = _state.PushToVariable("_range", collectionExpression);
-            var minimum = new PropertyAccess(rangeIdentifier, ["minimum"]);
-            var maximum = new PropertyAccess(rangeIdentifier, ["maximum"]);
+            var minimum = new Luau.AST.PropertyAccess(rangeIdentifier, ["minimum"]);
+            var maximum = new Luau.AST.PropertyAccess(rangeIdentifier, ["maximum"]);
             start = minimum;
             end = maximum;
-            incrementBy = new IfExpression(new BinaryOperator(end, "<", start), negativeOne, [], one);
+            incrementBy = new IfExpression(new Luau.AST.BinaryOperator(end, "<", start), negativeOne, [], one);
         }
 
         return new NumericForStatement(names.First(), start, end, incrementBy, body);

@@ -168,9 +168,9 @@ public sealed partial class LuauGenerator
     /// <summary>
     ///     Finds every (event, function) pair whose '+=' calls can each become a plain Luau local instead
     ///     of an entry in the hidden per-event connection store. A '-=' always rebinds to whichever '+='
-    ///     most recently ran for that pair, so a connect only needs to prove local-safety against the
+    ///     most recently ran for that pair, so a connection only needs to prove local-safety against the
     ///     disconnects that fall between it and the next connect for the same pair (if any); if every
-    ///     connect for a pair clears that bar, the whole pair can use locals. Computed lazily on the first
+    ///     connect for a pair can clear that bar, the whole pair can use locals. Computed lazily on the first
     ///     '+=' so files with no event connections never pay for the full-tree scan, but once computed it
     ///     covers the whole file so each '+=' knows, at the point it's generated, whether a later '-='
     ///     elsewhere will need the store.
@@ -224,7 +224,7 @@ public sealed partial class LuauGenerator
     ///     Whether a Luau local declared at <paramref name="connect" /> would still be in scope at
     ///     <paramref name="disconnect" />: they must live in the exact same Luau scope, with the connect
     ///     coming first, or the disconnect must be nested somewhere inside a scope that starts after the
-    ///     connect within that shared scope (nested scopes see enclosing locals as upvalues, but siblings
+    ///     connection within that shared scope (nested scopes see enclosing locals as upvalues, but siblings
     ///     and outer scopes never see locals declared inside a nested one).
     /// </summary>
     private static bool CanShareLocalScope(Node connect, Node disconnect)
