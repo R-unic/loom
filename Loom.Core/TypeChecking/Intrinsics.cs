@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Reflection;
 using Loom.Config;
 using Loom.Core.Pipeline;
 using Loom.Core.Resolving;
@@ -13,6 +14,8 @@ namespace Loom.Core.TypeChecking;
 
 public static class Intrinsics
 {
+    public static readonly TupleMarkerType TupleMarker = new();
+    
     private const string CoreFileName = "loom.loom";
     private const string PluginSecurityFileName = "PluginSecurity.loom";
     private const string NonPluginRuntimeFileName = "None.loom";
@@ -20,7 +23,7 @@ public static class Intrinsics
 
     [ThreadStatic] private static bool _isBootstrapping;
     private static readonly ConcurrentDictionary<ProjectType, HashSet<(Symbol, Type)>> _cache = new();
-    public static readonly TupleMarkerType TupleMarker = new();
+    private static readonly Assembly _resourceAssembly = typeof(Intrinsics).Assembly;
 
     public static readonly InterfaceType Range = new(
         "Range",
@@ -60,7 +63,15 @@ public static class Intrinsics
 
     public static HashSet<(Symbol, Type)> Register(SemanticModel model, CompilationUnit injectInto)
     {
-        var intrinsics = _cache.GetOrAdd(injectInto.Config.ProjectType, CompileIntrinsics);
+        var projectType = injectInto.Config.ProjectType;
+
+        if (!_cache.TryGetValue(projectType, out var intrinsics))
+        {
+            intrinsics = CompileIntrinsics(projectType);
+            if (intrinsics.Count > 0)
+                _cache.TryAdd(projectType, intrinsics);
+        }
+
         foreach (var (symbol, type) in intrinsics)
             model.TypeSolver.SetType(symbol.Declaration, type);
 
@@ -117,13 +128,11 @@ public static class Intrinsics
 
     private static IEnumerable<SourceFile> LoadEmbeddedIntrinsicFiles()
     {
-        var assembly = typeof(Intrinsics).Assembly;
-        foreach (var resourceName in assembly.GetManifestResourceNames())
+        foreach (var resourceName in _resourceAssembly.GetManifestResourceNames())
         {
-            if (!resourceName.StartsWith(IntrinsicResourcePrefix, StringComparison.Ordinal))
-                continue;
+            if (!resourceName.StartsWith(IntrinsicResourcePrefix, StringComparison.Ordinal)) continue;
 
-            using var stream = assembly.GetManifestResourceStream(resourceName)!;
+            using var stream = _resourceAssembly.GetManifestResourceStream(resourceName)!;
             using var reader = new StreamReader(stream);
             yield return new SourceFile(resourceName, reader.ReadToEnd());
         }
