@@ -25,6 +25,12 @@ public sealed class SourceFile
     public override string ToString() => Name;
     public string RelativePath(string to = ".") => Path.GetRelativePath(to, AbsolutePath);
 
+    public int GetSourcePosition(int character, int line)
+    {
+        BuildLineStarts();
+        return _lineStarts[line] + character;
+    }
+
     public int GetLineFromPosition(int position)
     {
         BuildLineStarts();

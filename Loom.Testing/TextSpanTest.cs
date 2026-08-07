@@ -5,6 +5,21 @@ namespace Loom.Testing;
 public class TextSpanTest
 {
     [Fact]
+    public void Contains()
+    {
+        var span = TextSpan.FromStartEnd(1, 10);
+        Assert.True(span.Contains(2));
+        Assert.True(span.Contains(5));
+        Assert.True(span.Contains(7));
+        Assert.True(span.Contains(1));
+        Assert.True(span.Contains(10));
+        Assert.False(span.Contains(11));
+        Assert.False(span.Contains(0));
+        Assert.False(span.Contains(-5));
+        Assert.False(span.Contains(69));
+    }
+    
+    [Fact]
     public void Empty_HasZeroPositionAndLength()
     {
         var span = TextSpan.Empty;

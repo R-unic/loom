@@ -18,6 +18,7 @@ public readonly struct TextSpan(int position, int length) : IEquatable<TextSpan>
     public static bool operator ==(TextSpan left, TextSpan right) => left.Equals(right);
     public static bool operator !=(TextSpan left, TextSpan right) => !(left == right);
 
+    public bool Contains(int position) => position >= Position && position <= End;
     public bool Equals(TextSpan other) => Position == other.Position && Length == other.Length;
     public override bool Equals(object? obj) => obj is TextSpan other && Equals(other);
     public override int GetHashCode() => HashCode.Combine(Position, Length);
