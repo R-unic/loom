@@ -269,7 +269,7 @@ public class ConfigReaderTest
     [Fact]
     public void Files_AcceptsARelativeDirectory_WrittenWithATrailingSeparator()
     {
-        var config = ReadValid($"[files]\nsource_directory = \"source{Path.DirectorySeparatorChar}\"\n");
+        var config = ReadValid("[files]\nsource_directory = \"source/\"");
         Assert.EndsWith($"{Path.DirectorySeparatorChar}source", config.Files.SourceDirectory);
     }
 
