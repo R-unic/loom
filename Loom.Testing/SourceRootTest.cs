@@ -50,6 +50,7 @@ public class SourceRootTest
         }
         """;
 
+    // ReSharper disable once NotAccessedPositionalProperty.Local
     private sealed record Workspace(string Directory, LoomConfig App, LoomConfig Package);
 
     [Fact]

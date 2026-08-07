@@ -78,12 +78,10 @@ internal sealed class IntrinsicGlobalInvocationMacroProvider : IMacroProvider
             }
             case "serializer_of":
             {
-                // The whole table, not one codec: inside a generic wrapper the key is a runtime value,
-                // so the choice cannot be made statically the way serializer::<T>() does.
                 if (typeArguments?.ArgumentsList.FirstOrDefault() is not { } mapArgument
                     || context.SemanticModel.GetType(mapArgument) is not InterfaceType mapType)
                 {
-                    context.Diagnostics.Error(context.Node, InternalCodes.InvalidTypeArguments, "'serializer_of' requires a mapping interface as its first type argument.");
+                    context.Diagnostics.Error(context.Node, InternalCodes.InvalidTypeArguments, $"'{name}' requires a mapping interface as its first type argument.");
                     expression = new NilLiteral();
                     return true;
                 }

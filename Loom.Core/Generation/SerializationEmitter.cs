@@ -54,9 +54,7 @@ internal sealed partial class SerializationEmitter(SerializationSchema schema, L
         var initializers = new List<TableInitializer>();
         foreach (var property in mapType.Properties)
         {
-            if (property.ValueType is not InterfaceType valueType || resolveSerializerName(valueType) is not { } serializerName)
-                continue;
-
+            if (property.ValueType is not InterfaceType valueType || resolveSerializerName(valueType) is not { } serializerName) continue;
             initializers.Add(new PropertyTableInitializer(property.Name, new Identifier(serializerName)));
         }
 

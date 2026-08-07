@@ -119,7 +119,4 @@ internal static class Prompt
 
         return options[0].Value;
     }
-
-    private static int VisibleLength<T>(PromptOption<T> option, string pointer) =>
-        1 + 1 + option.Label.Length + (option.Description == null ? 0 : 2 + option.Description.Length);
 }

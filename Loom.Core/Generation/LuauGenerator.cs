@@ -30,13 +30,14 @@ public sealed partial class LuauGenerator
     private readonly Lazy<HashSet<(EventTarget Target, Symbol Function)>> _localSafeConnections;
 
     /// <summary>Buffer library members the file's serializers touched, hoisted into constants in <see cref="Generate" />.</summary>
-    private readonly List<string> _bufferMembers = [];
     private readonly MacroExpander _macroExpander;
     private readonly ModuleImportExportGenerator _moduleGenerator;
     // private readonly ModuleRequirePathResolver? _moduleRequirePaths;
     private readonly RuntimeImport _runtimeImport;
     private readonly SemanticModel _semanticModel;
     private readonly LuauState _state = new();
+    private readonly List<string> _bufferMembers = [];
+    private readonly List<LuauStatement> _serializerStatements = [];
 
     public LuauGenerator(SemanticModel semanticModel, RuntimeImport? runtimeImport = null, ModuleRequirePathResolver? moduleRequirePaths = null)
         : base(_ => new NoOpStatement())
@@ -54,40 +55,33 @@ public sealed partial class LuauGenerator
 
     public LuauGeneratorResult Generate()
     {
+        _serializerStatements.Clear();
         var moduleImports = _moduleGenerator.GenerateImports();
-
-        // Ahead of the walk, since a call reaching an interface can appear earlier in the file than its
-        // own declaration - EmitSerializers needs the full picture already in hand by the time it decides
-        // what a given interface's codec actually needs to cover.
         CollectSerializationUsage();
 
         var luauTree = VisitTree(_semanticModel.Tree);
-
-        // Both are hoisted after the walk, because what a file needs is only known once every
-        // serializer and serializer_map call in it has been expanded.
         foreach (var mapType in _semanticModel.SerializerMaps)
             if (SerializationEmitter.EmitSerializerMap(mapType, ResolveSerializerName) is { } map)
                 luauTree.Statements.Insert(0, map);
-
+        
+        luauTree.Statements.InsertRange(0, _serializerStatements);
         if (_bufferMembers.Count > 0)
             luauTree.Statements.InsertRange(0, SerializationEmitter.DeclareBufferConstants(_bufferMembers));
 
         luauTree.Statements.InsertRange(0, _eventConnections.StoreDeclarations);
         luauTree.Statements.InsertRange(0, moduleImports);
+        if (!_semanticModel.MustImportRuntimeLibrary)
+            return new LuauGeneratorResult(luauTree, _diagnostics);
 
-        if (_semanticModel.MustImportRuntimeLibrary)
-        {
-            if (_runtimeImport.Status == RuntimeImportStatus.NotFoundInRojo)
-                _diagnostics.Warn(
-                    _semanticModel.Tree,
-                    InternalCodes.RuntimeLibraryNotFound,
-                    "Could not locate the Loom runtime library through the Rojo project; falling back to the default require path.",
-                    $"add a $path mapping to your default.project.json that includes the runtime, otherwise requires resolve to '{RuntimeImport.DefaultPath}'."
-                );
+        if (_runtimeImport.Status == RuntimeImportStatus.NotFoundInRojo)
+            _diagnostics.Warn(
+                _semanticModel.Tree,
+                InternalCodes.RuntimeLibraryNotFound,
+                "Could not locate the Loom runtime library through the Rojo project; falling back to the default require path.",
+                $"add a $path mapping to your default.project.json that includes the runtime, otherwise requires resolve to '{RuntimeImport.DefaultPath}'."
+            );
 
-            luauTree.Statements.Insert(0, LuauFactory.RuntimeLibraryImport(_runtimeImport.Path));
-        }
-
+        luauTree.Statements.Insert(0, LuauFactory.RuntimeLibraryImport(_runtimeImport.Path));
         return new LuauGeneratorResult(luauTree, _diagnostics);
     }
 

@@ -52,9 +52,7 @@ public sealed partial class LuauGenerator
         if (_semanticModel.GetSymbol(implement.TraitName, SymbolKind.Trait) is TraitSymbol traitSymbol)
             foreach (var (metamethodName, methodName) in traitSymbol.Metamethods)
                 _state.Postreq(
-                    new ExpressionStatement(
-                        new BinaryOperator(new PropertyAccess(identifier, [metamethodName]), "=", new PropertyAccess(identifier, [methodName]))
-                    )
+                    new ExpressionStatement(new BinaryOperator(new PropertyAccess(identifier, [metamethodName]), "=", new PropertyAccess(identifier, [methodName])))
                 );
 
         return variable;
@@ -108,7 +106,7 @@ public sealed partial class LuauGenerator
             .Concat(eventDeclarations.Select(GenerateInterfaceEventType))
             .ToList();
 
-        EmitSerializers(interfaceSymbol);
+        TrackSerializerEmit(interfaceSymbol);
 
         var tableType = new TableType(tableIndexer, properties);
         return new TypeAlias(
@@ -132,50 +130,36 @@ public sealed partial class LuauGenerator
     ///     another module reaches them through the ordinary export path. Only the pieces this file's calls
     ///     (or an export, conservatively) actually need are emitted - see <see cref="ResolveSerializationUsage" />.
     /// </summary>
-    private void EmitSerializers(InterfaceSymbol interfaceSymbol)
+    private void TrackSerializerEmit(InterfaceSymbol interfaceSymbol)
     {
-        if (!_semanticModel.SerializationSchemas.TryGetValue(interfaceSymbol, out var schema))
-            return;
-
-        // An imported interface's codec belongs to its declaring module; emitting a second copy here
-        // would shadow the import binding that already brought it in.
-        if (interfaceSymbol.File.AbsolutePath != _semanticModel.Tree.File.AbsolutePath)
-            return;
-
-        if (!CheckSchemaIsEmittable(interfaceSymbol, schema))
-            return;
+        if (!_semanticModel.SerializationSchemas.TryGetValue(interfaceSymbol, out var schema)) return;
+        if (interfaceSymbol.File.AbsolutePath != _semanticModel.Tree.File.AbsolutePath) return;
+        if (!CheckSchemaIsEmittable(interfaceSymbol, schema)) return;
 
         var usage = ResolveSerializationUsage(interfaceSymbol);
-        if (usage == SerializationUsage.None)
-            return;
-
-        // The emitted signatures name Loom.Serialized and Loom.Result even when the source never
-        // mentions a runtime type, so the import has to be requested explicitly.
+        if (usage == SerializationUsage.None) return;
+        
         _semanticModel.RuntimeReferences += 1;
 
         var emitter = new SerializationEmitter(schema, _bufferMembers);
         if (usage.HasFlag(SerializationUsage.Serialize))
-            _state.Postreq(emitter.EmitSerializer());
+            _serializerStatements.Add(emitter.EmitSerializer());
 
         if (usage.HasFlag(SerializationUsage.Deserialize))
-            _state.Postreq(emitter.EmitDeserializer());
+            _serializerStatements.Add(emitter.EmitDeserializer());
 
         if (usage.HasFlag(SerializationUsage.Delta))
         {
-            // A fresh instance rather than reusing the one above: EmitSerializer already primed
-            // _prologueTags/_locals for that function's own body, and a delta write walks unions and
-            // sentinels in a different order, so it needs to resolve them itself rather than finding
-            // stale bookkeeping left over from a sibling function.
             var deltaEmitter = new SerializationEmitter(schema, _bufferMembers);
-            _state.Postreq(deltaEmitter.EmitDeltaWriteHelper());
-            _state.Postreq(deltaEmitter.EmitDeltaAttempt());
-            _state.Postreq(deltaEmitter.EmitDeltaSerializer());
-            _state.Postreq(deltaEmitter.EmitDeltaReadHelper());
-            _state.Postreq(deltaEmitter.EmitDeltaDeserializer());
+            _serializerStatements.Add(deltaEmitter.EmitDeltaWriteHelper());
+            _serializerStatements.Add(deltaEmitter.EmitDeltaAttempt());
+            _serializerStatements.Add(deltaEmitter.EmitDeltaSerializer());
+            _serializerStatements.Add(deltaEmitter.EmitDeltaReadHelper());
+            _serializerStatements.Add(deltaEmitter.EmitDeltaDeserializer());
         }
 
         if (usage.HasFlag(SerializationUsage.SerializerObject))
-            _state.Postreq(emitter.EmitSerializerObject());
+            _serializerStatements.Add(emitter.EmitSerializerObject());
     }
 
     /// <summary>
@@ -196,9 +180,6 @@ public sealed partial class LuauGenerator
         if (usage.HasFlag(SerializationUsage.SerializerObject))
             return SerializationUsage.All;
 
-        // diff_binary's own body estimates a scratch buffer's size by calling serialize_binary directly
-        // by name (see EmitDeltaSerializer) - Delta on its own would leave that call dangling.
-        // apply_diff_binary has no equivalent dependency on deserialize_binary.
         if (usage.HasFlag(SerializationUsage.Delta))
             usage |= SerializationUsage.Serialize;
 
@@ -208,7 +189,7 @@ public sealed partial class LuauGenerator
     /// <summary>
     ///     Scans every call this file makes to <c>serialize_binary</c>/<c>deserialize_binary</c>/
     ///     <c>serializer</c>/<c>diff_binary</c>/<c>apply_diff_binary</c>/<c>serializer_of</c> before the
-    ///     main tree walk, so <see cref="EmitSerializers" /> already knows what each interface needs
+    ///     main tree walk, so <see cref="TrackSerializerEmit" /> already knows what each interface needs
     ///     regardless of whether the declaration or the call comes first in the file. Best-effort: a
     ///     malformed call is left for the macro expander (which runs during the real walk) to diagnose
     ///     properly, so anything that does not resolve cleanly here is simply skipped rather than reported.
@@ -219,7 +200,9 @@ public sealed partial class LuauGenerator
         {
             if (invocation.Expression is not Parsing.AST.Identifier identifier
                 || _semanticModel.GetSymbol(identifier) is not { IsIntrinsic: true } symbol)
+            {
                 continue;
+            }
 
             if (symbol.Name == "serializer_of")
             {
@@ -236,11 +219,8 @@ public sealed partial class LuauGenerator
                 _ => SerializationUsage.None
             };
 
-            if (usage == SerializationUsage.None)
-                continue;
-
-            // deserialize_binary/serializer have nothing to infer from, so the interface is a type
-            // argument instead of the first value argument the other three take.
+            if (usage == SerializationUsage.None) continue;
+            
             Node? subject = symbol.Name is "deserialize_binary" or "serializer"
                 ? invocation.TypeArguments?.ArgumentsList.FirstOrDefault()
                 : invocation.Arguments.ArgumentList.FirstOrDefault();
@@ -283,9 +263,7 @@ public sealed partial class LuauGenerator
 
     private void MarkUsage(InterfaceType interfaceType, SerializationUsage usage)
     {
-        if (_semanticModel.SerializationSchemas.Keys.FirstOrDefault(s => s.Name == interfaceType.Name) is not { } interfaceSymbol)
-            return;
-
+        if (_semanticModel.SerializationSchemas.Keys.FirstOrDefault(s => s.Name == interfaceType.Name) is not { } interfaceSymbol) return;
         _semanticModel.SerializationUsages[interfaceSymbol] = _semanticModel.SerializationUsages.GetValueOrDefault(interfaceSymbol) | usage;
     }
 
@@ -341,13 +319,16 @@ public sealed partial class LuauGenerator
         {
             _ when serializationField.BodyBytes != null => true,
             StringField => true,
+
             // Sentinelled: either the components in full or nothing, and which is known before allocating.
             DatatypeField or CFrameField => true,
+
             // Entries share a bit block reserved after the length prefix, and an entry whose own width
             // needs walking gets a nested loop, so the only requirement left is that it be measurable.
             ArrayField arrayField => IsMeasurable(arrayField.Element),
             OptionalField optionalField => IsMeasurable(optionalField.Inner),
             MapField mapField => IsMeasurable(mapField.Key) && IsMeasurable(mapField.Value),
+
             // A flattened nested struct, or a real tuple: measurable exactly when its parts are.
             TupleField tupleField => tupleField.Elements.All(IsMeasurable),
             UnionField unionField => unionField.Variants.All(v => v.Fields.All(IsMeasurable)),
