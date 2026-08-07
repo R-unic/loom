@@ -68,9 +68,9 @@ public static partial class ConfigReader
         if (reported.Count > 0)
             return null;
 
-        config.ProjectDirectory = Path.GetDirectoryName(path) ?? "?";
-        config.Files.SourceDirectory = config.ProjectDirectory + Path.DirectorySeparatorChar + config.Files.SourceDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        config.Files.OutputDirectory = config.ProjectDirectory + Path.DirectorySeparatorChar + config.Files.OutputDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        config.ProjectDirectory = Path.GetDirectoryName(path)?.Trim() ?? "?";
+        config.Files.SourceDirectory = config.ProjectDirectory + Path.DirectorySeparatorChar + config.Files.SourceDirectory.TrimEnd('/', '\\').Trim();
+        config.Files.OutputDirectory = config.ProjectDirectory + Path.DirectorySeparatorChar + config.Files.OutputDirectory.TrimEnd('/', '\\').Trim();
         return config;
     }
 
@@ -91,7 +91,6 @@ public static partial class ConfigReader
 
         ValidateDirectory(config.Files.SourceDirectory, "source_directory", diagnostics);
         ValidateDirectory(config.Files.OutputDirectory, "output_directory", diagnostics);
-
         ReadDependencies(config, diagnostics);
         if (config.Registry != null && !IsFetchableUrl(config.Registry.Index))
             diagnostics.Add(new ConfigDiagnostic($"invalid registry index '{config.Registry.Index}'; expected an http or https URL."));
