@@ -1,3 +1,4 @@
+using Loom.Config;
 using Loom.Core.Generation;
 
 namespace Loom.Core.Modules;
@@ -26,7 +27,18 @@ public sealed record ModuleRequirePath(ModuleRequirePathStatus Status, string Pa
 {
     public bool IsFallback => Status != ModuleRequirePathStatus.Resolved;
 
-    public static ModuleRequirePath Fallback(ModuleRequirePathStatus status, string specifier) => new(status, specifier);
+    /// <summary>
+    ///     The package the require reaches into, set only on a fallback that crosses a project boundary. The
+    ///     fallback stands in for nothing there — the two projects' output has no fixed position relative to
+    ///     one another — so this is what turns an unnameable module from a warning into an error.
+    /// </summary>
+    public PackageName? Package { get; private init; }
+
+    /// <summary>Where the build writes the packages it compiles: the directory a <c>$path</c> has to cover for <see cref="Package" /> to be nameable.</summary>
+    public string? PackagesDirectory { get; private init; }
+
+    public static ModuleRequirePath Fallback(ModuleRequirePathStatus status, string specifier, PackageName? package = null, string? packagesDirectory = null) =>
+        new(status, specifier) { Package = package, PackagesDirectory = package == null ? null : packagesDirectory };
 
     public static ModuleRequirePath Resolved(IEnumerable<string> instanceSegments) =>
         new(ModuleRequirePathStatus.Resolved, RuntimeImport.PathPrefix + string.Join('/', instanceSegments));

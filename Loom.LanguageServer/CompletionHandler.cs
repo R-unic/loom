@@ -16,7 +16,7 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
         {
             var symbols = state.File.SemanticModel.Declarations.Values
                 .SelectMany(list => list)
-                .Concat(state.Unit.Globals.Keys)
+                .Concat(state.Unit.Globals.Of(state.File.SourceFile).Keys)
                 .GroupBy(symbol => symbol.Name)
                 .Select(group => group.First());
 

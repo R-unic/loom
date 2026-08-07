@@ -131,6 +131,10 @@ public static class InternalCodes
     public const string ErrorPropagationErrorTypeMismatch = "L407";
     public const string InvalidMetamethodAttribute = "L408";
     public const string NumberOutOfRange = "L409";
+    public const string PackageNotFound = "L410";
+    public const string UndeclaredDependency = "L411";
+    public const string DuplicateGlobal = "L412";
+    public const string PackageFailedToCompile = "L413";
 
     public const string SimplifiableCode = "L500";
 }

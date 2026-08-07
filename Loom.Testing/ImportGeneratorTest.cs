@@ -142,6 +142,28 @@ public class ImportGeneratorTest
             )
         );
 
+    /// <remarks>
+    ///     The last segment names the module, which is what a reader is looking for; when something else has
+    ///     already taken that name, the segment above it says which module this is far better than a number.
+    /// </remarks>
+    [Fact]
+    public void Qualifies_AModuleLocal_WithTheSegmentAboveIt_WhenItsOwnNameIsTaken() =>
+        Utility.WithTempProject(
+            [
+                ("main.loom", "import { zero } from \"./util/vector\"\nlet vector = 1;\nprint(zero, vector);"),
+                (Path.Combine("util", "vector.loom"), "export let zero = 0;")
+            ],
+            (_, result) => AssertRendered(
+                result,
+                """
+                const util_vector = require("./util/vector")
+                const zero = util_vector.zero
+                const vector = 1
+                print(zero, vector)
+                """
+            )
+        );
+
     private static void AssertGenerated(string source, string expected) =>
         Utility.WithTempProject(
             [("main.loom", source), ("geometry.loom", GeometryModule)],

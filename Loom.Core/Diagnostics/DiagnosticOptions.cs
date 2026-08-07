@@ -17,4 +17,12 @@ public sealed record DiagnosticOptions
     ///     to do once a file fails to compile; off by default so embedding the compiler cannot kill the host.
     /// </summary>
     public bool FailFast { get; init; }
+
+    /// <summary>
+    ///     Report a dependency's diagnostics as they were raised, instead of as one error per file naming the
+    ///     package that failed. Off by default: a warning in a package is not something the consumer of that
+    ///     package can act on, and an error in one is a fact about the package rather than about their code.
+    ///     Meant for debugging a package from a build that consumes it.
+    /// </summary>
+    public bool ReportDependencyDiagnostics { get; init; }
 }

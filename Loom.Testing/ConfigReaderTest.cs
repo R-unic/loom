@@ -251,12 +251,26 @@ public class ConfigReaderTest
     [InlineData("[dependencies.serio]\nversion = \"^1.2\"\ndev = 1\n", "non-boolean 'dev'")]
     [InlineData("[dependencies]\nserio = \"^1.2\"\nSerio = \"^1.3\"\n", "listed more than once")]
     [InlineData("[registry]\nindex = \"loom-lang.github.io\"\n", "expected an http or https URL")]
+    [InlineData("[files]\nsource_directory = \"\"\n", "[files] 'source_directory' cannot be empty")]
+    [InlineData("[files]\noutput_directory = \"   \"\n", "[files] 'output_directory' cannot be empty")]
+    [InlineData("[files]\nsource_directory = \"/usr/src\"\n", "[files] 'source_directory' must be relative to the project directory, but '/usr/src' is absolute")]
     [InlineData("project_type = \"nonsense\"\n", "unknown project type 'nonsense'")]
     [InlineData("[package\nname = \"tether\"\n", "Expected `]`")]
     public void LocateFromDirectory_MalformedManifest_ReportsADiagnosticInsteadOfThrowing(string tomlContent, string expectedMessage)
     {
         var diagnostic = ReadInvalid(tomlContent);
         Assert.Contains(expectedMessage, diagnostic.Message);
+    }
+
+    /// <remarks>
+    ///     A trailing separator is the one thing about these paths that is only a matter of writing style, so
+    ///     it is trimmed rather than rejected.
+    /// </remarks>
+    [Fact]
+    public void Files_AcceptsARelativeDirectory_WrittenWithATrailingSeparator()
+    {
+        var config = ReadValid($"[files]\nsource_directory = \"source{Path.DirectorySeparatorChar}\"\n");
+        Assert.EndsWith($"{Path.DirectorySeparatorChar}source", config.Files.SourceDirectory);
     }
 
     [Fact]

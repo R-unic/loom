@@ -27,10 +27,10 @@ public sealed class ModuleGraph
     private sealed record ModuleEdge(Node ModuleReference, ParsedFile Target);
 
     /// <summary>
-    ///     The module diagnostics of a build, one bag per file, all reporting with the unit's
+    ///     The module diagnostics of a build, one bag per file, each reporting with that file's own
     ///     <see cref="DiagnosticOptions" /> so they behave like the bags of every other stage.
     /// </summary>
-    private sealed class ModuleDiagnostics(DiagnosticOptions options)
+    private sealed class ModuleDiagnostics(Func<SourceFile, DiagnosticOptions> optionsOf)
     {
         private readonly Dictionary<SourceFile, DiagnosticBag> _bags = [];
 
@@ -39,7 +39,7 @@ public sealed class ModuleGraph
         public DiagnosticBag Of(SourceFile file)
         {
             if (!_bags.TryGetValue(file, out var bag))
-                _bags[file] = bag = new DiagnosticBag(options: options);
+                _bags[file] = bag = new DiagnosticBag(options: optionsOf(file));
 
             return bag;
         }
@@ -68,7 +68,8 @@ public sealed class ModuleGraph
     /// <summary>Module diagnostics belonging to <paramref name="file" />, reported at its import sites.</summary>
     public DiagnosticBag? GetDiagnostics(SourceFile file) => _diagnostics.Get(file);
 
-    public static ModuleGraph Build(List<ParsedFile> parsedFiles, SourceRootSet roots, DiagnosticOptions? diagnosticOptions = null)
+    /// <param name="diagnosticOptionsOf">Reporting behavior per file, the unit's for every file when unspecified.</param>
+    public static ModuleGraph Build(List<ParsedFile> parsedFiles, SourceRootSet roots, Func<SourceFile, DiagnosticOptions>? diagnosticOptionsOf = null)
     {
         var resolver = new ModuleResolver(parsedFiles.ConvertAll(parsedFile => parsedFile.File), roots);
         var parsedFilesByFile = new Dictionary<SourceFile, ParsedFile>();
@@ -76,7 +77,7 @@ public sealed class ModuleGraph
             parsedFilesByFile.TryAdd(parsedFile.File, parsedFile);
 
         var resolvedModules = new Dictionary<NodeId, SourceFile>();
-        var diagnostics = new ModuleDiagnostics(diagnosticOptions ?? DiagnosticOptions.Default);
+        var diagnostics = new ModuleDiagnostics(diagnosticOptionsOf ?? (_ => DiagnosticOptions.Default));
         var dependencies = new Dictionary<SourceFile, List<ModuleEdge>>();
         foreach (var parsedFile in parsedFiles)
         {
@@ -122,10 +123,10 @@ public sealed class ModuleGraph
     ///     in case is the likeliest thing the author meant and is worth naming — the bare "could not find it"
     ///     reads like a typo hunt on a file system that does not care about case.
     /// </remarks>
-    private static string? NotFoundHint(SourceFile importingFile, string specifier, SourceFile? caseInsensitiveMatch)
+    private static string? NotFoundHint(ModuleResolver resolver, SourceFile importingFile, string specifier, SourceFile? caseInsensitiveMatch)
     {
         if (caseInsensitiveMatch != null)
-            return $"did you mean '{ModuleResolver.SpecifierOf(importingFile, caseInsensitiveMatch)}'? module paths are case-sensitive";
+            return $"did you mean '{resolver.SpecifierOf(importingFile, caseInsensitiveMatch)}'? module paths are case-sensitive";
 
         return FileManager.IsLoomFile(specifier) ? $"drop the '{FileManager.LoomExtension}' extension from the path" : null;
     }
@@ -181,8 +182,34 @@ public sealed class ModuleGraph
                     parsedFile.File,
                     moduleSpecifier,
                     InternalCodes.UnsupportedModuleSpecifier,
-                    $"Module '{specifier}' is not a relative path.",
-                    "package imports are not supported yet; start the path with './' or '../'"
+                    $"Module '{specifier}' is neither a relative path nor a package name.",
+                    FileManager.IsLoomFile(specifier)
+                        ? $"drop the '{FileManager.LoomExtension}' extension from the path"
+                        : "start the path with './' or '../', or name a package you depend on"
+                );
+
+                return null;
+
+            case ModuleResolutionStatus.PackageNotFound:
+                Report(
+                    diagnostics,
+                    parsedFile.File,
+                    moduleSpecifier,
+                    InternalCodes.PackageNotFound,
+                    $"Cannot find package '{resolution.Package}'.",
+                    $"add '{resolution.Package}' to [dependencies] and install it before importing from it"
+                );
+
+                return null;
+
+            case ModuleResolutionStatus.UndeclaredDependency:
+                Report(
+                    diagnostics,
+                    parsedFile.File,
+                    moduleSpecifier,
+                    InternalCodes.UndeclaredDependency,
+                    $"Package '{resolution.Package}' is not a dependency of this project.",
+                    $"it is only in this build because something else depends on it; add '{resolution.Package}' to [dependencies] to import it yourself"
                 );
 
                 return null;
@@ -217,7 +244,7 @@ public sealed class ModuleGraph
                     moduleSpecifier,
                     InternalCodes.ModuleNotFound,
                     $"Could not find module '{specifier}'.",
-                    NotFoundHint(parsedFile.File, specifier, resolution.CaseInsensitiveMatch)
+                    NotFoundHint(resolver, parsedFile.File, specifier, resolution.CaseInsensitiveMatch)
                 );
 
                 return null;

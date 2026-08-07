@@ -86,13 +86,47 @@ public class CompilationUnitTest
 
             Utility.AssertNoErrors(result);
             Assert.Equal(2, result.Files.Count);
-            Assert.Contains(compilationUnit.Globals.Keys, symbol => symbol.Name == "global_number");
+            var main = result.Files.Single(file => file.SourceFile.Name == "main.loom");
+            Assert.Contains(compilationUnit.Globals.Of(main.SourceFile).Keys, symbol => symbol.Name == "global_number");
         }
         finally
         {
             Directory.Delete(dir, true);
         }
     }
+
+    /// <remarks>
+    ///     Which of the two files is reported depends on the order they were analyzed in, so this pins the
+    ///     pair rather than either side of it: the diagnostic sits in one of them and names the other.
+    /// </remarks>
+    [Fact]
+    public void Reports_AnAmbientName_DeclaredTwiceInOneRoot() =>
+        Utility.WithTempProject(
+            [("first.d.loom", "declare let version: number;"), ("second.d.loom", "declare let version: number;"), ("main.loom", "print(version);")],
+            (_, result) =>
+            {
+                var diagnostic = Assert.Single(result.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.DuplicateGlobal);
+                var named = diagnostic.Span.File.Name == "first.d.loom" ? "second.d.loom" : "first.d.loom";
+
+                Assert.Equal($"'version' is already declared by '{named}'.", diagnostic.Message);
+                Assert.Equal(
+                    "a project's declaration files share one ambient scope, so each name may only be declared once across them",
+                    diagnostic.Hint
+                );
+            }
+        );
+
+    /// <remarks>Types and values are looked up separately, so one name in each namespace is two names.</remarks>
+    [Fact]
+    public void Allows_AnAmbientType_AndAnAmbientValue_OfOneName() =>
+        Utility.WithTempProject(
+            [
+                ("values.d.loom", "declare let version: number;"),
+                ("types.d.loom", "type version = string;"),
+                ("main.loom", "let name: version = \"1.0\";\nprint(name, version);")
+            ],
+            (_, result) => Utility.AssertNoErrors(result)
+        );
 
     [Fact]
     public void Compiles_EveryFile_WhenAnotherFileHasDiagnostics() =>

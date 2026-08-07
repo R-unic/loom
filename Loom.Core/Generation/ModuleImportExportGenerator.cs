@@ -78,12 +78,26 @@ internal sealed class ModuleImportExportGenerator(SemanticModel semanticModel, D
         return modules;
     }
 
+    /// <remarks>
+    ///     Within one project the fallback is a relative require, which resolves correctly on its own because
+    ///     the output tree mirrors the source tree — worth a warning, since it only works where require-by-string
+    ///     is available. A require into a package has no such standing: the two projects' output sit wherever
+    ///     the consumer's Rojo project puts them, so a relative path between them is a guess, and one that fails
+    ///     at runtime rather than at build time. That is an error.
+    /// </remarks>
     private string GetRequirePath(SourceFile module, string specifier)
     {
-        var requirePath = moduleRequirePaths?.Resolve(module, specifier)
+        var requirePath = moduleRequirePaths?.Resolve(semanticModel.Tree.File, module, specifier)
             ?? ModuleRequirePath.Fallback(ModuleRequirePathStatus.RojoMissing, specifier);
 
-        if (requirePath.Status == ModuleRequirePathStatus.NotFoundInRojo)
+        if (requirePath.Package is { } package)
+            diagnostics.Error(
+                semanticModel.Tree,
+                InternalCodes.ModuleNotFoundInRojo,
+                $"Could not locate package '{package}' through the Rojo project; its compiled output at '{requirePath.PackagesDirectory}' is not mapped.",
+                $"add a $path mapping to your default.project.json covering '{requirePath.PackagesDirectory}'"
+            );
+        else if (requirePath.Status == ModuleRequirePathStatus.NotFoundInRojo)
             diagnostics.Warn(
                 semanticModel.Tree,
                 InternalCodes.ModuleNotFoundInRojo,
@@ -159,18 +173,39 @@ internal sealed class ModuleImportExportGenerator(SemanticModel semanticModel, D
         ) { IsExported = isExported };
     }
 
+    /// <remarks>
+    ///     The last segment names the module, which is what a reader of the output is looking for. A package
+    ///     specifier's earlier segments are tried before numbering when that name is taken, so an import of
+    ///     <c>"math/vector"</c> beside a local <c>vector</c> reads as <c>math_vector</c> rather than
+    ///     <c>vector_1</c> — the numbering is there for names no part of the specifier can tell apart.
+    /// </remarks>
     private string ReserveModuleLocalName(string specifier)
     {
-        var segment = specifier.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault(segment => segment != "..");
-        var sanitized = new string((segment ?? "module").Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_').ToArray());
-        var name = sanitized.Length == 0 || char.IsDigit(sanitized[0]) ? '_' + sanitized : sanitized;
-        if (LuauFactory.Keywords.Contains(name))
-            name = '_' + name;
+        var segments = specifier.Split('/', StringSplitOptions.RemoveEmptyEntries).Where(segment => segment is not (".." or ".")).ToList();
+        var name = ToLocalName(segments.Count == 0 ? "module" : segments[^1]);
+        if (TakenModuleLocalNames.Add(name))
+            return name;
+
+        for (var from = segments.Count - 2; from >= 0; from--)
+        {
+            var qualified = ToLocalName(string.Join('_', segments.Skip(from)));
+            if (TakenModuleLocalNames.Add(qualified))
+                return qualified;
+        }
 
         var unique = name;
         for (var suffix = 1; !TakenModuleLocalNames.Add(unique); suffix++)
             unique = name + '_' + suffix;
 
         return unique;
+    }
+
+    /// <summary>Turns a specifier segment into something Luau will accept as a local name.</summary>
+    private static string ToLocalName(string segment)
+    {
+        var sanitized = new string(segment.Select(character => char.IsLetterOrDigit(character) || character == '_' ? character : '_').ToArray());
+        var name = sanitized.Length == 0 || char.IsDigit(sanitized[0]) ? '_' + sanitized : sanitized;
+
+        return LuauFactory.Keywords.Contains(name) ? '_' + name : name;
     }
 }

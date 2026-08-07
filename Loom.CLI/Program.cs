@@ -18,8 +18,8 @@ var cliParser = new Parser(settings =>
 return cliParser
     .ParseArguments<BuildOptions, WatchOptions, NewOptions>(args)
     .MapResult(
-        (BuildOptions options) => compile(options.Directory, watch: false),
-        (WatchOptions options) => compile(options.Directory, watch: true),
+        (BuildOptions options) => compile(options, watch: false),
+        (WatchOptions options) => compile(options, watch: true),
         (NewOptions options) => Scaffolder.NewProject(options.Directory),
         handleParseError
     );
@@ -37,12 +37,12 @@ static bool tryGetConfig(string directory, [NotNullWhen(true)] out LoomConfig? c
     return false;
 }
 
-static int compile(string directory, bool watch)
+static int compile(BuildCommand options, bool watch)
 {
     Console.OutputEncoding = Encoding.UTF8;
 
-    var diagnosticOptions = new DiagnosticOptions { FailFast = !watch };
-    if (!tryGetConfig(directory, out var config))
+    var diagnosticOptions = new DiagnosticOptions { FailFast = !watch, ReportDependencyDiagnostics = options.DependencyDiagnostics };
+    if (!tryGetConfig(options.Directory, out var config))
         return 1;
 
     FileManager.WriteIncludeFolder(config.ProjectDirectory);

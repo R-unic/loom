@@ -6,7 +6,6 @@ using Loom.Core.Modules;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
-using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Core.Pipeline;
 
@@ -38,7 +37,33 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     /// <summary>Every root's files, entry project first.</summary>
     public IReadOnlyList<SourceFile> SourceFiles => Roots.Files;
 
-    public Dictionary<Symbol, Type> Globals { get; } = [];
+    /// <summary>
+    ///     The package <paramref name="file" />'s diagnostics are the consumer's to read about rather than to
+    ///     fix, or <see langword="null" /> when they are the entry project's own — the files whose diagnostics
+    ///     are reported exactly as raised.
+    /// </summary>
+    /// <seealso cref="DiagnosticBag.AttributedTo" />
+    public string? PackageAttributionOf(SourceFile file)
+    {
+        // a unit spanning one project has no dependencies to attribute anything to, so it need not ask which
+        // root owns the file - the question every file of every compile would otherwise be paying for
+        if (DiagnosticOptions.ReportDependencyDiagnostics || Roots.Count == 1)
+            return null;
+
+        var root = Roots.Of(file);
+        return root == Roots.Entry ? null : root.ToString();
+    }
+
+    /// <summary>
+    ///     Reporting behavior for <paramref name="file" />'s own stages. A dependency's files never fail fast,
+    ///     however the unit was configured: the error worth stopping on is the one naming the package, and the
+    ///     process has to survive long enough to raise it.
+    /// </summary>
+    public DiagnosticOptions DiagnosticOptionsFor(SourceFile file) =>
+        PackageAttributionOf(file) == null ? DiagnosticOptions : DiagnosticOptions with { FailFast = false };
+
+    /// <summary>Every root's ambient declarations, each visible only to the files of the root that declared them.</summary>
+    public GlobalSymbols Globals { get; } = new(roots);
 
     /// <summary>
     ///     Where the runtime library lives in the instance tree. One per unit, resolved from the entry
@@ -243,15 +268,18 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     }
 
     /// <summary>
-    ///     Writes every file whose own project asked for output. <see cref="LoomConfig.NoEmit" /> is a
-    ///     per-project setting, so a unit can emit its entry project while leaving the output of a dependency
-    ///     it only compiled to type-check against exactly as it found it.
+    ///     Writes every compiled file, dependencies included, when the entry project asked for output.
+    ///     <see cref="LoomConfig.NoEmit" /> is read off that project alone: a dependency's compiled output is
+    ///     part of the build consuming it — written into its output directory, and required from its instance
+    ///     tree — so a library author's own choice not to emit cannot leave a consumer's build missing files.
     /// </summary>
-    private static void Emit(IEnumerable<CompiledFile> compiledFiles)
+    private void Emit(IEnumerable<CompiledFile> compiledFiles)
     {
+        if (Config.NoEmit)
+            return;
+
         foreach (var file in compiledFiles)
-            if (!file.Root.Config.NoEmit)
-                FileManager.WriteCompiledFile(file);
+            FileManager.WriteCompiledFile(file);
     }
 
     private CompiledFile? AnalyzeAndCache(Compiler compiler, ParsedFile parsedFile, DiagnosticBag? moduleDiagnostics, List<FailedFile> failures)
@@ -321,7 +349,7 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     {
         try
         {
-            return ModuleGraph.Build(parsedFiles.ConvertAll(parsed => parsed.ParsedFile), Roots, DiagnosticOptions);
+            return ModuleGraph.Build(parsedFiles.ConvertAll(parsed => parsed.ParsedFile), Roots, DiagnosticOptionsFor);
         }
         catch (Exception e)
         {
@@ -356,6 +384,11 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
         return parsedFiles;
     }
 
+    /// <summary>
+    ///     Hoists every declaration file's top-level symbols into the ambient scope of the root that declared
+    ///     them. Two files of one root declaring the same ambient name is an error rather than a silent
+    ///     first-one-wins, since nothing at the use site would say which of the two a name resolved to.
+    /// </summary>
     private void PopulateGlobals(List<CompiledFile> compiledDeclarationFiles)
     {
         foreach (var compiledFile in compiledDeclarationFiles)
@@ -363,7 +396,15 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
             foreach (var symbol in compiledFile.Tree.Statements.Select(statement => compiledFile.SemanticModel.GetDeclarationSymbol(statement)).OfType<Symbol>())
             {
                 var type = compiledFile.SemanticModel.GetType(symbol.Declaration);
-                Globals.Add(symbol, type);
+                if (Globals.Declare(compiledFile.Root, symbol, type) is not { } existing)
+                    continue;
+
+                compiledFile.Diagnostics.Error(
+                    symbol.Declaration,
+                    InternalCodes.DuplicateGlobal,
+                    $"'{symbol.Name}' is already declared by '{compiledFile.Root.Describe(existing.File)}'.",
+                    "a project's declaration files share one ambient scope, so each name may only be declared once across them"
+                );
             }
         }
     }

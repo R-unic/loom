@@ -43,6 +43,49 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
         return null;
     }
 
+    /// <summary>
+    ///     This bag as the consumer of <paramref name="package" /> should see it: nothing at all when the
+    ///     package compiled, and a single error naming the package when it did not, carrying the first
+    ///     underlying error and, at its location, the code it was raised against.
+    /// </summary>
+    /// <remarks>
+    ///     A package's warnings are dropped rather than shown, because the reader of a consumer's build cannot
+    ///     act on them — the code is not theirs to change. Its errors cannot be dropped, since nothing can be
+    ///     built on a package that did not compile, but they are framed so that the reader knows whose problem
+    ///     they are looking at. Reporting one error per file rather than all of them keeps a package that fails
+    ///     in a big way from burying the reader's own diagnostics.
+    /// </remarks>
+    /// <param name="reportingOptions">
+    ///     Options the attributed error is reported with, the file's own when unspecified. The caller hands its
+    ///     own here so that a build set to fail fast still stops on a package that failed, even though the
+    ///     package's files are compiled without failing fast — the point of that being to reach this error
+    ///     rather than to exit on the raw one.
+    /// </param>
+    public DiagnosticBag AttributedTo(string package, DiagnosticOptions? reportingOptions = null)
+    {
+        var errors = Set.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .OrderBy(diagnostic => diagnostic.Span.Start.Line)
+            .ThenBy(diagnostic => diagnostic.Span.Start.Character)
+            .ToList();
+
+        var options = reportingOptions ?? Options;
+        if (errors.Count == 0)
+            return new DiagnosticBag(options: options);
+
+        var first = errors[0];
+        var others = errors.Count == 1 ? "" : $" ({errors.Count - 1} more error{(errors.Count == 2 ? "" : "s")} in this file)";
+        var attributed = new DiagnosticBag(options: options);
+        attributed.Report(
+            first.Span,
+            DiagnosticSeverity.Error,
+            InternalCodes.PackageFailedToCompile,
+            $"Package '{package}' failed to compile: {first.Message}{others}",
+            first.Hint ?? "this is a problem in the package rather than in your code"
+        );
+
+        return attributed;
+    }
+
     public Diagnostic? Find(Func<Diagnostic, bool> predicate) => Set.FirstOrDefault(predicate);
     public DiagnosticBag WithoutInfo() => new(Set.Where(d => d.Severity > DiagnosticSeverity.Info).ToHashSet(), Options);
     public DiagnosticBag Errors() => new(Set.Where(d => d.Severity == DiagnosticSeverity.Error).ToHashSet(), Options);

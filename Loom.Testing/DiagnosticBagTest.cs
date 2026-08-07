@@ -315,6 +315,47 @@ public class DiagnosticBagTest
         Assert.Equal(before, diag.GetHashCode());
     }
 
+    /// <remarks>Nothing a consumer of the package can act on, so nothing is what they are told.</remarks>
+    [Fact]
+    public void AttributedTo_DropsEverythingBelowAnError()
+    {
+        var bag = new DiagnosticBag();
+        bag.Warn(_span, InternalCodes.UnusedImport, "'helper' is imported but never used.");
+        bag.Info(_span, "hello");
+
+        Assert.Empty(bag.AttributedTo("math").Set);
+    }
+
+    [Fact]
+    public void AttributedTo_NamesThePackage_AndCarriesTheUnderlyingError()
+    {
+        var bag = new DiagnosticBag();
+        bag.Warn(_span, InternalCodes.UnusedImport, "'helper' is imported but never used.");
+        bag.Error(_span, InternalCodes.CannotFindName, "Cannot find name 'x'.", "did you mean 'y'?");
+
+        var attributed = Assert.Single(bag.AttributedTo("math").Set);
+        Assert.Equal(DiagnosticSeverity.Error, attributed.Severity);
+        Assert.Equal(InternalCodes.PackageFailedToCompile, attributed.Code);
+        Assert.Equal("Package 'math' failed to compile: Cannot find name 'x'.", attributed.Message);
+        Assert.Equal("did you mean 'y'?", attributed.Hint);
+        Assert.Equal(_span, attributed.Span);
+    }
+
+    /// <remarks>A package failing in a big way must not bury the diagnostics the reader can actually act on.</remarks>
+    [Fact]
+    public void AttributedTo_ReportsOneError_CountingTheRest()
+    {
+        var bag = new DiagnosticBag();
+        bag.Error(_span, InternalCodes.CannotFindName, "Cannot find name 'x'.");
+        bag.Error(_span, InternalCodes.CannotFindName, "Cannot find name 'y'.");
+        bag.Error(_span, InternalCodes.CannotFindName, "Cannot find name 'z'.");
+
+        var attributed = Assert.Single(bag.AttributedTo("math").Set);
+        Assert.StartsWith("Package 'math' failed to compile: Cannot find name '", attributed.Message);
+        Assert.EndsWith("(2 more errors in this file)", attributed.Message);
+        Assert.Equal("this is a problem in the package rather than in your code", attributed.Hint);
+    }
+
     [Fact]
     public void Set_ContainsDiagnostic_AfterToStringIsCalled()
     {

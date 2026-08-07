@@ -77,13 +77,41 @@ public class ModuleGraphTest
             )
         );
 
+    /// <remarks>A bare specifier names a package, so in a build compiling no packages there is nothing for it to name.</remarks>
     [Fact]
-    public void Reports_BareSpecifier_AsUnsupported() =>
+    public void Reports_BareSpecifier_NamingAPackageOutsideTheBuild() =>
         AssertModuleDiagnostic(
             "import { x } from \"math\"",
+            InternalCodes.PackageNotFound,
+            "Cannot find package 'math'.",
+            "add 'math' to [dependencies] and install it before importing from it"
+        );
+
+    /// <remarks>The package name is the first segment, so this reports the package rather than the whole specifier.</remarks>
+    [Fact]
+    public void Reports_BareSpecifier_WithASubpath_ByItsPackage() =>
+        AssertModuleDiagnostic(
+            "import { x } from \"math/vector\"",
+            InternalCodes.PackageNotFound,
+            "Cannot find package 'math'."
+        );
+
+    [Fact]
+    public void Reports_ASpecifier_ThatIsNeitherAPathNorAPackageName() =>
+        AssertModuleDiagnostic(
+            "import { x } from \"math!\"",
             InternalCodes.UnsupportedModuleSpecifier,
-            "Module 'math' is not a relative path.",
-            "package imports are not supported yet; start the path with './' or '../'"
+            "Module 'math!' is neither a relative path nor a package name.",
+            "start the path with './' or '../', or name a package you depend on"
+        );
+
+    [Fact]
+    public void Reports_ABareSpecifier_CarryingTheLoomExtension() =>
+        AssertModuleDiagnostic(
+            "import { x } from \"math.loom\"",
+            InternalCodes.UnsupportedModuleSpecifier,
+            "Module 'math.loom' is neither a relative path nor a package name.",
+            "drop the '.loom' extension from the path"
         );
 
     [Fact]

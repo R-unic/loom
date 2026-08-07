@@ -152,7 +152,7 @@ public static class Intrinsics
             return null;
 
         foreach (var symbol in compiled.Tree.Statements.SelectMany(statement => compiled.SemanticModel.GetDeclarationSymbols(statement)))
-            compilationUnit.Globals[symbol] = compiled.SemanticModel.GetType(symbol.Declaration);
+            compilationUnit.Globals.Declare(compiled.Root, symbol, compiled.SemanticModel.GetType(symbol.Declaration));
 
         return compiled;
     }

@@ -19,7 +19,10 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
     ///     Everything reported against the file so far. Unlike <see cref="CompiledFile.Diagnostics" /> this is
     ///     readable after a phase failed, which is the only place the compiler error of that failure lives.
     /// </summary>
-    public DiagnosticBag Diagnostics => DiagnosticBag.Concat(_pipelineDiagnostics, unit.DiagnosticOptions);
+    public DiagnosticBag Diagnostics => Reported(DiagnosticBag.Concat(_pipelineDiagnostics, Options));
+
+    /// <summary>Reporting behavior of this file's stages, which is the unit's except for a dependency's files.</summary>
+    private DiagnosticOptions Options => field ??= unit.DiagnosticOptionsFor(SourceFile);
 
     /// <summary>Null when a phase failed; <see cref="Diagnostics" /> says why.</summary>
     public CompiledFile? Compile()
@@ -35,7 +38,7 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
     public ParsedFile? Parse() =>
         RunPhase(() =>
             {
-                var lexer = new Lexer(SourceFile, unit.DiagnosticOptions);
+                var lexer = new Lexer(SourceFile, Options);
                 var lexerResult = TrackDiagnostics(lexer.Tokenize());
                 var parser = new Parser(lexerResult);
                 var parserResult = TrackDiagnostics(parser.Parse());
@@ -66,15 +69,11 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
                 var generatorResult = TrackDiagnostics(generator.Generate());
                 var renderedLuau = generatorResult.LuauTree.Render();
 
-                // the file's own project decides where its output goes, which is not the unit's entry project
-                // when the file came from a dependency the unit compiles from source
-                var root = unit.Roots.Of(SourceFile);
-
                 return new CompiledFile(SourceFile)
                 {
-                    Root = root,
-                    Path = FileManager.GetOutputPath(SourceFile, root.Config),
-                    Diagnostics = DiagnosticBag.Concat(_pipelineDiagnostics, unit.DiagnosticOptions),
+                    Root = unit.Roots.Of(SourceFile),
+                    Path = unit.Roots.OutputPathOf(SourceFile),
+                    Diagnostics = Reported(DiagnosticBag.Concat(_pipelineDiagnostics, Options)),
                     RenderedLuau = renderedLuau,
                     LuauTree = generatorResult.LuauTree,
                     ReturnType = typeCheckerResult.ReturnType,
@@ -99,12 +98,19 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
         }
         catch (Exception e)
         {
-            var diagnostics = new DiagnosticBag(options: unit.DiagnosticOptions);
+            var diagnostics = new DiagnosticBag(options: Options);
             _pipelineDiagnostics.Add(diagnostics);
             diagnostics.CompilerError(SourceFile, $"The compiler threw an exception!\n{e.Message}\n{e.StackTrace}");
             return null;
         }
     }
+
+    /// <summary>
+    ///     What the build reports for this file: its own diagnostics when the file is the entry project's, and
+    ///     one error naming the package when it belongs to a dependency the user is only consuming.
+    /// </summary>
+    private DiagnosticBag Reported(DiagnosticBag diagnostics) =>
+        unit.PackageAttributionOf(SourceFile) is { } package ? diagnostics.AttributedTo(package, unit.DiagnosticOptions) : diagnostics;
 
     private T TrackDiagnostics<T>(T result)
         where T : DiagnosedResult

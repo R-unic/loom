@@ -1,3 +1,4 @@
+using Loom.Config;
 using Loom.Core.Text;
 
 namespace Loom.Core.Modules;
@@ -7,9 +8,18 @@ namespace Loom.Core.Modules;
 ///     <see cref="ModuleResolutionStatus.NotFound" />, since resolution is case-sensitive even where the file
 ///     system is not.
 /// </param>
-public sealed record ModuleResolution(ModuleResolutionStatus Status, SourceFile? File, SourceFile? CaseInsensitiveMatch = null)
+/// <param name="Package">
+///     The package a bare specifier named, once it is known which of its segments were the package's name.
+///     Null for a relative specifier and for one too malformed to name a package at all.
+/// </param>
+public sealed record ModuleResolution(
+    ModuleResolutionStatus Status,
+    SourceFile? File,
+    SourceFile? CaseInsensitiveMatch = null,
+    PackageName? Package = null)
 {
     public static ModuleResolution Resolved(SourceFile file) => new(ModuleResolutionStatus.Resolved, file);
-    public static ModuleResolution Failed(ModuleResolutionStatus status) => new(status, null);
-    public static ModuleResolution NotFound(SourceFile? caseInsensitiveMatch) => new(ModuleResolutionStatus.NotFound, null, caseInsensitiveMatch);
+    public static ModuleResolution Failed(ModuleResolutionStatus status, PackageName? package = null) => new(status, null, Package: package);
+    public static ModuleResolution NotFound(SourceFile? caseInsensitiveMatch, PackageName? package = null) =>
+        new(ModuleResolutionStatus.NotFound, null, caseInsensitiveMatch, package);
 }
