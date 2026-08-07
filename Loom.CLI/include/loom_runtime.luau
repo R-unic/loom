@@ -33,7 +33,7 @@ export type Serializer<T> = {
 	serialize: (value: T) -> Serialized,
 	deserialize: (serialized: Serialized) -> Result<T, DeserializeError>,
 	diff: (baseline: T, value: T) -> Serialized,
-	applyDiff: (baseline: T, diff: Serialized) -> Result<T, DeserializeError>,
+	apply_diff: (baseline: T, diff: Serialized) -> Result<T, DeserializeError>,
 }
 export type Event<T... = ...any> = Event.Event<T...>
 export type UserEvent<T... = ...any> = Event.UserEvent<T...>

@@ -30,10 +30,10 @@ export type DeserializeErrorKind = "truncated" | "invalid_tag" | "invalid_length
 export type Serialized = { buffer: buffer?, blobs: { unknown }? }
 export type DeserializeError = { kind: DeserializeErrorKind, field: string?, offset: number? }
 export type Serializer<T> = {
-	serialize: (value: T) -> Serialized,
-	deserialize: (serialized: Serialized) -> Result<T, DeserializeError>,
-	diff: (baseline: T, value: T) -> Serialized,
-	applyDiff: (baseline: T, diff: Serialized) -> Result<T, DeserializeError>,
+	serialize: (Serializer<T>, value: T) -> Serialized,
+	deserialize: (Serializer<T>, serialized: Serialized) -> Result<T, DeserializeError>,
+	diff: (Serializer<T>, baseline: T, value: T) -> Serialized,
+	apply_diff: (Serializer<T>, baseline: T, diff: Serialized) -> Result<T, DeserializeError>,
 }
 export type Event<T... = ...any> = Event.Event<T...>
 export type UserEvent<T... = ...any> = Event.UserEvent<T...>

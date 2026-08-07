@@ -74,7 +74,7 @@ const function ShootGunPacket_apply_diff_binary(baseline: ShootGunPacket, diff: 
   end
   return { ok = false, error = { kind = "truncated" } }
 end
-const ShootGunPacket_serializer: Loom.Serializer<ShootGunPacket> = { serialize = ShootGunPacket_serialize_binary, deserialize = ShootGunPacket_deserialize_binary, diff = ShootGunPacket_diff_binary, applyDiff = ShootGunPacket_apply_diff_binary }
+const ShootGunPacket_serializer: Loom.Serializer<ShootGunPacket> = { serialize = ShootGunPacket_serialize_binary, deserialize = ShootGunPacket_deserialize_binary, diff = ShootGunPacket_diff_binary, apply_diff = ShootGunPacket_apply_diff_binary }
 type MessageData = { read [index<Message, "ShootGun">]: ShootGunPacket }
 const function create_message_serializer<K>(message: K & Message): Loom.Serializer<index<MessageData, K & Message>>
   return MessageData_serializer_map[message]

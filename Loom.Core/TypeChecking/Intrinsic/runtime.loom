@@ -1,6 +1,6 @@
 ## This file contains definitions that should import the runtime library if their types are used.
 
-interface Range {
+sealed interface Range {
     minimum: number;
     maximum: number;
     length: number;
@@ -19,7 +19,7 @@ interface ResultError<Error> {
 
 type Result<T, Error> = ResultOk<T> | ResultError<Error>;
 
-declare interface ResultStatic {
+declare sealed interface ResultStatic {
     ok: fn<T, Error>(value: T): Result<T, Error>;
     err: fn<T, Error>(error: Error): Result<T, Error>;
 }
@@ -38,12 +38,12 @@ enum DeserializeErrorKind: string {
 
 ## 'buffer' is absent when every field of the type encodes to zero bytes, 'blobs' when the
 ## value carries none — both are elided rather than sent as an empty buffer or table.
-interface Serialized {
+declare sealed interface Serialized {
     buffer: buffer?;
     blobs: unknown[]?;
 }
 
-interface DeserializeError {
+declare sealed interface DeserializeError {
     kind: DeserializeErrorKind;
     field: string?;
     offset: number?;
@@ -51,16 +51,16 @@ interface DeserializeError {
 
 ## A serializable type's codec as a value, so it can be stored, passed to a generic network
 ## wrapper, or selected at runtime. Every [serializable] interface emits one.
-interface Serializer<T> {
+declare sealed interface Serializer<T> {
     serialize: fn(value: T): Serialized;
     deserialize: fn(serialized: Serialized): Result<T, DeserializeError>;
     diff: fn(baseline: T, value: T): Serialized;
-    applyDiff: fn(baseline: T, diff: Serialized): Result<T, DeserializeError>;
+    apply_diff: fn(baseline: T, diff: Serialized): Result<T, DeserializeError>;
 }
 
 declare fn serialize_binary<T>(value: T): Serialized;
 declare fn deserialize_binary<T>(serialized: Serialized): Result<T, DeserializeError>;
-declare fn serializer<T>(): Serializer<T>;
+declare fn serializer<T>: Serializer<T>;
 
 ## Encodes only what changed between 'baseline' and 'value', diffing into structs, unions,
 ## optionals, array elements and map entries rather than resending a field wholesale - an

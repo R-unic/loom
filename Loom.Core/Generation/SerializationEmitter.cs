@@ -86,7 +86,7 @@ internal sealed partial class SerializationEmitter(SerializationSchema schema, L
                     new PropertyTableInitializer("serialize", new Identifier(SerializeName(schema.Interface.Name))),
                     new PropertyTableInitializer("deserialize", new Identifier(DeserializeName(schema.Interface.Name))),
                     new PropertyTableInitializer("diff", new Identifier(DiffName(schema.Interface.Name))),
-                    new PropertyTableInitializer("applyDiff", new Identifier(ApplyDiffName(schema.Interface.Name)))
+                    new PropertyTableInitializer("apply_diff", new Identifier(ApplyDiffName(schema.Interface.Name)))
                 ]
             )
         );

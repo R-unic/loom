@@ -152,7 +152,7 @@ internal sealed class IntrinsicGlobalInvocationMacroProvider : IMacroProvider
                 LuauExpression callee = isImported
                     ? new Luau.AST.PropertyAccess(
                         new Identifier(SerializationEmitter.SerializerName(interfaceName)),
-                        [isDiff ? "diff" : "applyDiff"]
+                        [isDiff ? "diff" : "apply_diff"]
                     )
                     : new Identifier(isDiff ? SerializationEmitter.DiffName(interfaceName) : SerializationEmitter.ApplyDiffName(interfaceName));
 
