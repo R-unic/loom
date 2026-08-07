@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using Loom.Core.Resolving.Symbols;
 using LoomSymbolKind = Loom.Core.Resolving.Symbols.SymbolKind;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -7,20 +9,39 @@ namespace Loom.LanguageServer;
 
 public sealed class CompletionHandler(DocumentStore documents) : CompletionHandlerBase
 {
+    private readonly ConditionalWeakTable<DocumentState, Symbol[]> _symbolCache = [];
+    
     public override Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
     {
         if (!documents.TryGetState(request.TextDocument.Uri, out var state))
             return Task.FromResult(new CompletionList());
-
+        
         try
         {
-            var symbols = state.File.SemanticModel.Declarations.Values
-                .SelectMany(list => list)
-                .Concat(state.Unit.Globals.Of(state.File.SourceFile).Keys)
-                .GroupBy(symbol => symbol.Name)
-                .Select(group => group.First());
+            var semanticModel = state.File.SemanticModel;
+            if (!_symbolCache.TryGetValue(state, out var symbols))
+            {
+                symbols = semanticModel.Declarations.Values
+                    .SelectMany(list => list)
+                    .Concat(state.Unit.Globals.Of(state.File.SourceFile).Keys)
+                    .GroupBy(symbol => symbol.Name)
+                    .Select(group => group.First())
+                    .ToArray();
 
-            var items = symbols.Select(symbol => new CompletionItem { Label = symbol.Name, Kind = ToCompletionItemKind(symbol.Kind) });
+                _symbolCache.Add(state, symbols);
+            }
+            
+            var items = symbols
+                .Select(symbol => new CompletionItem
+                {
+                    Label = symbol.Name,
+                    LabelDetails = new CompletionItemLabelDetails
+                    {
+                        Detail = ' ' + semanticModel.GetType(symbol.Declaration).ToString()
+                    },
+                    Kind = ToCompletionItemKind(symbol.Kind)
+                });
+
             return Task.FromResult(new CompletionList(items));
         }
         catch (Exception)
