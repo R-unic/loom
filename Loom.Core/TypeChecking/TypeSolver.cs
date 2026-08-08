@@ -64,42 +64,63 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
     public static Type Transform(Type type, Converter<Type, Type> fn, Type? defaultValue = null, bool simplify = true)
     {
+        var changed = false;
+
+        Type Map(Type original)
+        {
+            var mapped = fn(original);
+            changed |= !ReferenceEquals(mapped, original);
+            return mapped;
+        }
+
+        Type MapDefault()
+        {
+            if (defaultValue == null || ReferenceEquals(defaultValue, type))
+                return type;
+
+            changed = true;
+            return defaultValue;
+        }
+
         var transformed = type switch
         {
-            IndexedType indexedType => new IndexedType(fn(indexedType.Target), fn(indexedType.Index)),
-            ArrayType arrayType => new ArrayType(fn(arrayType.ElementType), arrayType.IsMutable),
+            IndexedType indexedType => new IndexedType(Map(indexedType.Target), Map(indexedType.Index)),
+            ArrayType arrayType => new ArrayType(Map(arrayType.ElementType), arrayType.IsMutable),
             InterfaceType interfaceType => new InterfaceType(
                 interfaceType.Name,
-                interfaceType.Constraints.ConvertAll(fn).OfType<InterfaceType>().ToList(),
-                (ObjectType)fn(interfaceType.ObjectType),
+                interfaceType.Constraints.ConvertAll(Map).OfType<InterfaceType>().ToList(),
+                (ObjectType)Map(interfaceType.ObjectType),
                 interfaceType.TraitMethodNames
             ) { Metamethods = interfaceType.Metamethods },
             ObjectType objectType => new ObjectType(
                 objectType.Indexer != null
-                    ? new ObjectIndexer(objectType.Indexer.IsMutable, fn(objectType.Indexer.KeyType), fn(objectType.Indexer.ValueType))
+                    ? new ObjectIndexer(objectType.Indexer.IsMutable, Map(objectType.Indexer.KeyType), Map(objectType.Indexer.ValueType))
                     : null,
-                objectType.Properties.ConvertAll(p => new ObjectProperty(p.IsMutable, p.Name, fn(p.ValueType)))
+                objectType.Properties.ConvertAll(p => new ObjectProperty(p.IsMutable, p.Name, Map(p.ValueType)))
             ),
-            IntersectionType intersectionType => new IntersectionType(intersectionType.Types.ConvertAll(fn)),
-            UnionType unionType => new UnionType(unionType.Types.ConvertAll(fn)),
+            IntersectionType intersectionType => new IntersectionType(intersectionType.Types.ConvertAll(Map)),
+            UnionType unionType => new UnionType(unionType.Types.ConvertAll(Map)),
             FunctionType functionType => new FunctionType(
                 functionType.TypeParameters,
-                functionType.ParameterTypes.ConvertAll(fn),
-                fn(functionType.ReturnType),
+                functionType.ParameterTypes.ConvertAll(Map),
+                Map(functionType.ReturnType),
                 functionType.HasRestParameter
             ),
-            TypePredicateType predicate => new TypePredicateType(predicate.ParameterIndex, fn(predicate.TargetType)),
+            TypePredicateType predicate => new TypePredicateType(predicate.ParameterIndex, Map(predicate.TargetType)),
             GenericType genericType => new GenericType(
                 genericType.Declaration,
                 genericType.Parameters,
-                fn(genericType.UnderlyingType)
+                Map(genericType.UnderlyingType)
             ),
             InstantiatedType instantiatedType => new InstantiatedType(
                 instantiatedType.GenericType,
-                instantiatedType.Arguments.ConvertAll(fn)
+                instantiatedType.Arguments.ConvertAll(Map)
             ),
-            _ => defaultValue ?? type
+            _ => MapDefault()
         };
+
+        if (!changed)
+            transformed = type;
 
         return simplify ? TypeSimplifier.Simplify(transformed) : transformed;
     }

@@ -109,6 +109,15 @@ public sealed partial class TypeChecker
 
     public override Type VisitInterfaceDeclaration(InterfaceDeclaration interfaceDeclaration)
     {
+        var resolvedType = _semanticModel.GetType(interfaceDeclaration);
+        if (resolvedType is not TypeVariable)
+        {
+            if (_resolvingHoisted.Count == 0)
+                _interfaceDeclarations.Add(interfaceDeclaration);
+
+            return resolvedType;
+        }
+
         MaybeVisit(interfaceDeclaration.Attributes);
 
         var name = interfaceDeclaration.Name.Text;

@@ -8,17 +8,30 @@ public sealed class InterfaceType(
     Dictionary<string, string>? metamethods = null
 ) : NativelyIndexableType
 {
+    private Type? _cachedAssignabilityType;
     private List<ObjectProperty>? _cachedProperties;
 
+    private int _assignabilityVersion = -1;
     private int _propertiesVersion = -1;
     private Dictionary<string, ObjectProperty>? _propertyMap;
     public string Name { get; } = name;
     public List<InterfaceType> Constraints { get; } = constraints;
     public ObjectType ObjectType { get; } = objectType;
-    public Type AssignabilityType =>
-        Constraints.Count > 0
-            ? new IntersectionType([ObjectType, ..Constraints.Select(c => c.AssignabilityType)])
-            : ObjectType;
+    public Type AssignabilityType
+    {
+        get
+        {
+            if (_cachedAssignabilityType != null && _assignabilityVersion == EffectiveVersion)
+                return _cachedAssignabilityType;
+
+            _cachedAssignabilityType = Constraints.Count > 0
+                ? new IntersectionType([ObjectType, ..Constraints.Select(c => c.AssignabilityType)])
+                : ObjectType;
+
+            _assignabilityVersion = EffectiveVersion;
+            return _cachedAssignabilityType;
+        }
+    }
 
     public HashSet<string> TraitMethodNames { get; init; } = traitMethodNames ?? [];
 
