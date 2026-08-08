@@ -2173,6 +2173,51 @@ public class LuauGeneratorTest
     }
 
     [Fact]
+    public void Generates_EnumIndexedType_OfNumberEnum_AsNumber()
+    {
+        var luauTree = Utility.GetLuauAST("enum Abc { A, B }; type A = Abc[\"A\"]", true);
+        var typeAlias = Assert.IsType<TypeAlias>(luauTree.Statements[1]);
+        Assert.Equal("A", typeAlias.Name);
+
+        var primitive = Assert.IsType<PrimitiveType>(typeAlias.Type);
+        Assert.Equal("number", primitive.Render());
+    }
+
+    [Fact]
+    public void Generates_EnumIndexedType_OfStringEnum_AsStringLiteral()
+    {
+        var luauTree = Utility.GetLuauAST("enum Names : string { X = \"ex\", Y = \"why\" }; type X = Names[\"X\"]", true);
+        var typeAlias = Assert.IsType<TypeAlias>(luauTree.Statements[1]);
+        Assert.Equal("X", typeAlias.Name);
+
+        var literal = Assert.IsType<StringLiteralType>(typeAlias.Type);
+        Assert.Equal("\"ex\"", literal.Render());
+    }
+
+    [Fact]
+    public void Generates_EnumIndexedType_InIndexerKey_AsNumber()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            enum Message { ShootGun }
+            interface ShootGunPacket { velocity: u8 }
+            declare interface MessageData { [Message["ShootGun"]]: ShootGunPacket; }
+            """,
+            true
+        );
+
+        Assert.DoesNotContain("index<", luauTree.Render());
+        Assert.Contains("[number]: ShootGunPacket", luauTree.Render());
+    }
+
+    [Fact]
+    public void Generates_NonEnumIndexedType_AsIndexOperator()
+    {
+        var luauTree = Utility.GetLuauAST("interface Foo { bar: string }; type B = Foo[\"bar\"]", true);
+        Assert.Contains("index<Foo, \"bar\">", luauTree.Render());
+    }
+
+    [Fact]
     public void Generates_EnumInVariableTypeAnnotation()
     {
         var luauTree = Utility.GetLuauAST("enum Status { Active, Inactive }; let x: Status = Status.Active", true);

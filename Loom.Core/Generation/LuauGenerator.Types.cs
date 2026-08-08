@@ -98,7 +98,12 @@ public sealed partial class LuauGenerator
     public override LuauNode VisitKeyOf(KeyOf keyOf) => new Luau.AST.TypeName("keyof", [Visit(keyOf.Type)]);
 
     public override LuauNode VisitIndexedType(IndexedType indexedType) =>
-        new Luau.AST.TypeName("index", [Visit(indexedType.TargetType), Visit(indexedType.IndexType)]);
+        IndexesEnumType(indexedType) && _semanticModel.GetType(indexedType) is TypeChecking.Types.LiteralType literal && LiteralTypeOf(literal.Value) is { } expanded
+            ? expanded
+            : new Luau.AST.TypeName("index", [Visit(indexedType.TargetType), Visit(indexedType.IndexType)]);
+
+    private bool IndexesEnumType(IndexedType indexedType) =>
+        indexedType.TargetType is TypeName targetName && _semanticModel.GetSymbol(targetName, SymbolKind.EnumType) != null;
 
     public override LuauNode VisitTypeParameters(TypeParameters typeParameters) =>
         new Luau.AST.TypeParameters(typeParameters.ParameterList.ConvertAll(VisitTypeParameter));
@@ -112,12 +117,17 @@ public sealed partial class LuauGenerator
             : new Luau.AST.PrimitiveType(LuauOperatorMap.PrimitiveTypeKind(primitiveType.Kind));
 
     public override LuauNode VisitLiteralType(LiteralType literalType) =>
-        literalType.Value switch
+        LiteralTypeOf(literalType.Value)
+        ?? (literalType.Parent is ColonTypeClause { Parent: DeclareFunctionSignature or FunctionType }
+            ? new UnitType()
+            : Luau.AST.PrimitiveType.Nil);
+
+    private static LuauType? LiteralTypeOf(object? value) =>
+        value switch
         {
             long or int or double => Luau.AST.PrimitiveType.Number,
             bool b => new BooleanLiteralType(b),
             string s => new StringLiteralType(s),
-            _ when literalType.Parent is ColonTypeClause { Parent: DeclareFunctionSignature or FunctionType } => new UnitType(),
-            _ => Luau.AST.PrimitiveType.Nil
+            _ => null
         };
 }
