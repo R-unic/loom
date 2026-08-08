@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Generation;
+using Loom.Core.Generation.Modules;
 using Loom.Core.Modules;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;

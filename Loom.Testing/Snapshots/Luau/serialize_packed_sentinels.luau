@@ -7,10 +7,6 @@ const buffer_len = buffer.len
 const buffer_readu8 = buffer.readu8
 const buffer_readbits = buffer.readbits
 const buffer_readi16 = buffer.readi16
-type Entity = {
-  read id: number,
-  read position: Vector3,
-}
 const function Entity_serialize_binary(value: Entity): Loom.Serialized
   const position_value = value.position
   local position_sentinel = 0
@@ -51,13 +47,13 @@ const function Entity_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
     if buffer_len(b) < offset + 6 then
       return { ok = false, error = { kind = "truncated", field = "position" } }
     end
-    const read_0 = buffer_readi16(b, offset)
+    const position_x = buffer_readi16(b, offset)
     offset += 2
-    const read_1 = buffer_readi16(b, offset)
+    const position_y = buffer_readi16(b, offset)
     offset += 2
-    const read_2 = buffer_readi16(b, offset)
+    const position_z = buffer_readi16(b, offset)
     offset += 2
-    position = Vector3.new(read_0, read_1, read_2)
+    position = Vector3.new(position_x, position_y, position_z)
   elseif position_sentinel == 1 then
     position = Vector3.zero
   elseif position_sentinel == 2 then
@@ -73,6 +69,10 @@ const function Entity_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { id = buffer_readu8(b, 1), position = position } }
 end
+type Entity = {
+  read id: number,
+  read position: Vector3,
+}
 const function _trigger_usage(): ()
   const payload = Entity_serialize_binary((nil :: never) :: Entity)
   const restored = Entity_deserialize_binary(payload)

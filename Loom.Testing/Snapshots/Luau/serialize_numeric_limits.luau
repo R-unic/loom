@@ -17,16 +17,6 @@ const buffer_readi32 = buffer.readi32
 const buffer_readu32 = buffer.readu32
 const buffer_readf32 = buffer.readf32
 const buffer_readf64 = buffer.readf64
-type Limits = {
-  read i8: number,
-  read u8: number,
-  read i16: number,
-  read u16: number,
-  read i32: number,
-  read u32: number,
-  read f32: number,
-  read f64: number,
-}
 const function Limits_serialize_binary(value: Limits): Loom.Serialized
   const b = buffer_create(26)
   buffer_writei8(b, 0, value.i8)
@@ -55,6 +45,16 @@ const function Limits_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
     f64 = buffer_readf64(b, 18),
   } }
 end
+type Limits = {
+  read i8: number,
+  read u8: number,
+  read i16: number,
+  read u16: number,
+  read i32: number,
+  read u32: number,
+  read f32: number,
+  read f64: number,
+}
 const function _trigger_usage(): ()
   const payload = Limits_serialize_binary((nil :: never) :: Limits)
   const restored = Limits_deserialize_binary(payload)

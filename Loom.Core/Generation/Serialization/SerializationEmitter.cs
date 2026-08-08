@@ -3,7 +3,7 @@ using Loom.Core.TypeChecking.Types;
 using Loom.Luau;
 using Loom.Luau.AST;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Serialization;
 
 /// <summary>
 ///     Turns a <see cref="SerializationSchema" /> into its pair of top-level Luau functions. Every offset

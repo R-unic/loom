@@ -1,8 +1,4 @@
 const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
-type Marker = {
-  read kind: "spawn",
-  read target: Part,
-}
 const function Marker_serialize_binary(value: Marker): Loom.Serialized
   const blobs = {}
   table.insert(blobs, value.target)
@@ -24,6 +20,10 @@ const function Marker_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { kind = "spawn", target = target_blob } }
 end
+type Marker = {
+  read kind: "spawn",
+  read target: Part,
+}
 const function _trigger_usage(): ()
   const payload = Marker_serialize_binary((nil :: never) :: Marker)
   const restored = Marker_deserialize_binary(payload)

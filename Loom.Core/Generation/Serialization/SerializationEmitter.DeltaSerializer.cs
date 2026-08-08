@@ -2,7 +2,7 @@ using Loom.Core.TypeChecking.Serialization;
 using Loom.Luau;
 using Loom.Luau.AST;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Serialization;
 
 /// <summary>
 ///     Writing a delta: only what differs between a baseline and a current value goes on the wire, diffed

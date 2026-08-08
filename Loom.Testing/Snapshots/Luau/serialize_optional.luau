@@ -7,10 +7,6 @@ const buffer_len = buffer.len
 const buffer_readu8 = buffer.readu8
 const buffer_readbits = buffer.readbits
 const buffer_readi16 = buffer.readi16
-type Entity = {
-  read id: number,
-  read target: number?,
-}
 const function Entity_serialize_binary(value: Entity): Loom.Serialized
   const b = buffer_create(2 + (if value.target ~= nil then 2 else 0))
   buffer_writeu8(b, 1, value.id)
@@ -34,12 +30,16 @@ const function Entity_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
     if buffer_len(b) < offset + 2 then
       return { ok = false, error = { kind = "truncated", field = "target" } }
     end
-    const read_0 = buffer_readi16(b, offset)
+    const target_2 = buffer_readi16(b, offset)
     offset += 2
-    target = read_0
+    target = target_2
   end
   return { ok = true, value = { id = buffer_readu8(b, 1), target = target } }
 end
+type Entity = {
+  read id: number,
+  read target: number?,
+}
 const function _trigger_usage(): ()
   const payload = Entity_serialize_binary((nil :: never) :: Entity)
   const restored = Entity_deserialize_binary(payload)

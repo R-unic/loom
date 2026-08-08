@@ -5,9 +5,6 @@ const buffer_writestring = buffer.writestring
 const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
-type Grid = {
-  read rows: { { string } },
-}
 const function Grid_serialize_binary(value: Grid): Loom.Serialized
   local size = 0
   size += 4
@@ -20,16 +17,16 @@ const function Grid_serialize_binary(value: Grid): Loom.Serialized
   const b = buffer_create(size)
   buffer_writeu32(b, 0, #value.rows)
   local offset = 4
-  for i_3 = 1, #value.rows do
-    const rows_item = value.rows[i_3]
-    buffer_writeu32(b, offset, #rows_item)
+  for i = 1, #value.rows do
+    const rows_element = value.rows[i]
+    buffer_writeu32(b, offset, #rows_element)
     offset += 4
-    for i_4 = 1, #rows_item do
-      const rows_element_item = rows_item[i_4]
-      const rows_element_element_length = #rows_element_item
+    for i_2 = 1, #rows_element do
+      const rows_element_element = rows_element[i_2]
+      const rows_element_element_length = #rows_element_element
       buffer_writeu32(b, offset, rows_element_element_length)
       offset += 4
-      buffer_writestring(b, offset, rows_element_item)
+      buffer_writestring(b, offset, rows_element_element)
       offset += rows_element_element_length
     end
   end
@@ -44,14 +41,12 @@ const function Grid_deserialize_binary(serialized: Loom.Serialized): Loom.Result
   local offset = 4
   const rows = {}
   for i = 1, rows_count do
-    const read_0 = buffer_readu32(b, offset)
+    const rows_element_count = buffer_readu32(b, offset)
     offset += 4
-    const rows_element_count = read_0
     const rows_element = {}
     for i_2 = 1, rows_element_count do
-      const read_1 = buffer_readu32(b, offset)
+      const rows_element_element_length = buffer_readu32(b, offset)
       offset += 4
-      const rows_element_element_length = read_1
       if buffer_len(b) < offset + rows_element_element_length then
         return { ok = false, error = { kind = "invalid_length", field = "rows[][]" } }
       end
@@ -63,6 +58,9 @@ const function Grid_deserialize_binary(serialized: Loom.Serialized): Loom.Result
   end
   return { ok = true, value = { rows = rows } }
 end
+type Grid = {
+  read rows: { { string } },
+}
 const function _trigger_usage(): ()
   const payload = Grid_serialize_binary((nil :: never) :: Grid)
   const restored = Grid_deserialize_binary(payload)

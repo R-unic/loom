@@ -5,9 +5,6 @@ const buffer_writebits = buffer.writebits
 const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readbits = buffer.readbits
-type Flags = {
-  read values: { boolean },
-}
 const function Flags_serialize_binary(value: Flags): Loom.Serialized
   const b = buffer_create(4 + (#value.values + 7) // 8)
   buffer_writeu32(b, 0, #value.values)
@@ -15,8 +12,8 @@ const function Flags_serialize_binary(value: Flags): Loom.Serialized
   const values_bits = offset * 8
   offset += (#value.values + 7) // 8
   for i = 1, #value.values do
-    const values_item = value.values[i]
-    buffer_writebits(b, values_bits + (i - 1), 1, if values_item then 1 else 0)
+    const values_element = value.values[i]
+    buffer_writebits(b, values_bits + (i - 1), 1, if values_element then 1 else 0)
   end
   return { buffer = b }
 end
@@ -35,6 +32,9 @@ const function Flags_deserialize_binary(serialized: Loom.Serialized): Loom.Resul
   end
   return { ok = true, value = { values = values } }
 end
+type Flags = {
+  read values: { boolean },
+}
 const function _trigger_usage(): ()
   const payload = Flags_serialize_binary((nil :: never) :: Flags)
   const restored = Flags_deserialize_binary(payload)

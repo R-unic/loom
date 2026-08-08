@@ -7,9 +7,6 @@ const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
 const buffer_readf32 = buffer.readf32
 const buffer_readu32 = buffer.readu32
-type Waypoint = {
-  read frame: CFrame,
-}
 const function Waypoint_serialize_binary(value: Waypoint): Loom.Serialized
   const frame_value = value.frame
   local frame_sentinel = 0
@@ -43,15 +40,15 @@ const function Waypoint_deserialize_binary(serialized: Loom.Serialized): Loom.Re
     if buffer_len(b) < offset + 16 then
       return { ok = false, error = { kind = "truncated", field = "frame" } }
     end
-    const read_0 = buffer_readf32(b, offset)
+    const frame_x = buffer_readf32(b, offset)
     offset += 4
-    const read_1 = buffer_readf32(b, offset)
+    const frame_y = buffer_readf32(b, offset)
     offset += 4
-    const read_2 = buffer_readf32(b, offset)
+    const frame_z = buffer_readf32(b, offset)
     offset += 4
-    const read_3 = buffer_readu32(b, offset)
+    const frame_rotation = buffer_readu32(b, offset)
     offset += 4
-    frame = CFrame.new(read_0, read_1, read_2, Loom.unpack_quaternion(read_3))
+    frame = CFrame.new(frame_x, frame_y, frame_z, Loom.unpack_quaternion(frame_rotation))
   elseif frame_sentinel == 1 then
     frame = CFrame.identity
   else
@@ -59,6 +56,9 @@ const function Waypoint_deserialize_binary(serialized: Loom.Serialized): Loom.Re
   end
   return { ok = true, value = { frame = frame } }
 end
+type Waypoint = {
+  read frame: CFrame,
+}
 const function _trigger_usage(): ()
   const payload = Waypoint_serialize_binary((nil :: never) :: Waypoint)
   const restored = Waypoint_deserialize_binary(payload)

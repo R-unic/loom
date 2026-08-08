@@ -2,7 +2,7 @@ using Loom.Core.TypeChecking.Serialization;
 using Loom.Luau;
 using Loom.Luau.AST;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Serialization;
 
 /// <summary>
 ///     Reading a delta: mirrors the serialization process field for field, reusing
@@ -389,8 +389,8 @@ internal sealed partial class SerializationEmitter
     private void ReadMapKeyRun(MapField map, string resultLocal, LuauExpression baselineValue, Cursor cursor, List<LuauStatement> statements, MapRunKind kind)
     {
         var leaf = LeafName(map.Path);
-        var countLocal = ReserveLocal($"{leaf}_{kind}_count".ToLowerInvariant());
-        statements.Add(new ConstVariable(countLocal, null, ReadNumber(cursor, map.LengthType, statements)));
+        var countName = $"{leaf}_{kind}_count".ToLowerInvariant();
+        var count = BindRead(ReadNumber(cursor, map.LengthType, statements, countName), countName, statements);
 
         var loop = ReserveLocal(LoopLocal);
         var loopBody = new List<LuauStatement>();
@@ -414,7 +414,7 @@ internal sealed partial class SerializationEmitter
 
             case MapRunKind.Changed:
             {
-                var bitBase = ReserveElementBits(map.DiffEntryBits, leaf + "_entry", new Identifier(countLocal), cursor, statements);
+                var bitBase = ReserveElementBits(map.DiffEntryBits, leaf + "_entry", count, cursor, statements);
                 var restore = EnterElement(cursor, bitBase, map.DiffEntryBits, loop);
                 var entryBaseline = new ElementAccess(baselineValue, new Identifier(keyLocal));
                 var value = EmitFieldDiffRead(map.Value, entryBaseline, cursor, loopBody);
@@ -424,6 +424,6 @@ internal sealed partial class SerializationEmitter
             }
         }
 
-        statements.Add(new NumericForStatement(loop, _one, new Identifier(countLocal), null, new Chunk(loopBody)));
+        statements.Add(new NumericForStatement(loop, _one, count, null, new Chunk(loopBody)));
     }
 }

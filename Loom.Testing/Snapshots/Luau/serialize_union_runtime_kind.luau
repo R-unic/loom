@@ -9,9 +9,6 @@ const buffer_readbits = buffer.readbits
 const buffer_readf32 = buffer.readf32
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
-type Cell = {
-  read content: number | string,
-}
 const function Cell_serialize_binary(value: Cell): Loom.Serialized
   const content_value = value.content
   local content_tag = 0
@@ -52,24 +49,26 @@ const function Cell_deserialize_binary(serialized: Loom.Serialized): Loom.Result
     if buffer_len(b) < offset + 4 then
       return { ok = false, error = { kind = "truncated", field = "content" } }
     end
-    const read_0 = buffer_readf32(b, offset)
+    const content_2 = buffer_readf32(b, offset)
     offset += 4
-    content = read_0
+    content = content_2
   elseif content_tag == 1 then
-    const read_1 = buffer_readu32(b, offset)
+    const content_3_length = buffer_readu32(b, offset)
     offset += 4
-    const content_2_length = read_1
-    if buffer_len(b) < offset + content_2_length then
+    if buffer_len(b) < offset + content_3_length then
       return { ok = false, error = { kind = "invalid_length", field = "content" } }
     end
-    const content_2 = buffer_readstring(b, offset, content_2_length)
-    offset += content_2_length
-    content = content_2
+    const content_3 = buffer_readstring(b, offset, content_3_length)
+    offset += content_3_length
+    content = content_3
   else
     return { ok = false, error = { kind = "invalid_tag", field = "content" } }
   end
   return { ok = true, value = { content = content } }
 end
+type Cell = {
+  read content: number | string,
+}
 const function _trigger_usage(): ()
   const payload = Cell_serialize_binary((nil :: never) :: Cell)
   const restored = Cell_deserialize_binary(payload)

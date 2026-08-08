@@ -1,4 +1,5 @@
 using Loom.Core.Diagnostics;
+using Loom.Core.Generation.Serialization;
 using Loom.Core.Modules;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
@@ -13,7 +14,7 @@ using TypeName = Loom.Luau.AST.TypeName;
 using TypeParameter = Loom.Luau.AST.TypeParameter;
 using TypeParameters = Loom.Luau.AST.TypeParameters;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Modules;
 
 /// <summary>
 ///     Generates the require()/type-import statements a file needs and the export table/type-alias

@@ -7,32 +7,25 @@ const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
 const buffer_readf32 = buffer.readf32
-type Scores = {
-  read entries: Record<string, number>,
-}
 const function Scores_serialize_binary(value: Scores): Loom.Serialized
   local size = 0
   size += 4
-  local entries_measured = 0
-  for entries_k, entries_v in value.entries do
-    entries_measured += 1
-    size += 4 + #entries_k
+  local entries_count = 0
+  for entries_key, entries_value in value.entries do
+    entries_count += 1
+    size += 4 + #entries_key
     size += 4
   end
   const b = buffer_create(size)
-  local entries_written = 0
-  for entries_key in value.entries do
-    entries_written += 1
-  end
-  buffer_writeu32(b, 0, entries_written)
+  buffer_writeu32(b, 0, entries_count)
   local offset = 4
-  for entries_k_out, entries_v_out in value.entries do
-    const entries_k_length = #entries_k_out
-    buffer_writeu32(b, offset, entries_k_length)
+  for entries_key, entries_value in value.entries do
+    const entries_key_length = #entries_key
+    buffer_writeu32(b, offset, entries_key_length)
     offset += 4
-    buffer_writestring(b, offset, entries_k_out)
-    offset += entries_k_length
-    buffer_writef32(b, offset, entries_v_out)
+    buffer_writestring(b, offset, entries_key)
+    offset += entries_key_length
+    buffer_writef32(b, offset, entries_value)
     offset += 4
   end
   return { buffer = b }
@@ -46,20 +39,22 @@ const function Scores_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   local offset = 4
   const entries = {}
   for i = 1, entries_count do
-    const read_0 = buffer_readu32(b, offset)
+    const entries_key_length = buffer_readu32(b, offset)
     offset += 4
-    const entries_k_length = read_0
-    if buffer_len(b) < offset + entries_k_length then
+    if buffer_len(b) < offset + entries_key_length then
       return { ok = false, error = { kind = "invalid_length", field = "entries[k]" } }
     end
-    const entries_k = buffer_readstring(b, offset, entries_k_length)
-    offset += entries_k_length
-    const read_1 = buffer_readf32(b, offset)
+    const entries_key = buffer_readstring(b, offset, entries_key_length)
+    offset += entries_key_length
+    const entries_value = buffer_readf32(b, offset)
     offset += 4
-    entries[entries_k] = read_1
+    entries[entries_key] = entries_value
   end
   return { ok = true, value = { entries = entries } }
 end
+type Scores = {
+  read entries: Record<string, number>,
+}
 const function _trigger_usage(): ()
   const payload = Scores_serialize_binary((nil :: never) :: Scores)
   const restored = Scores_deserialize_binary(payload)
