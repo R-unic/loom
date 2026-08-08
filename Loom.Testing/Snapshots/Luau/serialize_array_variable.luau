@@ -16,23 +16,23 @@ const function Roster_serialize_binary(value: Roster): Loom.Serialized
   const b = buffer_create(size)
   buffer_writeu32(b, 0, #value.names)
   local offset = 4
-  for i_2 = 1, #value.names do
-    const names_item = value.names[i_2]
-    const names_element_length = #names_item
+  for i = 1, #value.names do
+    const names_element = value.names[i]
+    const names_element_length = #names_element
     buffer_writeu32(b, offset, names_element_length)
     offset += 4
-    buffer_writestring(b, offset, names_item)
+    buffer_writestring(b, offset, names_element)
     offset += names_element_length
   end
   buffer_writeu32(b, offset, #value.positions)
   offset += 4
-  for i_3 = 1, #value.positions do
-    const positions_item = value.positions[i_3]
-    buffer_writei16(b, offset, positions_item.X)
+  for i = 1, #value.positions do
+    const positions_element = value.positions[i]
+    buffer_writei16(b, offset, positions_element.X)
     offset += 2
-    buffer_writei16(b, offset, positions_item.Y)
+    buffer_writei16(b, offset, positions_element.Y)
     offset += 2
-    buffer_writei16(b, offset, positions_item.Z)
+    buffer_writei16(b, offset, positions_element.Z)
     offset += 2
   end
   return { buffer = b }
@@ -46,9 +46,8 @@ const function Roster_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   local offset = 4
   const names = {}
   for i = 1, names_count do
-    const read_0 = buffer_readu32(b, offset)
+    const names_element_length = buffer_readu32(b, offset)
     offset += 4
-    const names_element_length = read_0
     if buffer_len(b) < offset + names_element_length then
       return { ok = false, error = { kind = "invalid_length", field = "names[]" } }
     end
@@ -56,21 +55,20 @@ const function Roster_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
     offset += names_element_length
     names[i] = names_element
   end
-  const read_1 = buffer_readu32(b, offset)
+  const positions_count = buffer_readu32(b, offset)
   offset += 4
-  const positions_count = read_1
   if buffer_len(b) < offset + positions_count * 6 then
     return { ok = false, error = { kind = "invalid_length", field = "positions" } }
   end
   const positions = {}
-  for i_2 = 1, positions_count do
-    const read_2 = buffer_readi16(b, offset)
+  for i = 1, positions_count do
+    const positions_element_x = buffer_readi16(b, offset)
     offset += 2
-    const read_3 = buffer_readi16(b, offset)
+    const positions_element_y = buffer_readi16(b, offset)
     offset += 2
-    const read_4 = buffer_readi16(b, offset)
+    const positions_element_z = buffer_readi16(b, offset)
     offset += 2
-    positions[i_2] = Vector3.new(read_2, read_3, read_4)
+    positions[i] = Vector3.new(positions_element_x, positions_element_y, positions_element_z)
   end
   return { ok = true, value = { names = names, positions = positions } }
 end

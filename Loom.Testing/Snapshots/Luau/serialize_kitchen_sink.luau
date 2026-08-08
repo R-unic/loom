@@ -43,12 +43,12 @@ const function KitchenSink_serialize_binary(value: KitchenSink): Loom.Serialized
   buffer_writeu32(b, offset, #value.points)
   offset += 4
   for i = 1, #value.points do
-    const points_item = value.points[i]
-    buffer_writei16(b, offset, points_item.X)
+    const points_element = value.points[i]
+    buffer_writei16(b, offset, points_element.X)
     offset += 2
-    buffer_writei16(b, offset, points_item.Y)
+    buffer_writei16(b, offset, points_element.Y)
     offset += 2
-    buffer_writei16(b, offset, points_item.Z)
+    buffer_writei16(b, offset, points_element.Z)
     offset += 2
   end
   buffer_writebits(b, 2, 1, payload_tag)
@@ -93,9 +93,8 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
   local label = nil
   local offset = 3
   if label_present then
-    const read_0 = buffer_readu32(b, offset)
+    const label_2_length = buffer_readu32(b, offset)
     offset += 4
-    const label_2_length = read_0
     if buffer_len(b) < offset + label_2_length then
       return { ok = false, error = { kind = "invalid_length", field = "label" } }
     end
@@ -103,30 +102,28 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
     offset += label_2_length
     label = label_2
   end
-  const read_1 = buffer_readu32(b, offset)
+  const points_count = buffer_readu32(b, offset)
   offset += 4
-  const points_count = read_1
   if buffer_len(b) < offset + points_count * 6 then
     return { ok = false, error = { kind = "invalid_length", field = "points" } }
   end
   const points = {}
   for i = 1, points_count do
-    const read_2 = buffer_readi16(b, offset)
+    const points_element_x = buffer_readi16(b, offset)
     offset += 2
-    const read_3 = buffer_readi16(b, offset)
+    const points_element_y = buffer_readi16(b, offset)
     offset += 2
-    const read_4 = buffer_readi16(b, offset)
+    const points_element_z = buffer_readi16(b, offset)
     offset += 2
-    points[i] = Vector3.new(read_2, read_3, read_4)
+    points[i] = Vector3.new(points_element_x, points_element_y, points_element_z)
   end
   const payload_tag = buffer_readbits(b, 2, 1)
   local payload = nil
   if payload_tag == 0 then
     payload = { kind = "Ping" }
   elseif payload_tag == 1 then
-    const read_5 = buffer_readu32(b, offset)
+    const message_length = buffer_readu32(b, offset)
     offset += 4
-    const message_length = read_5
     if buffer_len(b) < offset + message_length then
       return { ok = false, error = { kind = "invalid_length", field = "payload.message" } }
     end
@@ -144,19 +141,19 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
   if typeof(owner_blob) ~= "Instance" or not owner_blob:IsA("Part") then
     return { ok = false, error = { kind = "invalid_blob", field = "owner" } }
   end
-  const read_6 = buffer_readf32(b, offset)
+  const frame_x = buffer_readf32(b, offset)
   offset += 4
-  const read_7 = buffer_readf32(b, offset)
+  const frame_y = buffer_readf32(b, offset)
   offset += 4
-  const read_8 = buffer_readf32(b, offset)
+  const frame_z = buffer_readf32(b, offset)
   offset += 4
-  const read_9 = buffer_readf32(b, offset)
+  const frame_qx = buffer_readf32(b, offset)
   offset += 4
-  const read_10 = buffer_readf32(b, offset)
+  const frame_qy = buffer_readf32(b, offset)
   offset += 4
-  const read_11 = buffer_readf32(b, offset)
+  const frame_qz = buffer_readf32(b, offset)
   offset += 4
-  const read_12 = buffer_readf32(b, offset)
+  const frame_qw = buffer_readf32(b, offset)
   offset += 4
   return { ok = true, value = {
     tag = "sink",
@@ -165,7 +162,7 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
     points = points,
     payload = payload,
     owner = owner_blob,
-    frame = CFrame.new(read_6, read_7, read_8, read_9, read_10, read_11, read_12),
+    frame = CFrame.new(frame_x, frame_y, frame_z, frame_qx, frame_qy, frame_qz, frame_qw),
   } }
 end
 type IEvent<Kind> = {

@@ -12,8 +12,8 @@ const function Flags_serialize_binary(value: Flags): Loom.Serialized
   const values_bits = offset * 8
   offset += (#value.values + 7) // 8
   for i = 1, #value.values do
-    const values_item = value.values[i]
-    buffer_writebits(b, values_bits + (i - 1), 1, if values_item then 1 else 0)
+    const values_element = value.values[i]
+    buffer_writebits(b, values_bits + (i - 1), 1, if values_element then 1 else 0)
   end
   return { buffer = b }
 end

@@ -27,101 +27,97 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
   local size = 1 + (if value.maybe_leaf ~= nil then 1 else 0)
   if value.maybe_map ~= nil then
     size += 4
-    local maybe_map_measured = 0
-    for maybe_map_k, maybe_map_v in value.maybe_map do
-      maybe_map_measured += 1
-      size += 4 + #maybe_map_k
+    local maybe_map_count = 0
+    for maybe_map_key, maybe_map_value in value.maybe_map do
+      maybe_map_count += 1
+      size += 4 + #maybe_map_key
       size += 4
     end
   end
   size += 4
   for i = 1, #value.map_list do
     size += 4
-    local map_list_element_measured = 0
-    for map_list_element_k, map_list_element_v in value.map_list[i] do
-      map_list_element_measured += 1
-      size += 4 + #map_list_element_k
+    local map_list_element_count = 0
+    for map_list_element_key, map_list_element_value in value.map_list[i] do
+      map_list_element_count += 1
+      size += 4 + #map_list_element_key
       size += 1
     end
   end
   size += 4
-  local sparse_measured = 0
-  for sparse_k, sparse_v in value.sparse do
-    sparse_measured += 1
-    size += 4 + #sparse_k
-    if sparse_v ~= nil then
-      size += 4 + #sparse_v
+  local sparse_count = 0
+  for sparse_key, sparse_value in value.sparse do
+    sparse_count += 1
+    size += 4 + #sparse_key
+    if sparse_value ~= nil then
+      size += 4 + #sparse_value
     end
   end
-  size += (sparse_measured + 7) // 8
+  size += (sparse_count + 7) // 8
   if value.maybe_names ~= nil then
     size += 4
-    for i_2 = 1, #value.maybe_names do
-      size += 4 + #value.maybe_names[i_2]
+    for i = 1, #value.maybe_names do
+      size += 4 + #value.maybe_names[i]
     end
   end
   const b = buffer_create(size)
   buffer_writebits(b, 0, 1, if value.maybe_map ~= nil then 1 else 0)
   local offset = 1
   if value.maybe_map ~= nil then
-    local maybe_map_written = 0
+    local maybe_map_count_2 = 0
     for maybe_map_key in value.maybe_map do
-      maybe_map_written += 1
+      maybe_map_count_2 += 1
     end
-    buffer_writeu32(b, offset, maybe_map_written)
+    buffer_writeu32(b, offset, maybe_map_count_2)
     offset += 4
-    for maybe_map_k_out, maybe_map_v_out in value.maybe_map do
-      const maybe_map_k_length = #maybe_map_k_out
-      buffer_writeu32(b, offset, maybe_map_k_length)
+    for maybe_map_key, maybe_map_value in value.maybe_map do
+      const maybe_map_key_length = #maybe_map_key
+      buffer_writeu32(b, offset, maybe_map_key_length)
       offset += 4
-      buffer_writestring(b, offset, maybe_map_k_out)
-      offset += maybe_map_k_length
-      buffer_writef32(b, offset, maybe_map_v_out)
+      buffer_writestring(b, offset, maybe_map_key)
+      offset += maybe_map_key_length
+      buffer_writef32(b, offset, maybe_map_value)
       offset += 4
     end
   end
   buffer_writeu32(b, offset, #value.map_list)
   offset += 4
-  for i_3 = 1, #value.map_list do
-    const map_list_item = value.map_list[i_3]
-    local map_list_element_written = 0
-    for map_list_element_key in map_list_item do
-      map_list_element_written += 1
+  for i = 1, #value.map_list do
+    const map_list_element = value.map_list[i]
+    local map_list_element_count = 0
+    for map_list_element_key in map_list_element do
+      map_list_element_count += 1
     end
-    buffer_writeu32(b, offset, map_list_element_written)
+    buffer_writeu32(b, offset, map_list_element_count)
     offset += 4
-    for map_list_element_k_out, map_list_element_v_out in map_list_item do
-      const map_list_element_k_length = #map_list_element_k_out
-      buffer_writeu32(b, offset, map_list_element_k_length)
+    for map_list_element_key, map_list_element_value in map_list_element do
+      const map_list_element_key_length = #map_list_element_key
+      buffer_writeu32(b, offset, map_list_element_key_length)
       offset += 4
-      buffer_writestring(b, offset, map_list_element_k_out)
-      offset += map_list_element_k_length
-      buffer_writeu8(b, offset, map_list_element_v_out.n)
+      buffer_writestring(b, offset, map_list_element_key)
+      offset += map_list_element_key_length
+      buffer_writeu8(b, offset, map_list_element_value.n)
       offset += 1
     end
   end
-  local sparse_written = 0
-  for sparse_key in value.sparse do
-    sparse_written += 1
-  end
-  buffer_writeu32(b, offset, sparse_written)
+  buffer_writeu32(b, offset, sparse_count)
   offset += 4
   const sparse_bits = offset * 8
-  offset += (sparse_written + 7) // 8
+  offset += (sparse_count + 7) // 8
   local sparse_index = 1
-  for sparse_k_out, sparse_v_out in value.sparse do
-    const sparse_k_length = #sparse_k_out
-    buffer_writeu32(b, offset, sparse_k_length)
+  for sparse_key, sparse_value in value.sparse do
+    const sparse_key_length = #sparse_key
+    buffer_writeu32(b, offset, sparse_key_length)
     offset += 4
-    buffer_writestring(b, offset, sparse_k_out)
-    offset += sparse_k_length
-    buffer_writebits(b, sparse_bits + (sparse_index - 1), 1, if sparse_v_out ~= nil then 1 else 0)
-    if sparse_v_out ~= nil then
-      const sparse_v_length = #sparse_v_out
-      buffer_writeu32(b, offset, sparse_v_length)
+    buffer_writestring(b, offset, sparse_key)
+    offset += sparse_key_length
+    buffer_writebits(b, sparse_bits + (sparse_index - 1), 1, if sparse_value ~= nil then 1 else 0)
+    if sparse_value ~= nil then
+      const sparse_value_length = #sparse_value
+      buffer_writeu32(b, offset, sparse_value_length)
       offset += 4
-      buffer_writestring(b, offset, sparse_v_out)
-      offset += sparse_v_length
+      buffer_writestring(b, offset, sparse_value)
+      offset += sparse_value_length
     end
     sparse_index += 1
   end
@@ -134,12 +130,12 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
   if value.maybe_names ~= nil then
     buffer_writeu32(b, offset, #value.maybe_names)
     offset += 4
-    for i_4 = 1, #value.maybe_names do
-      const maybe_names_item = value.maybe_names[i_4]
-      const maybe_names_element_length = #maybe_names_item
+    for i = 1, #value.maybe_names do
+      const maybe_names_element = value.maybe_names[i]
+      const maybe_names_element_length = #maybe_names_element
       buffer_writeu32(b, offset, maybe_names_element_length)
       offset += 4
-      buffer_writestring(b, offset, maybe_names_item)
+      buffer_writestring(b, offset, maybe_names_element)
       offset += maybe_names_element_length
     end
   end
@@ -154,78 +150,70 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
   local maybe_map = nil
   local offset = 1
   if maybe_map_present then
-    const read_0 = buffer_readu32(b, offset)
+    const maybe_map_2_count = buffer_readu32(b, offset)
     offset += 4
-    const maybe_map_2_count = read_0
     const maybe_map_2 = {}
     for i = 1, maybe_map_2_count do
-      const read_1 = buffer_readu32(b, offset)
+      const maybe_map_key_length = buffer_readu32(b, offset)
       offset += 4
-      const maybe_map_k_length = read_1
-      if buffer_len(b) < offset + maybe_map_k_length then
+      if buffer_len(b) < offset + maybe_map_key_length then
         return { ok = false, error = { kind = "invalid_length", field = "maybe_map[k]" } }
       end
-      const maybe_map_k = buffer_readstring(b, offset, maybe_map_k_length)
-      offset += maybe_map_k_length
-      const read_2 = buffer_readf32(b, offset)
+      const maybe_map_key = buffer_readstring(b, offset, maybe_map_key_length)
+      offset += maybe_map_key_length
+      const maybe_map_value = buffer_readf32(b, offset)
       offset += 4
-      maybe_map_2[maybe_map_k] = read_2
+      maybe_map_2[maybe_map_key] = maybe_map_value
     end
     maybe_map = maybe_map_2
   end
-  const read_3 = buffer_readu32(b, offset)
+  const map_list_count = buffer_readu32(b, offset)
   offset += 4
-  const map_list_count = read_3
   const map_list = {}
-  for i_2 = 1, map_list_count do
-    const read_4 = buffer_readu32(b, offset)
+  for i = 1, map_list_count do
+    const map_list_element_count = buffer_readu32(b, offset)
     offset += 4
-    const map_list_element_count = read_4
     const map_list_element = {}
-    for i_3 = 1, map_list_element_count do
-      const read_5 = buffer_readu32(b, offset)
+    for i_2 = 1, map_list_element_count do
+      const map_list_element_key_length = buffer_readu32(b, offset)
       offset += 4
-      const map_list_element_k_length = read_5
-      if buffer_len(b) < offset + map_list_element_k_length then
+      if buffer_len(b) < offset + map_list_element_key_length then
         return { ok = false, error = { kind = "invalid_length", field = "map_list[][k]" } }
       end
-      const map_list_element_k = buffer_readstring(b, offset, map_list_element_k_length)
-      offset += map_list_element_k_length
-      const read_6 = buffer_readu8(b, offset)
+      const map_list_element_key = buffer_readstring(b, offset, map_list_element_key_length)
+      offset += map_list_element_key_length
+      const n = buffer_readu8(b, offset)
       offset += 1
-      map_list_element[map_list_element_k] = { n = read_6 }
+      map_list_element[map_list_element_key] = { n = n }
     end
-    map_list[i_2] = map_list_element
+    map_list[i] = map_list_element
   end
-  const read_7 = buffer_readu32(b, offset)
+  const sparse_count = buffer_readu32(b, offset)
   offset += 4
-  const sparse_count = read_7
   const sparse_bits = offset * 8
   offset += (sparse_count + 7) // 8
   const sparse = {}
-  for i_4 = 1, sparse_count do
-    const read_8 = buffer_readu32(b, offset)
+  for i = 1, sparse_count do
+    const sparse_key_length = buffer_readu32(b, offset)
     offset += 4
-    const sparse_k_length = read_8
-    if buffer_len(b) < offset + sparse_k_length then
+    if buffer_len(b) < offset + sparse_key_length then
       return { ok = false, error = { kind = "invalid_length", field = "sparse[k]" } }
     end
-    const sparse_k = buffer_readstring(b, offset, sparse_k_length)
-    offset += sparse_k_length
-    const sparse_v_present = buffer_readbits(b, sparse_bits + (i_4 - 1), 1) == 1
-    local sparse_v = nil
-    if sparse_v_present then
-      const read_9 = buffer_readu32(b, offset)
+    const sparse_key = buffer_readstring(b, offset, sparse_key_length)
+    offset += sparse_key_length
+    const sparse_value_present = buffer_readbits(b, sparse_bits + (i - 1), 1) == 1
+    local sparse_value = nil
+    if sparse_value_present then
+      const sparse_value_2_length = buffer_readu32(b, offset)
       offset += 4
-      const sparse_v_2_length = read_9
-      if buffer_len(b) < offset + sparse_v_2_length then
+      if buffer_len(b) < offset + sparse_value_2_length then
         return { ok = false, error = { kind = "invalid_length", field = "sparse[v]" } }
       end
-      const sparse_v_2 = buffer_readstring(b, offset, sparse_v_2_length)
-      offset += sparse_v_2_length
-      sparse_v = sparse_v_2
+      const sparse_value_2 = buffer_readstring(b, offset, sparse_value_2_length)
+      offset += sparse_value_2_length
+      sparse_value = sparse_value_2
     end
-    sparse[sparse_k] = sparse_v
+    sparse[sparse_key] = sparse_value
   end
   const maybe_leaf_present = buffer_readbits(b, 1, 1) == 1
   local maybe_leaf = nil
@@ -233,27 +221,25 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
     if buffer_len(b) < offset + 1 then
       return { ok = false, error = { kind = "truncated", field = "maybe_leaf" } }
     end
-    const read_10 = buffer_readu8(b, offset)
+    const n = buffer_readu8(b, offset)
     offset += 1
-    maybe_leaf = { n = read_10 }
+    maybe_leaf = { n = n }
   end
   const maybe_names_present = buffer_readbits(b, 2, 1) == 1
   local maybe_names = nil
   if maybe_names_present then
-    const read_11 = buffer_readu32(b, offset)
+    const maybe_names_2_count = buffer_readu32(b, offset)
     offset += 4
-    const maybe_names_2_count = read_11
     const maybe_names_2 = {}
-    for i_5 = 1, maybe_names_2_count do
-      const read_12 = buffer_readu32(b, offset)
+    for i = 1, maybe_names_2_count do
+      const maybe_names_element_length = buffer_readu32(b, offset)
       offset += 4
-      const maybe_names_element_length = read_12
       if buffer_len(b) < offset + maybe_names_element_length then
         return { ok = false, error = { kind = "invalid_length", field = "maybe_names[]" } }
       end
       const maybe_names_element = buffer_readstring(b, offset, maybe_names_element_length)
       offset += maybe_names_element_length
-      maybe_names_2[i_5] = maybe_names_element
+      maybe_names_2[i] = maybe_names_element
     end
     maybe_names = maybe_names_2
   end

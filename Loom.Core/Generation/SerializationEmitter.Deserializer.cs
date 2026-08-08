@@ -131,7 +131,7 @@ internal sealed partial class SerializationEmitter
         {
             ConstantField constant => ToLiteral(constant.Value),
             BoolField => new BinaryOperator(ReadBits(cursor, 1), "==", _one),
-            NumberField numberField => ReadNumber(cursor, numberField.NumberType, statements),
+            NumberField numberField => ReadNumber(cursor, numberField.NumberType, statements, LeafName(numberField.Path)),
             RangedNumberField ranged => EmitRangedRead(ranged, cursor),
             BlobField blobField => EmitBlobRead(blobField, statements),
             OptionalField optionalField => EmitOptionalRead(optionalField, cursor, statements),
@@ -140,7 +140,9 @@ internal sealed partial class SerializationEmitter
             StringField stringField => EmitStringRead(stringField, cursor, statements),
             DatatypeField { UseSentinels: false } datatypeField => new Call(
                 new Identifier(datatypeField.Datatype.Constructor),
-                datatypeField.Datatype.Components.Select(_ => ReadNumber(cursor, datatypeField.NumberType, statements)).ToList()
+                datatypeField.Datatype.Components
+                    .Select(component => ReadNumber(cursor, datatypeField.NumberType, statements, ComponentName(datatypeField.Path, component)))
+                    .ToList()
             ),
             CFrameField { UseSentinels: false } cframeField => EmitCFrameRead(cframeField, cursor, statements),
             DatatypeField or CFrameField => EmitSentinelRead(serializationField, cursor, statements),
@@ -228,14 +230,14 @@ internal sealed partial class SerializationEmitter
     private Identifier EmitMapRead(MapField mapField, Cursor cursor, List<LuauStatement> statements)
     {
         var leaf = ReserveLocal(LeafName(mapField.Path));
-        var countLocal = ReserveLocal(leaf + "_count");
-        statements.Add(new ConstVariable(countLocal, null, ReadNumber(cursor, mapField.LengthType, statements)));
+        var count = BindRead(ReadNumber(cursor, mapField.LengthType, statements, leaf + "_count"), leaf + "_count", statements);
         if (NeedsBufferSpace(mapField.Key) || NeedsBufferSpace(mapField.Value))
             cursor.GoDynamic(statements);
 
-        var pairBits = ReserveElementBits(mapField.EntryBits, leaf, new Identifier(countLocal), cursor, statements);
+        var pairBits = ReserveElementBits(mapField.EntryBits, leaf, count, cursor, statements);
         statements.Add(new ConstVariable(leaf, null, Table.Empty));
 
+        using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
         var pairBody = new List<LuauStatement>();
         var restorePair = EnterElement(cursor, pairBits, mapField.EntryBits, loop);
@@ -244,7 +246,7 @@ internal sealed partial class SerializationEmitter
         restorePair();
 
         pairBody.Add(new ExpressionStatement(new BinaryOperator(new ElementAccess(new Identifier(leaf), key), "=", value)));
-        statements.Add(new NumericForStatement(loop, _one, new Identifier(countLocal), null, new Chunk(pairBody)));
+        statements.Add(new NumericForStatement(loop, _one, count, null, new Chunk(pairBody)));
 
         return new Identifier(leaf);
     }
@@ -252,8 +254,7 @@ internal sealed partial class SerializationEmitter
     private Identifier EmitArrayRead(ArrayField arrayField, Cursor cursor, List<LuauStatement> statements)
     {
         var leaf = ReserveLocal(LeafName(arrayField.Path));
-        var countLocal = ReserveLocal(leaf + "_count");
-        statements.Add(new ConstVariable(countLocal, null, ReadNumber(cursor, arrayField.LengthType, statements)));
+        var count = BindRead(ReadNumber(cursor, arrayField.LengthType, statements, leaf + "_count"), leaf + "_count", statements);
         if (NeedsBufferSpace(arrayField.Element))
             cursor.GoDynamic(statements);
 
@@ -264,7 +265,7 @@ internal sealed partial class SerializationEmitter
                     new BinaryOperator(
                         BufferCall("len", [new Identifier(BufferLocal)]),
                         "<",
-                        Add(new Identifier(OffsetLocal), Multiply(new Identifier(countLocal), new NumberLiteral(elementBytes)))
+                        Add(new Identifier(OffsetLocal), Multiply(count, new NumberLiteral(elementBytes)))
                     ),
                     new Chunk([new Return(BuildErrorTable("invalid_length", arrayField.Path, null))]),
                     [],
@@ -273,10 +274,11 @@ internal sealed partial class SerializationEmitter
             );
 
         // Claimed before the bodies, exactly as the writer laid it out.
-        var bitBase = ReserveElementBits(arrayField.Element.HeaderBits, leaf, new Identifier(countLocal), cursor, statements);
+        var bitBase = ReserveElementBits(arrayField.Element.HeaderBits, leaf, count, cursor, statements);
 
         statements.Add(new ConstVariable(leaf, null, Table.Empty));
 
+        using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
         var elementBody = new List<LuauStatement>();
         var restore = EnterElement(cursor, bitBase, arrayField.Element.HeaderBits, loop);
@@ -287,7 +289,7 @@ internal sealed partial class SerializationEmitter
             new ExpressionStatement(new BinaryOperator(new ElementAccess(new Identifier(leaf), new Identifier(loop)), "=", element))
         );
 
-        statements.Add(new NumericForStatement(loop, _one, new Identifier(countLocal), null, new Chunk(elementBody)));
+        statements.Add(new NumericForStatement(loop, _one, count, null, new Chunk(elementBody)));
         return new Identifier(leaf);
     }
 
@@ -402,7 +404,9 @@ internal sealed partial class SerializationEmitter
         var rebuilt = serializationField is DatatypeField datatypeField
             ? new Call(
                 new Identifier(datatypeField.Datatype.Constructor),
-                datatypeField.Datatype.Components.Select(_ => ReadNumber(cursor, datatypeField.NumberType, componentBody)).ToList()
+                datatypeField.Datatype.Components
+                    .Select(component => ReadNumber(cursor, datatypeField.NumberType, componentBody, ComponentName(datatypeField.Path, component)))
+                    .ToList()
             )
             : EmitCFrameRead((CFrameField)serializationField, cursor, componentBody);
 
@@ -460,50 +464,54 @@ internal sealed partial class SerializationEmitter
     private Identifier EmitStringRead(StringField stringField, Cursor cursor, List<LuauStatement> statements)
     {
         var leaf = ReserveLocal(LeafName(stringField.Path));
-        var lengthLocal = ReserveLocal(leaf + "_length");
-        statements.Add(new ConstVariable(lengthLocal, null, ReadNumber(cursor, stringField.LengthType, statements)));
+        var length = BindRead(ReadNumber(cursor, stringField.LengthType, statements, leaf + "_length"), leaf + "_length", statements);
         cursor.GoDynamic(statements);
 
         statements.Add(
             new IfStatement(
-                new BinaryOperator(
-                    BufferCall("len", [new Identifier(BufferLocal)]),
-                    "<",
-                    Add(new Identifier(OffsetLocal), new Identifier(lengthLocal))
-                ),
+                new BinaryOperator(BufferCall("len", [new Identifier(BufferLocal)]), "<", Add(new Identifier(OffsetLocal), length)),
                 new Chunk([new Return(BuildErrorTable("invalid_length", stringField.Path, null))]),
                 [],
                 null
             )
         );
 
-        var read = BufferCall("readstring", [new Identifier(BufferLocal), cursor.Position, new Identifier(lengthLocal)]);
+        var read = BufferCall("readstring", [new Identifier(BufferLocal), cursor.Position, length]);
         statements.Add(new ConstVariable(leaf, null, read));
-        cursor.AdvanceBy(statements, new Identifier(lengthLocal));
+        cursor.AdvanceBy(statements, length);
 
         return new Identifier(leaf);
     }
 
     private Call EmitCFrameRead(CFrameField cframeField, Cursor cursor, List<LuauStatement> statements)
     {
-        var arguments = _cFramePositionComponents.ConvertAll(_ => ReadNumber(cursor, cframeField.NumberType, statements));
+        var leaf = LeafName(cframeField.Path);
+        var arguments = _cFramePositionComponents.ConvertAll(
+            component => ReadNumber(cursor, cframeField.NumberType, statements, ComponentName(cframeField.Path, component))
+        );
+
         if (cframeField.Encoding == CFrameEncoding.Compressed)
         {
             var packed = cframeField.UseSentinels
-                ? ReadNumber(cursor, NumberType.U32, statements)
+                ? ReadNumber(cursor, NumberType.U32, statements, leaf + "_rotation")
                 : ReadBits(cursor, CFrameEncodingExtensions.CompressedRotationBits);
 
             arguments.Add(LuauFactory.RuntimeLibraryCall(["unpack_quaternion"], [packed]));
             return new Call(new Identifier("CFrame.new"), arguments);
         }
 
-        for (var index = 0; index < 4; index++)
-            arguments.Add(ReadNumber(cursor, cframeField.NumberType, statements));
+        foreach (var component in _quaternionLocals)
+            arguments.Add(ReadNumber(cursor, cframeField.NumberType, statements, ComponentName(cframeField.Path, component)));
 
         return new Call(new Identifier("CFrame.new"), arguments);
     }
 
-    private LuauExpression ReadNumber(Cursor cursor, NumberType numberType, List<LuauStatement> statements)
+    /// <summary>
+    ///     Reads one number, naming it after <paramref name="preferred" /> when the value has to outlive the
+    ///     read. A dynamic cursor advances between the read and whatever consumes it, so the call cannot stay
+    ///     inline; a constant one leaves the expression for the caller to place.
+    /// </summary>
+    private LuauExpression ReadNumber(Cursor cursor, NumberType numberType, List<LuauStatement> statements, string preferred)
     {
         var call = BufferCall("read" + numberType.BufferSuffix(), [new Identifier(BufferLocal), cursor.Position]);
         if (!cursor.IsDynamic)
@@ -512,17 +520,55 @@ internal sealed partial class SerializationEmitter
             return call;
         }
 
-        var local = ReserveTemporary();
+        var local = ReserveLocal(preferred);
         statements.Add(new ConstVariable(local, null, call));
         cursor.Advance(statements, numberType.ByteCount());
 
         return new Identifier(local);
     }
 
-    private int _temporaries;
+    /// <summary>
+    ///     Names a read that the surrounding code refers to more than once. A dynamic cursor has already
+    ///     bound it under the same name, so this only binds the constant-cursor case rather than aliasing
+    ///     one local to another.
+    /// </summary>
+    private Identifier BindRead(LuauExpression value, string preferred, List<LuauStatement> statements)
+    {
+        if (value is Identifier identifier)
+            return identifier;
+
+        var local = ReserveLocal(preferred);
+        statements.Add(new ConstVariable(local, null, value));
+
+        return new Identifier(local);
+    }
+
     private readonly HashSet<string> _locals = [];
 
-    private string ReserveTemporary() => $"read_{_temporaries++}";
+    /// <summary>
+    ///     Reserves names for the body of a loop, releasing them once it is emitted. Luau scopes a loop
+    ///     body, so a later sibling loop may reuse the same names - without this the measure pass's
+    ///     <c>entries_key</c> pushes the write pass onto a suffixed one nobody can read.
+    /// </summary>
+    private IDisposable LoopScope() => new LocalScope(_locals);
+
+    private sealed class LocalScope : IDisposable
+    {
+        private readonly HashSet<string> _locals;
+        private readonly HashSet<string> _outer;
+
+        public LocalScope(HashSet<string> locals)
+        {
+            _locals = locals;
+            _outer = [..locals];
+        }
+
+        public void Dispose()
+        {
+            _locals.Clear();
+            _locals.UnionWith(_outer);
+        }
+    }
 
     /// <summary>
     ///     Claims a local name, suffixing until it is free. Several constructs name locals after the same

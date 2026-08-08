@@ -30,9 +30,9 @@ const function Entity_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
     if buffer_len(b) < offset + 2 then
       return { ok = false, error = { kind = "truncated", field = "target" } }
     end
-    const read_0 = buffer_readi16(b, offset)
+    const target_2 = buffer_readi16(b, offset)
     offset += 2
-    target = read_0
+    target = target_2
   end
   return { ok = true, value = { id = buffer_readu8(b, 1), target = target } }
 end

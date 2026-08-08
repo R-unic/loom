@@ -54,9 +54,9 @@ const function ShootGunPacket_apply_diff_binary_read(baseline: ShootGunPacket, d
   const velocity_changed = buffer_readbits(b, 0, 1) == 1
   local velocity = nil
   if velocity_changed then
-    const read_0 = buffer_readu8(b, offset)
+    const velocity_2 = buffer_readu8(b, offset)
     offset += 1
-    velocity = read_0
+    velocity = velocity_2
   else
     velocity = baseline.velocity
   end

@@ -832,15 +832,15 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // A map has no length operator, so both phases count by walking. The write counts its own
-        // rather than reusing the measure's, which is scoped to whatever branch or loop measured it.
-        Assert.Contains("local entries_measured = 0", luau);
-        Assert.Contains("local entries_written = 0", luau);
-        Assert.Contains("buffer_writeu32(b, 0, entries_written)", luau);
+        // A map has no length operator, so the size pass counts by walking. The write reuses that count
+        // for its length prefix rather than walking a second time.
+        Assert.Contains("local entries_count = 0", luau);
+        Assert.Contains("buffer_writeu32(b, 0, entries_count)", luau);
+        Assert.DoesNotContain("entries_written", luau);
 
         // Pairs go out and come back keyed, not positional.
-        Assert.Contains("for entries_k_out, entries_v_out in value.entries do", luau);
-        Assert.Contains("entries[entries_k] = ", luau);
+        Assert.Contains("for entries_key, entries_value in value.entries do", luau);
+        Assert.Contains("entries[entries_key] = ", luau);
     }
     [Fact]
     public void ChainedConditionalSizes_AreParenthesised()
@@ -885,7 +885,7 @@ public class SerializationSchemaTest
 
         // The optional's payload has to come from the loop entry; through the value parameter it would
         // index a property literally named 'events[]'.
-        Assert.Contains("table.insert(blobs, events_item.attacker)", luau);
+        Assert.Contains("table.insert(blobs, events_element.attacker)", luau);
         Assert.DoesNotContain("value[\"events[]\"]", luau);
     }
     #endregion Measurability

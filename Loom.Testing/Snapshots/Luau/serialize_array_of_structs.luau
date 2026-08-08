@@ -10,8 +10,8 @@ const function Bag_serialize_binary(value: Bag): Loom.Serialized
   const b = buffer_create(4)
   buffer_writeu32(b, 0, #value.owners)
   for i = 1, #value.owners do
-    const owners_item = value.owners[i]
-    table.insert(blobs, owners_item)
+    const owners_element = value.owners[i]
+    table.insert(blobs, owners_element)
   end
   return { buffer = b, blobs = blobs }
 end
@@ -57,8 +57,8 @@ const function Branch_serialize_binary(value: Branch): Loom.Serialized
   buffer_writeu32(b, 0, #value.leaves)
   local offset = 4
   for i = 1, #value.leaves do
-    const leaves_item = value.leaves[i]
-    buffer_writeu8(b, offset, leaves_item.v)
+    const leaves_element = value.leaves[i]
+    buffer_writeu8(b, offset, leaves_element.v)
     offset += 1
   end
   return { buffer = b }
@@ -75,9 +75,9 @@ const function Branch_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   const leaves = {}
   for i = 1, leaves_count do
-    const read_0 = buffer_readu8(b, offset)
+    const v = buffer_readu8(b, offset)
     offset += 1
-    leaves[i] = { v = read_0 }
+    leaves[i] = { v = v }
   end
   return { ok = true, value = { leaves = leaves } }
 end

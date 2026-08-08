@@ -9,10 +9,21 @@ internal sealed partial class SerializationEmitter
 {
     private static readonly List<string> _cframeSentinels = ["CFrame.identity"];
 
+    /// <summary>
+    ///     Maps counted during the size pass, by the statement list that pass wrote into. Luau has no
+    ///     length operator for a keyed table, so the count is a loop either way - but the writer's prefix
+    ///     needs the same number the sizing already walked for.
+    /// </summary>
+    private readonly Dictionary<MapField, string> _measuredCounts = [];
+    private List<LuauStatement>? _measureRoot;
+    private List<LuauStatement>? _writeRoot;
+
     public Function EmitSerializer()
     {
         _locals.Clear();
+        _measuredCounts.Clear();
         var body = new List<LuauStatement>();
+        _writeRoot = body;
         if (schema.HasBlobs)
             body.Add(new ConstVariable(BlobsLocal, null, Table.Empty));
 
@@ -97,15 +108,23 @@ internal sealed partial class SerializationEmitter
     /// </summary>
     private static void EmitUnionTag(UnionField unionField, LuauExpression value, List<LuauStatement> body)
     {
-        var valueLocal = SentinelValueLocal(unionField.Path);
         var tagLocal = UnionTagLocal(unionField.Path);
-        body.Add(new ConstVariable(valueLocal, null, value));
+
+        // Only the conditions below read it, and a local already holding the value is one of them - an
+        // element bound by the enclosing loop, say. Binding it again would name the same thing twice.
+        var subject = value;
+        if (subject is not Identifier)
+        {
+            subject = new Identifier(SentinelValueLocal(unionField.Path));
+            body.Add(new ConstVariable(((Identifier)subject).Name, null, value));
+        }
+
         body.Add(new LocalVariable(tagLocal, null, _zero));
 
         var branches = new List<ElseIfBranch>();
         for (var index = 1; index < unionField.Variants.Count; index++)
         {
-            var condition = VariantCondition(unionField, new Identifier(valueLocal), index);
+            var condition = VariantCondition(unionField, subject, index);
             var assign = new Chunk([new ExpressionStatement(new BinaryOperator(new Identifier(tagLocal), "=", new NumberLiteral(index)))]);
             if (index == 1)
                 body.Add(new IfStatement(condition, assign, branches, null));
@@ -175,6 +194,7 @@ internal sealed partial class SerializationEmitter
         var constant = schema.HeaderBytes + schema.Fields.Sum(f => f.BodyBytes ?? 0);
         LuauExpression? inline = constant > 0 ? new NumberLiteral(constant) : null;
         var traversal = new List<LuauStatement>();
+        _measureRoot = traversal;
         foreach (var serializationField in schema.Fields)
         {
             var value = Access(new Identifier(ValueParameter), serializationField.Path);
@@ -283,18 +303,28 @@ internal sealed partial class SerializationEmitter
 
             // Counted here rather than by a pass of its own: a map has no length operator, and the write
             // needs the count for its prefix before the pairs go out.
-            var countLocal = ReserveLocal(LeafName(mapField.Path) + "_measured");
+            var countLocal = ReserveLocal(LeafName(mapField.Path) + "_count");
             statements.Add(new LocalVariable(countLocal, null, _zero));
 
-            var keyLocal = ReserveLocal(LeafName(mapField.Key.Path));
-            var valueLocal = ReserveLocal(LeafName(mapField.Value.Path));
-            var pairStatements = new List<LuauStatement> { new ExpressionStatement(new BinaryOperator(new Identifier(countLocal), "+=", _one)) };
+            using (LoopScope())
+            {
+                var keyLocal = ReserveLocal(LeafName(mapField.Key.Path));
+                var valueLocal = ReserveLocal(LeafName(mapField.Value.Path));
+                var pairStatements = new List<LuauStatement> { new ExpressionStatement(new BinaryOperator(new Identifier(countLocal), "+=", _one)) };
 
-            MeasureField(mapField.Key, new Identifier(keyLocal), pairStatements);
-            MeasureField(mapField.Value, new Identifier(valueLocal), pairStatements);
+                MeasureField(mapField.Key, new Identifier(keyLocal), pairStatements);
+                MeasureField(mapField.Value, new Identifier(valueLocal), pairStatements);
 
-            statements.Add(new ForStatement([keyLocal, valueLocal], value, new Chunk(pairStatements)));
+                statements.Add(new ForStatement([keyLocal, valueLocal], value, new Chunk(pairStatements)));
+            }
+
             AddToSize(statements, ElementBitBlockSize(mapField.EntryBits, new Identifier(countLocal)));
+
+            // The write needs the same count for its length prefix. Reusing it costs nothing when the
+            // measure ran in the scope the write also lives in; a map counted inside a branch or a loop
+            // has one count per occurrence, so that case still counts for itself.
+            if (ReferenceEquals(statements, _measureRoot))
+                _measuredCounts[mapField] = countLocal;
 
             return;
         }
@@ -307,6 +337,7 @@ internal sealed partial class SerializationEmitter
 
         // The element width varies per entry, so the only way to total it is to walk the value. A loop
         // per nesting level needs a counter of its own, or an inner one would clobber the outer's.
+        using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
         var elementValue = new ElementAccess(value, new Identifier(loop));
         var elementStatements = new List<LuauStatement>();
@@ -314,6 +345,25 @@ internal sealed partial class SerializationEmitter
 
         if (elementStatements.Count > 0)
             statements.Add(new NumericForStatement(loop, _one, Length(value), null, new Chunk(elementStatements)));
+    }
+
+    /// <summary>
+    ///     The entry count for a map's length prefix: the size pass's own count when it ran in the scope
+    ///     the write lives in, and a counting loop otherwise.
+    /// </summary>
+    private Identifier MapCount(MapField mapField, string leaf, LuauExpression value, List<LuauStatement> body)
+    {
+        if (ReferenceEquals(body, _writeRoot) && _measuredCounts.TryGetValue(mapField, out var measured))
+            return new Identifier(measured);
+
+        var count = new Identifier(ReserveLocal(leaf + "_count"));
+        body.Add(new LocalVariable(count.Name, null, _zero));
+
+        using var scope = LoopScope();
+        var key = ReserveLocal(LeafName(mapField.Key.Path));
+        body.Add(new ForStatement([key], value, new Chunk([new ExpressionStatement(new BinaryOperator(count, "+=", _one))])));
+
+        return count;
     }
 
     /// <summary>Adds one field's width, inline when it can be stated as an expression.</summary>
@@ -498,20 +548,7 @@ internal sealed partial class SerializationEmitter
             case MapField mapField:
             {
                 var leaf = LeafName(mapField.Path);
-
-                // Counted here rather than reused from the measure: a map nested in an optional or a
-                // collection has one count per occurrence, and the measure's local is scoped to the
-                // branch or loop it was counted in.
-                var count = new Identifier(ReserveLocal(leaf + "_written"));
-                var counter = ReserveLocal(leaf + "_key");
-                body.Add(new LocalVariable(count.Name, null, _zero));
-                body.Add(
-                    new ForStatement(
-                        [counter],
-                        value,
-                        new Chunk([new ExpressionStatement(new BinaryOperator(count, "+=", _one))])
-                    )
-                );
+                var count = MapCount(mapField, leaf, value, body);
 
                 WriteNumber(cursor, mapField.LengthType, count, body);
                 if (NeedsBufferSpace(mapField.Key) || NeedsBufferSpace(mapField.Value))
@@ -522,8 +559,9 @@ internal sealed partial class SerializationEmitter
                 if (pairBits != null)
                     body.Add(new LocalVariable(index, null, _one));
 
-                var keyLocal = ReserveLocal(LeafName(mapField.Key.Path) + "_out");
-                var valueLocal = ReserveLocal(LeafName(mapField.Value.Path) + "_out");
+                using var pairScope = LoopScope();
+                var keyLocal = ReserveLocal(LeafName(mapField.Key.Path));
+                var valueLocal = ReserveLocal(LeafName(mapField.Value.Path));
                 var pairBody = new List<LuauStatement>();
 
                 var restorePair = EnterElement(cursor, pairBits, mapField.EntryBits, index);
@@ -551,9 +589,10 @@ internal sealed partial class SerializationEmitter
                 // schema-wide header.
                 var bitBase = ReserveElementBits(arrayField.Element.HeaderBits, leaf, count, cursor, body);
 
+                using var elementScope = LoopScope();
                 var loop = ReserveLocal(LoopLocal);
                 var elementBody = new List<LuauStatement>();
-                var element = new Identifier(ReserveLocal(leaf + "_item"));
+                var element = new Identifier(ReserveLocal(LeafName(arrayField.Element.Path)));
                 elementBody.Add(new ConstVariable(element.Name, null, new ElementAccess(value, new Identifier(loop))));
 
                 var restore = EnterElement(cursor, bitBase, arrayField.Element.HeaderBits, loop);

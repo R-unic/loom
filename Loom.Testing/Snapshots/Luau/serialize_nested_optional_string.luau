@@ -37,9 +37,8 @@ const function Profile_deserialize_binary(serialized: Loom.Serialized): Loom.Res
   local nickname = nil
   local offset = 2
   if nickname_present then
-    const read_0 = buffer_readu32(b, offset)
+    const nickname_2_length = buffer_readu32(b, offset)
     offset += 4
-    const nickname_2_length = read_0
     if buffer_len(b) < offset + nickname_2_length then
       return { ok = false, error = { kind = "invalid_length", field = "nickname" } }
     end
@@ -90,9 +89,8 @@ const function Account_deserialize_binary(serialized: Loom.Serialized): Loom.Res
   local nickname = nil
   local offset = 2
   if nickname_present then
-    const read_0 = buffer_readu32(b, offset)
+    const nickname_2_length = buffer_readu32(b, offset)
     offset += 4
-    const nickname_2_length = read_0
     if buffer_len(b) < offset + nickname_2_length then
       return { ok = false, error = { kind = "invalid_length", field = "profile.nickname" } }
     end
@@ -103,9 +101,8 @@ const function Account_deserialize_binary(serialized: Loom.Serialized): Loom.Res
   const tag_present = buffer_readbits(b, 1, 1) == 1
   local tag = nil
   if tag_present then
-    const read_1 = buffer_readu32(b, offset)
+    const tag_2_length = buffer_readu32(b, offset)
     offset += 4
-    const tag_2_length = read_1
     if buffer_len(b) < offset + tag_2_length then
       return { ok = false, error = { kind = "invalid_length", field = "tag" } }
     end

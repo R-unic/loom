@@ -40,15 +40,15 @@ const function Waypoint_deserialize_binary(serialized: Loom.Serialized): Loom.Re
     if buffer_len(b) < offset + 16 then
       return { ok = false, error = { kind = "truncated", field = "frame" } }
     end
-    const read_0 = buffer_readf32(b, offset)
+    const frame_x = buffer_readf32(b, offset)
     offset += 4
-    const read_1 = buffer_readf32(b, offset)
+    const frame_y = buffer_readf32(b, offset)
     offset += 4
-    const read_2 = buffer_readf32(b, offset)
+    const frame_z = buffer_readf32(b, offset)
     offset += 4
-    const read_3 = buffer_readu32(b, offset)
+    const frame_rotation = buffer_readu32(b, offset)
     offset += 4
-    frame = CFrame.new(read_0, read_1, read_2, Loom.unpack_quaternion(read_3))
+    frame = CFrame.new(frame_x, frame_y, frame_z, Loom.unpack_quaternion(frame_rotation))
   elseif frame_sentinel == 1 then
     frame = CFrame.identity
   else

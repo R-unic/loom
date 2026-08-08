@@ -47,13 +47,13 @@ const function Entity_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
     if buffer_len(b) < offset + 6 then
       return { ok = false, error = { kind = "truncated", field = "position" } }
     end
-    const read_0 = buffer_readi16(b, offset)
+    const position_x = buffer_readi16(b, offset)
     offset += 2
-    const read_1 = buffer_readi16(b, offset)
+    const position_y = buffer_readi16(b, offset)
     offset += 2
-    const read_2 = buffer_readi16(b, offset)
+    const position_z = buffer_readi16(b, offset)
     offset += 2
-    position = Vector3.new(read_0, read_1, read_2)
+    position = Vector3.new(position_x, position_y, position_z)
   elseif position_sentinel == 1 then
     position = Vector3.zero
   elseif position_sentinel == 2 then

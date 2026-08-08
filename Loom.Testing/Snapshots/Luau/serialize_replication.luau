@@ -94,22 +94,21 @@ const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Seri
   offset += 4
   const recent_bits = offset * 8
   offset += (#value.recent * 12 + 7) // 8
-  for i_2 = 1, #value.recent do
-    const recent_item = value.recent[i_2]
-    const recent_element_value = recent_item
+  for i = 1, #value.recent do
+    const recent_element = value.recent[i]
     local recent_element_tag = 0
-    if recent_element_value.kind == "Respawned" then
+    if recent_element.kind == "Respawned" then
       recent_element_tag = 1
     end
-    buffer_writebits(b, recent_bits + (i_2 - 1) * 12, 1, recent_element_tag)
+    buffer_writebits(b, recent_bits + (i - 1) * 12, 1, recent_element_tag)
     if recent_element_tag == 0 then
-      buffer_writebits(b, recent_bits + (i_2 - 1) * 12 + 1, 10, math.round(recent_item.amount))
-      buffer_writebits(b, recent_bits + (i_2 - 1) * 12 + 11, 1, if recent_item.attacker ~= nil then 1 else 0)
-      if recent_item.attacker ~= nil then
-        table.insert(blobs, recent_item.attacker)
+      buffer_writebits(b, recent_bits + (i - 1) * 12 + 1, 10, math.round(recent_element.amount))
+      buffer_writebits(b, recent_bits + (i - 1) * 12 + 11, 1, if recent_element.attacker ~= nil then 1 else 0)
+      if recent_element.attacker ~= nil then
+        table.insert(blobs, recent_element.attacker)
       end
     elseif recent_element_tag == 1 then
-      const at_value = recent_item.at
+      const at_value = recent_element.at
       buffer_writei16(b, offset, at_value.X)
       offset += 2
       buffer_writei16(b, offset, at_value.Y)
@@ -158,13 +157,13 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
     if buffer_len(b) < offset + 6 then
       return { ok = false, error = { kind = "truncated", field = "velocity" } }
     end
-    const read_0 = buffer_readi16(b, offset)
+    const velocity_x = buffer_readi16(b, offset)
     offset += 2
-    const read_1 = buffer_readi16(b, offset)
+    const velocity_y = buffer_readi16(b, offset)
     offset += 2
-    const read_2 = buffer_readi16(b, offset)
+    const velocity_z = buffer_readi16(b, offset)
     offset += 2
-    velocity = Vector3.new(read_0, read_1, read_2)
+    velocity = Vector3.new(velocity_x, velocity_y, velocity_z)
   elseif velocity_sentinel == 1 then
     velocity = Vector3.zero
   elseif velocity_sentinel == 2 then
@@ -184,27 +183,26 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
     if buffer_len(b) < offset + 16 then
       return { ok = false, error = { kind = "truncated", field = "aim" } }
     end
-    const read_3 = buffer_readf32(b, offset)
+    const aim_x = buffer_readf32(b, offset)
     offset += 4
-    const read_4 = buffer_readf32(b, offset)
+    const aim_y = buffer_readf32(b, offset)
     offset += 4
-    const read_5 = buffer_readf32(b, offset)
+    const aim_z = buffer_readf32(b, offset)
     offset += 4
-    const read_6 = buffer_readu32(b, offset)
+    const aim_rotation = buffer_readu32(b, offset)
     offset += 4
-    aim = CFrame.new(read_3, read_4, read_5, Loom.unpack_quaternion(read_6))
+    aim = CFrame.new(aim_x, aim_y, aim_z, Loom.unpack_quaternion(aim_rotation))
   elseif aim_sentinel == 1 then
     aim = CFrame.identity
   else
     return { ok = false, error = { kind = "invalid_tag", field = "aim" } }
   end
-  const read_7 = buffer_readu8(b, offset)
+  const primary = buffer_readu8(b, offset)
   offset += 1
-  const read_8 = buffer_readu8(b, offset)
+  const secondary = buffer_readu8(b, offset)
   offset += 1
-  const read_9 = buffer_readu32(b, offset)
+  const recent_count = buffer_readu32(b, offset)
   offset += 4
-  const recent_count = read_9
   const recent_bits = offset * 8
   offset += (recent_count * 12 + 7) // 8
   const recent = {}
@@ -230,13 +228,13 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
       if buffer_len(b) < offset + 6 then
         return { ok = false, error = { kind = "truncated", field = "recent[]" } }
       end
-      const read_10 = buffer_readi16(b, offset)
+      const at_x = buffer_readi16(b, offset)
       offset += 2
-      const read_11 = buffer_readi16(b, offset)
+      const at_y = buffer_readi16(b, offset)
       offset += 2
-      const read_12 = buffer_readi16(b, offset)
+      const at_z = buffer_readi16(b, offset)
       offset += 2
-      recent_element = { kind = "Respawned", at = Vector3.new(read_10, read_11, read_12) }
+      recent_element = { kind = "Respawned", at = Vector3.new(at_x, at_y, at_z) }
     else
       return { ok = false, error = { kind = "invalid_tag", field = "recent[]" } }
     end
@@ -263,7 +261,7 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
     team = team,
     velocity = velocity,
     aim = aim,
-    loadout = { primary = read_7, secondary = read_8 },
+    loadout = { primary = primary, secondary = secondary },
     recent = recent,
     character = character,
   } }

@@ -46,9 +46,9 @@ const function Envelope_deserialize_binary(serialized: Loom.Serialized): Loom.Re
     if buffer_len(b) < offset + 1 then
       return { ok = false, error = { kind = "truncated", field = "action" } }
     end
-    const read_0 = buffer_readu8(b, offset)
+    const x = buffer_readu8(b, offset)
     offset += 1
-    action = { kind = "Click", x = read_0 }
+    action = { kind = "Click", x = x }
   else
     return { ok = false, error = { kind = "invalid_tag", field = "action" } }
   end

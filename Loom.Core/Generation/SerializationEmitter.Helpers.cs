@@ -120,7 +120,8 @@ internal sealed partial class SerializationEmitter
     /// <summary>
     ///     Last segment of a path, as a usable Luau identifier. Element paths carry brackets - <c>names[]</c>,
     ///     <c>pair[1]</c> - which are neither valid in a name nor distinct from the collection's own local,
-    ///     so they become a suffix instead.
+    ///     so they become a suffix instead. The schema's one-letter subscripts are spelled out on the way
+    ///     through, since these names reach the emitted Luau.
     /// </summary>
     private static string LeafName(string path)
     {
@@ -143,13 +144,24 @@ internal sealed partial class SerializationEmitter
             if (close < 0)
                 break;
 
-            var inner = leaf[(index + 1)..close];
-            name.Append(inner.Length == 0 ? "_element" : "_" + inner);
+            name.Append('_').Append(SubscriptName(leaf[(index + 1)..close]));
             index = close + 1;
         }
 
         return name.ToString();
     }
+
+    /// <summary>Names one component of a multi-part value - a Vector3's X, a CFrame's quaternion terms.</summary>
+    private static string ComponentName(string path, string component) => $"{LeafName(path)}_{component.ToLowerInvariant()}";
+
+    private static string SubscriptName(string subscript) =>
+        subscript switch
+        {
+            "" => "element",
+            "k" => "key",
+            "v" => "value",
+            _ => subscript
+        };
 
     private static LuauExpression ToLiteral(object? value) =>
         value switch
