@@ -80,9 +80,12 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [typeof](#typeof)
   - [Events](#events)
   - [Exports](#exports)
+  - [Imports & Modules](#imports--modules)
   - [`in` operator](#in-operator)
-  - [Tuples](#tuples)
-  - [Destructuring](#destructuring)
+  - [`type_is`](#type_is)
+  - [Operator Overloading](#operator-overloading)
+  - [Type Indexing](#type-indexing)
+  - [Serialization](#serialization)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -110,6 +113,15 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - **Traits** – Define reusable behavior that interfaces can implement, enabling shared APIs and generic constraints that reflect behavior, including an
   explicit `@` self receiver inside implementations. See [example](#traits--implementations).
 - **Named imports/exports** - See [example](#exports)
+- **Modules & packages** – Relative imports resolve inside a project, bare specifiers (`math`, `scope/math`) name a package declared in `[dependencies]`, and a
+  dependency's Luau is written into the consuming project's output. See [example](#imports--modules).
+- **Binary serialization** – `[serializable]` interfaces get generated `buffer`-backed codecs, with `[packed]` bit-packing and delta encoding for sending only
+  what changed. No runtime schema is walked. See [example](#serialization).
+- **Operator overloading** – Traits carrying `[luau_metamethod]` methods make `+`, `==`, `<` and friends work on your own types. See
+  [example](#operator-overloading).
+- **Type indexing** – `Foo["bar"]`, enum member types, and indexing through a generic parameter, all resolved at compile time. See [example](#type-indexing).
+- **Language server** – Diagnostics, hover, go-to-definition, and completion over `.loom` files.
+- **Watch mode** – `loom watch` rebuilds on change.
 - **Indices starting at one** – Same as Luau for familiarity
 - **Zero-cost abstractions** – Transpiles to idiomatic Luau with minimal overhead
 - **Batteries included** - Comes with a set of built-in compile-time macros included with data types such as [Array.join()](#arrayjoin),
@@ -123,14 +135,14 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 
 ## Upcoming Features
 
-- Negation (`not`) pattern (#147)
-- Compiler watch mode (#150)
-- Intrinsic serialization API (#139)
 - `defer` statements (#73)
-- Pipe operator (#64)
+- Pipe operators (#64)
 - Generic `event` declarations (#132)
+- Mapped object types (#75)
+- `export * from "./module"` (#169)
 - Package management & installation pipeline (#111 & #112 respectively)
-- LSP implementation (#47)
+- Context-aware and property auto-completion in the language server (#174 & #172)
+- Linter AST visitor (#18)
 
 ---
 
@@ -1598,58 +1610,207 @@ type Object = { field: number? }
 const object = { field = 69 }
 print(object.field ~= nil)
 ```
+
 ---
-## Destructuring
 
-Bind names directly to elements of collections or fields of objects.
+## Imports & Modules
 
-```ts
-let [a, b, c] = [1, 2, 3];
-let (a, b, c) = (1, 2, 3);
-let { name, age } = person;
-```
-
-```luau
-const _destructure = {1, 2, 3}
-const a = _destructure[1]
-const b = _destructure[2]
-const c = _destructure[3]
-const a = 1
-const b = 2
-const c = 3
-const name = person.name
-const age = person.age
-```
----
-## Tuples
-
-Fixed-length collections that can be assigned to names or returned by functions directly and not create an intermediate table.
+A relative specifier resolves inside the importing project. Only exported members cross the boundary, and the require path is derived from where the output
+lands.
 
 ```rs
-let t1 = ("a", 1);
-let (a, b) = (1, 2);
+// math_utils.loom
+export fn square(n: number): number -> n * n;
+export let tau = 6.28318;
+```
 
-declare fn sig<T: Tuple>(..params: T): void;
-sig::<(string, number)>("a", 1);
+```rs
+// main.server.loom
+import { square, tau } from "./math_utils";
 
-fn returns_tuple: (string, number) {
-  let t = ("abc", 420);
-  return t;
-}
-let (one, two) = returns_tuple();
+print(square(4));
+print(tau);
 ```
 
 ```luau
-const t1 = {"a", 1}
-const a = 1
-const b = 2
-sig("a", 1)
-const function returns_tuple(): (string, number)
-    const t = {"abc", 420}
-    return table.unpack(t)
+-- math_utils.luau
+const function square(n: number): number
+  return n * n
 end
-const one, two = returns_tuple()
+const tau = 6.28318
+return { square = square, tau = tau }
 ```
+
+```luau
+-- main.server.luau
+const math_utils = require("@game/ServerScriptService/Loom/math_utils")
+const square = math_utils.square
+const tau = math_utils.tau
+print(square(4))
+print(tau)
+```
+
+A bare specifier names a package instead of a path. `import { clamp } from "math"` reaches the root publishing that package, and only a package listed in the
+importing project's `[dependencies]` is importable. A dependency's compiled Luau is written into the *consuming* project's output, under
+`<output>/packages/<scope>/<name>`.
+
+---
+
+## `type_is`
+
+Narrow an `unknown` to a concrete type at runtime.
+
+```rs
+let v = 69 as unknown;
+if type_is(v, "number") {
+    print(v + 1);
+}
+```
+
+```luau
+const v = 69 :: unknown
+if typeof(v) == "number" then
+  print(v + 1)
+end
+```
+
+---
+
+## Operator Overloading
+
+A trait method carrying `[luau_metamethod]` binds an operator to your own type. The call site keeps working as a plain method call too.
+
+```rs
+interface Location {
+    position: number;
+}
+
+trait Add<T> {
+    [luau_metamethod("__add")]
+    fn add(other: T): T;
+}
+
+implement Add<Location> for Location {
+    fn add(other) -> new Location { position: position + other.position }
+}
+
+let start = new Location { position: 69 };
+let finish = new Location { position: 420 };
+let result1 = start + finish;
+let result2 = start.add(finish);
+```
+
+```luau
+type Location = {
+  read position: number,
+} & Add<Location>
+type Add<T> = {
+  add: (Add<T>, T) -> T,
+}
+local Add_Location_for_Location = {}
+Add_Location_for_Location.__index = Add_Location_for_Location
+Add_Location_for_Location = Add_Location_for_Location :: Location
+function Add_Location_for_Location.add(self: Location, other)
+  return setmetatable({ position = self.position + other.position }, Add_Location_for_Location) :: Location
+end
+Add_Location_for_Location.__add = Add_Location_for_Location.add
+const start = setmetatable({ position = 69 }, Add_Location_for_Location) :: Location
+const finish = setmetatable({ position = 420 }, Add_Location_for_Location) :: Location
+const result1 = start + finish
+const result2 = start:add(finish)
+```
+
+---
+
+## Type Indexing
+
+`Target[Index]` names the type of a member. It works on interfaces, on enums, and through a generic parameter - the index resolves when the generic is
+instantiated. An enum member's type expands to its literal value.
+
+```rs
+interface Config { retries: number }
+
+type Retries = Config["retries"];
+
+enum Message { Hello, Goodbye }
+enum Kind : string { Local = "local", Remote = "remote" }
+
+type HelloTag = Message["Hello"];
+type LocalKind = Kind["Local"];
+
+type Pick<K: keyof(Config)> = Config[K];
+let attempts: Pick<"retries"> = 3;
+```
+
+```luau
+type Config = {
+  read retries: number,
+}
+type Retries = index<Config, "retries">
+type Message = number
+type Kind = "local" | "remote"
+type HelloTag = number
+type LocalKind = "local"
+type Pick<K> = index<Config, K & keyof<Config>>
+const attempts: Pick<"retries"> = 3
+```
+
+---
+
+## Serialization
+
+`[serializable]` generates a `buffer`-backed codec for an interface. Sized types (`u8`, `i16`, `f32`, `string<u8>`) pin the width; `[packed]` packs booleans,
+optionals and union tags into a shared bit header. `diff_binary`/`apply_diff_binary` send only the fields that changed.
+
+There is no runtime schema - every offset the type pins at compile time becomes a literal in the emitted code.
+
+```rs
+[serializable, packed]
+interface PlayerState {
+  health: u8;
+  name: string<u8>;
+}
+
+let state = new PlayerState { health: 100, name: "Ada" };
+let payload = serialize_binary(state);
+let restored = deserialize_binary::<PlayerState>(payload);
+if restored.ok
+  print(restored.value.health);
+
+let diff = diff_binary(state, new PlayerState { health: 90, name: "Ada" });
+let updated = apply_diff_binary(state, diff);
+```
+
+```luau
+const function PlayerState_serialize_binary(value: PlayerState): Loom.Serialized
+  const b = buffer_create(1 + 1 + #value.name)
+  buffer_writeu8(b, 0, value.health)
+  const name_value = value.name
+  const name_length = #name_value
+  buffer_writeu8(b, 1, name_length)
+  local offset = 2
+  buffer_writestring(b, offset, name_value)
+  offset += name_length
+  return { buffer = b }
+end
+const function PlayerState_deserialize_binary(serialized: Loom.Serialized): Loom.Result<PlayerState, Loom.DeserializeError>
+  const b = serialized.buffer
+  if b == nil or buffer_len(b) < 2 then
+    return { ok = false, error = { kind = "truncated", offset = 0 } }
+  end
+  const name_length = buffer_readu8(b, 1)
+  local offset = 2
+  if buffer_len(b) < offset + name_length then
+    return { ok = false, error = { kind = "invalid_length", field = "name" } }
+  end
+  const name = buffer_readstring(b, offset, name_length)
+  offset += name_length
+  return { ok = true, value = { health = buffer_readu8(b, 0), name = name } }
+end
+```
+
+Deserializing returns a `Result`, so a truncated or malformed payload reports rather than throwing. Arrays, `Record` maps, nested interfaces, optionals,
+discriminated unions, Roblox datatypes (`Vector3<i16>`, `CFrame<f32>`) and unserializable values passed through as blobs are all supported.
 
 ---
 
