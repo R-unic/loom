@@ -13,7 +13,6 @@ public abstract class Type : IEquatable<Type>
 {
     private static readonly HashSet<(Type, Type)> _equalsVisiting = new(ReferencePairComparer.Instance);
     private static readonly HashSet<(Type, Type)> _assignableToVisiting = new(ReferencePairComparer.Instance);
-    private static readonly Dictionary<(Type, Type), bool> _assignableToResults = new(ReferencePairComparer.Instance);
 
     public abstract bool Equals(Type? other);
 
@@ -43,42 +42,21 @@ public abstract class Type : IEquatable<Type>
     ///     GuardedEquals. Re-entering the same (a, b) pair while it's already being checked means we're
     ///     walking a cycle, so it's treated as already-consistent rather than checked again.
     /// </summary>
-    /// <remarks>
-    ///     Guarding the cycle bounds the depth but not the work: a walk that reaches the same pair down two
-    ///     different branches has left the first one by the time it arrives again, so the guard does not fire
-    ///     and the whole subtree is re-checked. Over an interface graph as wide and as cyclic as Roblox's
-    ///     that repetition compounds branch over branch, and a single assignability question - comparing two
-    ///     distinct <c>Player</c> instances, say - stops finishing in any practical time. Memoizing each
-    ///     answer collapses it back to one check per pair.
-    ///     <para>
-    ///         Results only live for the outermost query, and are dropped once it answers. A pair reached
-    ///         while a cycle is open was answered against that assumption, so it is only reusable inside the
-    ///         query that made it, and by the next query a type's members may have grown anyway.
-    ///     </para>
-    /// </remarks>
     protected static bool GuardedAssignableTo(Type a, Type b, Func<bool> compare)
     {
         if (ReferenceEquals(a, b)) return true;
 
         var pair = (a, b);
-        if (_assignableToResults.TryGetValue(pair, out var memoized))
-            return memoized;
-
         if (!_assignableToVisiting.Add(pair))
             return true;
 
-        var isOutermostQuery = _assignableToVisiting.Count == 1;
         try
         {
-            var isAssignable = compare();
-            _assignableToResults[pair] = isAssignable;
-            return isAssignable;
+            return compare();
         }
         finally
         {
             _assignableToVisiting.Remove(pair);
-            if (isOutermostQuery)
-                _assignableToResults.Clear();
         }
     }
 

@@ -15,19 +15,8 @@ public sealed class InterfaceType(
     public string Name { get; } = name;
     public List<InterfaceType> Constraints { get; } = constraints;
     public ObjectType ObjectType { get; } = objectType;
-    /// <summary>
-    ///     This interface as assignability sees it: its own members intersected with everything it inherits.
-    /// </summary>
-    /// <remarks>
-    ///     Built once and held, because <see cref="Type.GuardedAssignableTo" /> detects a cycle by reference
-    ///     identity of the pair being compared. Rebuilding the intersection per access hands that guard a
-    ///     type it has never seen on every step around a cycle, so a self-referential interface - which every
-    ///     Roblox instance is, through <c>Parent: Instance</c> - never terminates. Safe to hold: the
-    ///     intersection wraps <see cref="ObjectType" /> by reference, so members added later are still seen
-    ///     through it, and <see cref="Constraints" /> is fixed at construction.
-    /// </remarks>
     public Type AssignabilityType =>
-        field ??= Constraints.Count > 0
+        Constraints.Count > 0
             ? new IntersectionType([ObjectType, ..Constraints.Select(c => c.AssignabilityType)])
             : ObjectType;
 
