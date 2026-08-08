@@ -99,18 +99,25 @@ public class TypeCheckerTest
         Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"hello\"' is not assignable to type 'number'.");
     }
 
+    /// <remarks>
+    ///     The resolver owns this error. Every later stage looks the name up and finds nothing, so each one
+    ///     could report it again - the type checker as a failed symbol lookup, which reads like a compiler
+    ///     bug rather than the misspelling it is.
+    /// </remarks>
     [Fact]
     public void ThrowsFor_UndefinedIdentifier()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("x");
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindSymbol, "Cannot find symbol for declaration of variable 'x'.");
+        var diagnostics = Utility.GetAnalysisDiagnostics("x");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find name 'x'.");
+        Utility.AssertReportedOnce(diagnostics, "x");
     }
 
     [Fact]
     public void ThrowsFor_UndefinedType()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x: A = 1");
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindSymbol, "Cannot find symbol for declaration of type 'A'.");
+        var diagnostics = Utility.GetAnalysisDiagnostics("let x: A = 1");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find type 'A'.");
+        Utility.AssertReportedOnce(diagnostics, "A");
     }
 
     [Fact]
@@ -7437,7 +7444,7 @@ public class TypeCheckerTest
     {
         // unlike a typed pattern ('f when Foo'), a bare type pattern captures nothing under a name of
         // its own - the body has no binding to read the matched value back through
-        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+        var diagnostics = Utility.GetAnalysisDiagnostics(
             """
             interface Foo { field: number }
             let x: Foo = new Foo { field: 1 };
@@ -7448,7 +7455,8 @@ public class TypeCheckerTest
             """
         );
 
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindSymbol, "Cannot find symbol for declaration of variable 'f'.");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find name 'f'.");
+        Utility.AssertReportedOnce(diagnostics, "f");
     }
 
     [Fact]

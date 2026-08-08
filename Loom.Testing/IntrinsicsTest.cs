@@ -18,9 +18,9 @@ public class IntrinsicsTest
     [InlineData(ProjectType.Game, "Backpack", "ChangeHistoryService")]
     public void Registers_ProjectTypeSpecificIntrinsics_Independently(ProjectType projectType, string included, string excluded)
     {
-        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics($"type X = {included};", projectType));
+        Utility.AssertNoErrors(Utility.GetAnalysisDiagnostics($"type X = {included};", projectType));
 
-        var diagnostics = Utility.GetTypeCheckerDiagnostics($"type X = {excluded};", projectType);
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindSymbol, $"Cannot find symbol for declaration of type '{excluded}'.");
+        var diagnostics = Utility.GetAnalysisDiagnostics($"type X = {excluded};", projectType);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, $"Cannot find type '{excluded}'.");
     }
 }

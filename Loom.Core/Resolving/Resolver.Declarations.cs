@@ -214,6 +214,7 @@ public sealed partial class Resolver
         if (symbol == null)
         {
             _diagnostics.Error(identifier, InternalCodes.CannotFindName, $"Cannot find name '{name}'.");
+            _semanticModel.MarkUnresolved(identifier);
             return false;
         }
 
@@ -234,6 +235,7 @@ public sealed partial class Resolver
         if (symbol == null)
         {
             _diagnostics.Error(typeName, InternalCodes.CannotFindName, $"Cannot find type '{name}'.");
+            _semanticModel.MarkUnresolved(typeName);
             return false;
         }
 

@@ -1767,6 +1767,19 @@ public class ResolverTest
         Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find name 'x'.");
     }
 
+    /// <remarks>
+    ///     A function type names its parameters for documentation, not for binding - the body of the
+    ///     function taking the callback never receives a value under that name, only the callback itself.
+    ///     Reported once, from the resolver: the stages after it look the name up and find nothing too.
+    /// </remarks>
+    [Fact]
+    public void ThrowsFor_FunctionTypeParameter_UsedAsNameInBody()
+    {
+        var diagnostics = Utility.GetAnalysisDiagnostics("fn on(handler: fn(data: number): void): void { print(data); }");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find name 'data'.");
+        Utility.AssertReportedOnce(diagnostics, "data");
+    }
+
     [Fact]
     public void Allows_FunctionExpression_ParameterShadowsOuterVariable() =>
         Utility.AssertNoErrors(Utility.GetSemanticModel("let x = 42; let f = fn(x: number): number { return x; };"));

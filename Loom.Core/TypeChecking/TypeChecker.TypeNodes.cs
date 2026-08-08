@@ -186,7 +186,9 @@ public sealed partial class TypeChecker
             return BindType(typeName, Types.PrimitiveType.Never);
         }
 
-        _diagnostics.Error(typeName, InternalCodes.CannotFindSymbol, $"Cannot find symbol for declaration of type '{typeName.Name.Text}'.");
+        if (!_semanticModel.IsUnresolved(typeName))
+            _diagnostics.Error(typeName, InternalCodes.CannotFindSymbol, $"Cannot find symbol for declaration of type '{typeName.Name.Text}'.");
+
         return BindType(typeName, Types.PrimitiveType.Never);
     }
 

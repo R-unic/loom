@@ -29,7 +29,7 @@ public class DiagnosticMessageTest
             result
         );
 
-        Assert.Contains($"{Colors.Dim}  ╭─{Colors.Reset} {Colors.Orange}test.loom @ 1:4 - 1:9{Colors.Reset}", result);
+        Assert.Contains($"{Colors.Dim}  ╭─{Colors.Reset} {Colors.Orange}test.loom @ 1:5 - 1:9{Colors.Reset}", result);
         Assert.Contains("let x: number = 5;", result);
         Assert.Contains($"{Colors.Magenta}┬────{Colors.Reset}", result);
         Assert.Contains(
@@ -52,7 +52,7 @@ public class DiagnosticMessageTest
             result
         );
 
-        Assert.Contains($"{Colors.Dim}  ╭─{Colors.Reset} {Colors.Orange}test.loom @ 2:8 - 2:14{Colors.Reset}", result);
+        Assert.Contains($"{Colors.Dim}  ╭─{Colors.Reset} {Colors.Orange}test.loom @ 2:9 - 2:14{Colors.Reset}", result);
         Assert.Contains("let y = x + 10;", result);
         Assert.Contains($"{Colors.Yellow}──────{Colors.Reset}", result);
         Assert.DoesNotContain("Hint:", result);
@@ -295,6 +295,11 @@ public class DiagnosticMessageTest
         Assert.Contains($"{Colors.Magenta}───{Colors.Reset}", result);
     }
 
+    /// <remarks>
+    ///     Columns are 0-based inside the compiler for the LSP's sake, but a header a reader lines up
+    ///     against their editor has to be 1-based on both ends, and cover exactly what the underline marks:
+    ///     position 4 through 9 is "x: nu", columns 5 through 9.
+    /// </remarks>
     [Fact]
     public void ToString_LocationSpan_ToString_FormatsCorrectly()
     {
@@ -303,7 +308,16 @@ public class DiagnosticMessageTest
         var span = new LocationSpan(start, end);
         var result = span.ToString();
 
-        Assert.Equal("test.loom @ 1:4 - 1:9", result);
+        Assert.Equal("test.loom @ 1:5 - 1:9", result);
+    }
+
+    [Fact]
+    public void ToString_EmptyLocationSpan_ToString_ReportsStartOnBothEnds()
+    {
+        var start = new Location(_testFile, 4);
+        var span = new LocationSpan(start, start);
+
+        Assert.Equal("test.loom @ 1:5 - 1:5", span.ToString());
     }
 
     [Fact]
@@ -312,7 +326,44 @@ public class DiagnosticMessageTest
         var location = new Location(_testFile, 4);
         var result = location.ToString();
 
-        Assert.Equal("test.loom:1:4", result);
+        Assert.Equal("test.loom:1:5", result);
+    }
+
+    /// <remarks>
+    ///     Both context lines carry their number. Without one on the trailing line a reader cannot tell
+    ///     which of two identical-looking lines the frame is pointing at - the copy of a body in another
+    ///     function reads exactly like the original.
+    /// </remarks>
+    [Fact]
+    public void ToString_ContextLines_AreNumbered()
+    {
+        var start = new Location(_testFile, 19);
+        var end = new Location(_testFile, 24);
+        var diagnostic = new Diagnostic(new LocationSpan(start, end), DiagnosticSeverity.Error, InternalCodes.CannotFindName, "Cannot find name 'y'.", null);
+        var result = diagnostic.ToString();
+
+        Assert.Contains($"{Colors.Dim}1 │ let x: number = 5;{Colors.Reset}", result);
+        Assert.Contains($"{Colors.Bold}2 │{Colors.Reset} let y = x + 10;", result);
+        Assert.Contains($"{Colors.Dim}3 │ print(y);{Colors.Reset}", result);
+    }
+
+    /// <remarks>
+    ///     The gutter is sized for every line the frame prints, and the trailing context line is one past
+    ///     the span - on line 9 of a longer file the frame reaches line 10 and the whole frame has to be
+    ///     two digits wide, or that one line steps a character out of the gutter.
+    /// </remarks>
+    [Fact]
+    public void ToString_Gutter_FitsTrailingContextLine()
+    {
+        var lines = string.Join(Environment.NewLine, Enumerable.Range(1, 12).Select(i => $"line {i}"));
+        var file = new SourceFile("rollover.loom", lines);
+        var start = new Location(file, lines.IndexOf("line 9", StringComparison.Ordinal));
+        var diagnostic = new Diagnostic(new LocationSpan(start, 6), DiagnosticSeverity.Error, null, "Error on line nine.", null);
+        var result = diagnostic.ToString();
+
+        Assert.Contains($"{Colors.Dim} 8 │ line 8{Colors.Reset}", result);
+        Assert.Contains($"{Colors.Bold} 9 │{Colors.Reset} line 9", result);
+        Assert.Contains($"{Colors.Dim}10 │ line 10{Colors.Reset}", result);
     }
 
     [Fact]
