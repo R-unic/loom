@@ -44,6 +44,7 @@ public sealed class InstantiatedType(GenericType genericType, List<Type> argumen
         type switch
         {
             TypeParameter typeParameter when substitution.TryGetValue(typeParameter, out var substituted) => substituted,
+            IndexedType indexedType => SubstituteIndexedType(indexedType, substitution),
             FunctionType functionType => new FunctionType(
                 functionType.TypeParameters.FindAll(tp => !substitution.ContainsKey(tp)),
                 functionType.ParameterTypes.ConvertAll(p => SubstituteTypeParameters(p, substitution)),
@@ -52,4 +53,16 @@ public sealed class InstantiatedType(GenericType genericType, List<Type> argumen
             ),
             _ => TypeSolver.Transform(type, t => SubstituteTypeParameters(t, substitution), simplify: false)
         };
+
+    private static Type SubstituteIndexedType(IndexedType indexedType, TypeParameterSubstitution substitution)
+    {
+        var target = SubstituteTypeParameters(indexedType.Target, substitution);
+        var index = SubstituteTypeParameters(indexedType.Index, substitution);
+        if (TypeSimplifier.ResolveIndex(target, index) is { } resolved)
+            return resolved;
+
+        return ReferenceEquals(target, indexedType.Target) && ReferenceEquals(index, indexedType.Index)
+            ? indexedType
+            : new IndexedType(target, index);
+    }
 }

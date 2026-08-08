@@ -29,11 +29,20 @@ public static class TypeSimplifier
             IntersectionType intersection => SimplifyIntersection(intersection),
             InstantiatedType instantiated => Simplify(instantiated.Expand()),
             GenericType generic => Simplify(generic.UnderlyingType),
+            IndexedType indexed => ResolveIndex(indexed.Target, indexed.Index) ?? type,
             _ => type
         };
 
         _simplifyCache.Add(type, simplified);
         return simplified;
+    }
+
+    public static Type? ResolveIndex(Type target, Type index)
+    {
+        if (index is TypeParameter)
+            return null;
+
+        return Simplify(target) is NativelyIndexableType indexable ? indexable.GetTypeAtIndex(index).BodyType?.ValueType : null;
     }
 
     private static ObjectType SimplifyObject(ObjectType objectType) =>

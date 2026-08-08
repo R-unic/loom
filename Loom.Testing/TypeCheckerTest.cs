@@ -1426,6 +1426,63 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_GenericTypeAlias_IndexedType_ResolvesOnInstantiation()
+    {
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                interface Map { [0]: 69; }
+                type GetMapType<K: keyof(Map)> = Map[K];
+                let x: GetMapType<0> = 69;
+                """
+            )
+        );
+
+        var type = Utility.GetLastStatementType(
+            """
+            interface Map { [0]: 69; }
+            type GetMapType<K: keyof(Map)> = Map[K];
+            none as never as GetMapType<0>
+            """
+        );
+
+        var literal = Assert.IsType<LiteralType>(TypeSimplifier.Simplify(type));
+        Assert.Equal("69", literal.ToString());
+    }
+
+    [Fact]
+    public void Checks_GenericTypeAlias_IndexedType_ResolvesPerArgument()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Names { alpha: number; beta: string; }
+            type Pick<K: keyof(Names)> = Names[K];
+            none as never as Pick<"beta">
+            """
+        );
+
+        Assert.Equal(PrimitiveType.String, TypeSimplifier.Simplify(type));
+    }
+
+    [Fact]
+    public void ThrowsFor_GenericTypeAlias_IndexedType_ArgumentOutsideConstraint()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Names { alpha: number; }
+            type Pick<K: keyof(Names)> = Names[K];
+            let x: Pick<"missing"> = 1;
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.ConstraintViolation,
+            "Type '\"missing\"' does not satisfy constraint '\"alpha\"' for type parameter 'K'."
+        );
+    }
+
+    [Fact]
     public void Checks_Generic_InterfaceIndex()
     {
         var type = Utility.GetLastStatementType(
