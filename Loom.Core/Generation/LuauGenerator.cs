@@ -2,6 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Events;
 using Loom.Core.Generation.Macros;
+using Loom.Core.Generation.Modules;
+using Loom.Core.Generation.Serialization;
 using Loom.Core.Modules;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;

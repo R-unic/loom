@@ -1,6 +1,7 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Events;
 using Loom.Core.Generation.Macros;
+using Loom.Core.Generation.Serialization;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;

@@ -2,7 +2,7 @@ using Loom.Core.TypeChecking.Serialization;
 using Loom.Luau;
 using Loom.Luau.AST;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Serialization;
 
 /// <summary>Writing: size computation, the sentinel and union prologue, and per-field writes.</summary>
 internal sealed partial class SerializationEmitter

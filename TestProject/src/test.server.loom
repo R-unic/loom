@@ -1,6 +1,23 @@
-interface Map {
-  [0]: 69;
+let replicated = get_service::<ReplicatedStorage>();
+let remote = replicated.find_first_child::<RemoteEvent>("re")!;
+
+export enum Message {
+  Hello
 }
 
-type GetMapType<K: keyof(Map)> = Map[K];
-let x: GetMapType<0> = 69;
+[serializable, packed]
+export interface HelloPacket {
+  id: u8;
+  message: string<u8>;
+}
+
+declare sealed interface MessageData {
+  [Message["Hello"]]: HelloPacket;
+}
+
+export fn on<K: Message>(message: K, handler: fn(data: MessageData[K]): void): void {
+  let message_serializer = serializer_of::<MessageData, K>(message);
+
+
+  remote.on_server_event += fn(_, __) {};
+}

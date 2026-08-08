@@ -2,7 +2,7 @@ using Loom.Core.TypeChecking.Serialization;
 using Loom.Luau;
 using Loom.Luau.AST;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Serialization;
 
 /// <summary>Reading: bounds and tag validation, per-field reads, and rebuilding the value.</summary>
 internal sealed partial class SerializationEmitter

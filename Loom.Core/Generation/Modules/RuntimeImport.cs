@@ -1,6 +1,6 @@
 using Loom.Config;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Modules;
 
 public sealed record RuntimeImport(RuntimeImportStatus Status, string Path)
 {

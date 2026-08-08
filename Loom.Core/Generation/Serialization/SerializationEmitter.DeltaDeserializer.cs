@@ -2,7 +2,7 @@ using Loom.Core.TypeChecking.Serialization;
 using Loom.Luau;
 using Loom.Luau.AST;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Serialization;
 
 /// <summary>
 ///     Reading a delta: mirrors the serialization process field for field, reusing

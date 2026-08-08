@@ -2,7 +2,7 @@ using System.Text;
 using Loom.Core.TypeChecking.Serialization;
 using Loom.Luau.AST;
 
-namespace Loom.Core.Generation;
+namespace Loom.Core.Generation.Serialization;
 
 /// <summary>Shared pieces: the offset cursor, local-name reservation, and expression builders.</summary>
 internal sealed partial class SerializationEmitter
