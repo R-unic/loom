@@ -7133,6 +7133,55 @@ public class TypeCheckerTest
 
     #region Events
     [Fact]
+    public void Checks_HoistedInterface_VisitedTwice_KeepsOneTypeInstance()
+    {
+        const string source = """
+            interface EventObject {
+                event consumer(param: Thing);
+            }
+
+            interface Thing {
+                parent: Thing;
+                value: string;
+            }
+
+            let eo = none as never as EventObject;
+            eo.consumer
+            """;
+
+        var (_, semanticModel, flowAnalyzer) = Utility.FlowAnalyze(source);
+        Utility.AssertNoErrors(new TypeChecker(semanticModel, flowAnalyzer).Check().Diagnostics);
+
+        var declaration = semanticModel.Tree.Statements.OfType<Core.Parsing.AST.InterfaceDeclaration>().Single(statement => statement.Name.Text == "Thing");
+        var declaredType = Assert.IsType<InterfaceType>(semanticModel.GetType(declaration));
+        var instantiated = Assert.IsType<InstantiatedType>(semanticModel.GetType(semanticModel.Tree.Statements[^1]));
+        var eventParameterType = instantiated.Arguments.TakeWhile(Type.IsDefined).Single();
+        Assert.Same(declaredType, eventParameterType);
+    }
+
+    [Fact]
+    public void Checks_EventConnect_NamedHandler_WithSelfReferentialParameterType_NoErrors() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                interface EventObject {
+                    event consumer(param: Thing);
+                }
+
+                interface Thing {
+                    parent: Thing;
+                    value: string;
+                }
+
+                fn on_consumer(param: Thing): void { }
+
+                let eo = none as never as EventObject;
+                eo.consumer += on_consumer
+                """
+            )
+        );
+
+    [Fact]
     public void Checks_InterfaceEventMember_AccessedThroughVariable_TypesAsEvent()
     {
         const string source = """
