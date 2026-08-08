@@ -22,13 +22,14 @@ internal static class CompileTools
         if (compiled == null)
         {
             foreach (var diagnostic in compiler.Diagnostics.Set)
-                Console.WriteLine(diagnostic.Message);
+                Console.Error.WriteLine(diagnostic.Message);
 
             return;
         }
 
+        // Diagnostics go to stderr so stdout is the Luau alone, and regenerating a fixture is a redirect.
         foreach (var diagnostic in compiled.Diagnostics.Set)
-            Console.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+            Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
 
         Console.Write(compiled.RenderedLuau);
     }
