@@ -5,10 +5,6 @@ const buffer_writebits = buffer.writebits
 const buffer_len = buffer.len
 const buffer_readf32 = buffer.readf32
 const buffer_readbits = buffer.readbits
-type Anchor = {
-  read exact: CFrame,
-  read approximate: CFrame,
-}
 const function Anchor_serialize_binary(value: Anchor): Loom.Serialized
   const b = buffer_create(44)
   buffer_writef32(b, 4, value.exact.X)
@@ -32,6 +28,10 @@ const function Anchor_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { exact = CFrame.new(buffer_readf32(b, 4), buffer_readf32(b, 8), buffer_readf32(b, 12), buffer_readf32(b, 16), buffer_readf32(b, 20), buffer_readf32(b, 24), buffer_readf32(b, 28)), approximate = CFrame.new(buffer_readf32(b, 32), buffer_readf32(b, 36), buffer_readf32(b, 40), Loom.unpack_quaternion(buffer_readbits(b, 0, 32))) } }
 end
+type Anchor = {
+  read exact: CFrame,
+  read approximate: CFrame,
+}
 const function _trigger_usage(): ()
   const payload = Anchor_serialize_binary((nil :: never) :: Anchor)
   const restored = Anchor_deserialize_binary(payload)

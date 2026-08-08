@@ -7,10 +7,6 @@ const buffer_len = buffer.len
 const buffer_readu8 = buffer.readu8
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
-type Player = {
-  read id: number,
-  read name: string,
-}
 const function Player_serialize_binary(value: Player): Loom.Serialized
   const b = buffer_create(1 + 4 + #value.name)
   buffer_writeu8(b, 0, value.id)
@@ -36,5 +32,9 @@ const function Player_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   offset += name_length
   return { ok = true, value = { id = buffer_readu8(b, 0), name = name } }
 end
+type Player = {
+  read id: number,
+  read name: string,
+}
 const payload = Player_serialize_binary((nil :: never) :: Player)
 const restored = Player_deserialize_binary(payload)

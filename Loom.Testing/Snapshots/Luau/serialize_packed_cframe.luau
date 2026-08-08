@@ -7,9 +7,6 @@ const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
 const buffer_readf32 = buffer.readf32
 const buffer_readu32 = buffer.readu32
-type Waypoint = {
-  read frame: CFrame,
-}
 const function Waypoint_serialize_binary(value: Waypoint): Loom.Serialized
   const frame_value = value.frame
   local frame_sentinel = 0
@@ -59,6 +56,9 @@ const function Waypoint_deserialize_binary(serialized: Loom.Serialized): Loom.Re
   end
   return { ok = true, value = { frame = frame } }
 end
+type Waypoint = {
+  read frame: CFrame,
+}
 const function _trigger_usage(): ()
   const payload = Waypoint_serialize_binary((nil :: never) :: Waypoint)
   const restored = Waypoint_deserialize_binary(payload)

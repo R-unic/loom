@@ -9,10 +9,6 @@ const buffer_readu8 = buffer.readu8
 const buffer_readbits = buffer.readbits
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
-type Profile = {
-  read level: number,
-  read nickname: string?,
-}
 const function Profile_serialize_binary(value: Profile): Loom.Serialized
   local size = 2
   if value.nickname ~= nil then
@@ -53,10 +49,6 @@ const function Profile_deserialize_binary(serialized: Loom.Serialized): Loom.Res
   end
   return { ok = true, value = { level = buffer_readu8(b, 1), nickname = nickname } }
 end
-type Account = {
-  read profile: Profile,
-  read tag: string?,
-}
 const function Account_serialize_binary(value: Account): Loom.Serialized
   local size = 1
   size += 1
@@ -123,6 +115,14 @@ const function Account_deserialize_binary(serialized: Loom.Serialized): Loom.Res
   end
   return { ok = true, value = { profile = { level = buffer_readu8(b, 1), nickname = nickname }, tag = tag } }
 end
+type Profile = {
+  read level: number,
+  read nickname: string?,
+}
+type Account = {
+  read profile: Profile,
+  read tag: string?,
+}
 const function _trigger_usage(): ()
   const profile_payload = Profile_serialize_binary((nil :: never) :: Profile)
   const profile_restored = Profile_deserialize_binary(profile_payload)

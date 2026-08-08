@@ -1,10 +1,4 @@
 const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
-type Payload = {
-  read origin: Part,
-  read handler: (number) -> (),
-  read extra: unknown,
-  read target: Instance,
-}
 const function Payload_serialize_binary(value: Payload): Loom.Serialized
   const blobs = {}
   table.insert(blobs, value.origin)
@@ -50,6 +44,12 @@ const function Payload_deserialize_binary(serialized: Loom.Serialized): Loom.Res
   end
   return { ok = true, value = { origin = origin_blob, handler = handler_blob, extra = extra_blob, target = target_blob } }
 end
+type Payload = {
+  read origin: Part,
+  read handler: (number) -> (),
+  read extra: unknown,
+  read target: Instance,
+}
 const function _trigger_usage(): ()
   const payload = Payload_serialize_binary((nil :: never) :: Payload)
   const restored = Payload_deserialize_binary(payload)

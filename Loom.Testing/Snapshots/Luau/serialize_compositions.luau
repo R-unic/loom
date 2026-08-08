@@ -11,9 +11,6 @@ const buffer_readbits = buffer.readbits
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
 const buffer_readf32 = buffer.readf32
-type Leaf = {
-  read n: number,
-}
 const function Leaf_serialize_binary(value: Leaf): Loom.Serialized
   const b = buffer_create(1)
   buffer_writeu8(b, 0, value.n)
@@ -26,13 +23,6 @@ const function Leaf_deserialize_binary(serialized: Loom.Serialized): Loom.Result
   end
   return { ok = true, value = { n = buffer_readu8(b, 0) } }
 end
-type Compositions = {
-  read maybe_map: Record<string, number>?,
-  read map_list: { Record<string, Leaf> },
-  read sparse: Record<string, string?>,
-  read maybe_leaf: Leaf?,
-  read maybe_names: { string }?,
-}
 const function Compositions_serialize_binary(value: Compositions): Loom.Serialized
   local size = 1 + (if value.maybe_leaf ~= nil then 1 else 0)
   if value.maybe_map ~= nil then
@@ -269,6 +259,16 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
   end
   return { ok = true, value = { maybe_map = maybe_map, map_list = map_list, sparse = sparse, maybe_leaf = maybe_leaf, maybe_names = maybe_names } }
 end
+type Leaf = {
+  read n: number,
+}
+type Compositions = {
+  read maybe_map: Record<string, number>?,
+  read map_list: { Record<string, Leaf> },
+  read sparse: Record<string, string?>,
+  read maybe_leaf: Leaf?,
+  read maybe_names: { string }?,
+}
 const function _trigger_usage(): ()
   const leaf_payload = Leaf_serialize_binary((nil :: never) :: Leaf)
   const leaf_restored = Leaf_deserialize_binary(leaf_payload)

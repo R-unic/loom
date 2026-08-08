@@ -7,10 +7,6 @@ const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
 const buffer_readi16 = buffer.readi16
-type Roster = {
-  read names: { string },
-  read positions: { Vector3 },
-}
 const function Roster_serialize_binary(value: Roster): Loom.Serialized
   local size = 4 + #value.positions * 6
   size += 4
@@ -78,6 +74,10 @@ const function Roster_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { names = names, positions = positions } }
 end
+type Roster = {
+  read names: { string },
+  read positions: { Vector3 },
+}
 const function _trigger_usage(): ()
   const payload = Roster_serialize_binary((nil :: never) :: Roster)
   const restored = Roster_deserialize_binary(payload)

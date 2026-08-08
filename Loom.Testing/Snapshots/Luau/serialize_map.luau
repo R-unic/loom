@@ -6,10 +6,6 @@ const buffer_readu8 = buffer.readu8
 const buffer_writebits = buffer.writebits
 const buffer_copy = buffer.copy
 const buffer_readbits = buffer.readbits
-type Message = number
-type ShootGunPacket = {
-  read velocity: number,
-}
 const function ShootGunPacket_serialize_binary(value: ShootGunPacket): Loom.Serialized
   const b = buffer_create(1)
   buffer_writeu8(b, 0, value.velocity)
@@ -75,6 +71,10 @@ const function ShootGunPacket_apply_diff_binary(baseline: ShootGunPacket, diff: 
 end
 const ShootGunPacket_serializer: Loom.Serializer<ShootGunPacket> = { serialize = ShootGunPacket_serialize_binary, deserialize = ShootGunPacket_deserialize_binary, diff = ShootGunPacket_diff_binary, apply_diff = ShootGunPacket_apply_diff_binary }
 const MessageData_serializer_map = { [0] = ShootGunPacket_serializer }
+type Message = number
+type ShootGunPacket = {
+  read velocity: number,
+}
 type MessageData = { read [index<Message, "ShootGun">]: ShootGunPacket }
 const function create_message_serializer<K>(message: K & Message): Loom.Serializer<index<MessageData, K & Message>>
   return MessageData_serializer_map[message]

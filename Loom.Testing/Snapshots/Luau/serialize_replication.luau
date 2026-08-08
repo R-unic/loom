@@ -15,34 +15,6 @@ const buffer_readbits = buffer.readbits
 const buffer_readi16 = buffer.readi16
 const buffer_readf32 = buffer.readf32
 const buffer_readu8 = buffer.readu8
--- Server-to-client replication for one player, sent every tick.
-type Team = number
-type IEvent<Kind> = {
-  read kind: Kind & string,
-}
-type Damaged = IEvent<"Damaged"> & {
-  read amount: number,
-  read attacker: Player?,
-}
-type Respawned = IEvent<"Respawned"> & {
-  read at: Vector3,
-}
-type Loadout = {
-  read primary: number,
-  read secondary: number,
-}
-type PlayerSnapshot = {
-  read user_id: number,
-  read display_name: string,
-  read health: number,
-  read alive: boolean,
-  read team: Team,
-  read velocity: Vector3,
-  read aim: CFrame,
-  read loadout: Loadout,
-  read recent: { (Damaged | Respawned) },
-  read character: Model?,
-}
 const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Serialized
   const blobs = {}
   const team_value = value.team
@@ -296,6 +268,34 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
     character = character,
   } }
 end
+-- Server-to-client replication for one player, sent every tick.
+type Team = number
+type IEvent<Kind> = {
+  read kind: Kind & string,
+}
+type Damaged = IEvent<"Damaged"> & {
+  read amount: number,
+  read attacker: Player?,
+}
+type Respawned = IEvent<"Respawned"> & {
+  read at: Vector3,
+}
+type Loadout = {
+  read primary: number,
+  read secondary: number,
+}
+type PlayerSnapshot = {
+  read user_id: number,
+  read display_name: string,
+  read health: number,
+  read alive: boolean,
+  read team: Team,
+  read velocity: Vector3,
+  read aim: CFrame,
+  read loadout: Loadout,
+  read recent: { (Damaged | Respawned) },
+  read character: Model?,
+}
 const function _trigger_usage(): ()
   const payload = PlayerSnapshot_serialize_binary((nil :: never) :: PlayerSnapshot)
   const restored = PlayerSnapshot_deserialize_binary(payload)

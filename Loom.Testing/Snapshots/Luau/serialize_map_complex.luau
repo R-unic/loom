@@ -11,15 +11,6 @@ const buffer_readstring = buffer.readstring
 const buffer_readbits = buffer.readbits
 const buffer_readf32 = buffer.readf32
 const buffer_readu8 = buffer.readu8
-type Entry = {
-  read level: number,
-  read label: string,
-}
-type Registry = {
-  read flags: Record<string, boolean>,
-  read entries: Record<number, Entry>,
-  read lists: Record<string, { number }>,
-}
 const function Registry_serialize_binary(value: Registry): Loom.Serialized
   local size = 0
   size += 4
@@ -172,6 +163,15 @@ const function Registry_deserialize_binary(serialized: Loom.Serialized): Loom.Re
   end
   return { ok = true, value = { flags = flags, entries = entries, lists = lists } }
 end
+type Entry = {
+  read level: number,
+  read label: string,
+}
+type Registry = {
+  read flags: Record<string, boolean>,
+  read entries: Record<number, Entry>,
+  read lists: Record<string, { number }>,
+}
 const function _trigger_usage(): ()
   const payload = Registry_serialize_binary((nil :: never) :: Registry)
   const restored = Registry_deserialize_binary(payload)

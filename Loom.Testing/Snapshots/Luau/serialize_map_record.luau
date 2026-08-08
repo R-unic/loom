@@ -7,9 +7,6 @@ const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
 const buffer_readf32 = buffer.readf32
-type Scores = {
-  read entries: Record<string, number>,
-}
 const function Scores_serialize_binary(value: Scores): Loom.Serialized
   local size = 0
   size += 4
@@ -60,6 +57,9 @@ const function Scores_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { entries = entries } }
 end
+type Scores = {
+  read entries: Record<string, number>,
+}
 const function _trigger_usage(): ()
   const payload = Scores_serialize_binary((nil :: never) :: Scores)
   const restored = Scores_deserialize_binary(payload)

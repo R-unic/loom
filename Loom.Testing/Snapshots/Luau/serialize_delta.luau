@@ -16,28 +16,6 @@ const buffer_readstring = buffer.readstring
 const buffer_readu8 = buffer.readu8
 const buffer_readi16 = buffer.readi16
 const buffer_readf32 = buffer.readf32
--- Exercises every branch of the delta write/read: a leaf, a flattened struct, a packed sentinelled
--- datatype, an optional wrapping a union, an array of unions and a map whose values are structs.
-type Loadout = {
-  read primary: number,
-  read secondary: number,
-}
-type Hit = {
-  read kind: "Hit",
-  read amount: number,
-}
-type Miss = {
-  read kind: "Miss",
-}
-type PlayerState = {
-  read health: number,
-  read name: string,
-  read loadout: Loadout,
-  read position: Vector3,
-  read last_event: (Hit | Miss)?,
-  read recent: { (Hit | Miss) },
-  read scores: Record<string, Loadout>,
-}
 const function PlayerState_serialize_binary(value: PlayerState): Loom.Serialized
   const position_value = value.position
   local position_sentinel = 0
@@ -718,6 +696,28 @@ const function PlayerState_apply_diff_binary(baseline: PlayerState, diff: Loom.S
   end
   return { ok = false, error = { kind = "truncated" } }
 end
+-- Exercises every branch of the delta write/read: a leaf, a flattened struct, a packed sentinelled
+-- datatype, an optional wrapping a union, an array of unions and a map whose values are structs.
+type Loadout = {
+  read primary: number,
+  read secondary: number,
+}
+type Hit = {
+  read kind: "Hit",
+  read amount: number,
+}
+type Miss = {
+  read kind: "Miss",
+}
+type PlayerState = {
+  read health: number,
+  read name: string,
+  read loadout: Loadout,
+  read position: Vector3,
+  read last_event: (Hit | Miss)?,
+  read recent: { (Hit | Miss) },
+  read scores: Record<string, Loadout>,
+}
 const function _trigger_usage(): ()
   const diff = PlayerState_diff_binary((nil :: never) :: PlayerState, (nil :: never) :: PlayerState)
   const applied = PlayerState_apply_diff_binary((nil :: never) :: PlayerState, diff)

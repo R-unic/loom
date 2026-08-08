@@ -13,27 +13,6 @@ const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
 const buffer_readi16 = buffer.readi16
 const buffer_readf32 = buffer.readf32
-type IEvent<Kind> = {
-  read kind: Kind & string,
-}
-type Ping = IEvent<"Ping"> & {}
-type Chat = IEvent<"Chat"> & {
-  read message: string,
-  read volume: number,
-}
-type Inner = {
-  read flag: boolean,
-  read code: number,
-}
-type KitchenSink = {
-  read tag: "sink",
-  read inner: Inner,
-  read label: string?,
-  read points: { Vector3 },
-  read payload: Ping | Chat,
-  read owner: Part,
-  read frame: CFrame,
-}
 const function KitchenSink_serialize_binary(value: KitchenSink): Loom.Serialized
   const blobs = {}
   const payload_value = value.payload
@@ -189,6 +168,27 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
     frame = CFrame.new(read_6, read_7, read_8, read_9, read_10, read_11, read_12),
   } }
 end
+type IEvent<Kind> = {
+  read kind: Kind & string,
+}
+type Ping = IEvent<"Ping"> & {}
+type Chat = IEvent<"Chat"> & {
+  read message: string,
+  read volume: number,
+}
+type Inner = {
+  read flag: boolean,
+  read code: number,
+}
+type KitchenSink = {
+  read tag: "sink",
+  read inner: Inner,
+  read label: string?,
+  read points: { Vector3 },
+  read payload: Ping | Chat,
+  read owner: Part,
+  read frame: CFrame,
+}
 const function _trigger_usage(): ()
   const payload = KitchenSink_serialize_binary((nil :: never) :: KitchenSink)
   const restored = KitchenSink_deserialize_binary(payload)

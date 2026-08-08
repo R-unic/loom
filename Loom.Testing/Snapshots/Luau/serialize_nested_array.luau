@@ -5,9 +5,6 @@ const buffer_writestring = buffer.writestring
 const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
-type Grid = {
-  read rows: { { string } },
-}
 const function Grid_serialize_binary(value: Grid): Loom.Serialized
   local size = 0
   size += 4
@@ -63,6 +60,9 @@ const function Grid_deserialize_binary(serialized: Loom.Serialized): Loom.Result
   end
   return { ok = true, value = { rows = rows } }
 end
+type Grid = {
+  read rows: { { string } },
+}
 const function _trigger_usage(): ()
   const payload = Grid_serialize_binary((nil :: never) :: Grid)
   const restored = Grid_deserialize_binary(payload)

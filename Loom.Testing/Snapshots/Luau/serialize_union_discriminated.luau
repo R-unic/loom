@@ -5,17 +5,6 @@ const buffer_writeu8 = buffer.writeu8
 const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
 const buffer_readu8 = buffer.readu8
-type IAction<Kind> = {
-  read kind: Kind & string,
-}
-type LogOutAction = IAction<"LogOut"> & {}
-type ClickAction = IAction<"Click"> & {
-  read x: number,
-}
-type Envelope = {
-  read action: LogOutAction | ClickAction,
-  read color: "red" | "green" | "blue",
-}
 const function Envelope_serialize_binary(value: Envelope): Loom.Serialized
   const action_value = value.action
   local action_tag = 0
@@ -76,6 +65,17 @@ const function Envelope_deserialize_binary(serialized: Loom.Serialized): Loom.Re
   end
   return { ok = true, value = { action = action, color = color } }
 end
+type IAction<Kind> = {
+  read kind: Kind & string,
+}
+type LogOutAction = IAction<"LogOut"> & {}
+type ClickAction = IAction<"Click"> & {
+  read x: number,
+}
+type Envelope = {
+  read action: LogOutAction | ClickAction,
+  read color: "red" | "green" | "blue",
+}
 const function _trigger_usage(): ()
   const payload = Envelope_serialize_binary((nil :: never) :: Envelope)
   const restored = Envelope_deserialize_binary(payload)

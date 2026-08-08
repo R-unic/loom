@@ -7,17 +7,6 @@ const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readbits = buffer.readbits
 const buffer_readstring = buffer.readstring
-type IShape<Kind> = {
-  read kind: Kind & string,
-}
-type Dot = IShape<"Dot"> & {}
-type Line = IShape<"Line"> & {
-  read label: string,
-}
-type Canvas = {
-  read masks: { { boolean } },
-  read shapes: { (Dot | Line) },
-}
 const function Canvas_serialize_binary(value: Canvas): Loom.Serialized
   local size = 0
   size += 4
@@ -121,6 +110,17 @@ const function Canvas_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { masks = masks, shapes = shapes } }
 end
+type IShape<Kind> = {
+  read kind: Kind & string,
+}
+type Dot = IShape<"Dot"> & {}
+type Line = IShape<"Line"> & {
+  read label: string,
+}
+type Canvas = {
+  read masks: { { boolean } },
+  read shapes: { (Dot | Line) },
+}
 const function _trigger_usage(): ()
   const payload = Canvas_serialize_binary((nil :: never) :: Canvas)
   const restored = Canvas_deserialize_binary(payload)

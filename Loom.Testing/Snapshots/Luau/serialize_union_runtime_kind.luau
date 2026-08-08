@@ -9,9 +9,6 @@ const buffer_readbits = buffer.readbits
 const buffer_readf32 = buffer.readf32
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
-type Cell = {
-  read content: number | string,
-}
 const function Cell_serialize_binary(value: Cell): Loom.Serialized
   const content_value = value.content
   local content_tag = 0
@@ -70,6 +67,9 @@ const function Cell_deserialize_binary(serialized: Loom.Serialized): Loom.Result
   end
   return { ok = true, value = { content = content } }
 end
+type Cell = {
+  read content: number | string,
+}
 const function _trigger_usage(): ()
   const payload = Cell_serialize_binary((nil :: never) :: Cell)
   const restored = Cell_deserialize_binary(payload)

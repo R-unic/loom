@@ -5,9 +5,6 @@ const buffer_writeu8 = buffer.writeu8
 const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readu8 = buffer.readu8
-type Scores = {
-  read values: { number },
-}
 const function Scores_serialize_binary(value: Scores): Loom.Serialized
   const b = buffer_create(4 + #value.values)
   buffer_writeu32(b, 0, #value.values)
@@ -37,6 +34,9 @@ const function Scores_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { values = values } }
 end
+type Scores = {
+  read values: { number },
+}
 const function _trigger_usage(): ()
   const payload = Scores_serialize_binary((nil :: never) :: Scores)
   const restored = Scores_deserialize_binary(payload)

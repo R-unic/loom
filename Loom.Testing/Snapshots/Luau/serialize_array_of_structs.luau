@@ -5,9 +5,6 @@ const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_writeu8 = buffer.writeu8
 const buffer_readu8 = buffer.readu8
-type Bag = {
-  read owners: { Part },
-}
 const function Bag_serialize_binary(value: Bag): Loom.Serialized
   const blobs = {}
   const b = buffer_create(4)
@@ -43,9 +40,6 @@ const function Bag_deserialize_binary(serialized: Loom.Serialized): Loom.Result<
   end
   return { ok = true, value = { owners = owners } }
 end
-type Leaf = {
-  read v: number,
-}
 const function Leaf_serialize_binary(value: Leaf): Loom.Serialized
   const b = buffer_create(1)
   buffer_writeu8(b, 0, value.v)
@@ -58,9 +52,6 @@ const function Leaf_deserialize_binary(serialized: Loom.Serialized): Loom.Result
   end
   return { ok = true, value = { v = buffer_readu8(b, 0) } }
 end
-type Branch = {
-  read leaves: { Leaf },
-}
 const function Branch_serialize_binary(value: Branch): Loom.Serialized
   const b = buffer_create(4 + #value.leaves)
   buffer_writeu32(b, 0, #value.leaves)
@@ -90,6 +81,15 @@ const function Branch_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { leaves = leaves } }
 end
+type Bag = {
+  read owners: { Part },
+}
+type Leaf = {
+  read v: number,
+}
+type Branch = {
+  read leaves: { Leaf },
+}
 const function _trigger_usage(): ()
   const bag_payload = Bag_serialize_binary((nil :: never) :: Bag)
   const bag_restored = Bag_deserialize_binary(bag_payload)

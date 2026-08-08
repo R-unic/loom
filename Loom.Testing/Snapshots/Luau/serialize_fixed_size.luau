@@ -5,10 +5,6 @@ const buffer_writei16 = buffer.writei16
 const buffer_len = buffer.len
 const buffer_readu8 = buffer.readu8
 const buffer_readi16 = buffer.readi16
-type MyData = {
-  read id: number,
-  read position: Vector3,
-}
 const function MyData_serialize_binary(value: MyData): Loom.Serialized
   const b = buffer_create(7)
   buffer_writeu8(b, 0, value.id)
@@ -25,6 +21,10 @@ const function MyData_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { id = buffer_readu8(b, 0), position = Vector3.new(buffer_readi16(b, 1), buffer_readi16(b, 3), buffer_readi16(b, 5)) } }
 end
+type MyData = {
+  read id: number,
+  read position: Vector3,
+}
 const function _trigger_usage(): ()
   const payload = MyData_serialize_binary((nil :: never) :: MyData)
   const restored = MyData_deserialize_binary(payload)

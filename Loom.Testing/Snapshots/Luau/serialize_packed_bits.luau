@@ -3,12 +3,6 @@ const buffer_create = buffer.create
 const buffer_writebits = buffer.writebits
 const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
-type Flags = {
-  read kind: "spawn",
-  read alive: boolean,
-  read ready: boolean,
-  read health: number,
-}
 const function Flags_serialize_binary(value: Flags): Loom.Serialized
   const b = buffer_create(2)
   buffer_writebits(b, 0, 1, if value.alive then 1 else 0)
@@ -23,6 +17,12 @@ const function Flags_deserialize_binary(serialized: Loom.Serialized): Loom.Resul
   end
   return { ok = true, value = { kind = "spawn", alive = buffer_readbits(b, 0, 1) == 1, ready = buffer_readbits(b, 1, 1) == 1, health = buffer_readbits(b, 2, 7) } }
 end
+type Flags = {
+  read kind: "spawn",
+  read alive: boolean,
+  read ready: boolean,
+  read health: number,
+}
 const function _trigger_usage(): ()
   const payload = Flags_serialize_binary((nil :: never) :: Flags)
   const restored = Flags_deserialize_binary(payload)

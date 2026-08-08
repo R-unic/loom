@@ -7,10 +7,6 @@ const buffer_len = buffer.len
 const buffer_readu8 = buffer.readu8
 const buffer_readbits = buffer.readbits
 const buffer_readi16 = buffer.readi16
-type Entity = {
-  read id: number,
-  read position: Vector3,
-}
 const function Entity_serialize_binary(value: Entity): Loom.Serialized
   const position_value = value.position
   local position_sentinel = 0
@@ -73,6 +69,10 @@ const function Entity_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   return { ok = true, value = { id = buffer_readu8(b, 1), position = position } }
 end
+type Entity = {
+  read id: number,
+  read position: Vector3,
+}
 const function _trigger_usage(): ()
   const payload = Entity_serialize_binary((nil :: never) :: Entity)
   const restored = Entity_deserialize_binary(payload)
