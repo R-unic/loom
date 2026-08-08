@@ -402,6 +402,42 @@ public class TypesTest
         Assert.Equal(expected, keyUnion);
     }
 
+    /// <remarks>
+    ///     Every level here reaches the same pair of nested types twice, once down each branch, and the
+    ///     first branch is finished and off the visiting set by the time the second arrives - so the cycle
+    ///     guard never fires and a walk that re-checks the pair costs 2^depth. 30 levels is around a
+    ///     billion checks unmemoized and 30 memoized, which is the difference between a compile that
+    ///     finishes and one that does not (#178).
+    /// </remarks>
+    [Fact(Timeout = 30_000)]
+    public void ObjectType_Assignability_RepeatedNestedPair_IsCheckedOnce()
+    {
+        var source = NestedObject(30, withExtraProperty: true);
+        var target = NestedObject(30, withExtraProperty: false);
+
+        Assert.True(source.IsAssignableTo(target));
+    }
+
+    /// <summary>
+    ///     A <paramref name="depth" />-deep chain of objects, each holding two properties of the level
+    ///     below. <paramref name="withExtraProperty" /> widens every level so the two chains are never
+    ///     equal - equality bails on the property count, leaving assignability to do the walking.
+    /// </summary>
+    private static ObjectType NestedObject(int depth, bool withExtraProperty)
+    {
+        var type = new ObjectType(null, [new ObjectProperty(false, "leaf", Number)]);
+        for (var level = 0; level < depth; level++)
+        {
+            List<ObjectProperty> properties = [new(false, "left", type), new(false, "right", type)];
+            if (withExtraProperty)
+                properties.Add(new ObjectProperty(false, "extra", Number));
+
+            type = new ObjectType(null, properties);
+        }
+
+        return type;
+    }
+
     [Fact]
     public void InterfaceType_Assignability_Self()
     {

@@ -7216,6 +7216,33 @@ public class TypeCheckerTest
         );
     }
 
+    /// <remarks>
+    ///     The mismatch has to be reported rather than searched for indefinitely. Both sides here reach the
+    ///     Roblox intrinsics, whose interfaces are wide and mutually referential, and the handler's 'Player'
+    ///     is a different instance from the one the event declares - so the check cannot short-circuit on
+    ///     reference identity and walks the graph structurally instead. See #178.
+    /// </remarks>
+    [Fact(Timeout = 30_000)]
+    public void ThrowsFor_EventConnect_HandlerMismatchesIntrinsicEvent_WithoutExhaustiveSearch()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            let replicated = get_service::<ReplicatedStorage>();
+            let remote = replicated.find_first_child::<RemoteEvent>("re")!;
+            remote.on_server_event += fn(player: Player, unknown_data: unknown): void { };
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            """
+            Type 'fn(Player, unknown): void' is not assignable to type 'fn(Player, unknown[]): void'.
+                Type 'unknown' is not assignable to type 'unknown[]'.
+            """
+        );
+    }
+
     [Fact]
     public void Checks_Parameter_MissingTypeAndDefault_FallsBackToUnknown_WithoutThrowing()
     {
