@@ -95,6 +95,59 @@ public class DocumentStoreTest
     }
 
     [Fact]
+    public async Task Change_ConcurrentlyWithStateReads_KeepsEveryEditAndNeverFaults()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
+        Directory.CreateDirectory(Path.Combine(directory, "src"));
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            var path = Path.Combine(directory, "src", "main.loom");
+            File.WriteAllText(path, "let x = 1;");
+
+            var store = new DocumentStore();
+            var uri = DocumentUri.FromFileSystemPath(path);
+            store.Open(uri, "let x = 1;");
+
+            var names = Enumerable.Range(0, 24).Select(index => $"a{index}").ToArray();
+            var readerFaults = 0;
+            using var editsDone = new CancellationTokenSource();
+            var reader = Task.Run(() =>
+                {
+                    while (!editsDone.IsCancellationRequested)
+                        try
+                        {
+                            if (store.TryGetState(uri, out var state))
+                                _ = state.File.SemanticModel.Declarations.Count;
+                        }
+                        catch (Exception)
+                        {
+                            Interlocked.Increment(ref readerFaults);
+                        }
+                },
+                TestContext.Current.CancellationToken
+            );
+
+            Parallel.ForEach(
+                names,
+                name => store.Change(uri, [new TextDocumentContentChangeEvent { Range = new LspRange(new Position(0, 0), new Position(0, 0)), Text = $"let {name} = 1;\n" }])
+            );
+
+            await editsDone.CancelAsync();
+            await reader;
+
+            Assert.Equal(0, readerFaults);
+            Assert.True(store.TryGetState(uri, out var finalState));
+            foreach (var name in names)
+                Assert.Contains($"let {name} = 1;", finalState.File.SourceFile.SourceText);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public void Change_AfterParseFailure_RecoversOnceContentIsFixedOrDocumentIsReopened()
     {
         var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
