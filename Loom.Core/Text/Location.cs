@@ -11,6 +11,14 @@ public struct Location(SourceFile file, int position) : IEquatable<Location>
     public int Character => _character ??= File.GetCharacterFromPosition(Position);
     public int Line => _line ??= File.GetLineFromPosition(Position);
 
+    /// <summary>
+    ///     <see cref="Character" /> as a reader's editor counts it. Characters stay 0-based inside the
+    ///     compiler because that is what the LSP wants, but lines are 1-based, so anything a user reads has
+    ///     to convert - a header pairing a 1-based line with a 0-based column points one character short of
+    ///     what the underline marks.
+    /// </summary>
+    public int Column => Character + 1;
+
     private int? _character;
     private int? _line;
 
@@ -20,5 +28,5 @@ public struct Location(SourceFile file, int position) : IEquatable<Location>
     public bool Equals(Location other) => File.Equals(other.File) && Position == other.Position;
     public override bool Equals(object? obj) => obj is Location other && Equals(other);
     public override int GetHashCode() => HashCode.Combine(File, Position);
-    public override string ToString() => $"{File.Name}:{Line}:{Character}";
+    public override string ToString() => $"{File.Name}:{Line}:{Column}";
 }

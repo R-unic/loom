@@ -60,6 +60,19 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
     ///     referencing node without holding on to the node instances themselves.
     /// </summary>
     internal HashSet<NodeId> NonIntrinsicReferenceNodes { get; } = [];
+
+    /// <summary>
+    ///     Node IDs of names the resolver could not bind, recorded once it has reported them. Every stage
+    ///     after the resolver looks these up and finds no symbol; without this they cannot tell a name the
+    ///     user misspelled - already reported, in the words the user can act on - from a symbol that went
+    ///     missing between stages, which is a compiler bug and worth reporting.
+    /// </summary>
+    private HashSet<NodeId> UnresolvedNames { get; } = [];
+
+    internal void MarkUnresolved(Node node) => UnresolvedNames.Add(node.Id);
+
+    /// <summary>Whether the resolver already reported this name as one it could not bind.</summary>
+    public bool IsUnresolved(Node node) => UnresolvedNames.Contains(node.Id);
     internal TypeSolver TypeSolver { get; } = new(new DiagnosticBag(options: Diagnostics.Options));
     private SymbolLookup DeclarationsByName => field ??= Declarations.Values.SelectMany(s => s).GroupBy(s => s.Name).ToDictionary(g => g.Key, g => g.ToList());
 

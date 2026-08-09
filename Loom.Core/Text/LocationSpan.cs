@@ -34,5 +34,12 @@ public readonly struct LocationSpan
 
     public override bool Equals(object? obj) => obj is LocationSpan other && Equals(other);
     public override int GetHashCode() => HashCode.Combine(File, Start, End, Length);
-    public override string ToString() => $"{File.Name} @ {Start.Line}:{Start.Character} - {End.Line}:{End.Character}";
+    /// <remarks>
+    ///     Both ends are 1-based and inclusive, so the range covers exactly the characters the underline
+    ///     marks. <see cref="End" /> is exclusive, which makes its 0-based <see cref="Location.Character" />
+    ///     the 1-based column of the last character in the span - no conversion of its own. An empty span
+    ///     has no last character and reports its start on both ends.
+    /// </remarks>
+    public override string ToString() =>
+        $"{File.Name} @ {Start.Line}:{Start.Column} - {End.Line}:{(Length == 0 ? End.Column : End.Character)}";
 }

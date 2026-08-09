@@ -43,7 +43,9 @@ public sealed partial class LuauGenerator
         var symbol = _semanticModel.GetSymbol(typeName);
         if (symbol == null)
         {
-            _diagnostics.Error(typeName, InternalCodes.CannotFindSymbol, $"Cannot find symbol for type '{typeName}'");
+            if (!_semanticModel.IsUnresolved(typeName))
+                _diagnostics.Error(typeName, InternalCodes.CannotFindSymbol, $"Cannot find symbol for type '{typeName}'");
+
             return UnknownType;
         }
 

@@ -83,6 +83,27 @@ internal static class Utility
     public static DiagnosticBag GetTypeCheckerDiagnostics(string source, ProjectType projectType = ProjectType.Game) =>
         TypeCheck(source, projectType).Diagnostics;
 
+    /// <summary>
+    ///     Everything the stages after the parser report for <paramref name="source" />, merged into one bag
+    ///     the way a build shows them. A name every stage looks up is only reported once from any single
+    ///     stage's bag, so proving it is not reported twice takes all of them together.
+    /// </summary>
+    public static DiagnosticBag GetAnalysisDiagnostics(string source, ProjectType projectType = ProjectType.Game)
+    {
+        var (analyzerResult, semanticModel, flowAnalyzer) = FlowAnalyze(source, projectType: projectType);
+        var typeCheckerDiagnostics = new TypeChecker(semanticModel, flowAnalyzer).Check().Diagnostics;
+        var generatorDiagnostics = new LuauGenerator(semanticModel).Generate().Diagnostics;
+
+        return DiagnosticBag.Concat([semanticModel.Diagnostics, analyzerResult.Diagnostics, typeCheckerDiagnostics, generatorDiagnostics]);
+    }
+
+    /// <summary>Asserts that exactly one diagnostic in <paramref name="diagnostics" /> mentions <paramref name="name" />.</summary>
+    public static void AssertReportedOnce(DiagnosticBag diagnostics, string name)
+    {
+        var mentioning = diagnostics.Set.Where(diagnostic => diagnostic.Message.Contains($"'{name}'")).ToList();
+        Assert.Single(mentioning);
+    }
+
     public static Token IdentifierToken(string name, LocationSpan? span = null) => Token(SyntaxKind.Identifier, name, span);
     private static Token Token(SyntaxKind kind, string text, LocationSpan? span = null) => new(kind, span ?? Span, text);
 

@@ -226,7 +226,11 @@ public sealed partial class TypeChecker
             return BindType(identifier, declaredType);
         }
 
-        _diagnostics.Error(identifier, InternalCodes.CannotFindSymbol, $"Cannot find symbol for declaration of variable '{identifier.Name.Text}'.");
+        // a name the resolver already reported as unbound has no symbol by definition - its error is the one
+        // the user acts on, and repeating it here phrased as a failed symbol lookup only reads like a compiler bug
+        if (!_semanticModel.IsUnresolved(identifier))
+            _diagnostics.Error(identifier, InternalCodes.CannotFindSymbol, $"Cannot find symbol for declaration of variable '{identifier.Name.Text}'.");
+
         return BindType(identifier, Types.PrimitiveType.Never);
     }
 

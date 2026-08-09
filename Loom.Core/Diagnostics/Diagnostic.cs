@@ -18,7 +18,9 @@ public sealed record Diagnostic(LocationSpan Span, DiagnosticSeverity Severity, 
     private int EndLine => Span.End.Line;
     private int StartCharacter => Span.Start.Character;
     private int EndCharacter => Span.End.Character;
-    private int LineDigits => EndLine.ToString().Length;
+    // the trailing context line is one past the span, so the gutter has to be wide enough for it or the
+    // frame steps a character to the right on the line where the digit count rolls over
+    private int LineDigits => Math.Min(EndLine + 1, SourceLines.Length).ToString().Length;
     private string[] SourceLines => field ??= Span.File.SourceText.Replace(Environment.NewLine, "\n").Split('\n');
     private string GutterIndent => new(' ', LineDigits);
     private string Gutter => $"{Colors.Dim}{GutterIndent} │{Colors.Reset}";
@@ -121,7 +123,7 @@ public sealed record Diagnostic(LocationSpan Span, DiagnosticSeverity Severity, 
         if (Hint != null)
             lines.Add(Gutter);
 
-        lines.Add($"{Gutter} {Colors.Dim}{SourceLines[EndLine]}{Colors.Reset}");
+        lines.Add($"{Colors.Dim}{(EndLine + 1).ToString().PadLeft(LineDigits)} │ {SourceLines[EndLine]}{Colors.Reset}");
     }
 
     private string BuildUnderline(int line, string source, string firstLinePad)
