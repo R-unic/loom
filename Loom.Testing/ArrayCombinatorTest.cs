@@ -14,21 +14,25 @@ public class ArrayCombinatorTest
     [InlineData("let a = [1, 2, 3]; let b = a.aggregate(0, fn(sum, n) -> sum + n);")]
     [InlineData("let a = [\"a\", \"b\"]; let b = a.aggregate(\"\", fn(text, n) -> text + n);")]
     [InlineData("fn triple(n: number): number -> n * 3; let a = [1, 2, 3]; let b = a.select(triple);")]
+    [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n) -> $\"{n}\");")]
     public void TypesTheLambdaParametersFromTheReceiver(string source) => Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
 
     [Theory]
     [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n) -> n * 2);", "number[]")]
     [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n, i) -> n * i);", "number[]")]
-    [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n): string -> `{n}`);", "string[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n): string -> $\"{n}\");", "string[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n) -> $\"{n}\");", "string[]")]
     [InlineData("let a = [1, 2, 3]; let b = a.where(fn(n) -> n > 1);", "number[]")]
     [InlineData("let a = [\"a\"]; let b = a.aggregate(\"\", fn(text, n) -> text + n);", "string")]
     [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n) -> n * 2).where(fn(n) -> n > 2);", "number[]")]
-    [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n): string -> `{n}`).where(fn(s) -> s != \"\");", "string[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n): string -> $\"{n}\").where(fn(s) -> s != \"\");", "string[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n) -> $\"{n}\").where(fn(s) -> s != \"\");", "string[]")]
     [InlineData("let a = [1, 2, 3]; let b = a.any(fn(n) -> n > 1);", "bool")]
     [InlineData("let a = [1, 2, 3]; let b = a.all(fn(n) -> n > 1);", "bool")]
     [InlineData("let a = [1, 2, 3]; let b = a.count(fn(n) -> n > 1);", "number")]
     [InlineData("let a = [1, 2, 3]; let b = a.select_many(fn(n) -> [n, n * 2]);", "number[]")]
-    [InlineData("let a = [1, 2, 3]; let b = a.select_many(fn(n): string[] -> [`{n}`]);", "string[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.select_many(fn(n): string[] -> [$\"{n}\"]);", "string[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.select_many(fn(n) -> [$\"{n}\"]);", "string[]")]
     [InlineData("let a = [[1, 2], [3]]; let b = a.flatten();", "number[]")]
     [InlineData("let a = [[[1]]]; let b = a.flatten().flatten();", "number[]")]
     [InlineData("let a = [[1, 2], [3]]; let b = a.flatten().where(fn(n) -> n > 1);", "number[]")]
@@ -242,6 +246,48 @@ public class ArrayCombinatorTest
         Assert.Contains("for _, _segment in a do", rendered);
         Assert.Contains("table.move(_segment, 1, _length, _count + 1, _result)", rendered);
         Assert.DoesNotContain("table.insert", rendered);
+    }
+
+    [Fact]
+    public void AQuantifierOnTheRightOfAndRunsOnlyWhenTheLeftAllowedIt()
+    {
+        var rendered = Utility.GetLuauAST(
+                "let a = [1, 2, 3]; let b = a.any(fn(n) -> n > 1) && a.all(fn(n) -> n > 0);",
+                typeCheck: true
+            )
+            .Render();
+
+        Assert.Contains("local _and = _found", rendered);
+        Assert.Contains("if _and then", rendered);
+        Assert.DoesNotContain("_found and _satisfied", rendered);
+    }
+
+    [Fact]
+    public void APredicateOnTheRightOfAndIsNotRunWhenTheLeftDecided()
+    {
+        var luau = Compile(
+            "let mut runs = 0; let a = [1, 2, 3]; let out = a.any(fn(n) -> n > 99) && a.all(fn(n) { runs += 1; return n > 0; });"
+        );
+
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        var returned = state.DoString(luau + "\nreturn tostring(out) .. \" \" .. tostring(runs)")[0];
+
+        Assert.Equal("false 0", returned.ToString());
+    }
+
+    [Fact]
+    public void AQuantifierOnTheRightOfAndRunsOnlyWhenTheLeftAllowedIt()
+    {
+        var rendered = Utility.GetLuauAST(
+                "let a = [1, 2, 3]; let b = a.any(fn(n) -> n > 1) && a.all(fn(n) -> n > 0);",
+                typeCheck: true
+            )
+            .Render();
+
+        Assert.Contains("local _and = _found", rendered);
+        Assert.Contains("if _and then", rendered);
+        Assert.DoesNotContain("_found and _satisfied", rendered);
     }
 
     [Theory]
