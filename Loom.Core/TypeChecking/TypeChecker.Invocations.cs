@@ -155,10 +155,19 @@ public sealed partial class TypeChecker
         Type? expectedReturnType)
     {
         var argumentList = invocation.Arguments.ArgumentList;
-        var argumentTypes = argumentList.ConvertAll(Visit);
+        var deferred = argumentList.ConvertAll(IsContextSensitive);
+        var argumentTypes = argumentList.Select((argument, i) => deferred[i] ? (Type)Types.PrimitiveType.Unknown : Visit(argument)).ToList();
         var substitution = ResolveTypeArguments(invocation, functionType, argumentTypes, expectedReturnType);
         if (substitution == null)
             return BindType(invocation, Types.PrimitiveType.Never);
+
+        if (deferred.Contains(true))
+        {
+            TypeDeferredArguments(invocation, functionType, substitution, argumentList, argumentTypes, deferred);
+            substitution = ResolveTypeArguments(invocation, functionType, argumentTypes, expectedReturnType);
+            if (substitution == null)
+                return BindType(invocation, Types.PrimitiveType.Never);
+        }
 
         var substitutedParameterTypes = SubstituteTypeParameters(invocation.Arguments, functionType.ParameterTypes, substitution);
         var substitutedReturnType = SubstituteTypeParameters(invocation, functionType.ReturnType, substitution);
@@ -172,6 +181,36 @@ public sealed partial class TypeChecker
         );
 
         return BindType(invocation, substitutedReturnType);
+    }
+
+    private static bool IsContextSensitive(Expression argument) =>
+        argument switch
+        {
+            Parenthesized parenthesized => IsContextSensitive(parenthesized.Expression),
+            FunctionExpression { Parameters: { } parameters } => parameters.ParameterList.Exists(
+                parameter => parameter.ColonTypeClause == null && parameter.EqualsValueClause == null
+            ),
+
+            _ => false
+        };
+
+    private void TypeDeferredArguments(
+        Invocation invocation,
+        Types.FunctionType functionType,
+        TypeParameterSubstitution substitution,
+        List<Expression> argumentList,
+        List<Type> argumentTypes,
+        List<bool> deferred)
+    {
+        var parameterTypes = SubstituteTypeParameters(invocation.Arguments, functionType.ParameterTypes, substitution);
+        var fixedCount = functionType.HasRestParameter ? parameterTypes.Count - 1 : parameterTypes.Count;
+        for (var i = 0; i < argumentList.Count; i++)
+        {
+            if (!deferred[i]) continue;
+
+            var expected = GetArgumentExpectedType(parameterTypes, functionType.HasRestParameter, i, fixedCount);
+            argumentTypes[i] = expected != null ? Check(argumentList[i], expected) : Visit(argumentList[i]);
+        }
     }
 
     private Types.PrimitiveType CheckEventInvocation(Invocation invocation, InstantiatedType eventType)

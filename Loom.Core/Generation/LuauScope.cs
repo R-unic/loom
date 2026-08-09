@@ -24,5 +24,7 @@ internal sealed class LuauScope(LuauScope? parent = null, bool isolated = false)
         return name;
     }
 
+    public void Reserve(string name) => _nameCounts.TryAdd(name, 0);
+
     private bool TryGetId(string name, out int temporaryId) => _nameCounts.TryGetValue(name, out temporaryId);
 }

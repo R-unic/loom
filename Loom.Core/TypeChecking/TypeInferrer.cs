@@ -277,11 +277,13 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         TypeParameterSubstitution inferredTypes,
         HashSet<(Type, Type)> visitedPairs)
     {
-        if (parameterFunction.ParameterTypes.Count != argumentFunction.ParameterTypes.Count)
+        if (argumentFunction.ParameterTypes.Count > parameterFunction.ParameterTypes.Count)
             return false;
 
+        var shared = argumentFunction.ParameterTypes.Count;
         if (argumentFunction.TypeParameters.Count <= 0 || argumentFunction.TypeParameters.Count == parameterFunction.TypeParameters.Count)
             return !parameterFunction.ParameterTypes
+                    .Take(shared)
                     .Where((t, index) => !TryInferTypes(t, argumentFunction.ParameterTypes[index], inferredTypes, visitedPairs))
                     .Any()
                 && TryInferTypes(parameterFunction.ReturnType, argumentFunction.ReturnType, inferredTypes, visitedPairs);
@@ -295,7 +297,10 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
             argumentFunction.HasRestParameter
         );
 
-        return !parameterFunction.ParameterTypes.Where((t, index) => !TryInferTypes(t, substitutedFunction.ParameterTypes[index], inferredTypes, visitedPairs)).Any()
+        return !parameterFunction.ParameterTypes
+                .Take(shared)
+                .Where((t, index) => !TryInferTypes(t, substitutedFunction.ParameterTypes[index], inferredTypes, visitedPairs))
+                .Any()
             && TryInferTypes(parameterFunction.ReturnType, substitutedFunction.ReturnType, inferredTypes, visitedPairs);
     }
 

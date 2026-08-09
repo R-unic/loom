@@ -3744,13 +3744,14 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(diagnostics);
     }
 
+    /// <remarks>
+    ///     '+' is not one of Loom's unary operators (only '-', '~' and '!' are), so it never reaches the
+    ///     type checker. This asserted a literal '5' instead until the helper stopped answering for source
+    ///     that does not parse - the parser recovered to the operand alone, which types as that literal.
+    /// </remarks>
     [Fact]
-    public void Checks_UnaryPlusOperator()
-    {
-        var type = Utility.GetLastStatementType("+5");
-        var literal = Assert.IsType<LiteralType>(type);
-        Assert.Equal(5L, literal.Value);
-    }
+    public void ThrowsFor_UnaryPlusOperator() =>
+        Utility.AssertDiagnostic(Utility.GetParserDiagnostics("+5"), InternalCodes.UnexpectedToken, "Expected expression, got '+'.");
 
     [Fact]
     public void Checks_KeyOf_OnObjectType_WithProperties()
@@ -6587,6 +6588,31 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("""$"{1 + "a"}" """);
         Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidBinaryOp, "No binary operation for 'number' + 'string'.");
+    }
+
+    [Theory]
+    [InlineData("""fn g(n: number) -> $"{n}"; let last = g;""")]
+    [InlineData("""let f = fn(n: number) -> $"{n}"; let last = f;""")]
+    [InlineData("""fn h(n: number): string { return "x"; } fn g(n: number) -> h(n); let last = g;""")]
+    [InlineData("""fn h(n: number): string { return "x"; } let f = fn(n: number) -> h(n); let last = f;""")]
+    public void Infers_ExpressionBodyReturn_FromInterpolatedStringOrInvocation(string source)
+    {
+        var functionType = Assert.IsType<FunctionType>(Utility.GetLastStatementType(source));
+        var returnType = Assert.IsType<PrimitiveType>(functionType.ReturnType);
+        Assert.Equal(PrimitiveTypeKind.String, returnType.Kind);
+    }
+
+    /// <remarks>
+    ///     A backtick is Luau's interpolation syntax, not Loom's - it lexes to an unexpected-character
+    ///     error and the parser recovers with a node the type checker types as 'never'. The helper folds
+    ///     the earlier stages' diagnostics in so a source like this can never look clean to an assertion
+    ///     that only reads the type checker's own bag.
+    /// </remarks>
+    [Fact]
+    public void Reports_LexerDiagnostics_FromTheTypeCheckerResult()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("fn g(n: number) -> `{n}`; let last = g;");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.UnexpectedCharacter, "Unexpected character '`'.");
     }
 
     [Fact]

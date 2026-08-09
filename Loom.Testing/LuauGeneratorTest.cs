@@ -5664,4 +5664,58 @@ public class LuauGeneratorTest
 
         Assert.DoesNotContain(luauTree.Statements, s => s is ConstVariable { Name: "FooInfo" });
     }
+
+    /// <remarks>
+    ///     Luau's `and`/`or` short-circuit the expression, but not the statements a macro hoists to build one
+    ///     of its operands - the instance filter macro lowers to a whole loop. Left ahead of the operator
+    ///     those statements run whether or not the left side already decided the result, so the operator
+    ///     promotes itself to a statement form and keeps them under the guard.
+    /// </remarks>
+    [Theory]
+    [InlineData("&&", "if _and then")]
+    [InlineData("||", "if not _or then")]
+    public void Generates_ShortCircuit_GuardsTheRightOperandsHoistedStatements(string @operator, string guard)
+    {
+        var rendered = Utility.GenerateAgainstWorkspace($"let ok = true {@operator} world.get_children::<BasePart>().length > 0;");
+
+        Assert.Contains(guard, rendered);
+        Assert.Contains("  for _, child in _source do", rendered);
+        Assert.DoesNotContain($" {(@operator == "&&" ? "and" : "or")} ", rendered);
+    }
+
+    [Fact]
+    public void Generates_ShortCircuit_GuardsThemBehindANilCheckForNullCoalesce()
+    {
+        var rendered = Utility.GenerateAgainstWorkspace("let a: number? = 1; let b = a ?? world.get_children::<BasePart>().length;");
+
+        Assert.Contains("local _coalesce = a", rendered);
+        Assert.Contains("if _coalesce == nil then", rendered);
+        Assert.Contains("  for _, child in _source do", rendered);
+    }
+
+    /// <remarks>
+    ///     `&amp;&amp;=`/`||=`/`??=` desugar to `left = left &lt;op&gt; right`, so they inherit the same gap.
+    /// </remarks>
+    [Fact]
+    public void Generates_ShortCircuit_GuardsThemForACompoundLogicalAssignment()
+    {
+        var rendered = Utility.GenerateAgainstWorkspace("mut ok = true; ok &&= world.get_children::<BasePart>().length > 0;");
+
+        Assert.Contains("local _and = ok", rendered);
+        Assert.Contains("if _and then", rendered);
+        Assert.Contains("ok = _and", rendered);
+    }
+
+    /// <remarks>A right operand that hoists nothing has nothing to guard, so it keeps the plain operator.</remarks>
+    [Theory]
+    [InlineData("&&", " and ")]
+    [InlineData("||", " or ")]
+    public void Generates_ShortCircuit_PureRightOperandKeepsThePlainOperator(string @operator, string expected)
+    {
+        var rendered = Utility.GenerateAgainstWorkspace($"let ok = world.get_children::<BasePart>().length > 0 {@operator} true;");
+
+        Assert.Contains(expected, rendered);
+        Assert.DoesNotContain("local _and", rendered);
+        Assert.DoesNotContain("local _or", rendered);
+    }
 }

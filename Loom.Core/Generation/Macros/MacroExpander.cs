@@ -59,14 +59,17 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         var parameters = functionType.ParameterTypes.Select((_, index) => new Parameter($"argument{index}")).ToList();
         var arguments = parameters.ConvertAll(LuauExpression (parameter) => new Luau.AST.Identifier(parameter.Name));
         var call = new Call(callee, arguments);
-        if (!provider.TryInvocation(_context, memberName.Trim(), null, call, out var body))
+
+        LuauExpression? body = null;
+        var (matched, scope) = state.CaptureIsolatedScope(() => provider.TryInvocation(_context, memberName.Trim(), null, call, out body));
+        if (!matched || body == null)
             return false;
 
         referenceExpression = new AnonymousFunction(
             null,
             parameters,
             null,
-            new Chunk([new Return(body)])
+            new Chunk([..scope.PrereqStatements, new Return(body), ..scope.PostreqStatements])
         );
 
         return true;

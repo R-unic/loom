@@ -178,11 +178,24 @@ public sealed partial class Resolver
         if (parameter.EqualsValueClause != null
             || parameter.ColonTypeClause != null
             || parameter.Parent?.Parent?.Parent is ImplementBody
-            || IsEventConnectionHandler(parameter))
+            || IsEventConnectionHandler(parameter)
+            || IsContextuallyTypedArgument(parameter))
             return base.VisitParameter(parameter);
 
         _diagnostics.Error(parameter, InternalCodes.MustHaveDefaultOrType, "Parameter must have a declared type or default value to infer from.");
         return false;
+    }
+
+    private static bool IsContextuallyTypedArgument(Parameter parameter)
+    {
+        if (parameter.Parent?.Parent is not FunctionExpression functionExpression)
+            return false;
+
+        Node? node = functionExpression;
+        while (node?.Parent is Parenthesized)
+            node = node.Parent;
+
+        return node?.Parent is Arguments arguments && arguments.Parent is Invocation;
     }
 
     private static bool IsEventConnectionHandler(Parameter parameter) =>
