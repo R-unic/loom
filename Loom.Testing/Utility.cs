@@ -21,7 +21,19 @@ internal static class Utility
 
     public static IReadOnlyList<Token> GetTokens(string source, bool withTrivia = false) => withTrivia ? Tokenize(source).TokensWithTrivia : Tokenize(source).Tokens;
     public static Tree GetAST(string source) => Parse(source).Tree;
-    public static Type GetLastStatementType(string source) => TypeCheck(source).ReturnType;
+
+    /// <summary>
+    ///     The type of <paramref name="source" />'s last statement. Source that does not lex and parse
+    ///     cleanly fails here rather than answering: the parser's recovery node types as 'never', which a
+    ///     test asserting only the type would otherwise read as a real inference result.
+    /// </summary>
+    public static Type GetLastStatementType(string source)
+    {
+        var result = TypeCheck(source, out var upstream);
+        AssertNoErrors(upstream);
+
+        return result.ReturnType;
+    }
 
     public static LuauTree GetLuauAST(string source, bool typeCheck = false, bool disableRuntimeLib = true) =>
         Generate(source, typeCheck, disableRuntimeLib).LuauTree;
@@ -104,9 +116,11 @@ internal static class Utility
         return (result, semanticModel, flowAnalyzer);
     }
 
-    public static TypeCheckerResult TypeCheck(string source, ProjectType projectType = ProjectType.Game)
+    public static TypeCheckerResult TypeCheck(string source, ProjectType projectType = ProjectType.Game) => TypeCheck(source, out _, projectType);
+
+    private static TypeCheckerResult TypeCheck(string source, out DiagnosticBag upstream, ProjectType projectType = ProjectType.Game)
     {
-        var (_, semanticModel, flowAnalyzer) = FlowAnalyze(source, out var upstream, projectType: projectType);
+        var (_, semanticModel, flowAnalyzer) = FlowAnalyze(source, out upstream, projectType: projectType);
         var result = new TypeChecker(semanticModel, flowAnalyzer).Check();
 
         return result with { Diagnostics = DiagnosticBag.Concat([upstream, result.Diagnostics]) };

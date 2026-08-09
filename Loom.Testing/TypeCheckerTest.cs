@@ -3737,13 +3737,14 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(diagnostics);
     }
 
+    /// <remarks>
+    ///     '+' is not one of Loom's unary operators (only '-', '~' and '!' are), so it never reaches the
+    ///     type checker. This asserted a literal '5' instead until the helper stopped answering for source
+    ///     that does not parse - the parser recovered to the operand alone, which types as that literal.
+    /// </remarks>
     [Fact]
-    public void Checks_UnaryPlusOperator()
-    {
-        var type = Utility.GetLastStatementType("+5");
-        var literal = Assert.IsType<LiteralType>(type);
-        Assert.Equal(5L, literal.Value);
-    }
+    public void ThrowsFor_UnaryPlusOperator() =>
+        Utility.AssertDiagnostic(Utility.GetParserDiagnostics("+5"), InternalCodes.UnexpectedToken, "Expected expression, got '+'.");
 
     [Fact]
     public void Checks_KeyOf_OnObjectType_WithProperties()
