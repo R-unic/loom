@@ -2,10 +2,11 @@ using Loom.LanguageServer;
 using Microsoft.Extensions.DependencyInjection;
 using OmniSharp.Extensions.LanguageServer.Server;
 
+var streams = ProtocolStreams.ClaimStandardStreams();
 var server = await LanguageServer.From(options =>
     options
-        .WithInput(Console.OpenStandardInput())
-        .WithOutput(Console.OpenStandardOutput())
+        .WithInput(streams.Input)
+        .WithOutput(streams.Output)
         .WithServices(services => services.AddSingleton<DocumentStore>())
         .WithHandler<TextDocumentSyncHandler>()
         .WithHandler<HoverHandler>()

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Loom.Config;
 using Loom.Core.Pipeline;
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -5,34 +6,44 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Loom.LanguageServer;
 
-public sealed record DocumentState(CompiledFile File, CompilationUnit Unit);
+public sealed record DocumentState(CompiledFile File, CompletionSnapshot Completions);
 
 public sealed class DocumentStore
 {
-    private readonly Dictionary<DocumentUri, string> _documents = [];
-    private readonly Dictionary<string, CompilationUnit> _unitsByProjectRoot = [];
-    private readonly Dictionary<DocumentUri, DocumentState> _state = [];
+    private readonly ConcurrentDictionary<DocumentUri, string> _documents = [];
+    private readonly ConcurrentDictionary<string, CompilationUnit> _unitsByProjectRoot = [];
+    private readonly ConcurrentDictionary<DocumentUri, DocumentState> _state = [];
+    private readonly Lock _compilationLock = new();
 
     public CompilationResult? Open(DocumentUri uri, string text)
     {
-        _documents[uri] = text;
-        return Recompile(uri, text);
+        lock (_compilationLock)
+        {
+            _documents[uri] = text;
+            return Recompile(uri, text);
+        }
     }
 
     public CompilationResult? Change(DocumentUri uri, IEnumerable<TextDocumentContentChangeEvent> changes)
     {
-        if (!_documents.TryGetValue(uri, out var text))
-            return null;
+        lock (_compilationLock)
+        {
+            if (!_documents.TryGetValue(uri, out var text))
+                return null;
 
-        text = IncrementalText.ApplyChanges(text, changes);
-        _documents[uri] = text;
-        return Recompile(uri, text);
+            text = IncrementalText.ApplyChanges(text, changes);
+            _documents[uri] = text;
+            return Recompile(uri, text);
+        }
     }
 
     public void Close(DocumentUri uri)
     {
-        _documents.Remove(uri);
-        _state.Remove(uri);
+        lock (_compilationLock)
+        {
+            _documents.TryRemove(uri, out _);
+            _state.TryRemove(uri, out _);
+        }
     }
 
     public bool TryGetState(DocumentUri uri, out DocumentState state) => _state.TryGetValue(uri, out state!);
@@ -52,13 +63,25 @@ public sealed class DocumentStore
             var result = unit.Recompile(new Dictionary<string, string> { [path] = text });
             var file = result.Files.Find(f => f.SourceFile.AbsolutePath == path);
             if (file != null)
-                _state[uri] = new DocumentState(file, unit);
+                _state[uri] = new DocumentState(file, BuildCompletions(file, unit));
 
             return result;
         }
         catch (Exception)
         {
             return null;
+        }
+    }
+
+    private static CompletionSnapshot BuildCompletions(CompiledFile file, CompilationUnit unit)
+    {
+        try
+        {
+            return CompletionSnapshotBuilder.Build(file, unit);
+        }
+        catch (Exception)
+        {
+            return CompletionSnapshot.Empty;
         }
     }
 

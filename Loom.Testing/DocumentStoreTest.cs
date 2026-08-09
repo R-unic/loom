@@ -95,6 +95,93 @@ public class DocumentStoreTest
     }
 
     [Fact]
+    public void TryGetState_ReturnsASymbolSnapshotThatALaterRecompileDoesNotChange()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
+        Directory.CreateDirectory(Path.Combine(directory, "src"));
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            var path = Path.Combine(directory, "src", "main.loom");
+            File.WriteAllText(path, "let x = 1;");
+
+            var store = new DocumentStore();
+            var uri = DocumentUri.FromFileSystemPath(path);
+            store.Open(uri, "let x = 1;");
+
+            Assert.True(store.TryGetState(uri, out var opened));
+            var snapshot = opened.Completions;
+            Assert.Contains(snapshot.Identifiers, symbol => symbol.Name == "x" && symbol.TypeDescription == "1");
+            Assert.DoesNotContain(snapshot.Identifiers, symbol => symbol.Name == "y");
+
+            store.Change(uri, [new TextDocumentContentChangeEvent { Text = "let x = 1;\nlet y = \"two\";" }]);
+
+            Assert.Same(snapshot, opened.Completions);
+            Assert.DoesNotContain(snapshot.Identifiers, symbol => symbol.Name == "y");
+
+            Assert.True(store.TryGetState(uri, out var changed));
+            Assert.Contains(changed.Completions.Identifiers, symbol => symbol.Name == "y" && symbol.TypeDescription == "\"two\"");
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task Change_ConcurrentlyWithStateReads_KeepsEveryEditAndNeverFaults()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
+        Directory.CreateDirectory(Path.Combine(directory, "src"));
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            var path = Path.Combine(directory, "src", "main.loom");
+            File.WriteAllText(path, "let x = 1;");
+
+            var store = new DocumentStore();
+            var uri = DocumentUri.FromFileSystemPath(path);
+            store.Open(uri, "let x = 1;");
+
+            var names = Enumerable.Range(0, 24).Select(index => $"a{index}").ToArray();
+            var readerFaults = 0;
+            using var editsDone = new CancellationTokenSource();
+            var reader = Task.Run(() =>
+                {
+                    while (!editsDone.IsCancellationRequested)
+                        try
+                        {
+                            if (store.TryGetState(uri, out var state))
+                                _ = state.Completions.Identifiers.Count(symbol => symbol.Name.Length > 0);
+                        }
+                        catch (Exception)
+                        {
+                            Interlocked.Increment(ref readerFaults);
+                        }
+                },
+                TestContext.Current.CancellationToken
+            );
+
+            Parallel.ForEach(
+                names,
+                name => store.Change(uri, [new TextDocumentContentChangeEvent { Range = new LspRange(new Position(0, 0), new Position(0, 0)), Text = $"let {name} = 1;\n" }])
+            );
+
+            await editsDone.CancelAsync();
+            await reader;
+
+            Assert.Equal(0, readerFaults);
+            Assert.True(store.TryGetState(uri, out var finalState));
+            foreach (var name in names)
+                Assert.Contains($"let {name} = 1;", finalState.File.SourceFile.SourceText);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public void Change_AfterParseFailure_RecoversOnceContentIsFixedOrDocumentIsReopened()
     {
         var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
