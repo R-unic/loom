@@ -311,6 +311,9 @@ public sealed partial class LuauGenerator
         if (binaryOperator.Operator.Kind == SyntaxKind.AmpersandAmpersand)
             return GenerateLogicalAnd(binaryOperator);
 
+        if (binaryOperator.Operator.Kind == SyntaxKind.PipePipe)
+            return GenerateLogicalOr(binaryOperator);
+
         var op = binaryOperator.Operator.Text;
         var leftType = _semanticModel.GetType(binaryOperator.Left);
         var rightType = _semanticModel.GetType(binaryOperator.Right);
@@ -337,17 +340,40 @@ public sealed partial class LuauGenerator
     // hoisted to a local since it's referenced in both the nil check and the result.
     private LuauNode GenerateNullCoalesce(BinaryOperator binaryOperator)
     {
-        var leftValue = _state.PushToVariable("_coalesce", Visit(binaryOperator.Left));
+        var left = Visit(binaryOperator.Left);
+        var (right, rightScope) = _state.Capture(() => Visit(binaryOperator.Right));
+        if (HasHoistedStatements(rightScope))
+            return GuardRightOperand("_coalesce", left, right, rightScope, result => new Luau.AST.BinaryOperator(result, "==", new NilLiteral()));
+
+        var leftValue = _state.PushToVariable("_coalesce", left);
         var condition = new Luau.AST.BinaryOperator(leftValue, "~=", new NilLiteral());
-        return new IfExpression(condition, leftValue, [], Visit(binaryOperator.Right));
+        return new IfExpression(condition, leftValue, [], right);
     }
 
     private LuauNode GenerateLogicalAnd(BinaryOperator binaryOperator)
     {
         var left = Visit(binaryOperator.Left);
-        var substitutions = CollectIsSubstitutions(binaryOperator.Left);
+        var (right, rightScope) = _state.Capture(() => VisitGuardedBy(CollectIsSubstitutions(binaryOperator.Left), binaryOperator.Right));
+        return HasHoistedStatements(rightScope)
+            ? GuardRightOperand("_and", left, right, rightScope, result => result)
+            : new Luau.AST.BinaryOperator(left, "and", right);
+    }
+
+    private LuauNode GenerateLogicalOr(BinaryOperator binaryOperator)
+    {
+        var left = Visit(binaryOperator.Left);
+        var (right, rightScope) = _state.Capture(() => Visit(binaryOperator.Right));
+        return HasHoistedStatements(rightScope)
+            ? GuardRightOperand("_or", left, right, rightScope, NegateCondition)
+            : new Luau.AST.BinaryOperator(left, "or", right);
+    }
+
+    // Generates the right operand with the bindings an `is` pattern on the left of `&&` introduced in
+    // scope, so `x is Some(n) && n > 0` sees `n`.
+    private LuauExpression VisitGuardedBy(Dictionary<string, LuauExpression> substitutions, Expression right)
+    {
         if (substitutions.Count == 0)
-            return new Luau.AST.BinaryOperator(left, "and", Visit(binaryOperator.Right));
+            return Visit(right);
 
         var previous = _guardSubstitutions;
         var merged = previous == null ? substitutions : new Dictionary<string, LuauExpression>(previous);
@@ -355,18 +381,46 @@ public sealed partial class LuauGenerator
             merged[name] = value;
 
         _guardSubstitutions = merged;
-        LuauExpression right;
         try
         {
-            right = Visit(binaryOperator.Right);
+            return Visit(right);
         }
         finally
         {
             _guardSubstitutions = previous;
         }
-
-        return new Luau.AST.BinaryOperator(left, "and", right);
     }
+
+    // Luau's `and`/`or` short-circuit the expression, but not statements generating one of its operands.
+    // A right operand that hoists statements (a macro lowering to a loop, an optional chain, a match)
+    // would have them land ahead of the operator and run unconditionally - wasted work when the operand
+    // is pure, and the wrong behaviour when it isn't. So the operator promotes itself to a statement
+    // form, the same way VisitTernaryOperator does, with the hoisted statements moved under the guard:
+    //
+    //     local _and = <left>
+    //     if _and then
+    //         <right's hoisted statements>
+    //         _and = <right>
+    //     end
+    private Luau.AST.Identifier GuardRightOperand(
+        string name,
+        LuauExpression left,
+        LuauExpression right,
+        LuauScope rightScope,
+        Func<LuauExpression, LuauExpression> guard)
+    {
+        var resultName = _state.Scope.AddIdentifier(name);
+        var resultIdentifier = new Luau.AST.Identifier(resultName);
+        _state.Prereq(new LocalVariable(resultName, null, left));
+
+        var statements = new List<LuauStatement>();
+        ApplyPrereqAndPostreq(statements, rightScope, new ExpressionStatement(new Luau.AST.BinaryOperator(resultIdentifier, "=", right)));
+        _state.Prereq(new IfStatement(guard(resultIdentifier), new Chunk(statements), [], null));
+
+        return resultIdentifier;
+    }
+
+    private static bool HasHoistedStatements(LuauScope scope) => scope.PrereqStatements.Count > 0 || scope.PostreqStatements.Count > 0;
 
     private Dictionary<string, LuauExpression> CollectIsSubstitutions(Expression expression) =>
         expression switch
@@ -387,17 +441,26 @@ public sealed partial class LuauGenerator
         return left;
     }
 
-    // Luau has no &&=/||=/??= (unlike +=/-=/etc.), so desugar to a plain `left = left <op> right`.
+    // Luau has no &&=/||=/??= (unlike +=/-=/etc.), so desugar to a plain `left = left <op> right`. A right
+    // operand that hoists statements has to short-circuit the same way the plain operators do, so the
+    // desugared value comes from GuardRightOperand's local instead of from an inline `and`/`or`.
     private LuauNode GenerateCompoundLogicalAssignment(BinaryOperator binaryOperator)
     {
         var leftValue = Visit(binaryOperator.Left);
-        var rightValue = Visit(binaryOperator.Right);
-        LuauExpression desugaredValue = binaryOperator.Operator.Kind switch
-        {
-            SyntaxKind.AmpersandAmpersandEquals => new Luau.AST.BinaryOperator(leftValue, "and", rightValue),
-            SyntaxKind.PipePipeEquals => new Luau.AST.BinaryOperator(leftValue, "or", rightValue),
-            _ => new IfExpression(new Luau.AST.BinaryOperator(leftValue, "~=", new NilLiteral()), leftValue, [], rightValue)
-        };
+        var (rightValue, rightScope) = _state.Capture(() => Visit(binaryOperator.Right));
+        LuauExpression desugaredValue = HasHoistedStatements(rightScope)
+            ? binaryOperator.Operator.Kind switch
+            {
+                SyntaxKind.AmpersandAmpersandEquals => GuardRightOperand("_and", leftValue, rightValue, rightScope, result => result),
+                SyntaxKind.PipePipeEquals => GuardRightOperand("_or", leftValue, rightValue, rightScope, NegateCondition),
+                _ => GuardRightOperand("_coalesce", leftValue, rightValue, rightScope, result => new Luau.AST.BinaryOperator(result, "==", new NilLiteral()))
+            }
+            : binaryOperator.Operator.Kind switch
+            {
+                SyntaxKind.AmpersandAmpersandEquals => new Luau.AST.BinaryOperator(leftValue, "and", rightValue),
+                SyntaxKind.PipePipeEquals => new Luau.AST.BinaryOperator(leftValue, "or", rightValue),
+                _ => new IfExpression(new Luau.AST.BinaryOperator(leftValue, "~=", new NilLiteral()), leftValue, [], rightValue)
+            };
 
         return new Luau.AST.BinaryOperator(leftValue, "=", desugaredValue);
     }
@@ -423,10 +486,7 @@ public sealed partial class LuauGenerator
         var (thenValue, thenScope) = _state.Capture(() => Visit(ternaryOperator.ThenBranch));
         var (elseValue, elseScope) = _state.Capture(() => Visit(ternaryOperator.ElseBranch));
 
-        if (thenScope.PrereqStatements.Count == 0
-            && thenScope.PostreqStatements.Count == 0
-            && elseScope.PrereqStatements.Count == 0
-            && elseScope.PostreqStatements.Count == 0)
+        if (!HasHoistedStatements(thenScope) && !HasHoistedStatements(elseScope))
             return new IfExpression(condition, thenValue, [], elseValue);
 
         var resultName = _state.Scope.AddIdentifier("_ternary");
