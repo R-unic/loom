@@ -13,6 +13,7 @@ internal sealed class ClassGenerator(
     : BaseGenerator(filePath, metadata)
 {
     private readonly Dictionary<string, Class> _classRefs = [];
+    private readonly FallibilityClassifier _fallibility = new();
     private readonly Dictionary<string, HashSet<string>> _definedMemberNames = [];
     private string[] _instanceNameCandidates = [];
 
@@ -157,6 +158,12 @@ internal sealed class ClassGenerator(
         attributeList.Add("luau_method");
         if (ClassUtility.HasTag(function, "Deprecated"))
             attributeList.Add("deprecated");
+
+        if (_fallibility.IsFallible(rbxClass, function))
+        {
+            attributeList.Add("wraps_errors");
+            returnType = $"Result<{returnType}, RobloxError>";
+        }
 
         var (snakeName, attributes) = GetMemberAttributes(name, attributeList);
 
