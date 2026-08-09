@@ -65,6 +65,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Ternary Operator](#ternary-operator)
   - [keyof](#keyof)
   - [Result Pattern](#result-pattern)
+  - [Fallible Roblox API calls](#fallible-roblox-api-calls)
   - [Panics and `[fallible]`](#panics-and-fallible)
   - [Deprecation](#deprecation)
   - [Error Propagation](#error-propagation)
@@ -108,7 +109,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - **Null-forgiving expression** – `!` strips optionality from a type as a compile-time-only assertion, no runtime check. See [example](#null-forgiving-expression).
 - **Default parameter values** – Omit trailing arguments at the call site and fall back to a default. See [example](#functions).
 - **Generic functions and types** – Full support for type parameters including constraints and defaults
-- **Result pattern for errors** – Error handling uses the result pattern from Rust, no more `pcall`s. See [example](#result-pattern).
+- **Result pattern for errors** – Error handling uses the result pattern from Rust, no more `pcall`s. Roblox API methods that can fail return
+  `Result<T, RobloxError>`, so the failure is in the signature rather than waiting to kill the thread. See [example](#result-pattern).
 - **Error propagation** – The postfix `?` operator unwraps a `Result<T, E>`, returning early on failure - same idea as Rust's `?`. See
   [example](#error-propagation).
 - **Events** – Built-in user events with shorthand syntax. See [example](#events).
@@ -1014,6 +1016,38 @@ const _result_1 = unsafe_function(true)
 const _result_2 = if _result_1.ok then { ok = true, value = double(_result_1.value) } else _result_1
 const b = if _result_2.ok then _result_2.value else 0
 ```
+---
+### Fallible Roblox API calls
+
+A Roblox API method that can raise returns `Result<T, RobloxError>` instead. The call is lowered to an `xpcall`
+with a shared handler, so nothing is allocated per call site beyond the `Result`, and `?` propagates it like any
+other.
+
+```rs
+fn load(key: string): Result<unknown, RobloxError> {
+    let store = data_store_service.get_data_store("players")?;
+    let value = store.get_async(key)?;
+    return Result.ok(value);
+}
+```
+
+```luau
+const function load(key: string): Loom.Result<unknown, Loom.RobloxError>
+  const _ok, _value = xpcall(data_store_service.GetDataStore, Loom.roblox_error, data_store_service, "players")
+  const _result = if _ok then { ok = true, value = _value } else { ok = false, error = _value }
+  if not _result.ok then
+    return _result
+  end
+  const store = _result.value
+  ...
+end
+```
+
+Which methods are fallible is decided during type generation: the API dump's `Yields`/`CanYield` tags seed the
+set, corrected by a reviewed override list. Roblox publishes nothing that says "throws", so a method nobody has
+classified is treated as fallible - a wrong "fallible" costs a frame, a wrong "infallible" costs a crash.
+
+`RobloxError` carries a `message` and an optional `traceback`.
 ---
 ## Panics and `[fallible]`
 

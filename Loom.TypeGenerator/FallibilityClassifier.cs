@@ -68,9 +68,17 @@ internal sealed partial class FallibilityClassifier
         if (arrayStart < 0 || arrayEnd < 0)
             return [];
 
+        // Comment lines are dropped first: the reasons recorded alongside each entry quote the docs,
+        // and a quoted sentence would otherwise be read as a member name.
+        var body = string.Join(
+            '\n',
+            text[arrayStart..arrayEnd].Split('\n').Where(line => !line.TrimStart().StartsWith('#'))
+        );
+
         return QuotedEntry()
-            .Matches(text[arrayStart..arrayEnd])
+            .Matches(body)
             .Select(match => match.Groups[1].Value)
+            .Where(entry => entry.Contains(':', StringComparison.Ordinal) && !entry.Contains(' ', StringComparison.Ordinal))
             .ToHashSet(StringComparer.Ordinal);
     }
 

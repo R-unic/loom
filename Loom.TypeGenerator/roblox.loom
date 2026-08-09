@@ -108,9 +108,15 @@ declare interface Instance: Object {
 	[luau_name("ResetPropertyToDefault"), luau_method]
 	reset_property_to_default: fn(property: string): void;
 	[luau_name("SetAttribute"), luau_method]
-	set_attribute: fn(attribute: string, value: unknown): void;
+	set_attribute: fn(attribute: string, value: unknown): Result<void, RobloxError>;
+	## Overloaded on the timeout, which the API dump cannot express: it records no default for
+	## timeOut and no second shape, so a single signature both forces the argument and promises a
+	## non-nil T. The docs are explicit that supplying a timeout makes the result nil-able - "this
+	## method will time out after the specified number of seconds and return nil".
 	[luau_name("WaitForChild"), luau_method]
-	wait_for_child: fn<T: Instance>(childName: string, timeOut: number): T;
+	wait_for_child: fn<T: Instance>(childName: string): T;
+	[luau_name("WaitForChild"), luau_method]
+	wait_for_child: fn<T: Instance>(childName: string, timeOut: number): T?;
 }
 
 declare sealed interface buffer;

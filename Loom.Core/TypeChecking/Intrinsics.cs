@@ -17,6 +17,7 @@ public static class Intrinsics
     public static readonly TupleMarkerType TupleMarker = new();
     
     private const string CoreFileName = "loom.loom";
+    private const string RuntimeFileName = "runtime.loom";
     private const string PluginSecurityFileName = "PluginSecurity.loom";
     private const string NonPluginRuntimeFileName = "None.loom";
     private const string IntrinsicResourcePrefix = "Intrinsic/";
@@ -91,13 +92,23 @@ public static class Intrinsics
             foreach (var file in files)
                 file.IsIntrinsic = true;
 
-            var coreFile = files.Find(file => file.Name == CoreFileName);
+            // loom.loom first, then runtime.loom: both publish into Globals, which is the only
+            // channel intrinsic files have for reaching each other while ambient injection is off.
+            // The generated Roblox definitions name Result and RobloxError - every fallible API
+            // method returns one - and those live in runtime.loom, so it has to be globalised
+            // before the generated files compile, or their return types resolve to 'never'.
+            var coreFiles = new[] { CoreFileName, RuntimeFileName }
+                .Select(name => files.Find(file => file.Name == name))
+                .OfType<SourceFile>()
+                .ToList();
+
             var compiledFiles = new List<CompiledFile>();
-            if (coreFile != null && CompileCoreFile(compilationUnit, coreFile) is { } compiledCoreFile)
-                compiledFiles.Add(compiledCoreFile);
+            foreach (var coreFile in coreFiles)
+                if (CompileCoreFile(compilationUnit, coreFile) is { } compiledCoreFile)
+                    compiledFiles.Add(compiledCoreFile);
 
             foreach (var file in files)
-                if (file != coreFile && compilationUnit.Compile(file) is { } compiledFile)
+                if (!coreFiles.Contains(file) && compilationUnit.Compile(file) is { } compiledFile)
                     compiledFiles.Add(compiledFile);
 
             return CollectDeclaredSymbols(compiledFiles);

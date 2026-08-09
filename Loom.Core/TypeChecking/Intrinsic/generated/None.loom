@@ -109,7 +109,11 @@ declare interface Instance: Object {
 	[luau_name("ResetPropertyToDefault"), luau_method]
 	reset_property_to_default: fn(property: string): void;
 	[luau_name("SetAttribute"), luau_method]
-	set_attribute: fn(attribute: string, value: unknown): void;
+	set_attribute: fn(attribute: string, value: unknown): Result<void, RobloxError>;
+	## Overloaded on the timeout, which the API dump cannot express: it records no default for
+	## timeOut and no second shape, so a single signature both forces the argument and promises a
+	## non-nil T. The docs are explicit that supplying a timeout makes the result nil-able - "this
+	## method will time out after the specified number of seconds and return nil".
 	[luau_name("WaitForChild"), luau_method]
 	wait_for_child: fn<T: Instance>(childName: string): T;
 	[luau_name("WaitForChild"), luau_method]
@@ -7529,8 +7533,8 @@ declare interface EditableMesh: Object {
 	get_adjacent_faces: fn(faceId: number): unknown[];
 	[luau_name("GetAdjacentVertices"), luau_method]
 	get_adjacent_vertices: fn(vertexId: number): unknown[];
-	[luau_name("GetBoneByName"), luau_method]
-	get_bone_by_name: fn(boneName: string): number;
+	[luau_name("GetBoneByName"), luau_method, wraps_errors]
+	get_bone_by_name: fn(boneName: string): Result<number, RobloxError>;
 	[luau_name("GetBoneCFrame"), luau_method]
 	get_bone_c_frame: fn(boneId: number): CFrame;
 	[luau_name("GetBoneIsVirtual"), luau_method]
@@ -7559,7 +7563,7 @@ declare interface EditableMesh: Object {
 	get_face_vertices: fn(faceId: number): unknown[];
 	[luau_name("GetFaces"), luau_method]
 	get_faces: fn: unknown[];
-	[luau_name("GetFacesWithAttribute"), luau_method]
+	[luau_name("GetFacesWithAttribute"), luau_method, deprecated]
 	get_faces_with_attribute: fn(id: number): unknown[];
 	[luau_name("GetFacesWithColor"), luau_method]
 	get_faces_with_color: fn(colorId: number): unknown[];
@@ -7607,7 +7611,7 @@ declare interface EditableMesh: Object {
 	get_vertex_u_vs: fn(vertexId: number): unknown[];
 	[luau_name("GetVertices"), luau_method]
 	get_vertices: fn: unknown[];
-	[luau_name("GetVerticesWithAttribute"), luau_method]
+	[luau_name("GetVerticesWithAttribute"), luau_method, deprecated]
 	get_vertices_with_attribute: fn(id: number): unknown[];
 	[luau_name("GetVerticesWithColor"), luau_method]
 	get_vertices_with_color: fn(colorId: number): unknown[];
@@ -7700,14 +7704,14 @@ declare interface AccessoryDescription: Instance {
 	mut order: number;
 	[luau_name("Position")]
 	mut position: Vector3;
-	[luau_name("Puffiness")]
+	[luau_name("Puffiness"), deprecated]
 	mut puffiness: number;
 	[luau_name("Rotation")]
 	mut rotation: Vector3;
 	[luau_name("Scale")]
 	mut scale: Vector3;
-	[luau_name("GetAppliedInstance"), luau_method]
-	get_applied_instance: fn: Instance;
+	[luau_name("GetAppliedInstance"), luau_method, wraps_errors]
+	get_applied_instance: fn: Result<Instance, RobloxError>;
 }
 
 declare interface AccountService: Instance {
@@ -7742,15 +7746,15 @@ declare interface AdPortal: Instance {
 
 declare interface AnalyticsService: Instance {
 	_is_service: true;
-	[luau_name("FireCustomEvent"), luau_method]
+	[luau_name("FireCustomEvent"), luau_method, deprecated]
 	fire_custom_event: fn(player: Player, eventCategory: string, customData: unknown): void;
-	[luau_name("FireEvent"), luau_method]
+	[luau_name("FireEvent"), luau_method, deprecated]
 	fire_event: fn(category: string, value: unknown): void;
-	[luau_name("FireInGameEconomyEvent"), luau_method]
+	[luau_name("FireInGameEconomyEvent"), luau_method, deprecated]
 	fire_in_game_economy_event: fn(player: Player, itemName: string, economyAction: Enum["AnalyticsEconomyAction"], itemCategory: string, amount: number, currency: string, location: unknown, customData: unknown): void;
-	[luau_name("FireLogEvent"), luau_method]
+	[luau_name("FireLogEvent"), luau_method, deprecated]
 	fire_log_event: fn(player: Player, logLevel: Enum["AnalyticsLogLevel"], message: string, debugInfo: unknown, customData: unknown): void;
-	[luau_name("FirePlayerProgressionEvent"), luau_method]
+	[luau_name("FirePlayerProgressionEvent"), luau_method, deprecated]
 	fire_player_progression_event: fn(player: Player, category: string, progressionStatus: Enum["AnalyticsProgressionStatus"], location: unknown, statistics: unknown, customData: unknown): void;
 	[luau_name("GetDurationLoggerTimestamp"), luau_method]
 	get_duration_logger_timestamp: fn: number;
@@ -7772,8 +7776,8 @@ declare interface AnalyticsService: Instance {
 	log_progression_fail_event: fn(player: Player, progressionPathName: string, level: number, levelName: string, customFields: UnknownRecord?): void;
 	[luau_name("LogProgressionStartEvent"), luau_method]
 	log_progression_start_event: fn(player: Player, progressionPathName: string, level: number, levelName: string, customFields: UnknownRecord?): void;
-	[luau_name("GetPlayerSegmentsAsync"), luau_method]
-	get_player_segments_async: fn(player: Player): UnknownRecord;
+	[luau_name("GetPlayerSegmentsAsync"), luau_method, wraps_errors]
+	get_player_segments_async: fn(player: Player): Result<UnknownRecord, RobloxError>;
 }
 
 declare interface Animation: Instance {
@@ -7817,23 +7821,23 @@ declare interface AnimationClipProvider: Instance {
 	register_active_animation_clip: fn(animationClip: AnimationClip): string;
 	[luau_name("RegisterAnimationClip"), luau_method]
 	register_animation_clip: fn(animationClip: AnimationClip): string;
-	[luau_name("GetAnimationClipAsync"), luau_method]
-	get_animation_clip_async: fn(assetId: string): AnimationClip;
-	[luau_name("GetAnimations"), luau_method]
-	get_animations: fn(userId: User): Instance;
-	[luau_name("GetAnimationsAsync"), luau_method]
-	get_animations_async: fn(userId: User): Instance;
-	[luau_name("GetClipEvaluatorAsync"), luau_method]
-	get_clip_evaluator_async: fn(assetId: string): ClipEvaluator;
+	[luau_name("GetAnimationClipAsync"), luau_method, wraps_errors]
+	get_animation_clip_async: fn(assetId: string): Result<AnimationClip, RobloxError>;
+	[luau_name("GetAnimations"), luau_method, deprecated, wraps_errors]
+	get_animations: fn(userId: User): Result<Instance, RobloxError>;
+	[luau_name("GetAnimationsAsync"), luau_method, wraps_errors]
+	get_animations_async: fn(userId: User): Result<Instance, RobloxError>;
+	[luau_name("GetClipEvaluatorAsync"), luau_method, wraps_errors]
+	get_clip_evaluator_async: fn(assetId: string): Result<ClipEvaluator, RobloxError>;
 }
 
 declare interface AnimationController: Instance {
 	_is_creatable: true;
-	[luau_name("GetPlayingAnimationTracks"), luau_method]
+	[luau_name("GetPlayingAnimationTracks"), luau_method, deprecated]
 	get_playing_animation_tracks: fn: unknown[];
-	[luau_name("LoadAnimation"), luau_method]
+	[luau_name("LoadAnimation"), luau_method, deprecated]
 	load_animation: fn(animation: Animation): AnimationTrack;
-	[luau_name("AnimationPlayed")]
+	[luau_name("AnimationPlayed"), deprecated]
 	event animation_played(animationTrack: AnimationTrack);
 }
 
@@ -7889,8 +7893,8 @@ declare interface AnimationTrack: Instance {
 	get_target_instance: fn(name: string): Instance;
 	[luau_name("GetTargetNames"), luau_method]
 	get_target_names: fn: unknown[];
-	[luau_name("GetTimeOfKeyframe"), luau_method]
-	get_time_of_keyframe: fn(keyframeName: string): number;
+	[luau_name("GetTimeOfKeyframe"), luau_method, wraps_errors]
+	get_time_of_keyframe: fn(keyframeName: string): Result<number, RobloxError>;
 	[luau_name("Play"), luau_method]
 	play: fn(fadeTime: number?, weight: number?, speed: number?): void;
 	[luau_name("SetParameter"), luau_method]
@@ -7925,8 +7929,8 @@ declare interface Animator: Instance {
 	get_playing_animation_tracks: fn: unknown[];
 	[luau_name("GetTrackByAnimationId"), luau_method]
 	get_track_by_animation_id: fn(animationId: string): AnimationTrack;
-	[luau_name("LoadAnimation"), luau_method]
-	load_animation: fn(animation: Animation): AnimationTrack;
+	[luau_name("LoadAnimation"), luau_method, wraps_errors]
+	load_animation: fn(animation: Animation): Result<AnimationTrack, RobloxError>;
 	[luau_name("RegisterEvaluationParallelCallback"), luau_method]
 	register_evaluation_parallel_callback: fn(callback: fn: void): void;
 	[luau_name("AnimationPlayed")]
@@ -7999,50 +8003,50 @@ declare interface AssetService: Instance {
 	create_editable_image: fn(editableImageOptions: UnknownRecord?): EditableImage;
 	[luau_name("CreateEditableMesh"), luau_method]
 	create_editable_mesh: fn(editableMeshOptions: UnknownRecord?): EditableMesh;
-	[luau_name("ComposeDecalAsync"), luau_method]
-	compose_decal_async: fn(decal: Decal, layers: unknown[]): void;
-	[luau_name("CreateAssetAsync"), luau_method]
-	create_asset_async: fn(object: Object, assetType: Enum["AssetType"], requestParameters: UnknownRecord?): unknown;
-	[luau_name("CreateAssetVersionAsync"), luau_method]
-	create_asset_version_async: fn(object: Object, assetType: Enum["AssetType"], assetId: number, requestParameters: UnknownRecord?): unknown;
-	[luau_name("CreateDataModelContentAsync"), luau_method]
-	create_data_model_content_async: fn(content: Content, options: UnknownRecord?): unknown;
-	[luau_name("CreateEditableImageAsync"), luau_method]
-	create_editable_image_async: fn(content: Content, editableImageOptions: UnknownRecord?): EditableImage;
-	[luau_name("CreateEditableMeshAsync"), luau_method]
-	create_editable_mesh_async: fn(content: Content, editableMeshOptions: UnknownRecord?): EditableMesh;
-	[luau_name("CreateMeshPartAsync"), luau_method]
-	create_mesh_part_async: fn(meshContent: Content, options: UnknownRecord?): MeshPart;
-	[luau_name("CreatePlaceAsync"), luau_method]
-	create_place_async: fn(placeName: string, templatePlaceID: number, description: string): number;
-	[luau_name("CreatePlaceInPlayerInventoryAsync"), luau_method]
-	create_place_in_player_inventory_async: fn(player: Player, placeName: string, templatePlaceID: number, description: string): number;
-	[luau_name("CreateSurfaceAppearanceAsync"), luau_method]
-	create_surface_appearance_async: fn(content: UnknownRecord): SurfaceAppearance;
-	[luau_name("GetAssetIdsForPackage"), luau_method]
-	get_asset_ids_for_package: fn(packageAssetId: number): unknown[];
-	[luau_name("GetAssetIdsForPackageAsync"), luau_method]
-	get_asset_ids_for_package_async: fn(packageAssetId: number): unknown[];
-	[luau_name("GetAudioMetadataAsync"), luau_method]
-	get_audio_metadata_async: fn(idList: unknown[]): unknown[];
-	[luau_name("GetBundleDetailsAsync"), luau_method]
-	get_bundle_details_async: fn(bundleId: number): UnknownRecord;
-	[luau_name("GetCreatorAssetID"), luau_method]
-	get_creator_asset_id: fn(creationID: number): number;
-	[luau_name("GetGamePlacesAsync"), luau_method]
-	get_game_places_async: fn: Instance;
-	[luau_name("LoadAssetAsync"), luau_method]
-	load_asset_async: fn(assetId: number): Instance;
-	[luau_name("PromptCreateAssetAsync"), luau_method]
-	prompt_create_asset_async: fn(player: Player, instance: Instance, assetType: Enum["AssetType"]): unknown;
-	[luau_name("PromptImportAnimationClipFromVideoAsync"), luau_method]
-	prompt_import_animation_clip_from_video_async: fn(player: Player, progressCallback: fn: void): unknown;
-	[luau_name("SavePlaceAsync"), luau_method]
-	save_place_async: fn(requestParameters: UnknownRecord?): void;
-	[luau_name("SearchAudio"), luau_method]
-	search_audio: fn(searchParameters: AudioSearchParams): AudioPages;
-	[luau_name("SearchAudioAsync"), luau_method]
-	search_audio_async: fn(searchParameters: AudioSearchParams): AudioPages;
+	[luau_name("ComposeDecalAsync"), luau_method, wraps_errors]
+	compose_decal_async: fn(decal: Decal, layers: unknown[]): Result<void, RobloxError>;
+	[luau_name("CreateAssetAsync"), luau_method, wraps_errors]
+	create_asset_async: fn(object: Object, assetType: Enum["AssetType"], requestParameters: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("CreateAssetVersionAsync"), luau_method, wraps_errors]
+	create_asset_version_async: fn(object: Object, assetType: Enum["AssetType"], assetId: number, requestParameters: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("CreateDataModelContentAsync"), luau_method, wraps_errors]
+	create_data_model_content_async: fn(content: Content, options: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("CreateEditableImageAsync"), luau_method, wraps_errors]
+	create_editable_image_async: fn(content: Content, editableImageOptions: UnknownRecord?): Result<EditableImage, RobloxError>;
+	[luau_name("CreateEditableMeshAsync"), luau_method, wraps_errors]
+	create_editable_mesh_async: fn(content: Content, editableMeshOptions: UnknownRecord?): Result<EditableMesh, RobloxError>;
+	[luau_name("CreateMeshPartAsync"), luau_method, wraps_errors]
+	create_mesh_part_async: fn(meshContent: Content, options: UnknownRecord?): Result<MeshPart, RobloxError>;
+	[luau_name("CreatePlaceAsync"), luau_method, wraps_errors]
+	create_place_async: fn(placeName: string, templatePlaceID: number, description: string): Result<number, RobloxError>;
+	[luau_name("CreatePlaceInPlayerInventoryAsync"), luau_method, wraps_errors]
+	create_place_in_player_inventory_async: fn(player: Player, placeName: string, templatePlaceID: number, description: string): Result<number, RobloxError>;
+	[luau_name("CreateSurfaceAppearanceAsync"), luau_method, wraps_errors]
+	create_surface_appearance_async: fn(content: UnknownRecord): Result<SurfaceAppearance, RobloxError>;
+	[luau_name("GetAssetIdsForPackage"), luau_method, deprecated, wraps_errors]
+	get_asset_ids_for_package: fn(packageAssetId: number): Result<unknown[], RobloxError>;
+	[luau_name("GetAssetIdsForPackageAsync"), luau_method, wraps_errors]
+	get_asset_ids_for_package_async: fn(packageAssetId: number): Result<unknown[], RobloxError>;
+	[luau_name("GetAudioMetadataAsync"), luau_method, wraps_errors]
+	get_audio_metadata_async: fn(idList: unknown[]): Result<unknown[], RobloxError>;
+	[luau_name("GetBundleDetailsAsync"), luau_method, wraps_errors]
+	get_bundle_details_async: fn(bundleId: number): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetCreatorAssetID"), luau_method, deprecated, wraps_errors]
+	get_creator_asset_id: fn(creationID: number): Result<number, RobloxError>;
+	[luau_name("GetGamePlacesAsync"), luau_method, wraps_errors]
+	get_game_places_async: fn: Result<Instance, RobloxError>;
+	[luau_name("LoadAssetAsync"), luau_method, wraps_errors]
+	load_asset_async: fn(assetId: number): Result<Instance, RobloxError>;
+	[luau_name("PromptCreateAssetAsync"), luau_method, wraps_errors]
+	prompt_create_asset_async: fn(player: Player, instance: Instance, assetType: Enum["AssetType"]): Result<unknown, RobloxError>;
+	[luau_name("PromptImportAnimationClipFromVideoAsync"), luau_method, wraps_errors]
+	prompt_import_animation_clip_from_video_async: fn(player: Player, progressCallback: fn: void): Result<unknown, RobloxError>;
+	[luau_name("SavePlaceAsync"), luau_method, wraps_errors]
+	save_place_async: fn(requestParameters: UnknownRecord?): Result<void, RobloxError>;
+	[luau_name("SearchAudio"), luau_method, deprecated, wraps_errors]
+	search_audio: fn(searchParameters: AudioSearchParams): Result<AudioPages, RobloxError>;
+	[luau_name("SearchAudioAsync"), luau_method, wraps_errors]
+	search_audio_async: fn(searchParameters: AudioSearchParams): Result<AudioPages, RobloxError>;
 }
 
 declare interface Atmosphere: Instance {
@@ -8077,15 +8081,15 @@ declare interface Attachment: Instance {
 	mut world_c_frame: CFrame;
 	[luau_name("WorldSecondaryAxis")]
 	mut world_secondary_axis: Vector3;
-	[luau_name("GetAxis"), luau_method]
+	[luau_name("GetAxis"), luau_method, deprecated]
 	get_axis: fn: Vector3;
 	[luau_name("GetConstraints"), luau_method]
 	get_constraints: fn: Instance[];
-	[luau_name("GetSecondaryAxis"), luau_method]
+	[luau_name("GetSecondaryAxis"), luau_method, deprecated]
 	get_secondary_axis: fn: Vector3;
-	[luau_name("SetAxis"), luau_method]
+	[luau_name("SetAxis"), luau_method, deprecated]
 	set_axis: fn(axis: Vector3): void;
-	[luau_name("SetSecondaryAxis"), luau_method]
+	[luau_name("SetSecondaryAxis"), luau_method, deprecated]
 	set_secondary_axis: fn(axis: Vector3): void;
 }
 
@@ -8290,7 +8294,7 @@ declare interface AudioEmitter: Instance {
 	mut position_type: Enum["EmitterPositionType"];
 	[luau_name("ReverbEnabled")]
 	mut reverb_enabled: Enum["SimulationMode"];
-	[luau_name("SimulationFidelity")]
+	[luau_name("SimulationFidelity"), deprecated]
 	mut simulation_fidelity: Enum["AudioSimulationFidelity"];
 	[luau_name("GetAngleAttenuation"), luau_method]
 	get_angle_attenuation: fn: UnknownRecord;
@@ -8454,7 +8458,7 @@ declare interface AudioListener: Instance {
 	mut position_type: Enum["ListenerPositionType"];
 	[luau_name("ReverbEnabled")]
 	mut reverb_enabled: Enum["SimulationMode"];
-	[luau_name("SimulationFidelity")]
+	[luau_name("SimulationFidelity"), deprecated]
 	mut simulation_fidelity: Enum["AudioSimulationFidelity"];
 	[luau_name("GetAngleAttenuation"), luau_method]
 	get_angle_attenuation: fn: UnknownRecord;
@@ -8534,8 +8538,8 @@ declare interface AudioPlayer: Instance {
 	play: fn(atTime: number?): number?;
 	[luau_name("Stop"), luau_method]
 	stop: fn(atTime: number?): number?;
-	[luau_name("GetWaveformAsync"), luau_method]
-	get_waveform_async: fn(timeRange: NumberRange, samples: number): unknown[];
+	[luau_name("GetWaveformAsync"), luau_method, wraps_errors]
+	get_waveform_async: fn(timeRange: NumberRange, samples: number): Result<unknown[], RobloxError>;
 	[luau_name("Ended")]
 	event ended;
 	[luau_name("Looped")]
@@ -8562,12 +8566,12 @@ declare interface AudioRecorder: Instance {
 	get_temporary_content: fn: Content;
 	[luau_name("Stop"), luau_method]
 	stop: fn: void;
-	[luau_name("CanRecordAsync"), luau_method]
-	can_record_async: fn: bool;
-	[luau_name("GetUnrecordableInstancesAsync"), luau_method]
-	get_unrecordable_instances_async: fn: Instance[];
-	[luau_name("RecordAsync"), luau_method]
-	record_async: fn: void;
+	[luau_name("CanRecordAsync"), luau_method, wraps_errors]
+	can_record_async: fn: Result<bool, RobloxError>;
+	[luau_name("GetUnrecordableInstancesAsync"), luau_method, wraps_errors]
+	get_unrecordable_instances_async: fn: Result<Instance[], RobloxError>;
+	[luau_name("RecordAsync"), luau_method, wraps_errors]
+	record_async: fn: Result<void, RobloxError>;
 	[luau_name("WiringChanged")]
 	event wiring_changed(connected: bool, pin: string, wire: Wire, instance: Instance);
 }
@@ -8618,7 +8622,7 @@ declare interface AudioSearchParams: Instance {
 	mut artist: string;
 	[luau_name("AudioSubType")]
 	mut audio_sub_type: Enum["AudioSubType"];
-	[luau_name("AudioSubtype")]
+	[luau_name("AudioSubtype"), deprecated]
 	mut audio_subtype: Enum["AudioSubType"];
 	[luau_name("MaxDuration")]
 	mut max_duration: number;
@@ -8686,10 +8690,10 @@ declare interface AudioTextToSpeech: Instance {
 	play: fn: void;
 	[luau_name("Unload"), luau_method]
 	unload: fn: void;
-	[luau_name("GetWaveformAsync"), luau_method]
-	get_waveform_async: fn(timeRange: NumberRange, samples: number): unknown[];
-	[luau_name("LoadAsync"), luau_method]
-	load_async: fn: Enum["AssetFetchStatus"];
+	[luau_name("GetWaveformAsync"), luau_method, wraps_errors]
+	get_waveform_async: fn(timeRange: NumberRange, samples: number): Result<unknown[], RobloxError>;
+	[luau_name("LoadAsync"), luau_method, wraps_errors]
+	load_async: fn: Result<Enum["AssetFetchStatus"], RobloxError>;
 	[luau_name("Ended")]
 	event ended;
 	[luau_name("Looped")]
@@ -8831,36 +8835,36 @@ declare interface AvatarCreationService: Instance {
 	_is_service: true;
 	[luau_name("GetValidationRules"), luau_method]
 	get_validation_rules: fn: UnknownRecord;
-	[luau_name("AutoSetupAvatarAsync"), luau_method]
-	auto_setup_avatar_async: fn(player: Player, autoSetupParams: UnknownRecord, progressCallback: fn: void?): string;
-	[luau_name("GenerateAvatar2DPreviewAsync"), luau_method]
-	generate_avatar2_d_preview_async: fn(avatarGeneration2dPreviewParams: UnknownRecord, progressCallback: fn: void?): string;
-	[luau_name("GenerateAvatarAsync"), luau_method]
-	generate_avatar_async: fn(avatarGenerationParams: UnknownRecord, progressCallback: fn: void?): string;
-	[luau_name("GetBatchTokenDetailsAsync"), luau_method]
-	get_batch_token_details_async: fn(tokenIds: unknown[]): unknown[];
-	[luau_name("LoadAvatar2DPreviewAsync"), luau_method]
-	load_avatar2_d_preview_async: fn(previewId: string): EditableImage;
-	[luau_name("LoadGeneratedAvatarAsync"), luau_method]
-	load_generated_avatar_async: fn(generationId: string): HumanoidDescription;
-	[luau_name("PrepareAvatarForPreviewAsync"), luau_method]
-	prepare_avatar_for_preview_async: fn(humanoidModel: Model): void;
-	[luau_name("PromptCreateAvatarAssetAsync"), luau_method]
-	prompt_create_avatar_asset_async: fn(tokenId: string, player: Player, assetInstance: Instance, assetType: Enum["AvatarAssetType"]): unknown;
-	[luau_name("PromptCreateAvatarAsync"), luau_method]
-	prompt_create_avatar_async: fn(tokenId: string, player: Player, humanoidDescription: HumanoidDescription): unknown;
-	[luau_name("PromptCreateMakeupAsync"), luau_method]
-	prompt_create_makeup_async: fn(player: Player, makeupAssetEntries: unknown[], thumbnailHeadColor: Color3?): unknown;
-	[luau_name("PromptSelectAvatarGenerationImageAsync"), luau_method]
-	prompt_select_avatar_generation_image_async: fn(player: Player): string;
-	[luau_name("RequestAvatarGenerationSessionAsync"), luau_method]
-	request_avatar_generation_session_async: fn(player: Player, callback: fn: void): unknown;
-	[luau_name("ValidateUGCAccessoryAsync"), luau_method]
-	validate_ugc_accessory_async: fn(player: Player, accessory: Accessory, accessoryType: Enum["AccessoryType"]): unknown;
-	[luau_name("ValidateUGCBodyPartAsync"), luau_method]
-	validate_ugc_body_part_async: fn(player: Player, instance: Instance, bodyPart: Enum["BodyPart"]): unknown;
-	[luau_name("ValidateUGCFullBodyAsync"), luau_method]
-	validate_ugc_full_body_async: fn(player: Player, humanoidDescription: HumanoidDescription): unknown;
+	[luau_name("AutoSetupAvatarAsync"), luau_method, wraps_errors]
+	auto_setup_avatar_async: fn(player: Player, autoSetupParams: UnknownRecord, progressCallback: fn: void?): Result<string, RobloxError>;
+	[luau_name("GenerateAvatar2DPreviewAsync"), luau_method, wraps_errors]
+	generate_avatar2_d_preview_async: fn(avatarGeneration2dPreviewParams: UnknownRecord, progressCallback: fn: void?): Result<string, RobloxError>;
+	[luau_name("GenerateAvatarAsync"), luau_method, wraps_errors]
+	generate_avatar_async: fn(avatarGenerationParams: UnknownRecord, progressCallback: fn: void?): Result<string, RobloxError>;
+	[luau_name("GetBatchTokenDetailsAsync"), luau_method, wraps_errors]
+	get_batch_token_details_async: fn(tokenIds: unknown[]): Result<unknown[], RobloxError>;
+	[luau_name("LoadAvatar2DPreviewAsync"), luau_method, wraps_errors]
+	load_avatar2_d_preview_async: fn(previewId: string): Result<EditableImage, RobloxError>;
+	[luau_name("LoadGeneratedAvatarAsync"), luau_method, wraps_errors]
+	load_generated_avatar_async: fn(generationId: string): Result<HumanoidDescription, RobloxError>;
+	[luau_name("PrepareAvatarForPreviewAsync"), luau_method, wraps_errors]
+	prepare_avatar_for_preview_async: fn(humanoidModel: Model): Result<void, RobloxError>;
+	[luau_name("PromptCreateAvatarAssetAsync"), luau_method, wraps_errors]
+	prompt_create_avatar_asset_async: fn(tokenId: string, player: Player, assetInstance: Instance, assetType: Enum["AvatarAssetType"]): Result<unknown, RobloxError>;
+	[luau_name("PromptCreateAvatarAsync"), luau_method, wraps_errors]
+	prompt_create_avatar_async: fn(tokenId: string, player: Player, humanoidDescription: HumanoidDescription): Result<unknown, RobloxError>;
+	[luau_name("PromptCreateMakeupAsync"), luau_method, wraps_errors]
+	prompt_create_makeup_async: fn(player: Player, makeupAssetEntries: unknown[], thumbnailHeadColor: Color3?): Result<unknown, RobloxError>;
+	[luau_name("PromptSelectAvatarGenerationImageAsync"), luau_method, wraps_errors]
+	prompt_select_avatar_generation_image_async: fn(player: Player): Result<string, RobloxError>;
+	[luau_name("RequestAvatarGenerationSessionAsync"), luau_method, wraps_errors]
+	request_avatar_generation_session_async: fn(player: Player, callback: fn: void): Result<unknown, RobloxError>;
+	[luau_name("ValidateUGCAccessoryAsync"), luau_method, wraps_errors]
+	validate_ugc_accessory_async: fn(player: Player, accessory: Accessory, accessoryType: Enum["AccessoryType"]): Result<unknown, RobloxError>;
+	[luau_name("ValidateUGCBodyPartAsync"), luau_method, wraps_errors]
+	validate_ugc_body_part_async: fn(player: Player, instance: Instance, bodyPart: Enum["BodyPart"]): Result<unknown, RobloxError>;
+	[luau_name("ValidateUGCFullBodyAsync"), luau_method, wraps_errors]
+	validate_ugc_full_body_async: fn(player: Player, humanoidDescription: HumanoidDescription): Result<unknown, RobloxError>;
 	[luau_name("AvatarAssetModerationCompleted")]
 	event avatar_asset_moderation_completed(assetId: number, moderationStatus: Enum["ModerationStatus"]);
 	[luau_name("AvatarModerationCompleted")]
@@ -8887,58 +8891,58 @@ declare interface AvatarEditorService: Instance {
 	prompt_set_favorite: fn(itemId: number, itemType: Enum["AvatarItemType"], shouldFavorite: bool): void;
 	[luau_name("PromptUpdateOutfit"), luau_method]
 	prompt_update_outfit: fn(outfitId: number, updatedOutfit: HumanoidDescription, rigType: Enum["HumanoidRigType"]): void;
-	[luau_name("CheckApplyDefaultClothing"), luau_method]
-	check_apply_default_clothing: fn(humanoidDescription: HumanoidDescription): HumanoidDescription;
-	[luau_name("CheckApplyDefaultClothingAsync"), luau_method]
-	check_apply_default_clothing_async: fn(humanoidDescription: HumanoidDescription): HumanoidDescription;
-	[luau_name("ConformToAvatarRules"), luau_method]
-	conform_to_avatar_rules: fn(humanoidDescription: HumanoidDescription): HumanoidDescription;
-	[luau_name("ConformToAvatarRulesAsync"), luau_method]
-	conform_to_avatar_rules_async: fn(humanoidDescription: HumanoidDescription): HumanoidDescription;
-	[luau_name("GetAvatarRules"), luau_method]
-	get_avatar_rules: fn: UnknownRecord;
-	[luau_name("GetAvatarRulesAsync"), luau_method]
-	get_avatar_rules_async: fn: UnknownRecord;
-	[luau_name("GetBatchItemDetails"), luau_method]
-	get_batch_item_details: fn(itemIds: unknown[], itemType: Enum["AvatarItemType"]): unknown[];
-	[luau_name("GetBatchItemDetailsAsync"), luau_method]
-	get_batch_item_details_async: fn(itemIds: unknown[], itemType: Enum["AvatarItemType"]): unknown[];
-	[luau_name("GetBundlesByAssetIdAsync"), luau_method]
-	get_bundles_by_asset_id_async: fn(assetId: number, limit: number?): CatalogPages;
-	[luau_name("GetFavorite"), luau_method]
-	get_favorite: fn(itemId: number, itemType: Enum["AvatarItemType"]): bool;
-	[luau_name("GetFavoriteAsync"), luau_method]
-	get_favorite_async: fn(itemId: number, itemType: Enum["AvatarItemType"]): bool;
-	[luau_name("GetHeadShapesAsync"), luau_method]
-	get_head_shapes_async: fn: unknown[];
-	[luau_name("GetInventory"), luau_method]
-	get_inventory: fn(assetTypes: unknown[]): InventoryPages;
-	[luau_name("GetInventoryAsync"), luau_method]
-	get_inventory_async: fn(assetTypes: unknown[]): InventoryPages;
-	[luau_name("GetItemDetails"), luau_method]
-	get_item_details: fn(itemId: number, itemType: Enum["AvatarItemType"]): UnknownRecord;
-	[luau_name("GetItemDetailsAsync"), luau_method]
-	get_item_details_async: fn(itemId: number, itemType: Enum["AvatarItemType"]): UnknownRecord;
-	[luau_name("GetOutfitDetails"), luau_method]
-	get_outfit_details: fn(outfitId: number): UnknownRecord;
-	[luau_name("GetOutfitDetailsAsync"), luau_method]
-	get_outfit_details_async: fn(outfitId: number): UnknownRecord;
-	[luau_name("GetOutfits"), luau_method]
-	get_outfits: fn(outfitSource: Enum["OutfitSource"]?, outfitType: Enum["OutfitType"]?): OutfitPages;
-	[luau_name("GetOutfitsAsync"), luau_method]
-	get_outfits_async: fn(outfitSource: Enum["OutfitSource"]?, outfitType: Enum["OutfitType"]?): OutfitPages;
-	[luau_name("GetRecommendedAssets"), luau_method]
-	get_recommended_assets: fn(assetType: Enum["AvatarAssetType"], contextAssetId: number?): unknown[];
-	[luau_name("GetRecommendedAssetsAsync"), luau_method]
-	get_recommended_assets_async: fn(assetType: Enum["AvatarAssetType"], contextAssetId: number?): unknown[];
-	[luau_name("GetRecommendedBundles"), luau_method]
-	get_recommended_bundles: fn(bundleId: number): unknown[];
-	[luau_name("GetRecommendedBundlesAsync"), luau_method]
-	get_recommended_bundles_async: fn(bundleId: number): unknown[];
-	[luau_name("SearchCatalog"), luau_method]
-	search_catalog: fn(searchParameters: CatalogSearchParams): CatalogPages;
-	[luau_name("SearchCatalogAsync"), luau_method]
-	search_catalog_async: fn(searchParameters: CatalogSearchParams): CatalogPages;
+	[luau_name("CheckApplyDefaultClothing"), luau_method, deprecated, wraps_errors]
+	check_apply_default_clothing: fn(humanoidDescription: HumanoidDescription): Result<HumanoidDescription, RobloxError>;
+	[luau_name("CheckApplyDefaultClothingAsync"), luau_method, wraps_errors]
+	check_apply_default_clothing_async: fn(humanoidDescription: HumanoidDescription): Result<HumanoidDescription, RobloxError>;
+	[luau_name("ConformToAvatarRules"), luau_method, deprecated, wraps_errors]
+	conform_to_avatar_rules: fn(humanoidDescription: HumanoidDescription): Result<HumanoidDescription, RobloxError>;
+	[luau_name("ConformToAvatarRulesAsync"), luau_method, wraps_errors]
+	conform_to_avatar_rules_async: fn(humanoidDescription: HumanoidDescription): Result<HumanoidDescription, RobloxError>;
+	[luau_name("GetAvatarRules"), luau_method, deprecated, wraps_errors]
+	get_avatar_rules: fn: Result<UnknownRecord, RobloxError>;
+	[luau_name("GetAvatarRulesAsync"), luau_method, wraps_errors]
+	get_avatar_rules_async: fn: Result<UnknownRecord, RobloxError>;
+	[luau_name("GetBatchItemDetails"), luau_method, deprecated, wraps_errors]
+	get_batch_item_details: fn(itemIds: unknown[], itemType: Enum["AvatarItemType"]): Result<unknown[], RobloxError>;
+	[luau_name("GetBatchItemDetailsAsync"), luau_method, wraps_errors]
+	get_batch_item_details_async: fn(itemIds: unknown[], itemType: Enum["AvatarItemType"]): Result<unknown[], RobloxError>;
+	[luau_name("GetBundlesByAssetIdAsync"), luau_method, wraps_errors]
+	get_bundles_by_asset_id_async: fn(assetId: number, limit: number?): Result<CatalogPages, RobloxError>;
+	[luau_name("GetFavorite"), luau_method, deprecated, wraps_errors]
+	get_favorite: fn(itemId: number, itemType: Enum["AvatarItemType"]): Result<bool, RobloxError>;
+	[luau_name("GetFavoriteAsync"), luau_method, wraps_errors]
+	get_favorite_async: fn(itemId: number, itemType: Enum["AvatarItemType"]): Result<bool, RobloxError>;
+	[luau_name("GetHeadShapesAsync"), luau_method, wraps_errors]
+	get_head_shapes_async: fn: Result<unknown[], RobloxError>;
+	[luau_name("GetInventory"), luau_method, deprecated, wraps_errors]
+	get_inventory: fn(assetTypes: unknown[]): Result<InventoryPages, RobloxError>;
+	[luau_name("GetInventoryAsync"), luau_method, wraps_errors]
+	get_inventory_async: fn(assetTypes: unknown[]): Result<InventoryPages, RobloxError>;
+	[luau_name("GetItemDetails"), luau_method, deprecated, wraps_errors]
+	get_item_details: fn(itemId: number, itemType: Enum["AvatarItemType"]): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetItemDetailsAsync"), luau_method, wraps_errors]
+	get_item_details_async: fn(itemId: number, itemType: Enum["AvatarItemType"]): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetOutfitDetails"), luau_method, deprecated, wraps_errors]
+	get_outfit_details: fn(outfitId: number): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetOutfitDetailsAsync"), luau_method, wraps_errors]
+	get_outfit_details_async: fn(outfitId: number): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetOutfits"), luau_method, deprecated, wraps_errors]
+	get_outfits: fn(outfitSource: Enum["OutfitSource"]?, outfitType: Enum["OutfitType"]?): Result<OutfitPages, RobloxError>;
+	[luau_name("GetOutfitsAsync"), luau_method, wraps_errors]
+	get_outfits_async: fn(outfitSource: Enum["OutfitSource"]?, outfitType: Enum["OutfitType"]?): Result<OutfitPages, RobloxError>;
+	[luau_name("GetRecommendedAssets"), luau_method, deprecated, wraps_errors]
+	get_recommended_assets: fn(assetType: Enum["AvatarAssetType"], contextAssetId: number?): Result<unknown[], RobloxError>;
+	[luau_name("GetRecommendedAssetsAsync"), luau_method, wraps_errors]
+	get_recommended_assets_async: fn(assetType: Enum["AvatarAssetType"], contextAssetId: number?): Result<unknown[], RobloxError>;
+	[luau_name("GetRecommendedBundles"), luau_method, deprecated, wraps_errors]
+	get_recommended_bundles: fn(bundleId: number): Result<unknown[], RobloxError>;
+	[luau_name("GetRecommendedBundlesAsync"), luau_method, wraps_errors]
+	get_recommended_bundles_async: fn(bundleId: number): Result<unknown[], RobloxError>;
+	[luau_name("SearchCatalog"), luau_method, deprecated, wraps_errors]
+	search_catalog: fn(searchParameters: CatalogSearchParams): Result<CatalogPages, RobloxError>;
+	[luau_name("SearchCatalogAsync"), luau_method, wraps_errors]
+	search_catalog_async: fn(searchParameters: CatalogSearchParams): Result<CatalogPages, RobloxError>;
 	[luau_name("PromptAllowInventoryReadAccessCompleted")]
 	event prompt_allow_inventory_read_access_completed(result: Enum["AvatarPromptResult"]);
 	[luau_name("PromptCreateOutfitCompleted")]
@@ -8973,24 +8977,24 @@ declare interface Backpack: Instance {
 
 declare interface BadgeService: Instance {
 	_is_service: true;
-	[luau_name("AwardBadge"), luau_method]
-	award_badge: fn(userId: User, badgeId: number): bool;
-	[luau_name("AwardBadgeAsync"), luau_method]
-	award_badge_async: fn(userId: User, badgeId: number): bool;
-	[luau_name("CheckUserBadgesAsync"), luau_method]
-	check_user_badges_async: fn(userId: User, badgeIds: unknown[]): unknown[];
-	[luau_name("GetBadgeInfoAsync"), luau_method]
-	get_badge_info_async: fn(badgeId: number): UnknownRecord;
-	[luau_name("GetUserBadgesAsync"), luau_method]
-	get_user_badges_async: fn(userId: User, badgeIds: unknown[]): unknown[];
-	[luau_name("IsDisabled"), luau_method]
-	is_disabled: fn(badgeId: number): bool;
-	[luau_name("IsLegal"), luau_method]
-	is_legal: fn(badgeId: number): bool;
-	[luau_name("UserHasBadge"), luau_method]
-	user_has_badge: fn(userId: User, badgeId: number): bool;
-	[luau_name("UserHasBadgeAsync"), luau_method]
-	user_has_badge_async: fn(userId: User, badgeId: number): bool;
+	[luau_name("AwardBadge"), luau_method, deprecated, wraps_errors]
+	award_badge: fn(userId: User, badgeId: number): Result<bool, RobloxError>;
+	[luau_name("AwardBadgeAsync"), luau_method, wraps_errors]
+	award_badge_async: fn(userId: User, badgeId: number): Result<bool, RobloxError>;
+	[luau_name("CheckUserBadgesAsync"), luau_method, wraps_errors]
+	check_user_badges_async: fn(userId: User, badgeIds: unknown[]): Result<unknown[], RobloxError>;
+	[luau_name("GetBadgeInfoAsync"), luau_method, wraps_errors]
+	get_badge_info_async: fn(badgeId: number): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetUserBadgesAsync"), luau_method, wraps_errors]
+	get_user_badges_async: fn(userId: User, badgeIds: unknown[]): Result<unknown[], RobloxError>;
+	[luau_name("IsDisabled"), luau_method, deprecated, wraps_errors]
+	is_disabled: fn(badgeId: number): Result<bool, RobloxError>;
+	[luau_name("IsLegal"), luau_method, deprecated, wraps_errors]
+	is_legal: fn(badgeId: number): Result<bool, RobloxError>;
+	[luau_name("UserHasBadge"), luau_method, deprecated, wraps_errors]
+	user_has_badge: fn(userId: User, badgeId: number): Result<bool, RobloxError>;
+	[luau_name("UserHasBadgeAsync"), luau_method, wraps_errors]
+	user_has_badge_async: fn(userId: User, badgeId: number): Result<bool, RobloxError>;
 }
 
 declare interface BaseCoreGuiConfiguration: Instance {
@@ -9175,17 +9179,17 @@ declare interface PlayerGui: BasePlayerGui {
 	mut screen_orientation: Enum["ScreenOrientation"];
 	[luau_name("SelectionImageObject")]
 	mut selection_image_object: GuiObject?;
-	[luau_name("GetTopbarTransparency"), luau_method]
-	get_topbar_transparency: fn: number;
-	[luau_name("SetTopbarTransparency"), luau_method]
+	[luau_name("GetTopbarTransparency"), luau_method, deprecated, wraps_errors]
+	get_topbar_transparency: fn: Result<number, RobloxError>;
+	[luau_name("SetTopbarTransparency"), luau_method, deprecated]
 	set_topbar_transparency: fn(transparency: number): void;
-	[luau_name("TopbarTransparencyChangedSignal")]
+	[luau_name("TopbarTransparencyChangedSignal"), deprecated]
 	event topbar_transparency_changed_signal(transparency: number);
 }
 
 declare interface StarterGui: BasePlayerGui {
 	_is_service: true;
-	[luau_name("ResetPlayerGuiOnSpawn")]
+	[luau_name("ResetPlayerGuiOnSpawn"), deprecated]
 	mut reset_player_gui_on_spawn: bool;
 	[luau_name("ScreenOrientation")]
 	mut screen_orientation: Enum["ScreenOrientation"];
@@ -9195,8 +9199,8 @@ declare interface StarterGui: BasePlayerGui {
 	set_core: fn(parameterName: string, value: unknown): void;
 	[luau_name("SetCoreGuiEnabled"), luau_method]
 	set_core_gui_enabled: fn(coreGuiType: Enum["CoreGuiType"], enabled: bool): void;
-	[luau_name("GetCore"), luau_method]
-	get_core: fn(parameterName: string): unknown;
+	[luau_name("GetCore"), luau_method, wraps_errors]
+	get_core: fn(parameterName: string): Result<unknown, RobloxError>;
 }
 
 declare interface BaseRemoteEvent: Instance;
@@ -9248,10 +9252,10 @@ declare interface WrapDeformer: BaseWrap {
 	_is_creatable: true;
 	[luau_name("SetCageMeshContent"), luau_method]
 	set_cage_mesh_content: fn(content: Content, cageOrigin: CFrame?): void;
-	[luau_name("CreateEditableMeshAsync"), luau_method]
-	create_editable_mesh_async: fn: EditableMesh;
-	[luau_name("GetDeformedCFrameAsync"), luau_method]
-	get_deformed_c_frame_async: fn(originalCFrame: CFrame): CFrame;
+	[luau_name("CreateEditableMeshAsync"), luau_method, wraps_errors]
+	create_editable_mesh_async: fn: Result<EditableMesh, RobloxError>;
+	[luau_name("GetDeformedCFrameAsync"), luau_method, wraps_errors]
+	get_deformed_c_frame_async: fn(originalCFrame: CFrame): Result<CFrame, RobloxError>;
 }
 
 declare interface WrapLayer: BaseWrap {
@@ -9264,7 +9268,7 @@ declare interface WrapLayer: BaseWrap {
 	mut enabled: bool;
 	[luau_name("Order")]
 	mut order: number;
-	[luau_name("Puffiness")]
+	[luau_name("Puffiness"), deprecated]
 	mut puffiness: number;
 	[luau_name("ReferenceMeshContent")]
 	mut reference_mesh_content: Content;
@@ -9274,13 +9278,13 @@ declare interface WrapLayer: BaseWrap {
 	mut reference_origin: CFrame;
 	[luau_name("ReferenceOriginWorld")]
 	reference_origin_world: CFrame;
-	[luau_name("ShrinkFactor")]
+	[luau_name("ShrinkFactor"), deprecated]
 	mut shrink_factor: number;
 }
 
 declare interface WrapTarget: BaseWrap {
 	_is_creatable: true;
-	[luau_name("Stiffness")]
+	[luau_name("Stiffness"), deprecated]
 	mut stiffness: number;
 }
 
@@ -9340,8 +9344,8 @@ declare interface BindableEvent: Instance {
 
 declare interface BindableFunction: Instance {
 	_is_creatable: true;
-	[luau_name("Invoke"), luau_method]
-	invoke: fn(..arguments: unknown[]): unknown;
+	[luau_name("Invoke"), luau_method, wraps_errors]
+	invoke: fn(..arguments: unknown[]): Result<unknown, RobloxError>;
 }
 
 declare interface BodyMover: Instance;
@@ -9353,6 +9357,7 @@ declare interface BodyAngularVelocity: BodyMover {
 	mut max_torque: Vector3;
 	[luau_name("P")]
 	mut p: number;
+	[deprecated]
 	mut angularvelocity: Vector3;
 }
 
@@ -9386,7 +9391,7 @@ declare interface BodyPosition: BodyMover {
 	mut position: Vector3;
 	[luau_name("GetLastForce"), luau_method]
 	get_last_force: fn: Vector3;
-	[luau_name("lastForce"), luau_method]
+	[luau_name("lastForce"), luau_method, deprecated]
 	last_force: fn: Vector3;
 	[luau_name("ReachedTarget")]
 	event reached_target;
@@ -9490,27 +9495,27 @@ declare interface CaptureService: Instance {
 	stop_video_capture: fn: void;
 	[luau_name("TakeScreenshotCaptureAsync"), luau_method]
 	take_screenshot_capture_async: fn(onCaptureReady: fn: void, captureParams: UnknownRecord?): void;
-	[luau_name("CheckUploadCaptureStatusAsync"), luau_method]
-	check_upload_capture_status_async: fn(token: string): unknown;
-	[luau_name("InternalCheckPlayabilityAsync"), luau_method]
-	internal_check_playability_async: fn(universeId: number): bool;
-	[luau_name("InternalGetStartPlaceIdAsync"), luau_method]
-	internal_get_start_place_id_async: fn(universeId: number): number;
-	[luau_name("PromptCaptureGalleryPermissionAsync"), luau_method]
-	prompt_capture_gallery_permission_async: fn(captureGalleryPermission: Enum["CaptureGalleryPermission"]): bool;
-	[luau_name("ReadCapturesFromGalleryAsync"), luau_method]
-	read_captures_from_gallery_async: fn(captureTypeFilters: unknown[]?, readFromAllEligibleExperiences: bool?): unknown;
-	[luau_name("StartUploadCaptureAsync"), luau_method]
-	start_upload_capture_async: fn(capture: Capture): unknown;
-	[luau_name("StartVideoCaptureAsync"), luau_method]
-	start_video_capture_async: fn(onCaptureReady: fn: void, captureParams: UnknownRecord?): Enum["VideoCaptureStartedResult"];
-	[luau_name("UploadCaptureAsync"), luau_method]
-	upload_capture_async: fn(capture: Capture): unknown;
+	[luau_name("CheckUploadCaptureStatusAsync"), luau_method, wraps_errors]
+	check_upload_capture_status_async: fn(token: string): Result<unknown, RobloxError>;
+	[luau_name("InternalCheckPlayabilityAsync"), luau_method, wraps_errors]
+	internal_check_playability_async: fn(universeId: number): Result<bool, RobloxError>;
+	[luau_name("InternalGetStartPlaceIdAsync"), luau_method, wraps_errors]
+	internal_get_start_place_id_async: fn(universeId: number): Result<number, RobloxError>;
+	[luau_name("PromptCaptureGalleryPermissionAsync"), luau_method, wraps_errors]
+	prompt_capture_gallery_permission_async: fn(captureGalleryPermission: Enum["CaptureGalleryPermission"]): Result<bool, RobloxError>;
+	[luau_name("ReadCapturesFromGalleryAsync"), luau_method, wraps_errors]
+	read_captures_from_gallery_async: fn(captureTypeFilters: unknown[]?, readFromAllEligibleExperiences: bool?): Result<unknown, RobloxError>;
+	[luau_name("StartUploadCaptureAsync"), luau_method, wraps_errors]
+	start_upload_capture_async: fn(capture: Capture): Result<unknown, RobloxError>;
+	[luau_name("StartVideoCaptureAsync"), luau_method, wraps_errors]
+	start_video_capture_async: fn(onCaptureReady: fn: void, captureParams: UnknownRecord?): Result<Enum["VideoCaptureStartedResult"], RobloxError>;
+	[luau_name("UploadCaptureAsync"), luau_method, wraps_errors]
+	upload_capture_async: fn(capture: Capture): Result<unknown, RobloxError>;
 	[luau_name("CaptureBegan")]
 	event capture_began(captureType: Enum["CaptureType"]);
 	[luau_name("CaptureEnded")]
 	event capture_ended(captureType: Enum["CaptureType"]);
-	[luau_name("CaptureSaved")]
+	[luau_name("CaptureSaved"), deprecated]
 	event capture_saved(captureInfo: UnknownRecord);
 	[luau_name("UserCaptureSaved")]
 	event user_capture_saved(captureContentId: string);
@@ -9606,22 +9611,22 @@ declare interface Chat: Instance {
 	load_default_chat: bool;
 	[luau_name("Chat"), luau_method]
 	chat: fn(partOrCharacter: Instance, message: string, color: Enum["ChatColor"]?): void;
-	[luau_name("InvokeChatCallback"), luau_method]
-	invoke_chat_callback: fn(callbackType: Enum["ChatCallbackType"], ..callbackArguments: unknown[]): unknown;
-	[luau_name("RegisterChatCallback"), luau_method]
-	register_chat_callback: fn(callbackType: Enum["ChatCallbackType"], callbackFunction: fn: void): void;
+	[luau_name("InvokeChatCallback"), luau_method, wraps_errors]
+	invoke_chat_callback: fn(callbackType: Enum["ChatCallbackType"], ..callbackArguments: unknown[]): Result<unknown, RobloxError>;
+	[luau_name("RegisterChatCallback"), luau_method, wraps_errors]
+	register_chat_callback: fn(callbackType: Enum["ChatCallbackType"], callbackFunction: fn: void): Result<void, RobloxError>;
 	[luau_name("SetBubbleChatSettings"), luau_method]
 	set_bubble_chat_settings: fn(settings: unknown): void;
-	[luau_name("CanUserChatAsync"), luau_method]
-	can_user_chat_async: fn(userId: number): bool;
-	[luau_name("CanUsersChatAsync"), luau_method]
-	can_users_chat_async: fn(userIdFrom: number, userIdTo: number): bool;
-	[luau_name("FilterStringAsync"), luau_method]
-	filter_string_async: fn(stringToFilter: string, playerFrom: Player, playerTo: Player): string;
-	[luau_name("FilterStringForBroadcast"), luau_method]
-	filter_string_for_broadcast: fn(stringToFilter: string, playerFrom: Player): string;
-	[luau_name("FilterStringForPlayerAsync"), luau_method]
-	filter_string_for_player_async: fn(stringToFilter: string, playerToFilterFor: Player): string;
+	[luau_name("CanUserChatAsync"), luau_method, wraps_errors]
+	can_user_chat_async: fn(userId: number): Result<bool, RobloxError>;
+	[luau_name("CanUsersChatAsync"), luau_method, wraps_errors]
+	can_users_chat_async: fn(userIdFrom: number, userIdTo: number): Result<bool, RobloxError>;
+	[luau_name("FilterStringAsync"), luau_method, wraps_errors]
+	filter_string_async: fn(stringToFilter: string, playerFrom: Player, playerTo: Player): Result<string, RobloxError>;
+	[luau_name("FilterStringForBroadcast"), luau_method, wraps_errors]
+	filter_string_for_broadcast: fn(stringToFilter: string, playerFrom: Player): Result<string, RobloxError>;
+	[luau_name("FilterStringForPlayerAsync"), luau_method, deprecated, wraps_errors]
+	filter_string_for_player_async: fn(stringToFilter: string, playerToFilterFor: Player): Result<string, RobloxError>;
 	[luau_name("Chatted")]
 	event chatted(part: BasePart, message: string, color: Enum["ChatColor"]);
 }
@@ -9752,7 +9757,7 @@ declare interface CollectionService: Instance {
 	add_tag: fn(instance: Instance, tag: string): void;
 	[luau_name("GetAllTags"), luau_method]
 	get_all_tags: fn: unknown[];
-	[luau_name("GetCollection"), luau_method]
+	[luau_name("GetCollection"), luau_method, deprecated]
 	get_collection: fn(class: string): Instance[];
 	[luau_name("GetInstanceAddedSignal"), luau_method]
 	get_instance_added_signal: fn(tag: string): ScriptSignal;
@@ -9766,9 +9771,9 @@ declare interface CollectionService: Instance {
 	has_tag: fn(instance: Instance, tag: string): bool;
 	[luau_name("RemoveTag"), override, luau_method]
 	remove_tag: fn(instance: Instance, tag: string): void;
-	[luau_name("ItemAdded")]
+	[luau_name("ItemAdded"), deprecated]
 	event item_added(instance: Instance);
-	[luau_name("ItemRemoved")]
+	[luau_name("ItemRemoved"), deprecated]
 	event item_removed(instance: Instance);
 	[luau_name("TagAdded")]
 	event tag_added(tag: string);
@@ -9782,10 +9787,10 @@ declare interface CommerceService: Instance {
 	prompt_commerce_product_purchase: fn(user: Player, commerceProductId: string): void;
 	[luau_name("PromptRealWorldCommerceBrowser"), luau_method]
 	prompt_real_world_commerce_browser: fn(player: Player, url: string): void;
-	[luau_name("GetCommerceProductInfoAsync"), luau_method]
-	get_commerce_product_info_async: fn(commerceProductId: string): UnknownRecord;
-	[luau_name("UserEligibleForRealWorldCommerceAsync"), luau_method]
-	user_eligible_for_real_world_commerce_async: fn: bool;
+	[luau_name("GetCommerceProductInfoAsync"), luau_method, wraps_errors]
+	get_commerce_product_info_async: fn(commerceProductId: string): Result<UnknownRecord, RobloxError>;
+	[luau_name("UserEligibleForRealWorldCommerceAsync"), luau_method, wraps_errors]
+	user_eligible_for_real_world_commerce_async: fn: Result<bool, RobloxError>;
 	[luau_name("PromptCommerceProductPurchaseFinished")]
 	event prompt_commerce_product_purchase_finished(user: Player, productId: string);
 }
@@ -9806,10 +9811,10 @@ declare interface ConfigService: Instance {
 	clear_testing_value: fn(key: string): void;
 	[luau_name("SetTestingValue"), luau_method]
 	set_testing_value: fn(key: string, value: unknown): void;
-	[luau_name("GetConfigAsync"), luau_method]
-	get_config_async: fn: ConfigSnapshot;
-	[luau_name("GetConfigForPlayerAsync"), luau_method]
-	get_config_for_player_async: fn(player: Player): ConfigSnapshot;
+	[luau_name("GetConfigAsync"), luau_method, wraps_errors]
+	get_config_async: fn: Result<ConfigSnapshot, RobloxError>;
+	[luau_name("GetConfigForPlayerAsync"), luau_method, wraps_errors]
+	get_config_for_player_async: fn(player: Player): Result<ConfigSnapshot, RobloxError>;
 }
 
 declare interface Configuration: Instance {
@@ -9837,9 +9842,9 @@ declare interface Constraint: Instance {
 	mut enabled: bool;
 	[luau_name("Visible")]
 	mut visible: bool;
-	[luau_name("GetDebugAppliedForce"), luau_method]
+	[luau_name("GetDebugAppliedForce"), luau_method, deprecated]
 	get_debug_applied_force: fn(bodyId: number): Vector3;
-	[luau_name("GetDebugAppliedTorque"), luau_method]
+	[luau_name("GetDebugAppliedTorque"), luau_method, deprecated]
 	get_debug_applied_torque: fn(bodyId: number): Vector3;
 }
 
@@ -9976,7 +9981,7 @@ declare interface HingeConstraint: Constraint {
 	mut restitution: number;
 	[luau_name("ServoMaxTorque")]
 	mut servo_max_torque: number;
-	[luau_name("SoftlockServoUponReachingTarget")]
+	[luau_name("SoftlockServoUponReachingTarget"), deprecated]
 	mut softlock_servo_upon_reaching_target: bool;
 	[luau_name("TargetAngle")]
 	mut target_angle: number;
@@ -10103,7 +10108,7 @@ declare interface SlidingBallConstraint: Constraint {
 	mut servo_max_force: number;
 	[luau_name("Size")]
 	mut size: number;
-	[luau_name("SoftlockServoUponReachingTarget")]
+	[luau_name("SoftlockServoUponReachingTarget"), deprecated]
 	mut softlock_servo_upon_reaching_target: bool;
 	[luau_name("Speed")]
 	mut speed: number;
@@ -10143,7 +10148,7 @@ declare interface CylindricalConstraint: SlidingBallConstraint {
 	mut rotation_axis_visible: bool;
 	[luau_name("ServoMaxTorque")]
 	mut servo_max_torque: number;
-	[luau_name("SoftlockAngularServoUponReachingTarget")]
+	[luau_name("SoftlockAngularServoUponReachingTarget"), deprecated]
 	mut softlock_angular_servo_upon_reaching_target: bool;
 	[luau_name("TargetAngle")]
 	mut target_angle: number;
@@ -10247,7 +10252,7 @@ declare interface ContentProvider: Instance {
 	get_asset_fetch_status_changed_signal: fn(contentId: string): ScriptSignal;
 	[luau_name("ListEncryptedAssets"), luau_method]
 	list_encrypted_assets: fn: unknown[];
-	[luau_name("Preload"), luau_method]
+	[luau_name("Preload"), luau_method, deprecated]
 	preload: fn(contentId: string): void;
 	[luau_name("RegisterDefaultEncryptionKey"), luau_method]
 	register_default_encryption_key: fn(encryptionKey: string): void;
@@ -10261,8 +10266,8 @@ declare interface ContentProvider: Instance {
 	unregister_default_encryption_key: fn: void;
 	[luau_name("UnregisterEncryptedAsset"), luau_method]
 	unregister_encrypted_asset: fn(assetId: string): void;
-	[luau_name("PreloadAsync"), luau_method]
-	preload_async: fn(contentIdList: unknown[], callbackFunction: fn: void?): void;
+	[luau_name("PreloadAsync"), luau_method, wraps_errors]
+	preload_async: fn(contentIdList: unknown[], callbackFunction: fn: void?): Result<void, RobloxError>;
 	[luau_name("AssetFetchFailed")]
 	event asset_fetch_failed(assetId: string);
 }
@@ -10273,7 +10278,7 @@ declare interface ContextActionService: Instance {
 	bind_action: fn(actionName: string, functionToBind: fn: void, createTouchButton: bool, ..inputTypes: unknown[]): void;
 	[luau_name("BindActionAtPriority"), luau_method]
 	bind_action_at_priority: fn(actionName: string, functionToBind: fn: void, createTouchButton: bool, priorityLevel: number, ..inputTypes: unknown[]): void;
-	[luau_name("BindActionToInputTypes"), luau_method]
+	[luau_name("BindActionToInputTypes"), luau_method, deprecated]
 	bind_action_to_input_types: fn(actionName: string, functionToBind: fn: void, createTouchButton: bool, ..inputTypes: unknown[]): void;
 	[luau_name("BindActivate"), luau_method]
 	bind_activate: fn(userInputTypeForActivation: Enum["UserInputType"], ..keyCodesForActivation: unknown[]): void;
@@ -10297,8 +10302,8 @@ declare interface ContextActionService: Instance {
 	unbind_activate: fn(userInputTypeForActivation: Enum["UserInputType"], keyCodeForActivation: Enum["KeyCode"]?): void;
 	[luau_name("UnbindAllActions"), luau_method]
 	unbind_all_actions: fn: void;
-	[luau_name("GetButton"), luau_method]
-	get_button: fn(actionName: string): Instance;
+	[luau_name("GetButton"), luau_method, wraps_errors]
+	get_button: fn(actionName: string): Result<Instance, RobloxError>;
 	[luau_name("LocalToolEquipped")]
 	event local_tool_equipped(toolEquipped: Instance);
 	[luau_name("LocalToolUnequipped")]
@@ -10471,10 +10476,10 @@ declare interface CustomLog: Instance {
 	close: fn: void;
 	[luau_name("GetLogPath"), luau_method]
 	get_log_path: fn: string;
-	[luau_name("Open"), luau_method]
-	open: fn: void;
-	[luau_name("WriteAppend"), luau_method]
-	write_append: fn(append: string): void;
+	[luau_name("Open"), luau_method, wraps_errors]
+	open: fn: Result<void, RobloxError>;
+	[luau_name("WriteAppend"), luau_method, wraps_errors]
+	write_append: fn(append: string): Result<void, RobloxError>;
 }
 
 declare interface DataModelMesh: Instance {
@@ -10576,18 +10581,18 @@ declare interface DataStoreOptions: Instance {
 
 declare interface DataStoreService: Instance {
 	_is_service: true;
-	[luau_name("GetDataStore"), luau_method]
-	get_data_store: fn(name: string, scope: string?, options: Instance?): DataStore;
+	[luau_name("GetDataStore"), luau_method, wraps_errors]
+	get_data_store: fn(name: string, scope: string?, options: Instance?): Result<DataStore, RobloxError>;
 	[luau_name("GetGlobalDataStore"), luau_method]
 	get_global_data_store: fn: DataStore;
-	[luau_name("GetOrderedDataStore"), luau_method]
-	get_ordered_data_store: fn(name: string, scope: string?): OrderedDataStore;
+	[luau_name("GetOrderedDataStore"), luau_method, wraps_errors]
+	get_ordered_data_store: fn(name: string, scope: string?): Result<OrderedDataStore, RobloxError>;
 	[luau_name("GetRequestBudgetForRequestType"), luau_method]
 	get_request_budget_for_request_type: fn(requestType: Enum["DataStoreRequestType"]): number;
-	[luau_name("SetRateLimitForRequestType"), luau_method]
-	set_rate_limit_for_request_type: fn(requestType: Enum["DataStoreRequestType"], baseLimit: number, perPlayerLimit: number): void;
-	[luau_name("ListDataStoresAsync"), luau_method]
-	list_data_stores_async: fn(prefix: string, pageSize: number?, cursor: string): DataStoreListingPages;
+	[luau_name("SetRateLimitForRequestType"), luau_method, wraps_errors]
+	set_rate_limit_for_request_type: fn(requestType: Enum["DataStoreRequestType"], baseLimit: number, perPlayerLimit: number): Result<void, RobloxError>;
+	[luau_name("ListDataStoresAsync"), luau_method, wraps_errors]
+	list_data_stores_async: fn(prefix: string, pageSize: number?, cursor: string): Result<DataStoreListingPages, RobloxError>;
 }
 
 declare interface DataStoreSetOptions: Instance {
@@ -10600,7 +10605,7 @@ declare interface DataStoreSetOptions: Instance {
 
 declare interface Debris: Instance {
 	_is_service: true;
-	[luau_name("MaxItems")]
+	[luau_name("MaxItems"), deprecated]
 	mut max_items: number;
 	[luau_name("AddItem"), luau_method]
 	add_item: fn(item: Instance, lifetime: number?): void;
@@ -10829,8 +10834,8 @@ declare interface EditorSourceService: Instance {
 
 declare interface EncodingService: Instance {
 	_is_service: true;
-	[luau_name("Base64Decode"), luau_method]
-	base64_decode: fn(input: buffer): buffer;
+	[luau_name("Base64Decode"), luau_method, wraps_errors]
+	base64_decode: fn(input: buffer): Result<buffer, RobloxError>;
 	[luau_name("Base64Encode"), luau_method]
 	base64_encode: fn(input: buffer): buffer;
 	[luau_name("CompressBuffer"), luau_method]
@@ -10839,8 +10844,8 @@ declare interface EncodingService: Instance {
 	compute_buffer_hash: fn(input: buffer, algorithm: Enum["HashAlgorithm"]): buffer;
 	[luau_name("ComputeStringHash"), luau_method]
 	compute_string_hash: fn(input: string, algorithm: Enum["HashAlgorithm"]): string;
-	[luau_name("DecompressBuffer"), luau_method]
-	decompress_buffer: fn(input: buffer, algorithm: Enum["CompressionAlgorithm"]): buffer;
+	[luau_name("DecompressBuffer"), luau_method, wraps_errors]
+	decompress_buffer: fn(input: buffer, algorithm: Enum["CompressionAlgorithm"]): Result<buffer, RobloxError>;
 	[luau_name("GetDecompressedBufferSize"), luau_method]
 	get_decompressed_buffer_size: fn(input: buffer, algorithm: Enum["CompressionAlgorithm"]): number?;
 }
@@ -10889,8 +10894,8 @@ declare interface ExperienceNotificationService: Instance {
 	_is_service: true;
 	[luau_name("PromptOptIn"), luau_method]
 	prompt_opt_in: fn: void;
-	[luau_name("CanPromptOptInAsync"), luau_method]
-	can_prompt_opt_in_async: fn: bool;
+	[luau_name("CanPromptOptInAsync"), luau_method, wraps_errors]
+	can_prompt_opt_in_async: fn: Result<bool, RobloxError>;
 	[luau_name("OptInPromptClosed")]
 	event opt_in_prompt_closed;
 }
@@ -10969,9 +10974,9 @@ declare interface Decal: FaceInstance {
 	mut rotation: number;
 	[luau_name("RoughnessMapContent")]
 	mut roughness_map_content: Content;
-	[luau_name("Shiny")]
+	[luau_name("Shiny"), deprecated]
 	mut shiny: number;
-	[luau_name("Specular")]
+	[luau_name("Specular"), deprecated]
 	mut specular: number;
 	[luau_name("Texture")]
 	mut texture: string;
@@ -11096,8 +11101,8 @@ declare interface ForceField: Instance {
 
 declare interface GamePassService: Instance {
 	_is_service: true;
-	[luau_name("PlayerHasPass"), luau_method]
-	player_has_pass: fn(player: Player, gamePassId: number): bool;
+	[luau_name("PlayerHasPass"), luau_method, deprecated, wraps_errors]
+	player_has_pass: fn(player: Player, gamePassId: number): Result<bool, RobloxError>;
 }
 
 declare interface GamepadService: Instance {
@@ -11112,28 +11117,28 @@ declare interface GamepadService: Instance {
 
 declare interface GenerationService: Instance {
 	_is_service: true;
-	[luau_name("ConnectAsync"), luau_method]
-	connect_async: fn(sessionId: string, sdp: string, _type: string, relay: string): unknown;
-	[luau_name("DisconnectAsync"), luau_method]
-	disconnect_async: fn(sessionId: string): bool;
-	[luau_name("GenerateMeshAsync"), luau_method]
-	generate_mesh_async: fn(inputs: UnknownRecord, player: Player, options: UnknownRecord, intermediateResultCallback: fn: void?): unknown;
-	[luau_name("GenerateModelAsync"), luau_method]
-	generate_model_async: fn(inputs: UnknownRecord, schema: UnknownRecord, options: UnknownRecord?): unknown;
-	[luau_name("GetVideoGenSessionAsync"), luau_method]
-	get_video_gen_session_async: fn: unknown;
-	[luau_name("GetVideoGenTriggersAsync"), luau_method]
-	get_video_gen_triggers_async: fn(sessionId: string, lookbackSeconds: number): UnknownRecord;
-	[luau_name("LoadGeneratedMeshAsync"), luau_method]
-	load_generated_mesh_async: fn(generationId: string): MeshPart;
-	[luau_name("SegmentMeshAsync"), luau_method]
-	segment_mesh_async: fn(meshPart: MeshPart, schema: UnknownRecord, options: UnknownRecord?): unknown;
-	[luau_name("StartVideoGenSessionAsync"), luau_method]
-	start_video_gen_session_async: fn(sessionId: string, prompt: string, imageData: string, imageS3Reference: string, triggers: UnknownRecord): bool;
-	[luau_name("UpdateVideoGenSessionPromptAsync"), luau_method]
-	update_video_gen_session_prompt_async: fn(sessionId: string, prompt: string, imageData: string, imageS3Reference: string, mode: string): bool;
-	[luau_name("UpdateVideoGenSessionTriggersAsync"), luau_method]
-	update_video_gen_session_triggers_async: fn(sessionId: string, triggers: UnknownRecord): bool;
+	[luau_name("ConnectAsync"), luau_method, wraps_errors]
+	connect_async: fn(sessionId: string, sdp: string, _type: string, relay: string): Result<unknown, RobloxError>;
+	[luau_name("DisconnectAsync"), luau_method, wraps_errors]
+	disconnect_async: fn(sessionId: string): Result<bool, RobloxError>;
+	[luau_name("GenerateMeshAsync"), luau_method, wraps_errors]
+	generate_mesh_async: fn(inputs: UnknownRecord, player: Player, options: UnknownRecord, intermediateResultCallback: fn: void?): Result<unknown, RobloxError>;
+	[luau_name("GenerateModelAsync"), luau_method, wraps_errors]
+	generate_model_async: fn(inputs: UnknownRecord, schema: UnknownRecord, options: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("GetVideoGenSessionAsync"), luau_method, wraps_errors]
+	get_video_gen_session_async: fn: Result<unknown, RobloxError>;
+	[luau_name("GetVideoGenTriggersAsync"), luau_method, wraps_errors]
+	get_video_gen_triggers_async: fn(sessionId: string, lookbackSeconds: number): Result<UnknownRecord, RobloxError>;
+	[luau_name("LoadGeneratedMeshAsync"), luau_method, wraps_errors]
+	load_generated_mesh_async: fn(generationId: string): Result<MeshPart, RobloxError>;
+	[luau_name("SegmentMeshAsync"), luau_method, wraps_errors]
+	segment_mesh_async: fn(meshPart: MeshPart, schema: UnknownRecord, options: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("StartVideoGenSessionAsync"), luau_method, wraps_errors]
+	start_video_gen_session_async: fn(sessionId: string, prompt: string, imageData: string, imageS3Reference: string, triggers: UnknownRecord): Result<bool, RobloxError>;
+	[luau_name("UpdateVideoGenSessionPromptAsync"), luau_method, wraps_errors]
+	update_video_gen_session_prompt_async: fn(sessionId: string, prompt: string, imageData: string, imageS3Reference: string, mode: string): Result<bool, RobloxError>;
+	[luau_name("UpdateVideoGenSessionTriggersAsync"), luau_method, wraps_errors]
+	update_video_gen_session_triggers_async: fn(sessionId: string, triggers: UnknownRecord): Result<bool, RobloxError>;
 }
 
 declare interface GenericChallengeService: Instance {
@@ -11148,16 +11153,16 @@ declare interface GeometryService: Instance {
 	create_solid_primitive: fn(_type: Enum["SolidPrimitiveType"], options: UnknownRecord?): MeshPart;
 	[luau_name("GenerateFragmentSites"), luau_method]
 	generate_fragment_sites: fn(part: BasePart, options: UnknownRecord?): unknown[];
-	[luau_name("FragmentAsync"), luau_method]
-	fragment_async: fn(part: BasePart, sites: unknown[], options: UnknownRecord?): unknown[];
-	[luau_name("IntersectAsync"), luau_method]
-	intersect_async: fn(part: BasePart, parts: unknown[], options: UnknownRecord?): unknown[];
-	[luau_name("SubtractAsync"), luau_method]
-	subtract_async: fn(part: BasePart, parts: unknown[], options: UnknownRecord?): unknown[];
-	[luau_name("SweepPartAsync"), luau_method]
-	sweep_part_async: fn(part: BasePart, cframes: unknown[], options: UnknownRecord?): MeshPart;
-	[luau_name("UnionAsync"), luau_method]
-	union_async: fn(part: BasePart, parts: unknown[], options: UnknownRecord?): unknown[];
+	[luau_name("FragmentAsync"), luau_method, wraps_errors]
+	fragment_async: fn(part: BasePart, sites: unknown[], options: UnknownRecord?): Result<unknown[], RobloxError>;
+	[luau_name("IntersectAsync"), luau_method, wraps_errors]
+	intersect_async: fn(part: BasePart, parts: unknown[], options: UnknownRecord?): Result<unknown[], RobloxError>;
+	[luau_name("SubtractAsync"), luau_method, wraps_errors]
+	subtract_async: fn(part: BasePart, parts: unknown[], options: UnknownRecord?): Result<unknown[], RobloxError>;
+	[luau_name("SweepPartAsync"), luau_method, wraps_errors]
+	sweep_part_async: fn(part: BasePart, cframes: unknown[], options: UnknownRecord?): Result<MeshPart, RobloxError>;
+	[luau_name("UnionAsync"), luau_method, wraps_errors]
+	union_async: fn(part: BasePart, parts: unknown[], options: UnknownRecord?): Result<unknown[], RobloxError>;
 }
 
 declare interface GetTextBoundsParams: Instance {
@@ -11175,38 +11180,38 @@ declare interface GetTextBoundsParams: Instance {
 }
 
 declare interface GlobalDataStore: Instance {
-	[luau_name("OnUpdate"), luau_method]
+	[luau_name("OnUpdate"), luau_method, deprecated]
 	on_update: fn(key: string, callback: fn: void): ScriptConnection;
-	[luau_name("BatchGetAsync"), luau_method]
-	batch_get_async: fn(keys: unknown[], options: UnknownRecord?): UnknownRecord;
-	[luau_name("GetAsync"), luau_method]
-	get_async: fn(key: string, options: DataStoreGetOptions?): unknown;
-	[luau_name("IncrementAsync"), luau_method]
-	increment_async: fn(key: string, delta: number?, userIds: unknown[]?, options: DataStoreIncrementOptions?): unknown;
-	[luau_name("RemoveAsync"), luau_method]
-	remove_async: fn(key: string): unknown;
-	[luau_name("SetAsync"), luau_method]
-	set_async: fn(key: string, value: unknown, userIds: unknown[]?, options: DataStoreSetOptions?): unknown;
-	[luau_name("UpdateAsync"), luau_method]
-	update_async: fn(key: string, transformFunction: fn: void): unknown;
+	[luau_name("BatchGetAsync"), luau_method, wraps_errors]
+	batch_get_async: fn(keys: unknown[], options: UnknownRecord?): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetAsync"), luau_method, wraps_errors]
+	get_async: fn(key: string, options: DataStoreGetOptions?): Result<unknown, RobloxError>;
+	[luau_name("IncrementAsync"), luau_method, wraps_errors]
+	increment_async: fn(key: string, delta: number?, userIds: unknown[]?, options: DataStoreIncrementOptions?): Result<unknown, RobloxError>;
+	[luau_name("RemoveAsync"), luau_method, wraps_errors]
+	remove_async: fn(key: string): Result<unknown, RobloxError>;
+	[luau_name("SetAsync"), luau_method, wraps_errors]
+	set_async: fn(key: string, value: unknown, userIds: unknown[]?, options: DataStoreSetOptions?): Result<unknown, RobloxError>;
+	[luau_name("UpdateAsync"), luau_method, wraps_errors]
+	update_async: fn(key: string, transformFunction: fn: void): Result<unknown, RobloxError>;
 }
 
 declare interface DataStore: GlobalDataStore {
-	[luau_name("GetVersionAsync"), luau_method]
-	get_version_async: fn(key: string, version: string): unknown;
-	[luau_name("GetVersionAtTimeAsync"), luau_method]
-	get_version_at_time_async: fn(key: string, timestamp: number): unknown;
-	[luau_name("ListKeysAsync"), luau_method]
-	list_keys_async: fn(prefix: string, pageSize: number?, cursor: string, excludeDeleted: bool?): DataStoreKeyPages;
-	[luau_name("ListVersionsAsync"), luau_method]
-	list_versions_async: fn(key: string, sortDirection: Enum["SortDirection"]?, minDate: number?, maxDate: number?, pageSize: number?): DataStoreVersionPages;
-	[luau_name("RemoveVersionAsync"), luau_method]
-	remove_version_async: fn(key: string, version: string): void;
+	[luau_name("GetVersionAsync"), luau_method, wraps_errors]
+	get_version_async: fn(key: string, version: string): Result<unknown, RobloxError>;
+	[luau_name("GetVersionAtTimeAsync"), luau_method, wraps_errors]
+	get_version_at_time_async: fn(key: string, timestamp: number): Result<unknown, RobloxError>;
+	[luau_name("ListKeysAsync"), luau_method, wraps_errors]
+	list_keys_async: fn(prefix: string, pageSize: number?, cursor: string, excludeDeleted: bool?): Result<DataStoreKeyPages, RobloxError>;
+	[luau_name("ListVersionsAsync"), luau_method, wraps_errors]
+	list_versions_async: fn(key: string, sortDirection: Enum["SortDirection"]?, minDate: number?, maxDate: number?, pageSize: number?): Result<DataStoreVersionPages, RobloxError>;
+	[luau_name("RemoveVersionAsync"), luau_method, deprecated, wraps_errors]
+	remove_version_async: fn(key: string, version: string): Result<void, RobloxError>;
 }
 
 declare interface OrderedDataStore: GlobalDataStore {
-	[luau_name("GetSortedAsync"), luau_method]
-	get_sorted_async: fn(ascending: bool, pagesize: number, minValue: unknown, maxValue: unknown): DataStorePages;
+	[luau_name("GetSortedAsync"), luau_method, wraps_errors]
+	get_sorted_async: fn(ascending: bool, pagesize: number, minValue: unknown, maxValue: unknown): Result<DataStorePages, RobloxError>;
 }
 
 declare interface GongService: Instance {
@@ -11215,18 +11220,18 @@ declare interface GongService: Instance {
 
 declare interface GroupService: Instance {
 	_is_service: true;
-	[luau_name("GetAlliesAsync"), luau_method]
-	get_allies_async: fn(groupId: number): StandardPages;
-	[luau_name("GetEnemiesAsync"), luau_method]
-	get_enemies_async: fn(groupId: number): StandardPages;
-	[luau_name("GetGroupInfoAsync"), luau_method]
-	get_group_info_async: fn(groupId: number): unknown;
-	[luau_name("GetGroupsAsync"), luau_method]
-	get_groups_async: fn(userId: User): unknown[];
-	[luau_name("GetRolesInGroupAsync"), luau_method]
-	get_roles_in_group_async: fn(userId: User, groupId: number): unknown;
-	[luau_name("PromptJoinAsync"), luau_method]
-	prompt_join_async: fn(groupId: number): Enum["GroupMembershipStatus"];
+	[luau_name("GetAlliesAsync"), luau_method, wraps_errors]
+	get_allies_async: fn(groupId: number): Result<StandardPages, RobloxError>;
+	[luau_name("GetEnemiesAsync"), luau_method, wraps_errors]
+	get_enemies_async: fn(groupId: number): Result<StandardPages, RobloxError>;
+	[luau_name("GetGroupInfoAsync"), luau_method, wraps_errors]
+	get_group_info_async: fn(groupId: number): Result<unknown, RobloxError>;
+	[luau_name("GetGroupsAsync"), luau_method, wraps_errors]
+	get_groups_async: fn(userId: User): Result<unknown[], RobloxError>;
+	[luau_name("GetRolesInGroupAsync"), luau_method, wraps_errors]
+	get_roles_in_group_async: fn(userId: User, groupId: number): Result<unknown, RobloxError>;
+	[luau_name("PromptJoinAsync"), luau_method, wraps_errors]
+	prompt_join_async: fn(groupId: number): Result<Enum["GroupMembershipStatus"], RobloxError>;
 }
 
 declare interface GuiBase: Instance;
@@ -11274,7 +11279,7 @@ declare interface GuiObject: GuiBase2d {
 	mut border_size_pixel: number;
 	[luau_name("ClipsDescendants")]
 	mut clips_descendants: bool;
-	[luau_name("Draggable")]
+	[luau_name("Draggable"), deprecated]
 	mut draggable: bool;
 	[luau_name("GuiState")]
 	gui_state: Enum["GuiState"];
@@ -11316,9 +11321,9 @@ declare interface GuiObject: GuiBase2d {
 	tween_size: fn(endSize: UDim2, easingDirection: Enum["EasingDirection"]?, easingStyle: Enum["EasingStyle"]?, time: number?, override: bool?, callback: fn: void?): bool;
 	[luau_name("TweenSizeAndPosition"), luau_method]
 	tween_size_and_position: fn(endSize: UDim2, endPosition: UDim2, easingDirection: Enum["EasingDirection"]?, easingStyle: Enum["EasingStyle"]?, time: number?, override: bool?, callback: fn: void?): bool;
-	[luau_name("DragBegin")]
+	[luau_name("DragBegin"), deprecated]
 	event drag_begin(initialPosition: UDim2);
-	[luau_name("DragStopped")]
+	[luau_name("DragStopped"), deprecated]
 	event drag_stopped(x: number, y: number);
 	[luau_name("InputBegan")]
 	event input_began(input: InputObject);
@@ -11441,7 +11446,7 @@ declare interface TextButton: GuiButton {
 	content_text: string;
 	[luau_name("FontFace")]
 	mut font_face: Font;
-	[luau_name("FontSize")]
+	[luau_name("FontSize"), deprecated]
 	mut font_size: Enum["FontSize"];
 	[luau_name("LineHeight")]
 	mut line_height: number;
@@ -11475,7 +11480,7 @@ declare interface TextButton: GuiButton {
 	mut text_transparency: number;
 	[luau_name("TextTruncate")]
 	mut text_truncate: Enum["TextTruncate"];
-	[luau_name("TextWrap")]
+	[luau_name("TextWrap"), deprecated]
 	mut text_wrap: bool;
 	[luau_name("TextWrapped")]
 	mut text_wrapped: bool;
@@ -11520,7 +11525,7 @@ declare interface TextLabel: GuiLabel {
 	content_text: string;
 	[luau_name("FontFace")]
 	mut font_face: Font;
-	[luau_name("FontSize")]
+	[luau_name("FontSize"), deprecated]
 	mut font_size: Enum["FontSize"];
 	[luau_name("LineHeight")]
 	mut line_height: number;
@@ -11554,7 +11559,7 @@ declare interface TextLabel: GuiLabel {
 	mut text_transparency: number;
 	[luau_name("TextTruncate")]
 	mut text_truncate: Enum["TextTruncate"];
-	[luau_name("TextWrap")]
+	[luau_name("TextWrap"), deprecated]
 	mut text_wrap: bool;
 	[luau_name("TextWrapped")]
 	mut text_wrapped: bool;
@@ -11654,7 +11659,7 @@ declare interface TextBox: GuiObject {
 	mut cursor_position: number;
 	[luau_name("FontFace")]
 	mut font_face: Font;
-	[luau_name("FontSize")]
+	[luau_name("FontSize"), deprecated]
 	mut font_size: Enum["FontSize"];
 	[luau_name("LineHeight")]
 	mut line_height: number;
@@ -11700,7 +11705,7 @@ declare interface TextBox: GuiObject {
 	mut text_transparency: number;
 	[luau_name("TextTruncate")]
 	mut text_truncate: Enum["TextTruncate"];
-	[luau_name("TextWrap")]
+	[luau_name("TextWrap"), deprecated]
 	mut text_wrap: bool;
 	[luau_name("TextWrapped")]
 	mut text_wrapped: bool;
@@ -11819,7 +11824,7 @@ declare interface LayerCollector: GuiBase2d {
 	mut reset_on_spawn: bool;
 	[luau_name("ZIndexBehavior")]
 	mut z_index_behavior: Enum["ZIndexBehavior"];
-	[luau_name("GetLayoutNodeTree"), luau_method]
+	[luau_name("GetLayoutNodeTree"), luau_method, deprecated]
 	get_layout_node_tree: fn: UnknownRecord;
 }
 
@@ -11837,11 +11842,11 @@ declare interface BillboardGui: LayerCollector {
 	mut clips_descendants: bool;
 	[luau_name("CurrentDistance")]
 	current_distance: number;
-	[luau_name("DistanceLowerLimit")]
+	[luau_name("DistanceLowerLimit"), deprecated]
 	mut distance_lower_limit: number;
 	[luau_name("DistanceStep")]
 	mut distance_step: number;
-	[luau_name("DistanceUpperLimit")]
+	[luau_name("DistanceUpperLimit"), deprecated]
 	mut distance_upper_limit: number;
 	[luau_name("ExtentsOffset")]
 	mut extents_offset: Vector3;
@@ -12170,22 +12175,22 @@ declare interface Path2D: GuiBase {
 	mut z_index: number;
 	[luau_name("GetBoundingRect"), luau_method]
 	get_bounding_rect: fn: Rect;
-	[luau_name("GetControlPoint"), luau_method]
-	get_control_point: fn(index: number): Path2DControlPoint;
+	[luau_name("GetControlPoint"), luau_method, wraps_errors]
+	get_control_point: fn(index: number): Result<Path2DControlPoint, RobloxError>;
 	[luau_name("GetControlPoints"), luau_method]
 	get_control_points: fn: unknown[];
 	[luau_name("GetLength"), luau_method]
 	get_length: fn: number;
 	[luau_name("GetMaxControlPoints"), luau_method]
 	get_max_control_points: fn: number;
-	[luau_name("GetPositionOnCurve"), luau_method]
-	get_position_on_curve: fn(t: number): UDim2;
-	[luau_name("GetPositionOnCurveArcLength"), luau_method]
-	get_position_on_curve_arc_length: fn(t: number): UDim2;
-	[luau_name("GetTangentOnCurve"), luau_method]
-	get_tangent_on_curve: fn(t: number): Vector2;
-	[luau_name("GetTangentOnCurveArcLength"), luau_method]
-	get_tangent_on_curve_arc_length: fn(t: number): Vector2;
+	[luau_name("GetPositionOnCurve"), luau_method, wraps_errors]
+	get_position_on_curve: fn(t: number): Result<UDim2, RobloxError>;
+	[luau_name("GetPositionOnCurveArcLength"), luau_method, wraps_errors]
+	get_position_on_curve_arc_length: fn(t: number): Result<UDim2, RobloxError>;
+	[luau_name("GetTangentOnCurve"), luau_method, wraps_errors]
+	get_tangent_on_curve: fn(t: number): Result<Vector2, RobloxError>;
+	[luau_name("GetTangentOnCurveArcLength"), luau_method, wraps_errors]
+	get_tangent_on_curve_arc_length: fn(t: number): Result<Vector2, RobloxError>;
 	[luau_name("InsertControlPoint"), luau_method]
 	insert_control_point: fn(index: number, point: Path2DControlPoint): void;
 	[luau_name("RemoveControlPoint"), luau_method]
@@ -12204,9 +12209,9 @@ declare interface GuiService: Instance {
 	mut auto_select_gui_enabled: bool;
 	[luau_name("GuiNavigationEnabled")]
 	mut gui_navigation_enabled: bool;
-	[luau_name("IsModalDialog")]
+	[luau_name("IsModalDialog"), deprecated]
 	is_modal_dialog: bool;
-	[luau_name("IsWindows")]
+	[luau_name("IsWindows"), deprecated]
 	is_windows: bool;
 	[luau_name("MenuIsOpen")]
 	menu_is_open: bool;
@@ -12220,9 +12225,9 @@ declare interface GuiService: Instance {
 	mut touch_controls_enabled: bool;
 	[luau_name("ViewportDisplaySize")]
 	viewport_display_size: Enum["DisplaySize"];
-	[luau_name("AddSelectionParent"), luau_method]
+	[luau_name("AddSelectionParent"), luau_method, deprecated]
 	add_selection_parent: fn(selectionName: string, selectionParent: Instance): void;
-	[luau_name("AddSelectionTuple"), luau_method]
+	[luau_name("AddSelectionTuple"), luau_method, deprecated]
 	add_selection_tuple: fn(selectionName: string, ..selections: unknown[]): void;
 	[luau_name("CloseInspectMenu"), luau_method]
 	close_inspect_menu: fn: void;
@@ -12244,7 +12249,7 @@ declare interface GuiService: Instance {
 	inspect_player_from_user_id: fn(userId: User): void;
 	[luau_name("IsTenFootInterface"), luau_method]
 	is_ten_foot_interface: fn: bool;
-	[luau_name("RemoveSelectionGroup"), luau_method]
+	[luau_name("RemoveSelectionGroup"), luau_method, deprecated]
 	remove_selection_group: fn(selectionName: string): void;
 	[luau_name("Select"), luau_method]
 	select: fn(selectionParent: Instance): void;
@@ -12346,18 +12351,18 @@ declare interface HttpService: Instance {
 	generate_guid: fn(wrapInCurlyBraces: bool?): string;
 	[luau_name("GetSecret"), luau_method]
 	get_secret: fn(key: string): Secret;
-	[luau_name("JSONDecode"), luau_method]
-	json_decode: fn(input: string): unknown;
-	[luau_name("JSONEncode"), luau_method]
-	json_encode: fn(input: unknown): string;
+	[luau_name("JSONDecode"), luau_method, wraps_errors]
+	json_decode: fn(input: string): Result<unknown, RobloxError>;
+	[luau_name("JSONEncode"), luau_method, wraps_errors]
+	json_encode: fn(input: unknown): Result<string, RobloxError>;
 	[luau_name("UrlEncode"), luau_method]
 	url_encode: fn(input: string): string;
-	[luau_name("GetAsync"), luau_method]
-	get_async: fn(url: unknown, nocache: bool?, headers: unknown): string;
-	[luau_name("PostAsync"), luau_method]
-	post_async: fn(url: unknown, data: string, content_type: Enum["HttpContentType"]?, compress: bool?, headers: unknown): string;
-	[luau_name("RequestAsync"), luau_method]
-	request_async: fn(requestOptions: UnknownRecord): UnknownRecord;
+	[luau_name("GetAsync"), luau_method, wraps_errors]
+	get_async: fn(url: unknown, nocache: bool?, headers: unknown): Result<string, RobloxError>;
+	[luau_name("PostAsync"), luau_method, wraps_errors]
+	post_async: fn(url: unknown, data: string, content_type: Enum["HttpContentType"]?, compress: bool?, headers: unknown): Result<string, RobloxError>;
+	[luau_name("RequestAsync"), luau_method, wraps_errors]
+	request_async: fn(requestOptions: UnknownRecord): Result<UnknownRecord, RobloxError>;
 }
 
 declare interface Humanoid: Instance {
@@ -12372,7 +12377,7 @@ declare interface Humanoid: Instance {
 	mut break_joints_on_death: bool;
 	[luau_name("CameraOffset")]
 	mut camera_offset: Vector3;
-	[luau_name("CollisionType")]
+	[luau_name("CollisionType"), deprecated]
 	mut collision_type: Enum["HumanoidCollisionType"];
 	[luau_name("DisplayDistanceType")]
 	mut display_distance_type: Enum["HumanoidDisplayDistanceType"];
@@ -12430,9 +12435,9 @@ declare interface Humanoid: Instance {
 	mut walk_to_point: Vector3;
 	[luau_name("AddAccessory"), luau_method]
 	add_accessory: fn(accessory: Accessory): void;
-	[luau_name("AddCustomStatus"), luau_method]
+	[luau_name("AddCustomStatus"), luau_method, deprecated]
 	add_custom_status: fn(status: string): bool;
-	[luau_name("AddStatus"), luau_method]
+	[luau_name("AddStatus"), luau_method, deprecated]
 	add_status: fn(status: Enum["Status"]?): bool;
 	[luau_name("BuildRigFromAttachments"), luau_method]
 	build_rig_from_attachments: fn: void;
@@ -12446,11 +12451,11 @@ declare interface Humanoid: Instance {
 	get_applied_description: fn: HumanoidDescription;
 	[luau_name("GetBodyPartR15"), luau_method]
 	get_body_part_r15: fn(part: BasePart): Enum["BodyPartR15"];
-	[luau_name("GetLimb"), luau_method]
-	get_limb: fn(part: BasePart): Enum["Limb"];
+	[luau_name("GetLimb"), luau_method, wraps_errors]
+	get_limb: fn(part: BasePart): Result<Enum["Limb"], RobloxError>;
 	[luau_name("GetMoveVelocity"), luau_method]
 	get_move_velocity: fn: Vector3;
-	[luau_name("GetPlayingAnimationTracks"), luau_method]
+	[luau_name("GetPlayingAnimationTracks"), luau_method, deprecated]
 	get_playing_animation_tracks: fn: unknown[];
 	[luau_name("GetRelativeVelocityAtFloor"), luau_method]
 	get_relative_velocity_at_floor: fn: Vector3;
@@ -12458,13 +12463,13 @@ declare interface Humanoid: Instance {
 	get_state: fn: Enum["HumanoidStateType"];
 	[luau_name("GetStateEnabled"), luau_method]
 	get_state_enabled: fn(state: Enum["HumanoidStateType"]): bool;
-	[luau_name("GetStatuses"), luau_method]
+	[luau_name("GetStatuses"), luau_method, deprecated]
 	get_statuses: fn: unknown[];
-	[luau_name("HasCustomStatus"), luau_method]
+	[luau_name("HasCustomStatus"), luau_method, deprecated]
 	has_custom_status: fn(status: string): bool;
-	[luau_name("HasStatus"), luau_method]
+	[luau_name("HasStatus"), luau_method, deprecated]
 	has_status: fn(status: Enum["Status"]?): bool;
-	[luau_name("LoadAnimation"), luau_method]
+	[luau_name("LoadAnimation"), luau_method, deprecated]
 	load_animation: fn(animation: Animation): AnimationTrack;
 	[luau_name("Move"), luau_method]
 	move: fn(moveDirection: Vector3, relativeToCamera: bool?): void;
@@ -12472,9 +12477,9 @@ declare interface Humanoid: Instance {
 	move_to: fn(location: Vector3, part: BasePart?): void;
 	[luau_name("RemoveAccessories"), luau_method]
 	remove_accessories: fn: void;
-	[luau_name("RemoveCustomStatus"), luau_method]
+	[luau_name("RemoveCustomStatus"), luau_method, deprecated]
 	remove_custom_status: fn(status: string): bool;
-	[luau_name("RemoveStatus"), luau_method]
+	[luau_name("RemoveStatus"), luau_method, deprecated]
 	remove_status: fn(status: Enum["Status"]?): bool;
 	[luau_name("ReplaceBodyPartR15"), luau_method]
 	replace_body_part_r15: fn(bodyPart: Enum["BodyPartR15"], part: BasePart): bool;
@@ -12484,27 +12489,27 @@ declare interface Humanoid: Instance {
 	take_damage: fn(amount: number): void;
 	[luau_name("UnequipTools"), luau_method]
 	unequip_tools: fn: void;
-	[luau_name("ApplyDescription"), luau_method]
-	apply_description: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): void;
-	[luau_name("ApplyDescriptionAsync"), luau_method]
-	apply_description_async: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): void;
-	[luau_name("ApplyDescriptionReset"), luau_method]
-	apply_description_reset: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): void;
-	[luau_name("ApplyDescriptionResetAsync"), luau_method]
-	apply_description_reset_async: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): void;
-	[luau_name("PlayEmote"), luau_method]
-	play_emote: fn(emoteName: string): bool;
-	[luau_name("PlayEmoteAsync"), luau_method]
-	play_emote_async: fn(emoteName: string): bool;
-	[luau_name("AnimationPlayed")]
+	[luau_name("ApplyDescription"), luau_method, deprecated, wraps_errors]
+	apply_description: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): Result<void, RobloxError>;
+	[luau_name("ApplyDescriptionAsync"), luau_method, wraps_errors]
+	apply_description_async: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): Result<void, RobloxError>;
+	[luau_name("ApplyDescriptionReset"), luau_method, deprecated, wraps_errors]
+	apply_description_reset: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): Result<void, RobloxError>;
+	[luau_name("ApplyDescriptionResetAsync"), luau_method, wraps_errors]
+	apply_description_reset_async: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): Result<void, RobloxError>;
+	[luau_name("PlayEmote"), luau_method, deprecated, wraps_errors]
+	play_emote: fn(emoteName: string): Result<bool, RobloxError>;
+	[luau_name("PlayEmoteAsync"), luau_method, wraps_errors]
+	play_emote_async: fn(emoteName: string): Result<bool, RobloxError>;
+	[luau_name("AnimationPlayed"), deprecated]
 	event animation_played(animationTrack: AnimationTrack);
 	[luau_name("ApplyDescriptionFinished")]
 	event apply_description_finished(description: HumanoidDescription);
 	[luau_name("Climbing")]
 	event climbing(speed: number);
-	[luau_name("CustomStatusAdded")]
+	[luau_name("CustomStatusAdded"), deprecated]
 	event custom_status_added(status: string);
-	[luau_name("CustomStatusRemoved")]
+	[luau_name("CustomStatusRemoved"), deprecated]
 	event custom_status_removed(status: string);
 	[luau_name("Died")]
 	event died;
@@ -12532,9 +12537,9 @@ declare interface Humanoid: Instance {
 	event state_changed(oldValue: Enum["HumanoidStateType"], newValue: Enum["HumanoidStateType"]);
 	[luau_name("StateEnabledChanged")]
 	event state_enabled_changed(state: Enum["HumanoidStateType"], isEnabled: bool);
-	[luau_name("StatusAdded")]
+	[luau_name("StatusAdded"), deprecated]
 	event status_added(status: Enum["Status"]);
-	[luau_name("StatusRemoved")]
+	[luau_name("StatusRemoved"), deprecated]
 	event status_removed(status: Enum["Status"]);
 	[luau_name("Strafing")]
 	event strafing(active: bool);
@@ -12963,7 +12968,7 @@ declare interface InputAction: Instance {
 	preferred_binding: InputBinding?;
 	[luau_name("Type")]
 	mut _type: Enum["InputActionType"];
-	[luau_name("Fire"), luau_method]
+	[luau_name("Fire"), luau_method, deprecated]
 	fire: fn(state: unknown): void;
 	[luau_name("GetState"), luau_method]
 	get_state: fn: unknown;
@@ -13021,8 +13026,8 @@ declare interface InputBinding: Instance {
 	mut vector2_scale: Vector2;
 	[luau_name("Vector3Scale")]
 	mut vector3_scale: Vector3;
-	[luau_name("Fire"), luau_method]
-	fire: fn(state: unknown): void;
+	[luau_name("Fire"), luau_method, wraps_errors]
+	fire: fn(state: unknown): Result<void, RobloxError>;
 }
 
 declare interface InputContext: Instance {
@@ -13052,40 +13057,40 @@ declare interface InputObject: Instance {
 
 declare interface InsertService: Instance {
 	_is_service: true;
-	[luau_name("AllowInsertFreeModels")]
+	[luau_name("AllowInsertFreeModels"), deprecated]
 	mut allow_insert_free_models: bool;
-	[luau_name("ApproveAssetId"), luau_method]
+	[luau_name("ApproveAssetId"), luau_method, deprecated]
 	approve_asset_id: fn(assetId: number): void;
-	[luau_name("ApproveAssetVersionId"), luau_method]
+	[luau_name("ApproveAssetVersionId"), luau_method, deprecated]
 	approve_asset_version_id: fn(assetVersionId: number): void;
-	[luau_name("Insert"), luau_method]
+	[luau_name("Insert"), luau_method, deprecated]
 	insert: fn(instance: Instance): void;
-	[luau_name("CreateMeshPartAsync"), luau_method]
-	create_mesh_part_async: fn(meshId: string, collisionFidelity: Enum["CollisionFidelity"], renderFidelity: Enum["RenderFidelity"]): MeshPart;
-	[luau_name("GetBaseCategories"), luau_method]
-	get_base_categories: fn: unknown[];
-	[luau_name("GetBaseSets"), luau_method]
-	get_base_sets: fn: unknown[];
-	[luau_name("GetCollection"), luau_method]
-	get_collection: fn(categoryId: number): unknown[];
-	[luau_name("GetFreeDecals"), luau_method]
-	get_free_decals: fn(searchText: string, pageNum: number): unknown[];
-	[luau_name("GetFreeDecalsAsync"), luau_method]
-	get_free_decals_async: fn(searchText: string, pageNum: number): unknown[];
-	[luau_name("GetFreeModels"), luau_method]
-	get_free_models: fn(searchText: string, pageNum: number): unknown[];
-	[luau_name("GetFreeModelsAsync"), luau_method]
-	get_free_models_async: fn(searchText: string, pageNum: number): unknown[];
-	[luau_name("GetLatestAssetVersionAsync"), luau_method]
-	get_latest_asset_version_async: fn(assetId: number): number;
-	[luau_name("GetUserCategories"), luau_method]
-	get_user_categories: fn(userId: User): unknown[];
-	[luau_name("GetUserSets"), luau_method]
-	get_user_sets: fn(userId: User): unknown[];
-	[luau_name("LoadAsset"), luau_method]
-	load_asset: fn(assetId: number): Instance;
-	[luau_name("LoadAssetVersion"), luau_method]
-	load_asset_version: fn(assetVersionId: number): Instance;
+	[luau_name("CreateMeshPartAsync"), luau_method, wraps_errors]
+	create_mesh_part_async: fn(meshId: string, collisionFidelity: Enum["CollisionFidelity"], renderFidelity: Enum["RenderFidelity"]): Result<MeshPart, RobloxError>;
+	[luau_name("GetBaseCategories"), luau_method, deprecated, wraps_errors]
+	get_base_categories: fn: Result<unknown[], RobloxError>;
+	[luau_name("GetBaseSets"), luau_method, deprecated, wraps_errors]
+	get_base_sets: fn: Result<unknown[], RobloxError>;
+	[luau_name("GetCollection"), luau_method, deprecated, wraps_errors]
+	get_collection: fn(categoryId: number): Result<unknown[], RobloxError>;
+	[luau_name("GetFreeDecals"), luau_method, deprecated, wraps_errors]
+	get_free_decals: fn(searchText: string, pageNum: number): Result<unknown[], RobloxError>;
+	[luau_name("GetFreeDecalsAsync"), luau_method, wraps_errors]
+	get_free_decals_async: fn(searchText: string, pageNum: number): Result<unknown[], RobloxError>;
+	[luau_name("GetFreeModels"), luau_method, deprecated, wraps_errors]
+	get_free_models: fn(searchText: string, pageNum: number): Result<unknown[], RobloxError>;
+	[luau_name("GetFreeModelsAsync"), luau_method, wraps_errors]
+	get_free_models_async: fn(searchText: string, pageNum: number): Result<unknown[], RobloxError>;
+	[luau_name("GetLatestAssetVersionAsync"), luau_method, wraps_errors]
+	get_latest_asset_version_async: fn(assetId: number): Result<number, RobloxError>;
+	[luau_name("GetUserCategories"), luau_method, deprecated, wraps_errors]
+	get_user_categories: fn(userId: User): Result<unknown[], RobloxError>;
+	[luau_name("GetUserSets"), luau_method, deprecated, wraps_errors]
+	get_user_sets: fn(userId: User): Result<unknown[], RobloxError>;
+	[luau_name("LoadAsset"), luau_method, wraps_errors]
+	load_asset: fn(assetId: number): Result<Instance, RobloxError>;
+	[luau_name("LoadAssetVersion"), luau_method, wraps_errors]
+	load_asset_version: fn(assetVersionId: number): Result<Instance, RobloxError>;
 }
 
 declare interface InstanceExtensionsService: Instance {
@@ -13242,18 +13247,18 @@ declare interface KeyframeSequenceProvider: Instance {
 	register_active_keyframe_sequence: fn(keyframeSequence: KeyframeSequence): string;
 	[luau_name("RegisterKeyframeSequence"), luau_method]
 	register_keyframe_sequence: fn(keyframeSequence: KeyframeSequence): string;
-	[luau_name("GetAnimations"), luau_method]
-	get_animations: fn(userId: User): Instance;
-	[luau_name("GetAnimationsAsync"), luau_method]
-	get_animations_async: fn(userId: User): Instance;
-	[luau_name("GetKeyframeSequenceAsync"), luau_method]
-	get_keyframe_sequence_async: fn(assetId: string): Instance;
+	[luau_name("GetAnimations"), luau_method, deprecated, wraps_errors]
+	get_animations: fn(userId: User): Result<Instance, RobloxError>;
+	[luau_name("GetAnimationsAsync"), luau_method, wraps_errors]
+	get_animations_async: fn(userId: User): Result<Instance, RobloxError>;
+	[luau_name("GetKeyframeSequenceAsync"), luau_method, wraps_errors]
+	get_keyframe_sequence_async: fn(assetId: string): Result<Instance, RobloxError>;
 }
 
 declare interface LanguageService: Instance {
 	_is_service: true;
-	[luau_name("GetCapabilitiesUsedInPackageAsync"), luau_method]
-	get_capabilities_used_in_package_async: fn(instances: Instance[]): UnknownRecord;
+	[luau_name("GetCapabilitiesUsedInPackageAsync"), luau_method, wraps_errors]
+	get_capabilities_used_in_package_async: fn(instances: Instance[]): Result<UnknownRecord, RobloxError>;
 }
 
 declare interface Light: Instance {
@@ -13325,11 +13330,11 @@ declare interface Lighting: Instance {
 	lighting_style: Enum["LightingStyle"];
 	[luau_name("OutdoorAmbient")]
 	mut outdoor_ambient: Color3;
-	[luau_name("Outlines")]
+	[luau_name("Outlines"), deprecated]
 	mut outlines: bool;
 	[luau_name("PrioritizeLightingQuality")]
 	prioritize_lighting_quality: bool;
-	[luau_name("ShadowColor")]
+	[luau_name("ShadowColor"), deprecated]
 	mut shadow_color: Color3;
 	[luau_name("ShadowSoftness")]
 	mut shadow_softness: number;
@@ -13379,23 +13384,23 @@ declare interface LocalizationService: Instance {
 	get_table_entries: fn(instance: Instance?): unknown[];
 	[luau_name("GetTranslatorForPlayer"), luau_method]
 	get_translator_for_player: fn(player: Player): Instance;
-	[luau_name("GetCountryRegionForPlayerAsync"), luau_method]
-	get_country_region_for_player_async: fn(player: Player): string;
-	[luau_name("GetTranslatorForLocaleAsync"), luau_method]
-	get_translator_for_locale_async: fn(locale: string): Instance;
-	[luau_name("GetTranslatorForPlayerAsync"), luau_method]
-	get_translator_for_player_async: fn(player: Player): Instance;
+	[luau_name("GetCountryRegionForPlayerAsync"), luau_method, wraps_errors]
+	get_country_region_for_player_async: fn(player: Player): Result<string, RobloxError>;
+	[luau_name("GetTranslatorForLocaleAsync"), luau_method, wraps_errors]
+	get_translator_for_locale_async: fn(locale: string): Result<Instance, RobloxError>;
+	[luau_name("GetTranslatorForPlayerAsync"), luau_method, wraps_errors]
+	get_translator_for_player_async: fn(player: Player): Result<Instance, RobloxError>;
 }
 
 declare interface LocalizationTable: Instance {
 	_is_creatable: true;
 	[luau_name("SourceLocaleId")]
 	mut source_locale_id: string;
-	[luau_name("GetContents"), luau_method]
+	[luau_name("GetContents"), luau_method, deprecated]
 	get_contents: fn: string;
 	[luau_name("GetEntries"), luau_method]
 	get_entries: fn: unknown[];
-	[luau_name("GetString"), luau_method]
+	[luau_name("GetString"), luau_method, deprecated]
 	get_string: fn(targetLocaleId: string, key: string): string;
 	[luau_name("GetTranslator"), luau_method]
 	get_translator: fn(localeId: string): Instance;
@@ -13403,26 +13408,26 @@ declare interface LocalizationTable: Instance {
 	remove_entry: fn(key: string, source: string, context: string): void;
 	[luau_name("RemoveEntryValue"), luau_method]
 	remove_entry_value: fn(key: string, source: string, context: string, localeId: string): void;
-	[luau_name("RemoveKey"), luau_method]
+	[luau_name("RemoveKey"), luau_method, deprecated]
 	remove_key: fn(key: string): void;
 	[luau_name("RemoveTargetLocale"), luau_method]
 	remove_target_locale: fn(localeId: string): void;
-	[luau_name("SetContents"), luau_method]
+	[luau_name("SetContents"), luau_method, deprecated]
 	set_contents: fn(contents: string): void;
 	[luau_name("SetEntries"), luau_method]
 	set_entries: fn(entries: unknown): void;
-	[luau_name("SetEntry"), luau_method]
+	[luau_name("SetEntry"), luau_method, deprecated]
 	set_entry: fn(key: string, targetLocaleId: string, text: string): void;
-	[luau_name("SetEntryContext"), luau_method]
-	set_entry_context: fn(key: string, source: string, context: string, newContext: string): void;
+	[luau_name("SetEntryContext"), luau_method, wraps_errors]
+	set_entry_context: fn(key: string, source: string, context: string, newContext: string): Result<void, RobloxError>;
 	[luau_name("SetEntryExample"), luau_method]
 	set_entry_example: fn(key: string, source: string, context: string, example: string): void;
-	[luau_name("SetEntryKey"), luau_method]
-	set_entry_key: fn(key: string, source: string, context: string, newKey: string): void;
-	[luau_name("SetEntrySource"), luau_method]
-	set_entry_source: fn(key: string, source: string, context: string, newSource: string): void;
-	[luau_name("SetEntryValue"), luau_method]
-	set_entry_value: fn(key: string, source: string, context: string, localeId: string, text: string): void;
+	[luau_name("SetEntryKey"), luau_method, wraps_errors]
+	set_entry_key: fn(key: string, source: string, context: string, newKey: string): Result<void, RobloxError>;
+	[luau_name("SetEntrySource"), luau_method, wraps_errors]
+	set_entry_source: fn(key: string, source: string, context: string, newSource: string): Result<void, RobloxError>;
+	[luau_name("SetEntryValue"), luau_method, wraps_errors]
+	set_entry_value: fn(key: string, source: string, context: string, localeId: string, text: string): Result<void, RobloxError>;
 }
 
 declare interface CloudLocalizationTable: LocalizationTable;
@@ -13439,14 +13444,14 @@ declare interface LogService: Instance {
 	_is_service: true;
 	[luau_name("ClearOutput"), luau_method]
 	clear_output: fn: void;
-	[luau_name("Error"), luau_method]
-	error: fn(message: string, context: UnknownRecord?): void;
+	[luau_name("Error"), luau_method, wraps_errors]
+	error: fn(message: string, context: UnknownRecord?): Result<void, RobloxError>;
 	[luau_name("GetLogHistory"), luau_method]
 	get_log_history: fn: unknown[];
 	[luau_name("Info"), luau_method]
 	info: fn(message: string, context: UnknownRecord?): void;
-	[luau_name("Log"), luau_method]
-	log: fn(messageType: Enum["MessageType"], message: string, context: UnknownRecord?): void;
+	[luau_name("Log"), luau_method, wraps_errors]
+	log: fn(messageType: Enum["MessageType"], message: string, context: UnknownRecord?): Result<void, RobloxError>;
 	[luau_name("Output"), luau_method]
 	output: fn(message: string, context: UnknownRecord?): void;
 	[luau_name("Warn"), luau_method]
@@ -13483,7 +13488,7 @@ declare interface BaseScript: LuaSourceContainer {
 	mut disabled: bool;
 	[luau_name("Enabled")]
 	mut enabled: bool;
-	[luau_name("LinkedSource")]
+	[luau_name("LinkedSource"), deprecated]
 	mut linked_source: string;
 	[luau_name("RunContext")]
 	mut run_context: Enum["RunContext"];
@@ -13498,7 +13503,7 @@ declare interface Script: BaseScript {
 declare interface LocalScript: Script;
 declare interface ModuleScript: LuaSourceContainer {
 	_is_creatable: true;
-	[luau_name("LinkedSource")]
+	[luau_name("LinkedSource"), deprecated]
 	mut linked_source: string;
 	[luau_name("Source")]
 	mut source: string;
@@ -13522,10 +13527,10 @@ declare interface MLService: Instance {
 	is_post_process_ready: fn: bool;
 	[luau_name("SetPostProcessEnabled"), luau_method]
 	set_post_process_enabled: fn(enabled: bool): void;
-	[luau_name("CreateSessionAsync"), luau_method]
-	create_session_async: fn(assetId: string): MLSession;
-	[luau_name("LoadPostProcessModelAsync"), luau_method]
-	load_post_process_model_async: fn(assetId: number): void;
+	[luau_name("CreateSessionAsync"), luau_method, wraps_errors]
+	create_session_async: fn(assetId: string): Result<MLSession, RobloxError>;
+	[luau_name("LoadPostProcessModelAsync"), luau_method, wraps_errors]
+	load_post_process_model_async: fn(assetId: number): Result<void, RobloxError>;
 }
 
 declare interface MakeupDescription: Instance {
@@ -13558,19 +13563,19 @@ declare interface MarkerCurve: Instance {
 
 declare interface MarketplaceService: Instance {
 	_is_service: true;
-	[luau_name("BindReceiptHandler"), luau_method]
-	bind_receipt_handler: fn(transactionType: Enum["ReceiptType"], handler: fn: void, filter: unknown[]?): ScriptConnection;
+	[luau_name("BindReceiptHandler"), luau_method, wraps_errors]
+	bind_receipt_handler: fn(transactionType: Enum["ReceiptType"], handler: fn: void, filter: unknown[]?): Result<ScriptConnection, RobloxError>;
 	[luau_name("OpenShop"), luau_method]
 	open_shop: fn(player: Player): void;
-	[luau_name("PromptBulkPurchase"), luau_method]
-	prompt_bulk_purchase: fn(player: Player, lineItems: unknown[], options: UnknownRecord): void;
+	[luau_name("PromptBulkPurchase"), luau_method, wraps_errors]
+	prompt_bulk_purchase: fn(player: Player, lineItems: unknown[], options: UnknownRecord): Result<void, RobloxError>;
 	[luau_name("PromptBundlePurchase"), luau_method]
 	prompt_bundle_purchase: fn(player: Player, bundleId: number): void;
 	[luau_name("PromptCancelSubscription"), luau_method]
 	prompt_cancel_subscription: fn(user: Player, subscriptionId: string): void;
 	[luau_name("PromptGamePassPurchase"), luau_method]
 	prompt_game_pass_purchase: fn(player: Player, gamePassId: number): void;
-	[luau_name("PromptPremiumPurchase"), luau_method]
+	[luau_name("PromptPremiumPurchase"), luau_method, deprecated]
 	prompt_premium_purchase: fn(player: Player): void;
 	[luau_name("PromptProductPurchase"), luau_method]
 	prompt_product_purchase: fn(player: Player, productId: number, equipIfPurchased: bool?, currencyType: Enum["CurrencyType"]?): void;
@@ -13580,40 +13585,40 @@ declare interface MarketplaceService: Instance {
 	prompt_roblox_subscription_purchase: fn(user: Player): void;
 	[luau_name("PromptSubscriptionPurchase"), luau_method]
 	prompt_subscription_purchase: fn(user: Player, subscriptionId: string): void;
-	[luau_name("GetDeveloperProductsAsync"), luau_method]
-	get_developer_products_async: fn: Instance;
-	[luau_name("GetProductInfo"), luau_method]
-	get_product_info: fn(assetId: number, infoType: Enum["InfoType"]?): UnknownRecord;
-	[luau_name("GetProductInfoAsync"), luau_method]
-	get_product_info_async: fn(assetId: number, infoType: Enum["InfoType"]?): UnknownRecord;
-	[luau_name("GetRobloxSubscriptionDetailsAsync"), luau_method]
-	get_roblox_subscription_details_async: fn(user: Player): UnknownRecord;
-	[luau_name("GetSubscriptionProductInfoAsync"), luau_method]
-	get_subscription_product_info_async: fn(subscriptionId: string): UnknownRecord;
-	[luau_name("GetUserSubscriptionDetailsAsync"), luau_method]
-	get_user_subscription_details_async: fn(user: Player, subscriptionId: string): UnknownRecord;
-	[luau_name("GetUserSubscriptionPaymentHistoryAsync"), luau_method]
-	get_user_subscription_payment_history_async: fn(user: Player, subscriptionId: string): unknown[];
-	[luau_name("GetUserSubscriptionStatusAsync"), luau_method]
-	get_user_subscription_status_async: fn(user: Player, subscriptionId: string): UnknownRecord;
-	[luau_name("GetUsersPriceLevelsAsync"), luau_method]
-	get_users_price_levels_async: fn(userIds: unknown[]): unknown[];
-	[luau_name("PlayerOwnsAsset"), luau_method]
-	player_owns_asset: fn(player: Player, assetId: number): bool;
-	[luau_name("PlayerOwnsAssetAsync"), luau_method]
-	player_owns_asset_async: fn(player: Player, assetId: number): bool;
-	[luau_name("PlayerOwnsBundle"), luau_method]
-	player_owns_bundle: fn(player: Player, bundleId: number): bool;
-	[luau_name("PlayerOwnsBundleAsync"), luau_method]
-	player_owns_bundle_async: fn(player: Player, bundleId: number): bool;
-	[luau_name("PromptRobuxTransferAsync"), luau_method]
-	prompt_robux_transfer_async: fn(sender: Player, receiverUserId: number, amount: number): string;
-	[luau_name("RankProductsAsync"), luau_method]
-	rank_products_async: fn(productIdentifiers: unknown[]): unknown[];
-	[luau_name("RecommendTopProductsAsync"), luau_method]
-	recommend_top_products_async: fn(infoTypes: unknown[]): unknown[];
-	[luau_name("UserOwnsGamePassAsync"), luau_method]
-	user_owns_game_pass_async: fn(userId: User, gamePassId: number): bool;
+	[luau_name("GetDeveloperProductsAsync"), luau_method, wraps_errors]
+	get_developer_products_async: fn: Result<Instance, RobloxError>;
+	[luau_name("GetProductInfo"), luau_method, deprecated, wraps_errors]
+	get_product_info: fn(assetId: number, infoType: Enum["InfoType"]?): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetProductInfoAsync"), luau_method, wraps_errors]
+	get_product_info_async: fn(assetId: number, infoType: Enum["InfoType"]?): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetRobloxSubscriptionDetailsAsync"), luau_method, wraps_errors]
+	get_roblox_subscription_details_async: fn(user: Player): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetSubscriptionProductInfoAsync"), luau_method, wraps_errors]
+	get_subscription_product_info_async: fn(subscriptionId: string): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetUserSubscriptionDetailsAsync"), luau_method, wraps_errors]
+	get_user_subscription_details_async: fn(user: Player, subscriptionId: string): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetUserSubscriptionPaymentHistoryAsync"), luau_method, wraps_errors]
+	get_user_subscription_payment_history_async: fn(user: Player, subscriptionId: string): Result<unknown[], RobloxError>;
+	[luau_name("GetUserSubscriptionStatusAsync"), luau_method, wraps_errors]
+	get_user_subscription_status_async: fn(user: Player, subscriptionId: string): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetUsersPriceLevelsAsync"), luau_method, wraps_errors]
+	get_users_price_levels_async: fn(userIds: unknown[]): Result<unknown[], RobloxError>;
+	[luau_name("PlayerOwnsAsset"), luau_method, deprecated, wraps_errors]
+	player_owns_asset: fn(player: Player, assetId: number): Result<bool, RobloxError>;
+	[luau_name("PlayerOwnsAssetAsync"), luau_method, wraps_errors]
+	player_owns_asset_async: fn(player: Player, assetId: number): Result<bool, RobloxError>;
+	[luau_name("PlayerOwnsBundle"), luau_method, deprecated, wraps_errors]
+	player_owns_bundle: fn(player: Player, bundleId: number): Result<bool, RobloxError>;
+	[luau_name("PlayerOwnsBundleAsync"), luau_method, wraps_errors]
+	player_owns_bundle_async: fn(player: Player, bundleId: number): Result<bool, RobloxError>;
+	[luau_name("PromptRobuxTransferAsync"), luau_method, wraps_errors]
+	prompt_robux_transfer_async: fn(sender: Player, receiverUserId: number, amount: number): Result<string, RobloxError>;
+	[luau_name("RankProductsAsync"), luau_method, wraps_errors]
+	rank_products_async: fn(productIdentifiers: unknown[]): Result<unknown[], RobloxError>;
+	[luau_name("RecommendTopProductsAsync"), luau_method, wraps_errors]
+	recommend_top_products_async: fn(infoTypes: unknown[]): Result<unknown[], RobloxError>;
+	[luau_name("UserOwnsGamePassAsync"), luau_method, wraps_errors]
+	user_owns_game_pass_async: fn(userId: User, gamePassId: number): Result<bool, RobloxError>;
 	[luau_name("PromptBulkPurchaseFinished")]
 	event prompt_bulk_purchase_finished(player: Player, status: Enum["MarketplaceBulkPurchasePromptStatus"], results: UnknownRecord);
 	[luau_name("PromptBundlePurchaseFinished")]
@@ -13675,34 +13680,34 @@ declare interface MaterialVariant: Instance {
 }
 
 declare interface MemoryStoreDistributedCounter: Instance {
-	[luau_name("GetAsync"), luau_method]
-	get_async: fn: number;
-	[luau_name("IncrementAsync"), luau_method]
-	increment_async: fn(delta: number, expiration: number): number;
+	[luau_name("GetAsync"), luau_method, wraps_errors]
+	get_async: fn: Result<number, RobloxError>;
+	[luau_name("IncrementAsync"), luau_method, wraps_errors]
+	increment_async: fn(delta: number, expiration: number): Result<number, RobloxError>;
 }
 
 declare interface MemoryStoreHashMap: Instance {
-	[luau_name("GetAsync"), luau_method]
-	get_async: fn(key: string): unknown;
-	[luau_name("ListItemsAsync"), luau_method]
-	list_items_async: fn(count: number): MemoryStoreHashMapPages;
-	[luau_name("RemoveAsync"), luau_method]
-	remove_async: fn(key: string): void;
-	[luau_name("SetAsync"), luau_method]
-	set_async: fn(key: string, value: unknown, expiration: number): bool;
-	[luau_name("UpdateAsync"), luau_method]
-	update_async: fn(key: string, transformFunction: fn: void, expiration: number): unknown;
+	[luau_name("GetAsync"), luau_method, wraps_errors]
+	get_async: fn(key: string): Result<unknown, RobloxError>;
+	[luau_name("ListItemsAsync"), luau_method, wraps_errors]
+	list_items_async: fn(count: number): Result<MemoryStoreHashMapPages, RobloxError>;
+	[luau_name("RemoveAsync"), luau_method, wraps_errors]
+	remove_async: fn(key: string): Result<void, RobloxError>;
+	[luau_name("SetAsync"), luau_method, wraps_errors]
+	set_async: fn(key: string, value: unknown, expiration: number): Result<bool, RobloxError>;
+	[luau_name("UpdateAsync"), luau_method, wraps_errors]
+	update_async: fn(key: string, transformFunction: fn: void, expiration: number): Result<unknown, RobloxError>;
 }
 
 declare interface MemoryStoreQueue: Instance {
-	[luau_name("AddAsync"), luau_method]
-	add_async: fn(value: unknown, expiration: number, priority: number?): void;
-	[luau_name("GetSizeAsync"), luau_method]
-	get_size_async: fn(excludeInvisible: bool?): number;
-	[luau_name("ReadAsync"), luau_method]
-	read_async: fn(count: number, allOrNothing: bool?, waitTimeout: number?): unknown;
-	[luau_name("RemoveAsync"), luau_method]
-	remove_async: fn(id: string): void;
+	[luau_name("AddAsync"), luau_method, wraps_errors]
+	add_async: fn(value: unknown, expiration: number, priority: number?): Result<void, RobloxError>;
+	[luau_name("GetSizeAsync"), luau_method, wraps_errors]
+	get_size_async: fn(excludeInvisible: bool?): Result<number, RobloxError>;
+	[luau_name("ReadAsync"), luau_method, wraps_errors]
+	read_async: fn(count: number, allOrNothing: bool?, waitTimeout: number?): Result<unknown, RobloxError>;
+	[luau_name("RemoveAsync"), luau_method, wraps_errors]
+	remove_async: fn(id: string): Result<void, RobloxError>;
 }
 
 declare interface MemoryStoreService: Instance {
@@ -13718,18 +13723,18 @@ declare interface MemoryStoreService: Instance {
 }
 
 declare interface MemoryStoreSortedMap: Instance {
-	[luau_name("GetAsync"), luau_method]
-	get_async: fn(key: string): unknown;
-	[luau_name("GetRangeAsync"), luau_method]
-	get_range_async: fn(direction: Enum["SortDirection"], count: number, exclusiveLowerBound: unknown, exclusiveUpperBound: unknown): unknown[];
-	[luau_name("GetSizeAsync"), luau_method]
-	get_size_async: fn: number;
-	[luau_name("RemoveAsync"), luau_method]
-	remove_async: fn(key: string): void;
-	[luau_name("SetAsync"), luau_method]
-	set_async: fn(key: string, value: unknown, expiration: number, sortKey: unknown): bool;
-	[luau_name("UpdateAsync"), luau_method]
-	update_async: fn(key: string, transformFunction: fn: void, expiration: number): unknown;
+	[luau_name("GetAsync"), luau_method, wraps_errors]
+	get_async: fn(key: string): Result<unknown, RobloxError>;
+	[luau_name("GetRangeAsync"), luau_method, wraps_errors]
+	get_range_async: fn(direction: Enum["SortDirection"], count: number, exclusiveLowerBound: unknown, exclusiveUpperBound: unknown): Result<unknown[], RobloxError>;
+	[luau_name("GetSizeAsync"), luau_method, wraps_errors]
+	get_size_async: fn: Result<number, RobloxError>;
+	[luau_name("RemoveAsync"), luau_method, wraps_errors]
+	remove_async: fn(key: string): Result<void, RobloxError>;
+	[luau_name("SetAsync"), luau_method, wraps_errors]
+	set_async: fn(key: string, value: unknown, expiration: number, sortKey: unknown): Result<bool, RobloxError>;
+	[luau_name("UpdateAsync"), luau_method, wraps_errors]
+	update_async: fn(key: string, transformFunction: fn: void, expiration: number): Result<unknown, RobloxError>;
 }
 
 declare interface MessageBusConnection: Instance;
@@ -13739,10 +13744,10 @@ declare interface MessageBusService: Instance {
 
 declare interface MessagingService: Instance {
 	_is_service: true;
-	[luau_name("PublishAsync"), luau_method]
-	publish_async: fn(topic: string, message: unknown): void;
-	[luau_name("SubscribeAsync"), luau_method]
-	subscribe_async: fn(topic: string, callback: fn: void): ScriptConnection;
+	[luau_name("PublishAsync"), luau_method, wraps_errors]
+	publish_async: fn(topic: string, message: unknown): Result<void, RobloxError>;
+	[luau_name("SubscribeAsync"), luau_method, wraps_errors]
+	subscribe_async: fn(topic: string, callback: fn: void): Result<ScriptConnection, RobloxError>;
 }
 
 declare interface MetaBreakpoint: Instance;
@@ -13769,10 +13774,10 @@ declare interface ModerationService: Instance {
 	bind_reviewable_content_event_processor: fn(priority: number, callback: fn: void): ScriptConnection;
 	[luau_name("CreateReviewableContentKey"), luau_method]
 	create_reviewable_content_key: fn(content: Content): string;
-	[luau_name("CreateReviewableContentAsync"), luau_method]
-	create_reviewable_content_async: fn(config: UnknownRecord): string;
-	[luau_name("InternalRequestReviewableContentReviewAsync"), luau_method]
-	internal_request_reviewable_content_review_async: fn(config: UnknownRecord): void;
+	[luau_name("CreateReviewableContentAsync"), luau_method, wraps_errors]
+	create_reviewable_content_async: fn(config: UnknownRecord): Result<string, RobloxError>;
+	[luau_name("InternalRequestReviewableContentReviewAsync"), luau_method, wraps_errors]
+	internal_request_reviewable_content_review_async: fn(config: UnknownRecord): Result<void, RobloxError>;
 }
 
 declare interface Mouse: Instance {
@@ -13810,9 +13815,9 @@ declare interface Mouse: Instance {
 	event button2_up;
 	[luau_name("Idle")]
 	event idle;
-	[luau_name("KeyDown")]
+	[luau_name("KeyDown"), deprecated]
 	event key_down(key: string);
-	[luau_name("KeyUp")]
+	[luau_name("KeyUp"), deprecated]
 	event key_up(key: string);
 	[luau_name("Move")]
 	event move;
@@ -13847,18 +13852,18 @@ declare interface OmniRecommendationsService: Instance {
 }
 
 declare interface OpenCloudApiV1: Instance {
-	[luau_name("CreateModel"), luau_method]
+	[luau_name("CreateModel"), luau_method, deprecated]
 	create_model: fn(name: string): OpenCloudModel;
-	[luau_name("CreateUserNotificationAsync"), luau_method]
-	create_user_notification_async: fn(user: string, userNotification: OpenCloudModel): OpenCloudModel;
+	[luau_name("CreateUserNotificationAsync"), luau_method, deprecated, wraps_errors]
+	create_user_notification_async: fn(user: string, userNotification: OpenCloudModel): Result<OpenCloudModel, RobloxError>;
 }
 
 declare interface OpenCloudService: Instance {
 	_is_service: true;
-	[luau_name("GetApiV1"), luau_method]
+	[luau_name("GetApiV1"), luau_method, deprecated]
 	get_api_v1: fn: OpenCloudApiV1;
-	[luau_name("InvokeAsync"), luau_method]
-	invoke_async: fn(version: string, methodName: string, arguments: UnknownRecord, headers: UnknownRecord?): UnknownRecord;
+	[luau_name("InvokeAsync"), luau_method, deprecated, wraps_errors]
+	invoke_async: fn(version: string, methodName: string, arguments: UnknownRecord, headers: UnknownRecord?): Result<UnknownRecord, RobloxError>;
 }
 
 declare interface OperationGraph: Instance {
@@ -13907,7 +13912,7 @@ declare interface BasePart: PVInstance {
 	center_of_mass: Vector3;
 	[luau_name("CollisionGroup")]
 	mut collision_group: string;
-	[luau_name("CollisionGroupId")]
+	[luau_name("CollisionGroupId"), deprecated]
 	mut collision_group_id: number;
 	[luau_name("Color")]
 	mut color: Color3;
@@ -13951,7 +13956,7 @@ declare interface BasePart: PVInstance {
 	mut rotation: Vector3;
 	[luau_name("Size")]
 	mut size: Vector3;
-	[luau_name("SpecificGravity")]
+	[luau_name("SpecificGravity"), deprecated]
 	specific_gravity: number;
 	[luau_name("TopSurface")]
 	mut top_surface: Enum["SurfaceType"];
@@ -13967,7 +13972,7 @@ declare interface BasePart: PVInstance {
 	apply_impulse_at_position: fn(impulse: Vector3, position: Vector3): void;
 	[luau_name("BindToCollisionSummaries"), luau_method]
 	bind_to_collision_summaries: fn(callback: fn: void): ScriptConnection;
-	[luau_name("BreakJoints"), luau_method]
+	[luau_name("BreakJoints"), luau_method, deprecated]
 	break_joints: fn: void;
 	[luau_name("CanCollideWith"), luau_method]
 	can_collide_with: fn(part: BasePart): bool;
@@ -13981,15 +13986,15 @@ declare interface BasePart: PVInstance {
 	get_joints: fn: Instance[];
 	[luau_name("GetMass"), luau_method]
 	get_mass: fn: number;
-	[luau_name("GetNetworkOwner"), luau_method]
-	get_network_owner: fn: Instance;
+	[luau_name("GetNetworkOwner"), luau_method, wraps_errors]
+	get_network_owner: fn: Result<Instance, RobloxError>;
 	[luau_name("GetNetworkOwnershipAuto"), luau_method]
 	get_network_ownership_auto: fn: bool;
 	[luau_name("GetNoCollisionConstraints"), luau_method]
 	get_no_collision_constraints: fn: Instance[];
-	[luau_name("GetRenderCFrame"), luau_method]
+	[luau_name("GetRenderCFrame"), luau_method, deprecated]
 	get_render_c_frame: fn: CFrame;
-	[luau_name("GetRootPart"), luau_method]
+	[luau_name("GetRootPart"), luau_method, deprecated]
 	get_root_part: fn: Instance;
 	[luau_name("GetTouchingParts"), luau_method]
 	get_touching_parts: fn: Instance[];
@@ -13997,27 +14002,27 @@ declare interface BasePart: PVInstance {
 	get_velocity_at_position: fn(position: Vector3): Vector3;
 	[luau_name("IsGrounded"), luau_method]
 	is_grounded: fn: bool;
-	[luau_name("MakeJoints"), luau_method]
+	[luau_name("MakeJoints"), luau_method, deprecated]
 	make_joints: fn: void;
 	[luau_name("Resize"), luau_method]
 	resize: fn(normalId: Enum["NormalId"], deltaAmount: number): bool;
-	[luau_name("SetNetworkOwner"), luau_method]
-	set_network_owner: fn(playerInstance: Player?): void;
+	[luau_name("SetNetworkOwner"), luau_method, wraps_errors]
+	set_network_owner: fn(playerInstance: Player?): Result<void, RobloxError>;
 	[luau_name("SetNetworkOwnershipAuto"), luau_method]
 	set_network_ownership_auto: fn: void;
 	[luau_name("TorqueToAngularAcceleration"), luau_method]
 	torque_to_angular_acceleration: fn(torque: Vector3, angVelocity: Vector3?): Vector3;
-	[luau_name("IntersectAsync"), luau_method]
-	intersect_async: fn(parts: Instance[], collisionfidelity: Enum["CollisionFidelity"]?, renderFidelity: Enum["RenderFidelity"]?): Instance;
-	[luau_name("SubtractAsync"), luau_method]
-	subtract_async: fn(parts: Instance[], collisionfidelity: Enum["CollisionFidelity"]?, renderFidelity: Enum["RenderFidelity"]?): Instance;
-	[luau_name("UnionAsync"), luau_method]
-	union_async: fn(parts: Instance[], collisionfidelity: Enum["CollisionFidelity"]?, renderFidelity: Enum["RenderFidelity"]?): Instance;
-	[luau_name("LocalSimulationTouched")]
+	[luau_name("IntersectAsync"), luau_method, wraps_errors]
+	intersect_async: fn(parts: Instance[], collisionfidelity: Enum["CollisionFidelity"]?, renderFidelity: Enum["RenderFidelity"]?): Result<Instance, RobloxError>;
+	[luau_name("SubtractAsync"), luau_method, wraps_errors]
+	subtract_async: fn(parts: Instance[], collisionfidelity: Enum["CollisionFidelity"]?, renderFidelity: Enum["RenderFidelity"]?): Result<Instance, RobloxError>;
+	[luau_name("UnionAsync"), luau_method, wraps_errors]
+	union_async: fn(parts: Instance[], collisionfidelity: Enum["CollisionFidelity"]?, renderFidelity: Enum["RenderFidelity"]?): Result<Instance, RobloxError>;
+	[luau_name("LocalSimulationTouched"), deprecated]
 	event local_simulation_touched(part: BasePart);
-	[luau_name("OutfitChanged")]
+	[luau_name("OutfitChanged"), deprecated]
 	event outfit_changed;
-	[luau_name("StoppedTouching")]
+	[luau_name("StoppedTouching"), deprecated]
 	event stopped_touching(otherPart: BasePart);
 	[luau_name("TouchEnded")]
 	event touch_ended(otherPart: BasePart);
@@ -14030,7 +14035,7 @@ declare interface CornerWedgePart: BasePart {
 }
 
 declare interface FormFactorPart: BasePart {
-	[luau_name("FormFactor")]
+	[luau_name("FormFactor"), deprecated]
 	mut form_factor: Enum["FormFactor"];
 }
 
@@ -14089,7 +14094,7 @@ declare interface WedgePart: FormFactorPart {
 }
 
 declare interface Terrain: BasePart {
-	[luau_name("IsSmooth")]
+	[luau_name("IsSmooth"), deprecated]
 	is_smooth: bool;
 	[luau_name("MaxExtents")]
 	max_extents: Region3int16;
@@ -14103,9 +14108,9 @@ declare interface Terrain: BasePart {
 	mut water_wave_size: number;
 	[luau_name("WaterWaveSpeed")]
 	mut water_wave_speed: number;
-	[luau_name("AutowedgeCell"), luau_method]
+	[luau_name("AutowedgeCell"), luau_method, deprecated]
 	autowedge_cell: fn(x: number, y: number, z: number): bool;
-	[luau_name("AutowedgeCells"), luau_method]
+	[luau_name("AutowedgeCells"), luau_method, deprecated]
 	autowedge_cells: fn(region: Region3int16): void;
 	[luau_name("CellCenterToWorld"), luau_method]
 	cell_center_to_world: fn(x: number, y: number, z: number): Vector3;
@@ -14129,13 +14134,13 @@ declare interface Terrain: BasePart {
 	fill_region: fn(region: Region3, resolution: number, material: Enum["Material"]): void;
 	[luau_name("FillWedge"), luau_method]
 	fill_wedge: fn(cframe: CFrame, size: Vector3, material: Enum["Material"]): void;
-	[luau_name("GetCell"), luau_method]
+	[luau_name("GetCell"), luau_method, deprecated]
 	get_cell: fn(x: number, y: number, z: number): unknown;
-	[luau_name("GetMaterialColor"), luau_method]
-	get_material_color: fn(material: Enum["Material"]): Color3;
+	[luau_name("GetMaterialColor"), luau_method, wraps_errors]
+	get_material_color: fn(material: Enum["Material"]): Result<Color3, RobloxError>;
 	[luau_name("GetMaterialSlot"), luau_method]
 	get_material_slot: fn(slotIndex: number): unknown;
-	[luau_name("GetWaterCell"), luau_method]
+	[luau_name("GetWaterCell"), luau_method, deprecated]
 	get_water_cell: fn(x: number, y: number, z: number): unknown;
 	[luau_name("IterateVoxelsAsync_beta"), luau_method]
 	iterate_voxels_async_beta: fn(region: Region3, resolution: number, channelIds: unknown[]): TerrainIterateOperation;
@@ -14143,25 +14148,25 @@ declare interface Terrain: BasePart {
 	modify_voxels_async_beta: fn(region: Region3, resolution: number, channelIds: unknown[]): TerrainModifyOperation;
 	[luau_name("PasteRegion"), luau_method]
 	paste_region: fn(region: TerrainRegion, corner: Vector3int16, pasteEmptyCells: bool): void;
-	[luau_name("ReadVoxelChannels"), luau_method]
-	read_voxel_channels: fn(region: Region3, resolution: number, channelIds: unknown[]): UnknownRecord;
-	[luau_name("ReadVoxels"), luau_method]
-	read_voxels: fn(region: Region3, resolution: number): unknown;
+	[luau_name("ReadVoxelChannels"), luau_method, wraps_errors]
+	read_voxel_channels: fn(region: Region3, resolution: number, channelIds: unknown[]): Result<UnknownRecord, RobloxError>;
+	[luau_name("ReadVoxels"), luau_method, wraps_errors]
+	read_voxels: fn(region: Region3, resolution: number): Result<unknown, RobloxError>;
 	[luau_name("ReadVoxelsAsync_beta"), luau_method]
 	read_voxels_async_beta: fn(region: Region3, resolution: number, channelIds: unknown[]): TerrainReadOperation;
 	[luau_name("ReplaceMaterial"), luau_method]
 	replace_material: fn(region: Region3, resolution: number, sourceMaterial: Enum["Material"], targetMaterial: Enum["Material"]): void;
 	[luau_name("ResetMaterialSlot"), luau_method]
 	reset_material_slot: fn(slotIndex: number): void;
-	[luau_name("SetCell"), luau_method]
+	[luau_name("SetCell"), luau_method, deprecated]
 	set_cell: fn(x: number, y: number, z: number, material: Enum["CellMaterial"], block: Enum["CellBlock"], orientation: Enum["CellOrientation"]): void;
-	[luau_name("SetCells"), luau_method]
+	[luau_name("SetCells"), luau_method, deprecated]
 	set_cells: fn(region: Region3int16, material: Enum["CellMaterial"], block: Enum["CellBlock"], orientation: Enum["CellOrientation"]): void;
 	[luau_name("SetMaterialColor"), luau_method]
 	set_material_color: fn(material: Enum["Material"], value: Color3): void;
 	[luau_name("SetMaterialSlot"), luau_method]
 	set_material_slot: fn(slotIndex: number, baseMaterial: Enum["Material"], materialVariant: string, color: Color3): void;
-	[luau_name("SetWaterCell"), luau_method]
+	[luau_name("SetWaterCell"), luau_method, deprecated]
 	set_water_cell: fn(x: number, y: number, z: number, force: Enum["WaterForce"], direction: Enum["WaterDirection"]): void;
 	[luau_name("WorldToCell"), luau_method]
 	world_to_cell: fn(position: Vector3): Vector3;
@@ -14169,10 +14174,10 @@ declare interface Terrain: BasePart {
 	world_to_cell_prefer_empty: fn(position: Vector3): Vector3;
 	[luau_name("WorldToCellPreferSolid"), luau_method]
 	world_to_cell_prefer_solid: fn(position: Vector3): Vector3;
-	[luau_name("WriteVoxelChannels"), luau_method]
-	write_voxel_channels: fn(region: Region3, resolution: number, channels: UnknownRecord): void;
-	[luau_name("WriteVoxels"), luau_method]
-	write_voxels: fn(region: Region3, resolution: number, materials: unknown[], occupancy: unknown[]): void;
+	[luau_name("WriteVoxelChannels"), luau_method, wraps_errors]
+	write_voxel_channels: fn(region: Region3, resolution: number, channels: UnknownRecord): Result<void, RobloxError>;
+	[luau_name("WriteVoxels"), luau_method, wraps_errors]
+	write_voxels: fn(region: Region3, resolution: number, materials: unknown[], occupancy: unknown[]): Result<void, RobloxError>;
 	[luau_name("WriteVoxelsAsync_beta"), luau_method]
 	write_voxels_async_beta: fn(region: Region3, resolution: number, channelIds: unknown[]): TerrainWriteOperation;
 }
@@ -14283,9 +14288,9 @@ declare interface Camera: PVInstance {
 	mut vr_tilt_and_roll_enabled: bool;
 	[luau_name("ViewportSize")]
 	viewport_size: Vector2;
-	[luau_name("GetLargestCutoffDistance"), luau_method]
+	[luau_name("GetLargestCutoffDistance"), luau_method, deprecated]
 	get_largest_cutoff_distance: fn(ignoreList: Instance[]): number;
-	[luau_name("GetPanSpeed"), luau_method]
+	[luau_name("GetPanSpeed"), luau_method, deprecated]
 	get_pan_speed: fn: number;
 	[luau_name("GetPartsObscuringTarget"), luau_method]
 	get_parts_obscuring_target: fn(castPoints: unknown[], ignoreList: Instance[]): Instance[];
@@ -14293,19 +14298,19 @@ declare interface Camera: PVInstance {
 	get_render_c_frame: fn: CFrame;
 	[luau_name("GetRoll"), luau_method]
 	get_roll: fn: number;
-	[luau_name("GetTiltSpeed"), luau_method]
+	[luau_name("GetTiltSpeed"), luau_method, deprecated]
 	get_tilt_speed: fn: number;
-	[luau_name("Interpolate"), luau_method]
-	interpolate: fn(endPos: CFrame, endFocus: CFrame, duration: number): void;
-	[luau_name("PanUnits"), luau_method]
+	[luau_name("Interpolate"), luau_method, deprecated, wraps_errors]
+	interpolate: fn(endPos: CFrame, endFocus: CFrame, duration: number): Result<void, RobloxError>;
+	[luau_name("PanUnits"), luau_method, deprecated]
 	pan_units: fn(units: number): void;
 	[luau_name("ScreenPointToRay"), luau_method]
 	screen_point_to_ray: fn(x: number, y: number, depth: number?): Ray;
-	[luau_name("SetCameraPanMode"), luau_method]
+	[luau_name("SetCameraPanMode"), luau_method, deprecated]
 	set_camera_pan_mode: fn(mode: Enum["CameraPanMode"]?): void;
 	[luau_name("SetRoll"), luau_method]
 	set_roll: fn(rollAngle: number): void;
-	[luau_name("TiltUnits"), luau_method]
+	[luau_name("TiltUnits"), luau_method, deprecated]
 	tilt_units: fn(units: number): bool;
 	[luau_name("ViewportPointToRay"), luau_method]
 	viewport_point_to_ray: fn(x: number, y: number, depth: number?): Ray;
@@ -14329,39 +14334,39 @@ declare interface Model: PVInstance {
 	mut world_pivot: CFrame;
 	[luau_name("AddPersistentPlayer"), luau_method]
 	add_persistent_player: fn(playerInstance: Player?): void;
-	[luau_name("BreakJoints"), luau_method]
+	[luau_name("BreakJoints"), luau_method, deprecated]
 	break_joints: fn: void;
 	[luau_name("GetBoundingBox"), luau_method]
 	get_bounding_box: fn: (CFrame, Vector3);
 	[luau_name("GetExtentsSize"), luau_method]
 	get_extents_size: fn: Vector3;
-	[luau_name("GetModelCFrame"), luau_method]
+	[luau_name("GetModelCFrame"), luau_method, deprecated]
 	get_model_c_frame: fn: CFrame;
-	[luau_name("GetModelSize"), luau_method]
+	[luau_name("GetModelSize"), luau_method, deprecated]
 	get_model_size: fn: Vector3;
 	[luau_name("GetPersistentPlayers"), luau_method]
 	get_persistent_players: fn: Instance[];
-	[luau_name("GetPrimaryPartCFrame"), luau_method]
-	get_primary_part_c_frame: fn: CFrame;
+	[luau_name("GetPrimaryPartCFrame"), luau_method, deprecated, wraps_errors]
+	get_primary_part_c_frame: fn: Result<CFrame, RobloxError>;
 	[luau_name("GetScale"), luau_method]
 	get_scale: fn: number;
-	[luau_name("MakeJoints"), luau_method]
+	[luau_name("MakeJoints"), luau_method, deprecated]
 	make_joints: fn: void;
 	[luau_name("MoveTo"), luau_method]
 	move_to: fn(position: Vector3): void;
 	[luau_name("RemovePersistentPlayer"), luau_method]
 	remove_persistent_player: fn(playerInstance: Player?): void;
-	[luau_name("ResetOrientationToIdentity"), luau_method]
+	[luau_name("ResetOrientationToIdentity"), luau_method, deprecated]
 	reset_orientation_to_identity: fn: void;
 	[luau_name("ScaleTo"), luau_method]
 	scale_to: fn(newScaleFactor: number): void;
-	[luau_name("SetIdentityOrientation"), luau_method]
+	[luau_name("SetIdentityOrientation"), luau_method, deprecated]
 	set_identity_orientation: fn: void;
-	[luau_name("SetPrimaryPartCFrame"), luau_method]
-	set_primary_part_c_frame: fn(cframe: CFrame): void;
+	[luau_name("SetPrimaryPartCFrame"), luau_method, deprecated, wraps_errors]
+	set_primary_part_c_frame: fn(cframe: CFrame): Result<void, RobloxError>;
 	[luau_name("TranslateBy"), luau_method]
 	translate_by: fn(delta: Vector3): void;
-	[luau_method]
+	[luau_method, deprecated]
 	move: fn(location: Vector3): void;
 }
 
@@ -14418,28 +14423,28 @@ declare interface ProceduralModel: Model {
 	mut size: Vector3;
 	[luau_name("ForceGeneration"), luau_method]
 	force_generation: fn: bool;
-	[luau_name("WaitForGenerationAsync"), luau_method]
-	wait_for_generation_async: fn: bool;
+	[luau_name("WaitForGenerationAsync"), luau_method, wraps_errors]
+	wait_for_generation_async: fn: Result<bool, RobloxError>;
 }
 
 declare interface WorldRoot: Model {
 	[luau_name("ArePartsTouchingOthers"), luau_method]
 	are_parts_touching_others: fn(partList: Instance[], overlapIgnored: number?): bool;
-	[luau_name("Blockcast"), luau_method]
-	blockcast: fn(cframe: CFrame, size: Vector3, direction: Vector3, params: RaycastParams?): RaycastResult?;
+	[luau_name("Blockcast"), luau_method, wraps_errors]
+	blockcast: fn(cframe: CFrame, size: Vector3, direction: Vector3, params: RaycastParams?): Result<RaycastResult?, RobloxError>;
 	[luau_name("BulkMoveTo"), luau_method]
 	bulk_move_to: fn(partList: Instance[], cframeList: unknown[], eventMode: Enum["BulkMoveMode"]?): void;
-	[luau_name("FindPartOnRay"), luau_method]
+	[luau_name("FindPartOnRay"), luau_method, deprecated]
 	find_part_on_ray: fn(ray: Ray, ignoreDescendantsInstance: Instance?, terrainCellsAreCubes: bool?, ignoreWater: bool?): unknown;
-	[luau_name("FindPartOnRayWithIgnoreList"), luau_method]
+	[luau_name("FindPartOnRayWithIgnoreList"), luau_method, deprecated]
 	find_part_on_ray_with_ignore_list: fn(ray: Ray, ignoreDescendantsTable: Instance[], terrainCellsAreCubes: bool?, ignoreWater: bool?): unknown;
-	[luau_name("FindPartOnRayWithWhitelist"), luau_method]
+	[luau_name("FindPartOnRayWithWhitelist"), luau_method, deprecated]
 	find_part_on_ray_with_whitelist: fn(ray: Ray, whitelistDescendantsTable: Instance[], ignoreWater: bool?): unknown;
-	[luau_name("FindPartsInRegion3"), luau_method]
+	[luau_name("FindPartsInRegion3"), luau_method, deprecated]
 	find_parts_in_region3: fn(region: Region3, ignoreDescendantsInstance: Instance?, maxParts: number?): Instance[];
-	[luau_name("FindPartsInRegion3WithIgnoreList"), luau_method]
+	[luau_name("FindPartsInRegion3WithIgnoreList"), luau_method, deprecated]
 	find_parts_in_region3_with_ignore_list: fn(region: Region3, ignoreDescendantsTable: Instance[], maxParts: number?): Instance[];
-	[luau_name("FindPartsInRegion3WithWhiteList"), luau_method]
+	[luau_name("FindPartsInRegion3WithWhiteList"), luau_method, deprecated]
 	find_parts_in_region3_with_white_list: fn(region: Region3, whitelistDescendantsTable: Instance[], maxParts: number?): Instance[];
 	[luau_name("GetPartBoundsInBox"), luau_method]
 	get_part_bounds_in_box: fn(cframe: CFrame, size: Vector3, overlapParams: OverlapParams?): Instance[];
@@ -14447,16 +14452,16 @@ declare interface WorldRoot: Model {
 	get_part_bounds_in_radius: fn(position: Vector3, radius: number, overlapParams: OverlapParams?): Instance[];
 	[luau_name("GetPartsInPart"), luau_method]
 	get_parts_in_part: fn(part: BasePart, overlapParams: OverlapParams?): Instance[];
-	[luau_name("IsRegion3Empty"), luau_method]
+	[luau_name("IsRegion3Empty"), luau_method, deprecated]
 	is_region3_empty: fn(region: Region3, ignoreDescendentsInstance: Instance?): bool;
-	[luau_name("IsRegion3EmptyWithIgnoreList"), luau_method]
+	[luau_name("IsRegion3EmptyWithIgnoreList"), luau_method, deprecated]
 	is_region3_empty_with_ignore_list: fn(region: Region3, ignoreDescendentsTable: Instance[]): bool;
 	[luau_name("Raycast"), luau_method]
 	raycast: fn(origin: Vector3, direction: Vector3, raycastParams: RaycastParams?): RaycastResult?;
-	[luau_name("Shapecast"), luau_method]
-	shapecast: fn(part: BasePart, direction: Vector3, params: RaycastParams?): RaycastResult?;
-	[luau_name("Spherecast"), luau_method]
-	spherecast: fn(position: Vector3, radius: number, direction: Vector3, params: RaycastParams?): RaycastResult?;
+	[luau_name("Shapecast"), luau_method, wraps_errors]
+	shapecast: fn(part: BasePart, direction: Vector3, params: RaycastParams?): Result<RaycastResult?, RobloxError>;
+	[luau_name("Spherecast"), luau_method, wraps_errors]
+	spherecast: fn(position: Vector3, radius: number, direction: Vector3, params: RaycastParams?): Result<RaycastResult?, RobloxError>;
 }
 
 declare interface Workspace: WorldRoot {
@@ -14495,8 +14500,8 @@ declare interface Workspace: WorldRoot {
 	get_physics_throttling: fn: number;
 	[luau_name("GetRealPhysicsFPS"), luau_method]
 	get_real_physics_fps: fn: number;
-	[luau_name("GetServerTimeNow"), luau_method]
-	get_server_time_now: fn: number;
+	[luau_name("GetServerTimeNow"), luau_method, wraps_errors]
+	get_server_time_now: fn: Result<number, RobloxError>;
 	[luau_name("JoinToOutsiders"), luau_method]
 	join_to_outsiders: fn(objects: Instance[], jointType: Enum["JointCreationMode"]): void;
 	[luau_name("PGSIsEnabled"), luau_method]
@@ -14534,8 +14539,8 @@ declare interface Pages: Instance {
 	is_finished: bool;
 	[luau_name("GetCurrentPage"), luau_method]
 	get_current_page: fn: unknown[];
-	[luau_name("AdvanceToNextPageAsync"), luau_method]
-	advance_to_next_page_async: fn: void;
+	[luau_name("AdvanceToNextPageAsync"), luau_method, wraps_errors]
+	advance_to_next_page_async: fn: Result<void, RobloxError>;
 }
 
 declare interface AudioPages: Pages;
@@ -14632,7 +14637,7 @@ declare interface ParticleEmitter: Instance {
 	mut transparency: NumberSequence;
 	[luau_name("VelocityInheritance")]
 	mut velocity_inheritance: number;
-	[luau_name("VelocitySpread")]
+	[luau_name("VelocitySpread"), deprecated]
 	mut velocity_spread: number;
 	[luau_name("WindAffectsDrag")]
 	mut wind_affects_drag: bool;
@@ -14664,14 +14669,14 @@ declare interface PatchMapping: Instance {
 declare interface Path: Instance {
 	[luau_name("Status")]
 	status: Enum["PathStatus"];
-	[luau_name("GetPointCoordinates"), luau_method]
+	[luau_name("GetPointCoordinates"), luau_method, deprecated]
 	get_point_coordinates: fn: unknown[];
 	[luau_name("GetWaypoints"), luau_method]
 	get_waypoints: fn: unknown[];
-	[luau_name("CheckOcclusionAsync"), luau_method]
-	check_occlusion_async: fn(start: number): number;
-	[luau_name("ComputeAsync"), luau_method]
-	compute_async: fn(start: Vector3, finish: Vector3): void;
+	[luau_name("CheckOcclusionAsync"), luau_method, wraps_errors]
+	check_occlusion_async: fn(start: number): Result<number, RobloxError>;
+	[luau_name("ComputeAsync"), luau_method, wraps_errors]
+	compute_async: fn(start: Vector3, finish: Vector3): Result<void, RobloxError>;
 	[luau_name("Blocked")]
 	event blocked(blockedWaypointIdx: number);
 	[luau_name("Unblocked")]
@@ -14704,16 +14709,16 @@ declare interface PathfindingModifier: Instance {
 
 declare interface PathfindingService: Instance {
 	_is_service: true;
-	[luau_name("EmptyCutoff")]
+	[luau_name("EmptyCutoff"), deprecated]
 	mut empty_cutoff: number;
 	[luau_name("CreatePath"), luau_method]
 	create_path: fn(agentParameters: UnknownRecord?): Path;
-	[luau_name("ComputeRawPathAsync"), luau_method]
-	compute_raw_path_async: fn(start: Vector3, finish: Vector3, maxDistance: number): Path;
-	[luau_name("ComputeSmoothPathAsync"), luau_method]
-	compute_smooth_path_async: fn(start: Vector3, finish: Vector3, maxDistance: number): Path;
-	[luau_name("FindPathAsync"), luau_method]
-	find_path_async: fn(start: Vector3, finish: Vector3): Path;
+	[luau_name("ComputeRawPathAsync"), luau_method, deprecated, wraps_errors]
+	compute_raw_path_async: fn(start: Vector3, finish: Vector3, maxDistance: number): Result<Path, RobloxError>;
+	[luau_name("ComputeSmoothPathAsync"), luau_method, deprecated, wraps_errors]
+	compute_smooth_path_async: fn(start: Vector3, finish: Vector3, maxDistance: number): Result<Path, RobloxError>;
+	[luau_name("FindPathAsync"), luau_method, wraps_errors]
+	find_path_async: fn(start: Vector3, finish: Vector3): Result<Path, RobloxError>;
 }
 
 declare interface PausedState: Instance;
@@ -14725,19 +14730,19 @@ declare interface PerformanceControlService: Instance {
 
 declare interface PhysicsService: Instance {
 	_is_service: true;
-	[luau_name("CollisionGroupContainsPart"), luau_method]
-	collision_group_contains_part: fn(name: string, part: BasePart): bool;
-	[luau_name("CollisionGroupSetCollidable"), luau_method]
-	collision_group_set_collidable: fn(name1: string, name2: string, collidable: bool): void;
+	[luau_name("CollisionGroupContainsPart"), luau_method, deprecated, wraps_errors]
+	collision_group_contains_part: fn(name: string, part: BasePart): Result<bool, RobloxError>;
+	[luau_name("CollisionGroupSetCollidable"), luau_method, wraps_errors]
+	collision_group_set_collidable: fn(name1: string, name2: string, collidable: bool): Result<void, RobloxError>;
 	[luau_name("CollisionGroupsAreCollidable"), luau_method]
 	collision_groups_are_collidable: fn(name1: string, name2: string): bool;
-	[luau_name("CreateCollisionGroup"), luau_method]
+	[luau_name("CreateCollisionGroup"), luau_method, deprecated]
 	create_collision_group: fn(name: string): number;
-	[luau_name("GetCollisionGroupId"), luau_method]
-	get_collision_group_id: fn(name: string): number;
-	[luau_name("GetCollisionGroupName"), luau_method]
-	get_collision_group_name: fn(name: number): string;
-	[luau_name("GetCollisionGroups"), luau_method]
+	[luau_name("GetCollisionGroupId"), luau_method, deprecated, wraps_errors]
+	get_collision_group_id: fn(name: string): Result<number, RobloxError>;
+	[luau_name("GetCollisionGroupName"), luau_method, deprecated, wraps_errors]
+	get_collision_group_name: fn(name: number): Result<string, RobloxError>;
+	[luau_name("GetCollisionGroups"), luau_method, deprecated]
 	get_collision_groups: fn: unknown[];
 	[luau_name("GetMaxCollisionGroups"), luau_method]
 	get_max_collision_groups: fn: number;
@@ -14747,14 +14752,14 @@ declare interface PhysicsService: Instance {
 	is_collision_group_registered: fn(name: string): bool;
 	[luau_name("RegisterCollisionGroup"), luau_method]
 	register_collision_group: fn(name: string): void;
-	[luau_name("RemoveCollisionGroup"), luau_method]
-	remove_collision_group: fn(name: string): void;
-	[luau_name("RenameCollisionGroup"), luau_method]
-	rename_collision_group: fn(from: string, to: string): void;
-	[luau_name("SetPartCollisionGroup"), luau_method]
-	set_part_collision_group: fn(part: BasePart, name: string): void;
-	[luau_name("UnregisterCollisionGroup"), luau_method]
-	unregister_collision_group: fn(name: string): void;
+	[luau_name("RemoveCollisionGroup"), luau_method, deprecated, wraps_errors]
+	remove_collision_group: fn(name: string): Result<void, RobloxError>;
+	[luau_name("RenameCollisionGroup"), luau_method, wraps_errors]
+	rename_collision_group: fn(from: string, to: string): Result<void, RobloxError>;
+	[luau_name("SetPartCollisionGroup"), luau_method, deprecated, wraps_errors]
+	set_part_collision_group: fn(part: BasePart, name: string): Result<void, RobloxError>;
+	[luau_name("UnregisterCollisionGroup"), luau_method, wraps_errors]
+	unregister_collision_group: fn(name: string): Result<void, RobloxError>;
 }
 
 declare interface PinShortcutService: Instance {
@@ -14802,7 +14807,7 @@ declare interface Player: Instance {
 	mut can_load_character_appearance: bool;
 	[luau_name("Character")]
 	mut character: Model?;
-	[luau_name("CharacterAppearance")]
+	[luau_name("CharacterAppearance"), deprecated]
 	mut character_appearance: string;
 	[luau_name("CharacterAppearanceId")]
 	mut character_appearance_id: number;
@@ -14866,19 +14871,19 @@ declare interface Player: Instance {
 	get_network_ping: fn: number;
 	[luau_name("HasAppearanceLoaded"), luau_method]
 	has_appearance_loaded: fn: bool;
-	[luau_name("IsVerified"), luau_method]
-	is_verified: fn(level: Enum["VerifiedLevel"]?): bool;
+	[luau_name("IsVerified"), luau_method, wraps_errors]
+	is_verified: fn(level: Enum["VerifiedLevel"]?): Result<bool, RobloxError>;
 	[luau_name("Kick"), luau_method]
 	kick: fn(message: string): void;
-	[luau_name("LoadBoolean"), luau_method]
+	[luau_name("LoadBoolean"), luau_method, deprecated]
 	load_boolean: fn(key: string): bool;
-	[luau_name("LoadCharacterAppearance"), luau_method]
+	[luau_name("LoadCharacterAppearance"), luau_method, deprecated]
 	load_character_appearance: fn(assetInstance: Instance): void;
-	[luau_name("LoadInstance"), luau_method]
+	[luau_name("LoadInstance"), luau_method, deprecated]
 	load_instance: fn(key: string): Instance;
-	[luau_name("LoadNumber"), luau_method]
+	[luau_name("LoadNumber"), luau_method, deprecated]
 	load_number: fn(key: string): number;
-	[luau_name("LoadString"), luau_method]
+	[luau_name("LoadString"), luau_method, deprecated]
 	load_string: fn(key: string): string;
 	[luau_name("Move"), luau_method]
 	move: fn(walkDirection: Vector3, relativeToCamera: bool?): void;
@@ -14886,50 +14891,50 @@ declare interface Player: Instance {
 	prompt_age_check: fn: void;
 	[luau_name("RemoveReplicationFocus"), luau_method]
 	remove_replication_focus: fn(part: BasePart): void;
-	[luau_name("SaveBoolean"), luau_method]
+	[luau_name("SaveBoolean"), luau_method, deprecated]
 	save_boolean: fn(key: string, value: bool): void;
-	[luau_name("SaveInstance"), luau_method]
+	[luau_name("SaveInstance"), luau_method, deprecated]
 	save_instance: fn(key: string, value: Instance): void;
-	[luau_name("SaveNumber"), luau_method]
+	[luau_name("SaveNumber"), luau_method, deprecated]
 	save_number: fn(key: string, value: number): void;
-	[luau_name("SaveString"), luau_method]
+	[luau_name("SaveString"), luau_method, deprecated]
 	save_string: fn(key: string, value: string): void;
-	[luau_name("GetFriendsOnline"), luau_method]
-	get_friends_online: fn(maxFriends: number?): unknown[];
-	[luau_name("GetFriendsOnlineAsync"), luau_method]
-	get_friends_online_async: fn(maxFriends: number?): unknown[];
-	[luau_name("GetFriendsWhoPlayedAsync"), luau_method]
-	get_friends_who_played_async: fn: unknown[];
-	[luau_name("GetRankInGroup"), luau_method]
-	get_rank_in_group: fn(groupId: number): number;
-	[luau_name("GetRankInGroupAsync"), luau_method]
-	get_rank_in_group_async: fn(groupId: number): number;
-	[luau_name("GetRoleInGroup"), luau_method]
-	get_role_in_group: fn(groupId: number): string;
-	[luau_name("GetRoleInGroupAsync"), luau_method]
-	get_role_in_group_async: fn(groupId: number): string;
-	[luau_name("IsBestFriendsWith"), luau_method]
-	is_best_friends_with: fn(userId: User): bool;
-	[luau_name("IsFriendsWith"), luau_method]
-	is_friends_with: fn(userId: User): bool;
-	[luau_name("IsFriendsWithAsync"), luau_method]
-	is_friends_with_async: fn(userId: User): bool;
-	[luau_name("IsInGroup"), luau_method]
-	is_in_group: fn(groupId: number): bool;
-	[luau_name("IsInGroupAsync"), luau_method]
-	is_in_group_async: fn(groupId: number): bool;
-	[luau_name("LoadCharacter"), luau_method]
-	load_character: fn: void;
-	[luau_name("LoadCharacterAsync"), luau_method]
-	load_character_async: fn: void;
-	[luau_name("LoadCharacterWithHumanoidDescription"), luau_method]
-	load_character_with_humanoid_description: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): void;
-	[luau_name("LoadCharacterWithHumanoidDescriptionAsync"), luau_method]
-	load_character_with_humanoid_description_async: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): void;
-	[luau_name("RequestStreamAroundAsync"), luau_method]
-	request_stream_around_async: fn(position: Vector3, timeOut: number?): void;
-	[luau_name("WaitForDataReady"), luau_method]
-	wait_for_data_ready: fn: bool;
+	[luau_name("GetFriendsOnline"), luau_method, deprecated, wraps_errors]
+	get_friends_online: fn(maxFriends: number?): Result<unknown[], RobloxError>;
+	[luau_name("GetFriendsOnlineAsync"), luau_method, wraps_errors]
+	get_friends_online_async: fn(maxFriends: number?): Result<unknown[], RobloxError>;
+	[luau_name("GetFriendsWhoPlayedAsync"), luau_method, wraps_errors]
+	get_friends_who_played_async: fn: Result<unknown[], RobloxError>;
+	[luau_name("GetRankInGroup"), luau_method, deprecated, wraps_errors]
+	get_rank_in_group: fn(groupId: number): Result<number, RobloxError>;
+	[luau_name("GetRankInGroupAsync"), luau_method, deprecated, wraps_errors]
+	get_rank_in_group_async: fn(groupId: number): Result<number, RobloxError>;
+	[luau_name("GetRoleInGroup"), luau_method, deprecated, wraps_errors]
+	get_role_in_group: fn(groupId: number): Result<string, RobloxError>;
+	[luau_name("GetRoleInGroupAsync"), luau_method, deprecated, wraps_errors]
+	get_role_in_group_async: fn(groupId: number): Result<string, RobloxError>;
+	[luau_name("IsBestFriendsWith"), luau_method, deprecated, wraps_errors]
+	is_best_friends_with: fn(userId: User): Result<bool, RobloxError>;
+	[luau_name("IsFriendsWith"), luau_method, deprecated, wraps_errors]
+	is_friends_with: fn(userId: User): Result<bool, RobloxError>;
+	[luau_name("IsFriendsWithAsync"), luau_method, wraps_errors]
+	is_friends_with_async: fn(userId: User): Result<bool, RobloxError>;
+	[luau_name("IsInGroup"), luau_method, deprecated, wraps_errors]
+	is_in_group: fn(groupId: number): Result<bool, RobloxError>;
+	[luau_name("IsInGroupAsync"), luau_method, wraps_errors]
+	is_in_group_async: fn(groupId: number): Result<bool, RobloxError>;
+	[luau_name("LoadCharacter"), luau_method, deprecated, wraps_errors]
+	load_character: fn: Result<void, RobloxError>;
+	[luau_name("LoadCharacterAsync"), luau_method, wraps_errors]
+	load_character_async: fn: Result<void, RobloxError>;
+	[luau_name("LoadCharacterWithHumanoidDescription"), luau_method, deprecated, wraps_errors]
+	load_character_with_humanoid_description: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): Result<void, RobloxError>;
+	[luau_name("LoadCharacterWithHumanoidDescriptionAsync"), luau_method, wraps_errors]
+	load_character_with_humanoid_description_async: fn(humanoidDescription: HumanoidDescription, assetTypeVerification: Enum["AssetTypeVerification"]?): Result<void, RobloxError>;
+	[luau_name("RequestStreamAroundAsync"), luau_method, wraps_errors]
+	request_stream_around_async: fn(position: Vector3, timeOut: number?): Result<void, RobloxError>;
+	[luau_name("WaitForDataReady"), luau_method, deprecated, wraps_errors]
+	wait_for_data_ready: fn: Result<bool, RobloxError>;
 	[luau_name("CharacterAdded")]
 	event character_added(character: Model);
 	[luau_name("CharacterAppearanceLoaded")]
@@ -14947,8 +14952,8 @@ declare interface Player: Instance {
 declare interface PlayerData: Instance {
 	[luau_name("GetPlayer"), luau_method]
 	get_player: fn: Player;
-	[luau_name("GetRecordAsync"), luau_method]
-	get_record_async: fn(recordName: string?): PlayerDataRecord;
+	[luau_name("GetRecordAsync"), luau_method, wraps_errors]
+	get_record_async: fn(recordName: string?): Result<PlayerDataRecord, RobloxError>;
 }
 
 declare interface PlayerDataRecord: Instance {
@@ -14984,10 +14989,10 @@ declare interface PlayerDataRecord: Instance {
 	remove_value: fn(key: string): void;
 	[luau_name("SetValue"), luau_method]
 	set_value: fn(key: string, value: unknown): void;
-	[luau_name("ReleaseAsync"), luau_method]
-	release_async: fn: void;
-	[luau_name("RequestFlushAsync"), luau_method]
-	request_flush_async: fn: void;
+	[luau_name("ReleaseAsync"), luau_method, wraps_errors]
+	release_async: fn: Result<void, RobloxError>;
+	[luau_name("RequestFlushAsync"), luau_method, wraps_errors]
+	request_flush_async: fn: Result<void, RobloxError>;
 	[luau_name("Changed")]
 	event changed(key: string, value: unknown);
 	[luau_name("Flushed")]
@@ -15054,7 +15059,7 @@ declare interface Players: Instance {
 	local_player: Player?;
 	[luau_name("MaxPlayers")]
 	max_players: number;
-	[luau_name("NumPlayers")]
+	[luau_name("NumPlayers"), deprecated]
 	num_players: number;
 	[luau_name("PreferredPlayers")]
 	preferred_players: number;
@@ -15066,46 +15071,46 @@ declare interface Players: Instance {
 	get_player_from_character: fn(character: Model): Player;
 	[luau_name("GetPlayers"), luau_method]
 	get_players: fn: Instance[];
-	[luau_name("playerFromCharacter"), luau_method]
+	[luau_name("playerFromCharacter"), luau_method, deprecated]
 	player_from_character: fn(character: Model): Player;
-	[luau_method]
+	[luau_method, deprecated]
 	players: fn: Instance[];
-	[luau_name("BanAsync"), luau_method]
-	ban_async: fn(config: UnknownRecord): void;
-	[luau_name("CreateHumanoidModelFromDescription"), luau_method]
-	create_humanoid_model_from_description: fn(description: HumanoidDescription, rigType: Enum["HumanoidRigType"], assetTypeVerification: Enum["AssetTypeVerification"]?): Model;
-	[luau_name("CreateHumanoidModelFromDescriptionAsync"), luau_method]
-	create_humanoid_model_from_description_async: fn(description: HumanoidDescription, rigType: Enum["HumanoidRigType"], assetTypeVerification: Enum["AssetTypeVerification"]?): Model;
-	[luau_name("CreateHumanoidModelFromUserId"), luau_method]
-	create_humanoid_model_from_user_id: fn(userId: User): Model;
-	[luau_name("CreateHumanoidModelFromUserIdAsync"), luau_method]
-	create_humanoid_model_from_user_id_async: fn(userId: User): Model;
-	[luau_name("GetBanHistoryAsync"), luau_method]
-	get_ban_history_async: fn(userId: User): BanHistoryPages;
-	[luau_name("GetCharacterAppearanceAsync"), luau_method]
-	get_character_appearance_async: fn(userId: User): Model;
-	[luau_name("GetCharacterAppearanceInfoAsync"), luau_method]
-	get_character_appearance_info_async: fn(userId: User): UnknownRecord;
-	[luau_name("GetFriendsAsync"), luau_method]
-	get_friends_async: fn(userId: User): FriendPages;
-	[luau_name("GetHumanoidDescriptionFromOutfitId"), luau_method]
-	get_humanoid_description_from_outfit_id: fn(outfitId: number): HumanoidDescription;
-	[luau_name("GetHumanoidDescriptionFromOutfitIdAsync"), luau_method]
-	get_humanoid_description_from_outfit_id_async: fn(outfitId: number): HumanoidDescription;
-	[luau_name("GetHumanoidDescriptionFromUserId"), luau_method]
-	get_humanoid_description_from_user_id: fn(userId: User): HumanoidDescription;
-	[luau_name("GetHumanoidDescriptionFromUserIdAsync"), luau_method]
-	get_humanoid_description_from_user_id_async: fn(userId: User): HumanoidDescription;
-	[luau_name("GetNameFromUserIdAsync"), luau_method]
-	get_name_from_user_id_async: fn(userId: User): string;
-	[luau_name("GetProfileConfigurationFromUserIdAsync"), luau_method]
-	get_profile_configuration_from_user_id_async: fn(userId: User): UnknownRecord;
-	[luau_name("GetUserIdFromNameAsync"), luau_method]
-	get_user_id_from_name_async: fn(userName: string): number;
-	[luau_name("GetUserThumbnailAsync"), luau_method]
-	get_user_thumbnail_async: fn(userId: User, thumbnailType: Enum["ThumbnailType"], thumbnailSize: Enum["ThumbnailSize"]): unknown;
-	[luau_name("UnbanAsync"), luau_method]
-	unban_async: fn(config: UnknownRecord): void;
+	[luau_name("BanAsync"), luau_method, wraps_errors]
+	ban_async: fn(config: UnknownRecord): Result<void, RobloxError>;
+	[luau_name("CreateHumanoidModelFromDescription"), luau_method, deprecated, wraps_errors]
+	create_humanoid_model_from_description: fn(description: HumanoidDescription, rigType: Enum["HumanoidRigType"], assetTypeVerification: Enum["AssetTypeVerification"]?): Result<Model, RobloxError>;
+	[luau_name("CreateHumanoidModelFromDescriptionAsync"), luau_method, wraps_errors]
+	create_humanoid_model_from_description_async: fn(description: HumanoidDescription, rigType: Enum["HumanoidRigType"], assetTypeVerification: Enum["AssetTypeVerification"]?): Result<Model, RobloxError>;
+	[luau_name("CreateHumanoidModelFromUserId"), luau_method, deprecated, wraps_errors]
+	create_humanoid_model_from_user_id: fn(userId: User): Result<Model, RobloxError>;
+	[luau_name("CreateHumanoidModelFromUserIdAsync"), luau_method, wraps_errors]
+	create_humanoid_model_from_user_id_async: fn(userId: User): Result<Model, RobloxError>;
+	[luau_name("GetBanHistoryAsync"), luau_method, wraps_errors]
+	get_ban_history_async: fn(userId: User): Result<BanHistoryPages, RobloxError>;
+	[luau_name("GetCharacterAppearanceAsync"), luau_method, deprecated, wraps_errors]
+	get_character_appearance_async: fn(userId: User): Result<Model, RobloxError>;
+	[luau_name("GetCharacterAppearanceInfoAsync"), luau_method, wraps_errors]
+	get_character_appearance_info_async: fn(userId: User): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetFriendsAsync"), luau_method, wraps_errors]
+	get_friends_async: fn(userId: User): Result<FriendPages, RobloxError>;
+	[luau_name("GetHumanoidDescriptionFromOutfitId"), luau_method, deprecated, wraps_errors]
+	get_humanoid_description_from_outfit_id: fn(outfitId: number): Result<HumanoidDescription, RobloxError>;
+	[luau_name("GetHumanoidDescriptionFromOutfitIdAsync"), luau_method, wraps_errors]
+	get_humanoid_description_from_outfit_id_async: fn(outfitId: number): Result<HumanoidDescription, RobloxError>;
+	[luau_name("GetHumanoidDescriptionFromUserId"), luau_method, deprecated, wraps_errors]
+	get_humanoid_description_from_user_id: fn(userId: User): Result<HumanoidDescription, RobloxError>;
+	[luau_name("GetHumanoidDescriptionFromUserIdAsync"), luau_method, wraps_errors]
+	get_humanoid_description_from_user_id_async: fn(userId: User): Result<HumanoidDescription, RobloxError>;
+	[luau_name("GetNameFromUserIdAsync"), luau_method, wraps_errors]
+	get_name_from_user_id_async: fn(userId: User): Result<string, RobloxError>;
+	[luau_name("GetProfileConfigurationFromUserIdAsync"), luau_method, wraps_errors]
+	get_profile_configuration_from_user_id_async: fn(userId: User): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetUserIdFromNameAsync"), luau_method, wraps_errors]
+	get_user_id_from_name_async: fn(userName: string): Result<number, RobloxError>;
+	[luau_name("GetUserThumbnailAsync"), luau_method, wraps_errors]
+	get_user_thumbnail_async: fn(userId: User, thumbnailType: Enum["ThumbnailType"], thumbnailSize: Enum["ThumbnailSize"]): Result<unknown, RobloxError>;
+	[luau_name("UnbanAsync"), luau_method, wraps_errors]
+	unban_async: fn(config: UnknownRecord): Result<void, RobloxError>;
 	[luau_name("PlayerAdded")]
 	event player_added(player: Player);
 	[luau_name("PlayerMembershipChanged")]
@@ -15135,10 +15140,10 @@ declare interface PluginPolicyService: Instance {
 
 declare interface PolicyService: Instance {
 	_is_service: true;
-	[luau_name("CanViewBrandProjectAsync"), luau_method]
-	can_view_brand_project_async: fn(player: Player, brandProjectId: string): bool;
-	[luau_name("GetPolicyInfoForPlayerAsync"), luau_method]
-	get_policy_info_for_player_async: fn(player: Player): UnknownRecord;
+	[luau_name("CanViewBrandProjectAsync"), luau_method, wraps_errors]
+	can_view_brand_project_async: fn(player: Player, brandProjectId: string): Result<bool, RobloxError>;
+	[luau_name("GetPolicyInfoForPlayerAsync"), luau_method, wraps_errors]
+	get_policy_info_for_player_async: fn(player: Player): Result<UnknownRecord, RobloxError>;
 }
 
 declare interface PopLatencyService: Instance {
@@ -15164,7 +15169,7 @@ declare interface Pose: PoseBase {
 	_is_creatable: true;
 	[luau_name("CFrame")]
 	mut c_frame: CFrame;
-	[luau_name("MaskWeight")]
+	[luau_name("MaskWeight"), deprecated]
 	mut mask_weight: number;
 	[luau_name("AddSubPose"), luau_method]
 	add_sub_pose: fn(pose: Pose): void;
@@ -15353,8 +15358,8 @@ declare interface RealtimeMedia: Instance {
 	get_output_pins: fn: unknown[];
 	[luau_name("SendMessage"), luau_method]
 	send_message: fn(message: string, binary: bool): bool;
-	[luau_name("ConnectAsync"), luau_method]
-	connect_async: fn(serverUrl: string, connectParams: UnknownRecord?): bool;
+	[luau_name("ConnectAsync"), luau_method, wraps_errors]
+	connect_async: fn(serverUrl: string, connectParams: UnknownRecord?): Result<bool, RobloxError>;
 	[luau_name("OnMessage")]
 	event on_message(message: string, binary: bool);
 	[luau_name("WiringChanged")]
@@ -15369,16 +15374,16 @@ declare interface RecommendationService: Instance {
 	log_impression_event: fn(impressionType: Enum["RecommendationImpressionType"], itemId: string, tracingId: string, impressionEventDetails: UnknownRecord?): void;
 	[luau_name("LogPreferenceEvent"), luau_method]
 	log_preference_event: fn(preferenceType: Enum["RecommendationPreferenceType"], targetType: Enum["RecommendationPreferenceTargetType"], targetId: string, tracingId: string, itemId: string): void;
-	[luau_name("GenerateItemListAsync"), luau_method]
-	generate_item_list_async: fn(generateRecommendationItemListRequest: UnknownRecord): RecommendationPages;
-	[luau_name("GetRecommendationItemAsync"), luau_method]
-	get_recommendation_item_async: fn(itemId: string): UnknownRecord;
-	[luau_name("RegisterItemAsync"), luau_method]
-	register_item_async: fn(player: Player, registerRecommendationItemsRequest: UnknownRecord): UnknownRecord;
-	[luau_name("RemoveItemAsync"), luau_method]
-	remove_item_async: fn(itemId: string): void;
-	[luau_name("UpdateItemAsync"), luau_method]
-	update_item_async: fn(updateRecommendationItemRequest: UnknownRecord): void;
+	[luau_name("GenerateItemListAsync"), luau_method, wraps_errors]
+	generate_item_list_async: fn(generateRecommendationItemListRequest: UnknownRecord): Result<RecommendationPages, RobloxError>;
+	[luau_name("GetRecommendationItemAsync"), luau_method, wraps_errors]
+	get_recommendation_item_async: fn(itemId: string): Result<UnknownRecord, RobloxError>;
+	[luau_name("RegisterItemAsync"), luau_method, wraps_errors]
+	register_item_async: fn(player: Player, registerRecommendationItemsRequest: UnknownRecord): Result<UnknownRecord, RobloxError>;
+	[luau_name("RemoveItemAsync"), luau_method, wraps_errors]
+	remove_item_async: fn(itemId: string): Result<void, RobloxError>;
+	[luau_name("UpdateItemAsync"), luau_method, wraps_errors]
+	update_item_async: fn(updateRecommendationItemRequest: UnknownRecord): Result<void, RobloxError>;
 }
 
 declare interface ReflectionService: Instance {
@@ -15417,10 +15422,10 @@ declare interface RemoteDebuggerServer: Instance {
 
 declare interface RemoteFunction: Instance {
 	_is_creatable: true;
-	[luau_name("InvokeClient"), luau_method]
-	invoke_client: fn(player: Player, ..arguments: unknown[]): unknown;
-	[luau_name("InvokeServer"), luau_method]
-	invoke_server: fn(..arguments: unknown[]): unknown;
+	[luau_name("InvokeClient"), luau_method, wraps_errors]
+	invoke_client: fn(player: Player, ..arguments: unknown[]): Result<unknown, RobloxError>;
+	[luau_name("InvokeServer"), luau_method, wraps_errors]
+	invoke_server: fn(..arguments: unknown[]): Result<unknown, RobloxError>;
 }
 
 declare interface ReplicatedFirst: Instance {
@@ -15547,18 +15552,18 @@ declare interface SafetyService: Instance {
 
 declare interface SceneAnalysisService: Instance {
 	_is_service: true;
-	[luau_name("GetAnimationMemoryAsync"), luau_method]
-	get_animation_memory_async: fn: UnknownRecord;
-	[luau_name("GetAudioMemoryAsync"), luau_method]
-	get_audio_memory_async: fn: UnknownRecord;
-	[luau_name("GetInstanceCompositionAsync"), luau_method]
-	get_instance_composition_async: fn: UnknownRecord;
-	[luau_name("GetScriptMemoryAsync"), luau_method]
-	get_script_memory_async: fn: UnknownRecord;
-	[luau_name("GetTriangleCompositionAsync"), luau_method]
-	get_triangle_composition_async: fn: UnknownRecord;
-	[luau_name("GetUnparentedInstancesAsync"), luau_method]
-	get_unparented_instances_async: fn: UnknownRecord;
+	[luau_name("GetAnimationMemoryAsync"), luau_method, wraps_errors]
+	get_animation_memory_async: fn: Result<UnknownRecord, RobloxError>;
+	[luau_name("GetAudioMemoryAsync"), luau_method, wraps_errors]
+	get_audio_memory_async: fn: Result<UnknownRecord, RobloxError>;
+	[luau_name("GetInstanceCompositionAsync"), luau_method, wraps_errors]
+	get_instance_composition_async: fn: Result<UnknownRecord, RobloxError>;
+	[luau_name("GetScriptMemoryAsync"), luau_method, wraps_errors]
+	get_script_memory_async: fn: Result<UnknownRecord, RobloxError>;
+	[luau_name("GetTriangleCompositionAsync"), luau_method, wraps_errors]
+	get_triangle_composition_async: fn: Result<UnknownRecord, RobloxError>;
+	[luau_name("GetUnparentedInstancesAsync"), luau_method, wraps_errors]
+	get_unparented_instances_async: fn: Result<UnknownRecord, RobloxError>;
 }
 
 declare interface ScreenshotHud: Instance {
@@ -15590,7 +15595,7 @@ declare interface SyncScriptBuilder: ScriptBuilder {
 	mut debug_info: bool;
 	[luau_name("PackAsSource")]
 	mut pack_as_source: bool;
-	[luau_name("RawBytecode")]
+	[luau_name("RawBytecode"), deprecated]
 	mut raw_bytecode: bool;
 }
 
@@ -15645,7 +15650,7 @@ declare interface SelectionHighlightManager: Instance {
 declare interface SensorBase: Instance {
 	[luau_name("UpdateType")]
 	mut update_type: Enum["SensorUpdateType"];
-	[luau_name("Sense"), luau_method]
+	[luau_name("Sense"), luau_method, deprecated]
 	sense: fn: void;
 	[luau_name("OnSensorOutputChanged")]
 	event on_sensor_output_changed;
@@ -15696,16 +15701,16 @@ declare interface FluidForceSensor: SensorBase {
 	force: Vector3;
 	[luau_name("Torque")]
 	torque: Vector3;
-	[luau_name("EvaluateAsync"), luau_method]
-	evaluate_async: fn(linearVelocity: Vector3, angularVelocity: Vector3, cframe: CFrame): unknown;
+	[luau_name("EvaluateAsync"), luau_method, wraps_errors]
+	evaluate_async: fn(linearVelocity: Vector3, angularVelocity: Vector3, cframe: CFrame): Result<unknown, RobloxError>;
 }
 
 declare interface SerializationService: Instance {
 	_is_service: true;
-	[luau_name("DeserializeInstancesAsync"), luau_method]
-	deserialize_instances_async: fn(buffer: buffer): Instance[];
-	[luau_name("SerializeInstancesAsync"), luau_method]
-	serialize_instances_async: fn(inputInstances: Instance[]): buffer;
+	[luau_name("DeserializeInstancesAsync"), luau_method, wraps_errors]
+	deserialize_instances_async: fn(buffer: buffer): Result<Instance[], RobloxError>;
+	[luau_name("SerializeInstancesAsync"), luau_method, wraps_errors]
+	serialize_instances_async: fn(inputInstances: Instance[]): Result<buffer, RobloxError>;
 }
 
 declare interface ServerScriptService: Instance {
@@ -15721,7 +15726,7 @@ declare interface ServiceProvider: Instance {
 	find_service: fn(className: string): Instance;
 	[luau_name("GetService"), luau_method]
 	get_service: fn(className: string): Instance;
-	[luau_method]
+	[luau_method, deprecated]
 	service: fn(className: string): Instance;
 	[luau_name("Close")]
 	event close;
@@ -15738,7 +15743,7 @@ declare interface DataModel: ServiceProvider {
 	creator_type: Enum["CreatorType"];
 	[luau_name("GameId")]
 	game_id: number;
-	[luau_name("GearGenreSetting")]
+	[luau_name("GearGenreSetting"), deprecated]
 	gear_genre_setting: Enum["GearGenreSetting"];
 	[luau_name("Genre")]
 	genre: Enum["Genre"];
@@ -15758,21 +15763,21 @@ declare interface DataModel: ServiceProvider {
 	run_service: RunService?;
 	[luau_name("BindToClose"), luau_method]
 	bind_to_close: fn(callback: fn: void): void;
-	[luau_name("GetMessage"), luau_method]
+	[luau_name("GetMessage"), luau_method, deprecated]
 	get_message: fn: string;
-	[luau_name("GetRemoteBuildMode"), luau_method]
+	[luau_name("GetRemoteBuildMode"), luau_method, deprecated]
 	get_remote_build_mode: fn: bool;
-	[luau_name("IsGearTypeAllowed"), luau_method]
+	[luau_name("IsGearTypeAllowed"), luau_method, deprecated]
 	is_gear_type_allowed: fn(gearType: Enum["GearType"]): bool;
 	[luau_name("IsLoaded"), luau_method]
 	is_loaded: fn: bool;
-	[luau_name("SavePlace"), luau_method]
-	save_place: fn(saveFilter: Enum["SaveFilter"]?): bool;
-	[luau_name("AllowedGearTypeChanged")]
+	[luau_name("SavePlace"), luau_method, deprecated, wraps_errors]
+	save_place: fn(saveFilter: Enum["SaveFilter"]?): Result<bool, RobloxError>;
+	[luau_name("AllowedGearTypeChanged"), deprecated]
 	event allowed_gear_type_changed;
 	[luau_name("GraphicsQualityChangeRequest")]
 	event graphics_quality_change_request(betterQuality: bool);
-	[luau_name("ItemChanged")]
+	[luau_name("ItemChanged"), deprecated]
 	event item_changed(object: Object, descriptor: string);
 	[luau_name("Loaded")]
 	event loaded;
@@ -15784,8 +15789,8 @@ declare interface DataModel: ServiceProvider {
 
 declare interface GenericSettings: ServiceProvider;
 declare interface UserSettings: GenericSettings {
-	[luau_name("IsUserFeatureEnabled"), luau_method]
-	is_user_feature_enabled: fn(name: string): bool;
+	[luau_name("IsUserFeatureEnabled"), luau_method, wraps_errors]
+	is_user_feature_enabled: fn(name: string): Result<bool, RobloxError>;
 	[luau_name("Reset"), luau_method]
 	reset: fn: void;
 }
@@ -15909,26 +15914,26 @@ declare interface SocialService: Instance {
 	prompt_phone_book: fn(player: Player, tag: string): void;
 	[luau_name("ShowSelfView"), luau_method]
 	show_self_view: fn(selfViewPosition: Enum["SelfViewPosition"]?): void;
-	[luau_name("CanSendCallInviteAsync"), luau_method]
-	can_send_call_invite_async: fn(player: Player): bool;
-	[luau_name("CanSendGameInviteAsync"), luau_method]
-	can_send_game_invite_async: fn(player: Player, recipientId: User?): bool;
-	[luau_name("GetEventRsvpStatusAsync"), luau_method]
-	get_event_rsvp_status_async: fn(eventId: string): Enum["RsvpStatus"];
-	[luau_name("GetExperienceEventAsync"), luau_method]
-	get_experience_event_async: fn(eventId: string): UnknownRecord?;
-	[luau_name("GetPartyAsync"), luau_method]
-	get_party_async: fn(partyId: string): unknown[];
-	[luau_name("GetUpcomingExperienceEventsAsync"), luau_method]
-	get_upcoming_experience_events_async: fn: unknown[];
-	[luau_name("PromptFeedbackSubmissionAsync"), luau_method]
-	prompt_feedback_submission_async: fn(options: UnknownRecord?): void;
-	[luau_name("PromptLinkSharing"), luau_method]
-	prompt_link_sharing: fn(player: Player, options: UnknownRecord?): unknown;
-	[luau_name("PromptLinkSharingAsync"), luau_method]
-	prompt_link_sharing_async: fn(player: Player, options: UnknownRecord?): unknown;
-	[luau_name("PromptRsvpToEventAsync"), luau_method]
-	prompt_rsvp_to_event_async: fn(eventId: string): Enum["RsvpStatus"];
+	[luau_name("CanSendCallInviteAsync"), luau_method, wraps_errors]
+	can_send_call_invite_async: fn(player: Player): Result<bool, RobloxError>;
+	[luau_name("CanSendGameInviteAsync"), luau_method, wraps_errors]
+	can_send_game_invite_async: fn(player: Player, recipientId: User?): Result<bool, RobloxError>;
+	[luau_name("GetEventRsvpStatusAsync"), luau_method, wraps_errors]
+	get_event_rsvp_status_async: fn(eventId: string): Result<Enum["RsvpStatus"], RobloxError>;
+	[luau_name("GetExperienceEventAsync"), luau_method, wraps_errors]
+	get_experience_event_async: fn(eventId: string): Result<UnknownRecord?, RobloxError>;
+	[luau_name("GetPartyAsync"), luau_method, wraps_errors]
+	get_party_async: fn(partyId: string): Result<unknown[], RobloxError>;
+	[luau_name("GetUpcomingExperienceEventsAsync"), luau_method, wraps_errors]
+	get_upcoming_experience_events_async: fn: Result<unknown[], RobloxError>;
+	[luau_name("PromptFeedbackSubmissionAsync"), luau_method, wraps_errors]
+	prompt_feedback_submission_async: fn(options: UnknownRecord?): Result<void, RobloxError>;
+	[luau_name("PromptLinkSharing"), luau_method, deprecated, wraps_errors]
+	prompt_link_sharing: fn(player: Player, options: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("PromptLinkSharingAsync"), luau_method, wraps_errors]
+	prompt_link_sharing_async: fn(player: Player, options: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("PromptRsvpToEventAsync"), luau_method, wraps_errors]
+	prompt_rsvp_to_event_async: fn(eventId: string): Result<Enum["RsvpStatus"], RobloxError>;
 	[luau_name("CallInviteStateChanged")]
 	event call_invite_state_changed(player: Player, inviteState: Enum["InviteState"]);
 	[luau_name("GameInvitePromptClosed")]
@@ -15943,7 +15948,7 @@ declare interface Sound: Instance {
 	_is_creatable: true;
 	[luau_name("AcousticSimulationEnabled")]
 	mut acoustic_simulation_enabled: bool;
-	[luau_name("EmitterSize")]
+	[luau_name("EmitterSize"), deprecated]
 	mut emitter_size: number;
 	[luau_name("IsLoaded")]
 	is_loaded: bool;
@@ -15951,11 +15956,11 @@ declare interface Sound: Instance {
 	mut loop_region: NumberRange;
 	[luau_name("Looped")]
 	mut looped: bool;
-	[luau_name("MaxDistance")]
+	[luau_name("MaxDistance"), deprecated]
 	mut max_distance: number;
-	[luau_name("MinDistance")]
+	[luau_name("MinDistance"), deprecated]
 	mut min_distance: number;
-	[luau_name("Pitch")]
+	[luau_name("Pitch"), deprecated]
 	mut pitch: number;
 	[luau_name("PlayOnRemove")]
 	mut play_on_remove: bool;
@@ -16256,7 +16261,7 @@ declare interface Stats: Instance {
 	frame_time: number;
 	[luau_name("HeartbeatTime")]
 	heartbeat_time: number;
-	[luau_name("HeartbeatTimeMs")]
+	[luau_name("HeartbeatTimeMs"), deprecated]
 	heartbeat_time_ms: number;
 	[luau_name("InstanceCount")]
 	instance_count: number;
@@ -16270,7 +16275,7 @@ declare interface Stats: Instance {
 	physics_send_kbps: number;
 	[luau_name("PhysicsStepTime")]
 	physics_step_time: number;
-	[luau_name("PhysicsStepTimeMs")]
+	[luau_name("PhysicsStepTimeMs"), deprecated]
 	physics_step_time_ms: number;
 	[luau_name("PrimitivesCount")]
 	primitives_count: number;
@@ -16365,16 +16370,16 @@ declare interface StudioSdkService: Instance {
 
 declare interface StudioTestService: Instance {
 	_is_service: true;
-	[luau_name("AddPlayers"), luau_method]
-	add_players: fn(numPlayers: number): void;
+	[luau_name("AddPlayers"), luau_method, wraps_errors]
+	add_players: fn(numPlayers: number): Result<void, RobloxError>;
 	[luau_name("CanLeaveTest"), luau_method]
 	can_leave_test: fn: bool;
-	[luau_name("EndTest"), luau_method]
-	end_test: fn(value: unknown): void;
+	[luau_name("EndTest"), luau_method, wraps_errors]
+	end_test: fn(value: unknown): Result<void, RobloxError>;
 	[luau_name("GetTestArgs"), luau_method]
 	get_test_args: fn: unknown;
-	[luau_name("LeaveTest"), luau_method]
-	leave_test: fn: void;
+	[luau_name("LeaveTest"), luau_method, wraps_errors]
+	leave_test: fn: Result<void, RobloxError>;
 }
 
 declare interface StudioUserService: Instance {
@@ -16488,9 +16493,9 @@ declare interface Team: Instance {
 	_is_creatable: true;
 	[luau_name("AutoAssignable")]
 	mut auto_assignable: bool;
-	[luau_name("AutoColorCharacters")]
+	[luau_name("AutoColorCharacters"), deprecated]
 	mut auto_color_characters: bool;
-	[luau_name("Score")]
+	[luau_name("Score"), deprecated]
 	mut score: number;
 	[luau_name("TeamColor")]
 	mut team_color: BrickColor;
@@ -16518,7 +16523,7 @@ declare interface Teams: Instance {
 	_is_service: true;
 	[luau_name("GetTeams"), luau_method]
 	get_teams: fn: Instance[];
-	[luau_name("RebalanceTeams"), luau_method]
+	[luau_name("RebalanceTeams"), luau_method, deprecated]
 	rebalance_teams: fn: void;
 }
 
@@ -16549,7 +16554,7 @@ declare interface TeleportOptions: Instance {
 
 declare interface TeleportService: Instance {
 	_is_service: true;
-	[luau_name("CustomizedTeleportUI")]
+	[luau_name("CustomizedTeleportUI"), deprecated]
 	mut customized_teleport_ui: bool;
 	[luau_name("GetArrivingTeleportGui"), luau_method]
 	get_arriving_teleport_gui: fn: Instance;
@@ -16569,18 +16574,18 @@ declare interface TeleportService: Instance {
 	teleport_to_private_server: fn(placeId: number, reservedServerAccessCode: string, players: Instance[], spawnName: string, teleportData: unknown, customLoadingScreen: Instance?): void;
 	[luau_name("TeleportToSpawnByName"), luau_method]
 	teleport_to_spawn_by_name: fn(placeId: number, spawnName: string, player: Player?, teleportData: unknown, customLoadingScreen: Instance?): void;
-	[luau_name("GetPlayerPlaceInstanceAsync"), luau_method]
-	get_player_place_instance_async: fn(userId: User): unknown;
-	[luau_name("PromptExperienceDetailsAsync"), luau_method]
-	prompt_experience_details_async: fn(player: Player, universeId: number): Enum["PromptExperienceDetailsResult"];
-	[luau_name("ReserveServer"), luau_method]
-	reserve_server: fn(placeId: number): unknown;
-	[luau_name("ReserveServerAsync"), luau_method]
-	reserve_server_async: fn(placeId: number): unknown;
-	[luau_name("TeleportAsync"), luau_method]
-	teleport_async: fn(placeId: number, players: Instance[], teleportOptions: TeleportOptions?): Instance;
-	[luau_name("TeleportPartyAsync"), luau_method]
-	teleport_party_async: fn(placeId: number, players: Instance[], teleportData: unknown, customLoadingScreen: Instance?): string;
+	[luau_name("GetPlayerPlaceInstanceAsync"), luau_method, wraps_errors]
+	get_player_place_instance_async: fn(userId: User): Result<unknown, RobloxError>;
+	[luau_name("PromptExperienceDetailsAsync"), luau_method, wraps_errors]
+	prompt_experience_details_async: fn(player: Player, universeId: number): Result<Enum["PromptExperienceDetailsResult"], RobloxError>;
+	[luau_name("ReserveServer"), luau_method, deprecated, wraps_errors]
+	reserve_server: fn(placeId: number): Result<unknown, RobloxError>;
+	[luau_name("ReserveServerAsync"), luau_method, wraps_errors]
+	reserve_server_async: fn(placeId: number): Result<unknown, RobloxError>;
+	[luau_name("TeleportAsync"), luau_method, wraps_errors]
+	teleport_async: fn(placeId: number, players: Instance[], teleportOptions: TeleportOptions?): Result<Instance, RobloxError>;
+	[luau_name("TeleportPartyAsync"), luau_method, wraps_errors]
+	teleport_party_async: fn(placeId: number, players: Instance[], teleportData: unknown, customLoadingScreen: Instance?): Result<string, RobloxError>;
 	[luau_name("LocalPlayerArrivedFromTeleport")]
 	event local_player_arrived_from_teleport(loadingGui: Instance, dataTable: unknown);
 	[luau_name("TeleportInitFailed")]
@@ -16611,7 +16616,7 @@ declare interface TerrainDetail: Instance {
 
 declare interface TerrainRegion: Instance {
 	_is_creatable: true;
-	[luau_name("IsSmooth")]
+	[luau_name("IsSmooth"), deprecated]
 	is_smooth: bool;
 	[luau_name("SizeInCells")]
 	size_in_cells: Vector3;
@@ -16644,10 +16649,10 @@ declare interface TextChannel: Instance {
 	display_system_message: fn(systemMessage: string, metadata: string): TextChatMessage;
 	[luau_name("SetDirectChatRequester"), luau_method]
 	set_direct_chat_requester: fn(requester: Player): void;
-	[luau_name("AddUserAsync"), luau_method]
-	add_user_async: fn(userId: User): unknown;
-	[luau_name("SendAsync"), luau_method]
-	send_async: fn(message: string, metadata: string): TextChatMessage;
+	[luau_name("AddUserAsync"), luau_method, wraps_errors]
+	add_user_async: fn(userId: User): Result<unknown, RobloxError>;
+	[luau_name("SendAsync"), luau_method, wraps_errors]
+	send_async: fn(message: string, metadata: string): Result<TextChatMessage, RobloxError>;
 	[luau_name("MessageReceived")]
 	event message_received(incomingMessage: TextChatMessage);
 }
@@ -16872,14 +16877,14 @@ declare interface TextChatService: Instance {
 	mut create_default_text_channels: bool;
 	[luau_name("DisplayBubble"), luau_method]
 	display_bubble: fn(partOrCharacter: Instance, message: string): void;
-	[luau_name("CanUserChatAsync"), luau_method]
-	can_user_chat_async: fn(userId: User): bool;
-	[luau_name("CanUsersChatAsync"), luau_method]
-	can_users_chat_async: fn(userIdFrom: User, userIdTo: User): bool;
-	[luau_name("CanUsersDirectChatAsync"), luau_method]
-	can_users_direct_chat_async: fn(requesterUserId: User, userIds: unknown[]): unknown[];
-	[luau_name("GetChatGroupsAsync"), luau_method]
-	get_chat_groups_async: fn(players: Instance[]): unknown[];
+	[luau_name("CanUserChatAsync"), luau_method, wraps_errors]
+	can_user_chat_async: fn(userId: User): Result<bool, RobloxError>;
+	[luau_name("CanUsersChatAsync"), luau_method, wraps_errors]
+	can_users_chat_async: fn(userIdFrom: User, userIdTo: User): Result<bool, RobloxError>;
+	[luau_name("CanUsersDirectChatAsync"), luau_method, wraps_errors]
+	can_users_direct_chat_async: fn(requesterUserId: User, userIds: unknown[]): Result<unknown[], RobloxError>;
+	[luau_name("GetChatGroupsAsync"), luau_method, wraps_errors]
+	get_chat_groups_async: fn(players: Instance[]): Result<unknown[], RobloxError>;
 	[luau_name("BubbleDisplayed")]
 	event bubble_displayed(partOrCharacter: Instance, textChatMessage: TextChatMessage);
 	[luau_name("MessageReceived")]
@@ -16889,12 +16894,12 @@ declare interface TextChatService: Instance {
 }
 
 declare interface TextFilterResult: Instance {
-	[luau_name("GetChatForUserAsync"), luau_method]
-	get_chat_for_user_async: fn(toUserId: number): string;
-	[luau_name("GetNonChatStringForBroadcastAsync"), luau_method]
-	get_non_chat_string_for_broadcast_async: fn: string;
-	[luau_name("GetNonChatStringForUserAsync"), luau_method]
-	get_non_chat_string_for_user_async: fn(toUserId: number): string;
+	[luau_name("GetChatForUserAsync"), luau_method, deprecated, wraps_errors]
+	get_chat_for_user_async: fn(toUserId: number): Result<string, RobloxError>;
+	[luau_name("GetNonChatStringForBroadcastAsync"), luau_method, wraps_errors]
+	get_non_chat_string_for_broadcast_async: fn: Result<string, RobloxError>;
+	[luau_name("GetNonChatStringForUserAsync"), luau_method, wraps_errors]
+	get_non_chat_string_for_user_async: fn(toUserId: number): Result<string, RobloxError>;
 }
 
 declare interface TextFilterTranslatedResult: Instance {
@@ -16918,24 +16923,24 @@ declare interface TextGenerator: Instance {
 	mut temperature: number;
 	[luau_name("TopP")]
 	mut top_p: number;
-	[luau_name("GenerateTextAsync"), luau_method]
-	generate_text_async: fn(request: UnknownRecord): UnknownRecord;
+	[luau_name("GenerateTextAsync"), luau_method, wraps_errors]
+	generate_text_async: fn(request: UnknownRecord): Result<UnknownRecord, RobloxError>;
 }
 
 declare interface TextService: Instance {
 	_is_service: true;
 	[luau_name("GetTextSize"), luau_method]
 	get_text_size: fn(string: string, fontSize: number, font: Enum["Font"], frameSize: Vector2): Vector2;
-	[luau_name("FilterAndTranslateStringAsync"), luau_method]
-	filter_and_translate_string_async: fn(stringToFilter: string, fromUserId: number, targetLocales: unknown[], textContext: Enum["TextFilterContext"]?): TextFilterTranslatedResult;
-	[luau_name("FilterStringAsync"), luau_method]
-	filter_string_async: fn(stringToFilter: string, fromUserId: number, textContext: Enum["TextFilterContext"]?): TextFilterResult;
-	[luau_name("GetFamilyInfoAsync"), luau_method]
-	get_family_info_async: fn(assetId: string): UnknownRecord;
-	[luau_name("GetTextBoundsAsync"), luau_method]
-	get_text_bounds_async: fn(params: GetTextBoundsParams): Vector2;
-	[luau_name("GetTextSizeOffsetAsync"), luau_method]
-	get_text_size_offset_async: fn(fontSize: number, font: Font): number;
+	[luau_name("FilterAndTranslateStringAsync"), luau_method, wraps_errors]
+	filter_and_translate_string_async: fn(stringToFilter: string, fromUserId: number, targetLocales: unknown[], textContext: Enum["TextFilterContext"]?): Result<TextFilterTranslatedResult, RobloxError>;
+	[luau_name("FilterStringAsync"), luau_method, wraps_errors]
+	filter_string_async: fn(stringToFilter: string, fromUserId: number, textContext: Enum["TextFilterContext"]?): Result<TextFilterResult, RobloxError>;
+	[luau_name("GetFamilyInfoAsync"), luau_method, wraps_errors]
+	get_family_info_async: fn(assetId: string): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetTextBoundsAsync"), luau_method, wraps_errors]
+	get_text_bounds_async: fn(params: GetTextBoundsParams): Result<Vector2, RobloxError>;
+	[luau_name("GetTextSizeOffsetAsync"), luau_method, wraps_errors]
+	get_text_size_offset_async: fn(fontSize: number, font: Font): Result<number, RobloxError>;
 }
 
 declare interface TextSource: Instance {
@@ -17023,8 +17028,8 @@ declare interface Trail: Instance {
 declare interface Translator: Instance {
 	[luau_name("LocaleId")]
 	locale_id: string;
-	[luau_name("FormatByKey"), luau_method]
-	format_by_key: fn(key: string, args: unknown): string;
+	[luau_name("FormatByKey"), luau_method, wraps_errors]
+	format_by_key: fn(key: string, args: unknown): Result<string, RobloxError>;
 	[luau_name("Translate"), luau_method]
 	translate: fn(context: Instance, text: string): string;
 }
@@ -17216,9 +17221,9 @@ declare interface UIGridStyleLayout: UILayout {
 	mut sort_order: Enum["SortOrder"];
 	[luau_name("VerticalAlignment")]
 	mut vertical_alignment: Enum["VerticalAlignment"];
-	[luau_name("ApplyLayout"), luau_method]
+	[luau_name("ApplyLayout"), luau_method, deprecated]
 	apply_layout: fn: void;
-	[luau_name("SetCustomSortFunction"), luau_method]
+	[luau_name("SetCustomSortFunction"), luau_method, deprecated]
 	set_custom_sort_function: fn(callback: fn: void?): void;
 }
 
@@ -17274,8 +17279,8 @@ declare interface UIPageLayout: UIGridStyleLayout {
 	mut touch_input_enabled: bool;
 	[luau_name("TweenTime")]
 	mut tween_time: number;
-	[luau_name("JumpTo"), luau_method]
-	jump_to: fn(page: Instance): void;
+	[luau_name("JumpTo"), luau_method, wraps_errors]
+	jump_to: fn(page: Instance): Result<void, RobloxError>;
 	[luau_name("JumpToIndex"), luau_method]
 	jump_to_index: fn(index: number): void;
 	[luau_name("Next"), luau_method]
@@ -17412,8 +17417,8 @@ declare interface UserGameSettings: Instance {
 	vignette_enabled: bool;
 	[luau_name("GetCameraYInvertValue"), luau_method]
 	get_camera_y_invert_value: fn: number;
-	[luau_name("GetOnboardingCompleted"), luau_method]
-	get_onboarding_completed: fn(onboardingId: string): bool;
+	[luau_name("GetOnboardingCompleted"), luau_method, wraps_errors]
+	get_onboarding_completed: fn(onboardingId: string): Result<bool, RobloxError>;
 	[luau_name("InFullScreen"), luau_method]
 	in_full_screen: fn: bool;
 	[luau_name("InStudioMode"), luau_method]
@@ -17422,8 +17427,8 @@ declare interface UserGameSettings: Instance {
 	set_camera_y_invert_visible: fn: void;
 	[luau_name("SetGamepadCameraSensitivityVisible"), luau_method]
 	set_gamepad_camera_sensitivity_visible: fn: void;
-	[luau_name("SetOnboardingCompleted"), luau_method]
-	set_onboarding_completed: fn(onboardingId: string): void;
+	[luau_name("SetOnboardingCompleted"), luau_method, wraps_errors]
+	set_onboarding_completed: fn(onboardingId: string): Result<void, RobloxError>;
 	[luau_name("FullscreenChanged")]
 	event fullscreen_changed(isFullscreen: bool);
 	[luau_name("StudioModeChanged")]
@@ -17440,7 +17445,7 @@ declare interface UserInputService: Instance {
 	gyroscope_enabled: bool;
 	[luau_name("KeyboardEnabled")]
 	keyboard_enabled: bool;
-	[luau_name("ModalEnabled")]
+	[luau_name("ModalEnabled"), deprecated]
 	mut modal_enabled: bool;
 	[luau_name("MouseBehavior")]
 	mut mouse_behavior: Enum["MouseBehavior"];
@@ -17464,7 +17469,7 @@ declare interface UserInputService: Instance {
 	preferred_input: Enum["PreferredInput"];
 	[luau_name("TouchEnabled")]
 	touch_enabled: bool;
-	[luau_name("UserHeadCFrame")]
+	[luau_name("UserHeadCFrame"), deprecated]
 	user_head_c_frame: CFrame;
 	[luau_name("VREnabled")]
 	vr_enabled: bool;
@@ -17504,7 +17509,7 @@ declare interface UserInputService: Instance {
 	get_string_for_key_code: fn(keyCode: Enum["KeyCode"], format: Enum["KeyCodeStringFormat"]?): string;
 	[luau_name("GetSupportedGamepadKeyCodes"), luau_method]
 	get_supported_gamepad_key_codes: fn(gamepadNum: Enum["UserInputType"]): unknown[];
-	[luau_name("GetUserCFrame"), luau_method]
+	[luau_name("GetUserCFrame"), luau_method, deprecated]
 	get_user_c_frame: fn(_type: Enum["UserCFrame"]): CFrame;
 	[luau_name("IsGamepadButtonDown"), luau_method]
 	is_gamepad_button_down: fn(gamepadNum: Enum["UserInputType"], gamepadKeyCode: Enum["KeyCode"]): bool;
@@ -17566,7 +17571,7 @@ declare interface UserInputService: Instance {
 	event touch_tap(touchPositions: unknown[], gameProcessedEvent: bool);
 	[luau_name("TouchTapInWorld")]
 	event touch_tap_in_world(position: Vector2, processedByUI: bool);
-	[luau_name("UserCFrameChanged")]
+	[luau_name("UserCFrameChanged"), deprecated]
 	event user_c_frame_changed(_type: Enum["UserCFrame"], value: CFrame);
 	[luau_name("WindowFocusReleased")]
 	event window_focus_released;
@@ -17576,10 +17581,10 @@ declare interface UserInputService: Instance {
 
 declare interface UserService: Instance {
 	_is_service: true;
-	[luau_name("GetUserFromGlobalUserIdAsync"), luau_method]
-	get_user_from_global_user_id_async: fn(userId: number): User;
-	[luau_name("GetUserInfosByUserIdsAsync"), luau_method]
-	get_user_infos_by_user_ids_async: fn(userIds: unknown[]): unknown[];
+	[luau_name("GetUserFromGlobalUserIdAsync"), luau_method, wraps_errors]
+	get_user_from_global_user_id_async: fn(userId: number): Result<User, RobloxError>;
+	[luau_name("GetUserInfosByUserIdsAsync"), luau_method, wraps_errors]
+	get_user_infos_by_user_ids_async: fn(userIds: unknown[]): Result<unknown[], RobloxError>;
 }
 
 declare interface VRService: Instance {
@@ -17815,8 +17820,8 @@ declare interface VideoPlayer: Instance {
 	play: fn: void;
 	[luau_name("Unload"), luau_method]
 	unload: fn: void;
-	[luau_name("LoadAsync"), luau_method]
-	load_async: fn: Enum["AssetFetchStatus"];
+	[luau_name("LoadAsync"), luau_method, wraps_errors]
+	load_async: fn: Result<Enum["AssetFetchStatus"], RobloxError>;
 	[luau_name("DidEnd")]
 	event did_end;
 	[luau_name("DidLoop")]
@@ -17833,8 +17838,8 @@ declare interface VideoScreenCaptureService: Instance {
 
 declare interface VideoService: Instance {
 	_is_service: true;
-	[luau_name("CreateVideoSamplerAsync"), luau_method]
-	create_video_sampler_async: fn(content: Content, options: UnknownRecord?): VideoSampler;
+	[luau_name("CreateVideoSamplerAsync"), luau_method, wraps_errors]
+	create_video_sampler_async: fn(content: Content, options: UnknownRecord?): Result<VideoSampler, RobloxError>;
 }
 
 declare interface VisibilityCheckDispatcher: Instance {
@@ -17855,46 +17860,46 @@ declare interface VisualizationModeService: Instance {
 
 declare interface VoiceChatInternal: Instance {
 	_is_service: true;
-	[luau_name("GetAudioProcessingSettings"), luau_method]
+	[luau_name("GetAudioProcessingSettings"), luau_method, deprecated]
 	get_audio_processing_settings: fn: unknown;
-	[luau_name("GetMicDevices"), luau_method]
+	[luau_name("GetMicDevices"), luau_method, deprecated]
 	get_mic_devices: fn: unknown;
-	[luau_name("GetParticipants"), luau_method]
+	[luau_name("GetParticipants"), luau_method, deprecated]
 	get_participants: fn: unknown[];
-	[luau_name("GetVoiceChatApiVersion"), luau_method]
+	[luau_name("GetVoiceChatApiVersion"), luau_method, deprecated]
 	get_voice_chat_api_version: fn: number;
-	[luau_name("GetVoiceChatAvailable"), luau_method]
+	[luau_name("GetVoiceChatAvailable"), luau_method, deprecated]
 	get_voice_chat_available: fn: number;
-	[luau_name("IsPublishPaused"), luau_method]
+	[luau_name("IsPublishPaused"), luau_method, deprecated]
 	is_publish_paused: fn: bool;
-	[luau_name("IsSubscribePaused"), luau_method]
+	[luau_name("IsSubscribePaused"), luau_method, deprecated]
 	is_subscribe_paused: fn(userId: number): bool;
-	[luau_name("JoinByGroupId"), luau_method]
+	[luau_name("JoinByGroupId"), luau_method, deprecated]
 	join_by_group_id: fn(groupId: string, isMicMuted: bool?): bool;
-	[luau_name("JoinByGroupIdToken"), luau_method]
+	[luau_name("JoinByGroupIdToken"), luau_method, deprecated]
 	join_by_group_id_token: fn(groupId: string, isMicMuted: bool, isRetry: bool?): bool;
-	[luau_name("Leave"), luau_method]
+	[luau_name("Leave"), luau_method, deprecated]
 	leave: fn: void;
-	[luau_name("PublishPause"), luau_method]
+	[luau_name("PublishPause"), luau_method, deprecated]
 	publish_pause: fn(paused: bool): bool;
-	[luau_name("SetMicDevice"), luau_method]
+	[luau_name("SetMicDevice"), luau_method, deprecated]
 	set_mic_device: fn(micDeviceName: string, micDeviceGuid: string): void;
-	[luau_name("SubscribePause"), luau_method]
+	[luau_name("SubscribePause"), luau_method, deprecated]
 	subscribe_pause: fn(userId: number, paused: bool): bool;
-	[luau_name("SubscribePauseAll"), luau_method]
+	[luau_name("SubscribePauseAll"), luau_method, deprecated]
 	subscribe_pause_all: fn(paused: bool): bool;
-	[luau_name("IsVoiceEnabledForUserIdAsync"), luau_method]
-	is_voice_enabled_for_user_id_async: fn(userId: number): bool;
-	[luau_name("StateChanged")]
+	[luau_name("IsVoiceEnabledForUserIdAsync"), luau_method, wraps_errors]
+	is_voice_enabled_for_user_id_async: fn(userId: number): Result<bool, RobloxError>;
+	[luau_name("StateChanged"), deprecated]
 	event state_changed(oldValue: Enum["VoiceChatState"], newValue: Enum["VoiceChatState"]);
 }
 
 declare interface VoiceChatService: Instance {
 	_is_service: true;
-	[luau_name("GetChatGroupsAsync"), luau_method]
-	get_chat_groups_async: fn(players: Instance[]): unknown[];
-	[luau_name("IsVoiceEnabledForUserIdAsync"), luau_method]
-	is_voice_enabled_for_user_id_async: fn(userId: User): bool;
+	[luau_name("GetChatGroupsAsync"), luau_method, wraps_errors]
+	get_chat_groups_async: fn(players: Instance[]): Result<unknown[], RobloxError>;
+	[luau_name("IsVoiceEnabledForUserIdAsync"), luau_method, wraps_errors]
+	is_voice_enabled_for_user_id_async: fn(userId: User): Result<bool, RobloxError>;
 }
 
 declare interface WebSocketClient: Instance {
@@ -17968,8 +17973,8 @@ declare interface WrapTextureTransfer: Instance {
 
 declare interface LuauExpression: Object;
 declare interface MLSession: Object {
-	[luau_name("ForwardAsync"), luau_method]
-	forward_async: fn(data: UnknownRecord): UnknownRecord;
+	[luau_name("ForwardAsync"), luau_method, wraps_errors]
+	forward_async: fn(data: UnknownRecord): Result<UnknownRecord, RobloxError>;
 }
 
 declare interface OutputLink: Object;
@@ -18006,23 +18011,23 @@ declare interface VideoSampler: Object {
 	time_length: number;
 	[luau_name("VideoContent")]
 	video_content: Content;
-	[luau_name("GetSamplesAtTimesAsync"), luau_method]
-	get_samples_at_times_async: fn(times: unknown[]): unknown[];
+	[luau_name("GetSamplesAtTimesAsync"), luau_method, wraps_errors]
+	get_samples_at_times_async: fn(times: unknown[]): Result<unknown[], RobloxError>;
 }
 
 declare interface VirtualInput: Object {
-	[luau_name("SendKey"), luau_method]
-	send_key: fn(isPressed: bool, keyCode: Enum["KeyCode"], isRepeatedKey: bool?): void;
-	[luau_name("SendMouseButton"), luau_method]
-	send_mouse_button: fn(position: Vector2, button: Enum["UserInputType"], isDown: bool, repeatCount: number?): void;
-	[luau_name("SendMouseDelta"), luau_method]
-	send_mouse_delta: fn(positionDelta: Vector2): void;
-	[luau_name("SendMousePosition"), luau_method]
-	send_mouse_position: fn(position: Vector2): void;
-	[luau_name("SendPointerAction"), luau_method]
-	send_pointer_action: fn(position: Vector2, pointerAction: UnknownRecord): void;
-	[luau_name("SendTextInput"), luau_method]
-	send_text_input: fn(text: string): void;
+	[luau_name("SendKey"), luau_method, wraps_errors]
+	send_key: fn(isPressed: bool, keyCode: Enum["KeyCode"], isRepeatedKey: bool?): Result<void, RobloxError>;
+	[luau_name("SendMouseButton"), luau_method, wraps_errors]
+	send_mouse_button: fn(position: Vector2, button: Enum["UserInputType"], isDown: bool, repeatCount: number?): Result<void, RobloxError>;
+	[luau_name("SendMouseDelta"), luau_method, wraps_errors]
+	send_mouse_delta: fn(positionDelta: Vector2): Result<void, RobloxError>;
+	[luau_name("SendMousePosition"), luau_method, wraps_errors]
+	send_mouse_position: fn(position: Vector2): Result<void, RobloxError>;
+	[luau_name("SendPointerAction"), luau_method, wraps_errors]
+	send_pointer_action: fn(position: Vector2, pointerAction: UnknownRecord): Result<void, RobloxError>;
+	[luau_name("SendTextInput"), luau_method, wraps_errors]
+	send_text_input: fn(text: string): Result<void, RobloxError>;
 }
 
 declare interface VoxelBuffer: Object;
