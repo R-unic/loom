@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
@@ -20,6 +21,7 @@ using Attribute = Loom.Core.Parsing.AST.Attribute;
 public sealed partial class TypeChecker
 {
     private const string FallibleAttribute = "fallible";
+    private const string DeprecatedAttribute = "deprecated";
     private static readonly HashSet<string> _panickingResultMembers = ["unwrap", "expect"];
 
     private void CheckPanicIsDeclared(Invocation invocation)
@@ -51,6 +53,33 @@ public sealed partial class TypeChecker
             $"return a 'Result<T, Error>' and propagate with '?', or mark '{name}' with '[fallible]' if you really need to panic"
         );
     }
+
+    /// <summary>
+    ///     Warns rather than errors: a deprecated member still works, and turning its use into a
+    ///     build failure would break projects on a Roblox release rather than on a change of theirs.
+    /// </summary>
+    private void CheckDeprecation(Invocation invocation)
+    {
+        var declaration = _semanticModel.GetSymbol(invocation.Expression)?.Declaration
+            ?? _semanticModel.GetPropertySymbol(invocation.Expression)?.Declaration;
+
+        if (declaration == null || !TryGetAttribute(declaration, DeprecatedAttribute, out var attribute))
+            return;
+
+        var name = _semanticModel.GetSymbol(invocation.Expression)?.Name
+            ?? _semanticModel.GetPropertySymbol(invocation.Expression)?.Name
+            ?? "member";
+
+        _diagnostics.Warn(
+            invocation,
+            InternalCodes.DeprecatedMember,
+            $"'{name}' is deprecated.",
+            DeprecationMessage(attribute)
+        );
+    }
+
+    private static string? DeprecationMessage(Attribute attribute) =>
+        attribute.Arguments.ArgumentList is [Literal { Value: string message }] ? message : null;
 
     private string? PanickingOperationName(Invocation invocation)
     {
@@ -107,9 +136,16 @@ public sealed partial class TypeChecker
         return null;
     }
 
-    private static bool HasAttribute(Node? declaration, string name) =>
-        declaration is IWithAttributes { Attributes: { } attributes }
-        && attributes.AttributeList.Exists(attribute => AttributeName(attribute) == name);
+    private static bool HasAttribute(Node? declaration, string name) => TryGetAttribute(declaration, name, out _);
+
+    private static bool TryGetAttribute(Node? declaration, string name, [MaybeNullWhen(false)] out Attribute found)
+    {
+        found = declaration is IWithAttributes { Attributes: { } attributes }
+            ? attributes.AttributeList.Find(attribute => AttributeName(attribute) == name)
+            : null;
+
+        return found != null;
+    }
 
     private static string? AttributeName(Attribute attribute) =>
         attribute.Expression.Tokens.LastOrDefault(token => token.Kind == SyntaxKind.Identifier)?.Text;
