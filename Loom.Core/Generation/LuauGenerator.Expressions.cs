@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
@@ -69,6 +70,40 @@ public sealed partial class LuauGenerator
     /// </summary>
     private LuauExpression GenerateWrappedCall(LuauExpression callee, List<LuauExpression> arguments)
     {
+        var (ok, value) = GenerateWrappedCallPair(callee, arguments);
+        return new IfExpression(ok, OkResult(value), [], ErrorResult(value));
+    }
+
+    private static Table OkResult(LuauExpression value) =>
+        new([new PropertyTableInitializer("ok", new BooleanLiteral(true)), new PropertyTableInitializer("value", value)]);
+
+    private static Table ErrorResult(LuauExpression error) =>
+        new([new PropertyTableInitializer("ok", new BooleanLiteral(false)), new PropertyTableInitializer("error", error)]);
+
+    /// <summary>
+    ///     A wrapped call whose Result is propagated straight away never needs the Result to exist:
+    ///     the success arm would be built only for <c>.value</c> to be read back out of it on the
+    ///     next line. Fusing the two leaves the success path allocating nothing, which matters
+    ///     because every fallible Roblox API call reached through '?' would otherwise pay for a table.
+    /// </summary>
+    private bool TryGeneratePropagatedWrappedCall(Expression expression, [MaybeNullWhen(false)] out LuauExpression value)
+    {
+        value = null;
+        if (expression is not Invocation invocation || !_semanticModel.TryGetIntrinsicAttribute(invocation.Expression, "wraps_errors", out _))
+            return false;
+
+        var callee = Visit(invocation.Expression);
+        var arguments = invocation.Arguments.ArgumentList.ConvertAll(Visit);
+        var (ok, propagated) = GenerateWrappedCallPair(callee, arguments);
+        _state.Prereq(new IfStatement(NegateCondition(ok), new Chunk([new Luau.AST.Return(ErrorResult(propagated))]), [], null));
+        value = propagated;
+
+        return true;
+    }
+
+    /// <summary>Emits the <c>xpcall</c> and hands back the two locals it returns.</summary>
+    private (Luau.AST.Identifier Ok, Luau.AST.Identifier Value) GenerateWrappedCallPair(LuauExpression callee, List<LuauExpression> arguments)
+    {
         List<LuauExpression> callArguments = [.. arguments];
         var target = callee;
         if (callee is Luau.AST.PropertyAccess { Target: var instance } access)
@@ -84,12 +119,7 @@ public sealed partial class LuauGenerator
         _state.Prereq(new MultiConstVariable([okName, valueName], new Call(new Luau.AST.Identifier("xpcall"), [target, handler, .. callArguments])));
         _semanticModel.RuntimeReferences++;
 
-        return new IfExpression(
-            new Luau.AST.Identifier(okName),
-            new Table([new PropertyTableInitializer("ok", new BooleanLiteral(true)), new PropertyTableInitializer("value", new Luau.AST.Identifier(valueName))]),
-            [],
-            new Table([new PropertyTableInitializer("ok", new BooleanLiteral(false)), new PropertyTableInitializer("error", new Luau.AST.Identifier(valueName))])
-        );
+        return (new Luau.AST.Identifier(okName), new Luau.AST.Identifier(valueName));
     }
 
     public override LuauNode VisitQualifiedName(QualifiedName qualifiedName)
@@ -247,6 +277,9 @@ public sealed partial class LuauGenerator
     
     public override LuauNode VisitErrorPropagation(ErrorPropagation errorPropagation)
     {
+        if (TryGeneratePropagatedWrappedCall(errorPropagation.Expression, out var propagated))
+            return propagated;
+
         var target = Visit(errorPropagation.Expression);
         var cached = _state.PushToVariable("_result", target);
         _state.Prereq(
