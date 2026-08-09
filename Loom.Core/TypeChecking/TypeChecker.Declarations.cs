@@ -83,12 +83,19 @@ public sealed partial class TypeChecker
             return BindType(typeAlias, TypeSimplifier.Simplify(type));
         }
 
+        // Published before its body is resolved, because the body may reach back to the alias: with
+        // 'type R<T, E> = A<T, E> | B<T, E>', resolving A's members references R, which resolves B,
+        // whose members reference R again. Binding first means that innermost reference finds this
+        // instance instead of an unbound type variable that would settle as 'never'.
         var parameters = typeAlias.TypeParameters.ParameterList.ConvertAll(VisitTypeParameter);
+        var genericType = new GenericType(typeAlias, parameters, Types.PrimitiveType.Never);
+        BindType(typeAlias, genericType);
+
         var underlyingType = Visit(typeAlias.EqualsTypeClause);
         _semanticModel.TypeSolver.CheckCircular(ref underlyingType, typeAlias.Name);
+        genericType.UnderlyingType = underlyingType;
 
-        var genericType = VarianceInferrer.ApplyInferredVariance(new GenericType(typeAlias, parameters, TypeSimplifier.Simplify(underlyingType)));
-        return BindType(typeAlias, genericType);
+        return BindType(typeAlias, VarianceInferrer.ApplyInferredVariance(genericType));
     }
 
     public override Type VisitVariableDeclaration(VariableDeclaration variableDeclaration)

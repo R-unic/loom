@@ -13,6 +13,7 @@ internal sealed class ClassGenerator(
     : BaseGenerator(filePath, metadata)
 {
     private readonly Dictionary<string, Class> _classRefs = [];
+    private readonly FallibilityClassifier _fallibility = new();
     private readonly Dictionary<string, HashSet<string>> _definedMemberNames = [];
     private string[] _instanceNameCandidates = [];
 
@@ -129,7 +130,7 @@ internal sealed class ClassGenerator(
         var (name, description) = GetMemberNameAndDescription(property, rbxClass);
         var definitelyDefined = property.ValueType.Category != "Class";
         var extraPropertyData = CanWrite(rbxClass.Name, property) && !ClassUtility.HasTag(property, "ReadOnly") ? "mut " : "";
-        var (snakeName, attributes) = GetMemberAttributes(name);
+        var (snakeName, attributes) = GetMemberAttributes(name, DeprecationAttributes(property));
 
         WriteMetadata(description, attributes);
         Write($"{extraPropertyData}{snakeName}: {valueType}{(definitelyDefined || valueType.EndsWith('?') ? "" : "?")};");
@@ -139,7 +140,7 @@ internal sealed class ClassGenerator(
     {
         var parameterList = GenerateParameterList(@event.Parameters);
         var (name, description) = GetMemberNameAndDescription(@event, rbxClass);
-        var (snakeName, attributes) = GetMemberAttributes(name);
+        var (snakeName, attributes) = GetMemberAttributes(name, DeprecationAttributes(@event));
         WriteMetadata(description, attributes);
         Write($"event {snakeName}{parameterList};");
     }
@@ -155,6 +156,15 @@ internal sealed class ClassGenerator(
             attributeList.Add("override");
 
         attributeList.Add("luau_method");
+        if (ClassUtility.HasTag(function, "Deprecated"))
+            attributeList.Add("deprecated");
+
+        if (_fallibility.IsFallible(rbxClass, function))
+        {
+            attributeList.Add("wraps_errors");
+            returnType = $"Result<{returnType}, RobloxError>";
+        }
+
         var (snakeName, attributes) = GetMemberAttributes(name, attributeList);
 
         WriteMetadata(description, attributes);
@@ -171,6 +181,9 @@ internal sealed class ClassGenerator(
         WriteMetadata(description, attributes);
         Write($"mut {snakeName}: fn{parameterList}: {returnType};");
     }
+
+    private static List<string>? DeprecationAttributes(MemberBase member) =>
+        ClassUtility.HasTag(member, "Deprecated") ? ["deprecated"] : null;
 
     private void WriteMetadata(string[] descriptionLines, string? attributes)
     {

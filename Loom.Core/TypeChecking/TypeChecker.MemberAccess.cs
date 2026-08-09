@@ -9,8 +9,21 @@ using Type = Types.Type;
 
 public sealed partial class TypeChecker
 {
-    public override Type VisitQualifiedName(QualifiedName qualifiedName) => GetTypeOfNamedAccess(qualifiedName, qualifiedName.Identifier, qualifiedName.Names);
-    public override Type VisitPropertyAccess(PropertyAccess propertyAccess) => GetTypeOfNamedAccess(propertyAccess, propertyAccess.Expression, propertyAccess.Names);
+    public override Type VisitQualifiedName(QualifiedName qualifiedName)
+    {
+        var type = GetTypeOfNamedAccess(qualifiedName, qualifiedName.Identifier, qualifiedName.Names);
+        CheckMemberAccess(qualifiedName);
+
+        return type;
+    }
+
+    public override Type VisitPropertyAccess(PropertyAccess propertyAccess)
+    {
+        var type = GetTypeOfNamedAccess(propertyAccess, propertyAccess.Expression, propertyAccess.Names);
+        CheckMemberAccess(propertyAccess);
+
+        return type;
+    }
 
     public override Type VisitElementAccess(ElementAccess elementAccess)
     {

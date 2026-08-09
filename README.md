@@ -65,6 +65,9 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Ternary Operator](#ternary-operator)
   - [keyof](#keyof)
   - [Result Pattern](#result-pattern)
+  - [Fallible Roblox API calls](#fallible-roblox-api-calls)
+  - [Panics and `[fallible]`](#panics-and-fallible)
+  - [Deprecation](#deprecation)
   - [Error Propagation](#error-propagation)
   - [Array.join()](#arrayjoin)
   - [Range.clamp()](#rangeclamp)
@@ -106,7 +109,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - **Null-forgiving expression** – `!` strips optionality from a type as a compile-time-only assertion, no runtime check. See [example](#null-forgiving-expression).
 - **Default parameter values** – Omit trailing arguments at the call site and fall back to a default. See [example](#functions).
 - **Generic functions and types** – Full support for type parameters including constraints and defaults
-- **Result pattern for errors** – Error handling uses the result pattern from Rust, no more `pcall`s. See [example](#result-pattern).
+- **Result pattern for errors** – Error handling uses the result pattern from Rust, no more `pcall`s. Roblox API methods that can fail return
+  `Result<T, RobloxError>`, so the failure is in the signature rather than waiting to kill the thread. See [example](#result-pattern).
 - **Error propagation** – The postfix `?` operator unwraps a `Result<T, E>`, returning early on failure - same idea as Rust's `?`. See
   [example](#error-propagation).
 - **Events** – Built-in user events with shorthand syntax. See [example](#events).
@@ -984,6 +988,109 @@ const function unsafe_function(condition: boolean): Result<number, string>
 end
 const result = unsafe_function(true)
 print(if result.ok then result.value else result.error)
+```
+
+### Combinators
+
+A `Result<T, E>` carries the usual combinators. None of them survive to runtime - each is lowered inline, so a
+`Result` stays a two-field table rather than one carrying six closures, and the receiver is evaluated exactly once.
+
+| Combinator | Result | Panics? |
+| --- | --- | --- |
+| `unwrap()` | the value, or raises the error | yes |
+| `expect(message)` | the value, or raises `message` | yes |
+| `unwrap_or(fallback)` | the value, or `fallback` | no |
+| `unwrap_or_else(compute)` | the value, or `compute(error)` | no |
+| `map(transform)` | `Result<U, E>` with `transform` applied to the value | no |
+| `and_then(transform)` | `transform(value)`, or the original error | no |
+
+```rs
+let a = unsafe_function(true).unwrap_or(0);
+let b = unsafe_function(true).map(double).unwrap_or(0);
+```
+
+```luau
+const _result = unsafe_function(true)
+const a = if _result.ok then _result.value else 0
+const _result_1 = unsafe_function(true)
+const _result_2 = if _result_1.ok then { ok = true, value = double(_result_1.value) } else _result_1
+const b = if _result_2.ok then _result_2.value else 0
+```
+---
+### Fallible Roblox API calls
+
+A Roblox API method that can raise returns `Result<T, RobloxError>` instead. The call is lowered to an `xpcall`
+with a shared handler, so nothing is allocated per call site beyond the `Result`, and `?` propagates it like any
+other.
+
+```rs
+fn load(key: string): Result<unknown, RobloxError> {
+    let store = data_store_service.get_data_store("players")?;
+    let value = store.get_async(key)?;
+    return Result.ok(value);
+}
+```
+
+```luau
+const function load(key: string): Loom.Result<unknown, Loom.RobloxError>
+  const _ok, _value = xpcall(data_store_service.GetDataStore, Loom.roblox_error, data_store_service, "players")
+  const _result = if _ok then { ok = true, value = _value } else { ok = false, error = _value }
+  if not _result.ok then
+    return _result
+  end
+  const store = _result.value
+  ...
+end
+```
+
+Which methods are fallible is decided during type generation: the API dump's `Yields`/`CanYield` tags seed the
+set, corrected by a reviewed override list. Roblox publishes nothing that says "throws", so a method nobody has
+classified is treated as fallible - a wrong "fallible" costs a frame, a wrong "infallible" costs a crash.
+
+`RobloxError` carries a `message` and an optional `traceback`.
+---
+## Panics and `[fallible]`
+
+`unwrap` and `expect` raise the error rather than returning it, as does `error()`. An operation that can panic is
+only allowed inside a function marked `[fallible]`, so a signature never hides the fact that calling it may end
+the thread.
+
+```rs
+[fallible]
+fn load_or_die(): number {
+    return unsafe_function(true).unwrap();  ## ok - the function declares it
+}
+
+fn load(): Result<number, string> {
+    let value = unsafe_function(true)?;     ## ok - propagates, never panics
+    return Result.ok(value);
+}
+
+fn careless(): number {
+    return unsafe_function(true).unwrap();  ## error - not marked [fallible]
+}
+```
+
+Calling a `[fallible]` function is itself a panicking operation, so the marker travels up until something handles
+the `Result` instead. Two ways out, and the signature tells you which one a function chose: **propagate** by
+returning `Result` and using `?`, or **panic** by marking `[fallible]` and using `unwrap`.
+
+Top-level code cannot be marked, and neither can a function expression - an event handler runs on a thread Roblox
+owns, with no caller to propagate to and nothing above it to recover. Both must handle the `Result` inline.
+
+Loom cannot catch every Luau fault. Integer division by zero, stack overflow and script timeouts are raised by the
+VM itself and are outside the `Result` discipline entirely.
+---
+## Deprecation
+
+`[deprecated]` marks a member whose use should be warned about, with an optional replacement hint. It is generated
+onto every Roblox API member the engine marks deprecated.
+
+```rs
+[deprecated("use new_way instead")]
+fn old_way(): number -> 1;
+
+let n = old_way();  ## warning: 'old_way' is deprecated. (use new_way instead)
 ```
 ---
 ## Error Propagation

@@ -13,6 +13,8 @@ public sealed partial class TypeChecker
     public override Type VisitInvocation(Invocation invocation)
     {
         var type = Visit(invocation.Expression);
+        CheckPanicIsDeclared(invocation);
+        CheckDeprecation(invocation);
 
         // a?.b() short-circuits to nil at runtime before ever calling 'b', so the callee is
         // checked against its non-nullable type and the call's own result gains '| none' back.

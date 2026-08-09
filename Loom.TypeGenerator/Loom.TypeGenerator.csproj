@@ -8,6 +8,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <None Include="Data\fallible.toml" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute"/>
     </ItemGroup>
 

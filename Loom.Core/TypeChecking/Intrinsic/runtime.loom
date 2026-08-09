@@ -7,17 +7,34 @@ sealed interface Range {
     clamp: fn(n: number): number;
 }
 
-interface ResultOk<T> {
+## Both arms carry both type parameters, even though each only stores one of them: a member is
+## callable on 'Result<T, Error>' only when it exists on every arm of the union, and 'unwrap'
+## cannot be typed 'fn(): T' on the error arm unless that arm knows what T is. The combinators
+## below never survive to runtime - the generator lowers each one inline (see
+## LuauGenerator.Expressions.cs), so neither arm is ever a table carrying functions.
+interface ResultOk<T, Error> {
     ok: true;
     value: T;
+    unwrap: fn(): T;
+    expect: fn(message: string): T;
+    unwrap_or: fn<U>(fallback: U): T | U;
+    unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
+    map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
+    and_then: fn<U>(transform: fn(value: T): Result<U, Error>): Result<U, Error>;
 }
 
-interface ResultError<Error> {
+interface ResultError<T, Error> {
     ok: false;
     error: Error;
+    unwrap: fn(): T;
+    expect: fn(message: string): T;
+    unwrap_or: fn<U>(fallback: U): T | U;
+    unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
+    map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
+    and_then: fn<U>(transform: fn(value: T): Result<U, Error>): Result<U, Error>;
 }
 
-type Result<T, Error> = ResultOk<T> | ResultError<Error>;
+type Result<T, Error> = ResultOk<T, Error> | ResultError<T, Error>;
 
 declare sealed interface ResultStatic {
     ok: fn<T, Error>(value: T): Result<T, Error>;
@@ -25,6 +42,15 @@ declare sealed interface ResultStatic {
 }
 
 declare let Result: ResultStatic;
+
+## The error half of every fallible Roblox API call. 'traceback' is captured by the xpcall
+## handler the generator installs, so it costs nothing unless the call actually threw; it is
+## optional so a traceback-free mode stays possible without changing the type. Luau permits
+## error() with any value, so 'message' is whatever was thrown, coerced to a string.
+sealed interface RobloxError {
+    message: string;
+    traceback: string?;
+}
 
 ## String-valued so the emitted kind is readable in a payload dump, and so the generated
 ## type alias stays a literal union instead of collapsing to 'number' like a numeric enum.

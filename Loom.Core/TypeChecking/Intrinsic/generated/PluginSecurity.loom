@@ -109,9 +109,15 @@ declare interface Instance: Object {
 	[luau_name("ResetPropertyToDefault"), luau_method]
 	reset_property_to_default: fn(property: string): void;
 	[luau_name("SetAttribute"), luau_method]
-	set_attribute: fn(attribute: string, value: unknown): void;
+	set_attribute: fn(attribute: string, value: unknown): Result<void, RobloxError>;
+	## Overloaded on the timeout, which the API dump cannot express: it records no default for
+	## timeOut and no second shape, so a single signature both forces the argument and promises a
+	## non-nil T. The docs are explicit that supplying a timeout makes the result nil-able - "this
+	## method will time out after the specified number of seconds and return nil".
 	[luau_name("WaitForChild"), luau_method]
-	wait_for_child: fn<T: Instance>(childName: string, timeOut: number): T;
+	wait_for_child: fn<T: Instance>(childName: string): T;
+	[luau_name("WaitForChild"), luau_method]
+	wait_for_child: fn<T: Instance>(childName: string, timeOut: number): T?;
 }
 
 declare sealed interface buffer;
@@ -7466,9 +7472,9 @@ declare interface KeyframeSequence: AnimationClip {
 
 declare interface AnimationClipProvider: Instance {
 	_is_service: true;
-	[luau_name("GetAnimationClip"), luau_method]
+	[luau_name("GetAnimationClip"), luau_method, deprecated]
 	get_animation_clip: fn(assetId: string): AnimationClip;
-	[luau_name("GetAnimationClipById"), luau_method]
+	[luau_name("GetAnimationClipById"), luau_method, deprecated]
 	get_animation_clip_by_id: fn(assetId: number, useCache: bool): AnimationClip;
 }
 
@@ -8138,11 +8144,11 @@ declare interface DebuggerManager: Instance {
 	get_debuggers: fn: Instance[];
 	[luau_name("Resume"), luau_method]
 	resume: fn: void;
-	[luau_name("StepIn"), luau_method]
+	[luau_name("StepIn"), luau_method, deprecated]
 	step_in: fn: void;
-	[luau_name("StepOut"), luau_method]
+	[luau_name("StepOut"), luau_method, deprecated]
 	step_out: fn: void;
-	[luau_name("StepOver"), luau_method]
+	[luau_name("StepOver"), luau_method, deprecated]
 	step_over: fn: void;
 	[luau_name("DebuggerAdded")]
 	event debugger_added(debugger: Instance);
@@ -8423,7 +8429,7 @@ declare interface GamePassService: Instance {
 
 declare interface GameSettings: Instance {
 	_is_service: true;
-	[luau_name("VideoCaptureEnabled")]
+	[luau_name("VideoCaptureEnabled"), deprecated]
 	mut video_capture_enabled: bool;
 }
 
@@ -8639,10 +8645,10 @@ declare interface HapticService: Instance {
 
 declare interface HeapProfilerService: Instance {
 	_is_service: true;
-	[luau_name("ClientRequestDataAsync"), luau_method]
-	client_request_data_async: fn(player: Player): string;
-	[luau_name("ServerRequestDataAsync"), luau_method]
-	server_request_data_async: fn: string;
+	[luau_name("ClientRequestDataAsync"), luau_method, wraps_errors]
+	client_request_data_async: fn(player: Player): Result<string, RobloxError>;
+	[luau_name("ServerRequestDataAsync"), luau_method, wraps_errors]
+	server_request_data_async: fn: Result<string, RobloxError>;
 	[luau_name("OnNewData")]
 	event on_new_data(player: Player, jsonString: buffer, id: number, compressedLength: number, uncompressedLength: number);
 }
@@ -8759,9 +8765,9 @@ declare interface KeyframeMarker: Instance {
 
 declare interface KeyframeSequenceProvider: Instance {
 	_is_service: true;
-	[luau_name("GetKeyframeSequence"), luau_method]
+	[luau_name("GetKeyframeSequence"), luau_method, deprecated]
 	get_keyframe_sequence: fn(assetId: string): Instance;
-	[luau_name("GetKeyframeSequenceById"), luau_method]
+	[luau_name("GetKeyframeSequenceById"), luau_method, deprecated]
 	get_keyframe_sequence_by_id: fn(assetId: number, useCache: bool): Instance;
 }
 
@@ -9014,7 +9020,7 @@ declare interface Seat: Part;
 declare interface SkateboardPlatform: Part;
 declare interface SpawnLocation: Part;
 declare interface Terrain: BasePart {
-	[luau_name("ConvertToSmooth"), luau_method]
+	[luau_name("ConvertToSmooth"), luau_method, deprecated]
 	convert_to_smooth: fn: void;
 }
 
@@ -9063,9 +9069,9 @@ declare interface Workspace: WorldRoot {
 	mut luau_type_check_mode: Enum["LuauTypeCheckMode"];
 	[luau_name("ApplyRecommendedStreamingSettings"), luau_method]
 	apply_recommended_streaming_settings: fn: bool;
-	[luau_name("BreakJoints"), override, luau_method]
+	[luau_name("BreakJoints"), override, luau_method, deprecated]
 	break_joints: fn(objects: Instance[]): void;
-	[luau_name("MakeJoints"), override, luau_method]
+	[luau_name("MakeJoints"), override, luau_method, deprecated]
 	make_joints: fn(objects: Instance[]): void;
 	[luau_name("ZoomToExtents"), luau_method]
 	zoom_to_extents: fn: void;
@@ -9257,7 +9263,7 @@ declare interface Plugin: Instance {
 	get_selected_ribbon_tool: fn: Enum["RibbonTool"];
 	[luau_name("GetSetting"), luau_method]
 	get_setting: fn(key: string): unknown;
-	[luau_name("GetStudioUserId"), luau_method]
+	[luau_name("GetStudioUserId"), luau_method, deprecated]
 	get_studio_user_id: fn: number;
 	[luau_name("Intersect"), luau_method]
 	intersect: fn(objects: Instance[]): Instance;
@@ -9267,7 +9273,7 @@ declare interface Plugin: Instance {
 	is_activated_with_exclusive_mouse: fn: bool;
 	[luau_name("Negate"), luau_method]
 	negate: fn(objects: Instance[]): Instance[];
-	[luau_name("OpenScript"), luau_method]
+	[luau_name("OpenScript"), luau_method, deprecated]
 	open_script: fn(script: LuaSourceContainer, lineNumber: number?): void;
 	[luau_name("OpenWikiPage"), luau_method]
 	open_wiki_page: fn(url: string): void;
@@ -9283,26 +9289,26 @@ declare interface Plugin: Instance {
 	start_drag: fn(dragData: UnknownRecord): void;
 	[luau_name("Union"), luau_method]
 	union: fn(objects: Instance[]): Instance;
-	[luau_name("CreateDockWidgetPluginGui"), luau_method]
-	create_dock_widget_plugin_gui: fn(pluginGuiId: string, dockWidgetPluginGuiInfo: DockWidgetPluginGuiInfo): DockWidgetPluginGui;
-	[luau_name("CreateDockWidgetPluginGuiAsync"), luau_method]
-	create_dock_widget_plugin_gui_async: fn(pluginGuiId: string, dockWidgetPluginGuiInfo: DockWidgetPluginGuiInfo): DockWidgetPluginGui;
-	[luau_name("ImportFbxAnimation"), luau_method]
-	import_fbx_animation: fn(rigModel: Instance, isR15: bool?): Instance;
-	[luau_name("ImportFbxAnimationAsync"), luau_method]
-	import_fbx_animation_async: fn(rigModel: Instance, isR15: bool?): Instance;
-	[luau_name("ImportFbxRig"), luau_method]
-	import_fbx_rig: fn(isR15: bool?): Instance;
-	[luau_name("ImportFbxRigAsync"), luau_method]
-	import_fbx_rig_async: fn(isR15: bool?): Instance;
-	[luau_name("PromptForExistingAssetId"), luau_method]
-	prompt_for_existing_asset_id: fn(assetType: string): number;
-	[luau_name("PromptForExistingAssetIdAsync"), luau_method]
-	prompt_for_existing_asset_id_async: fn(assetType: string): number;
-	[luau_name("PromptSaveSelection"), luau_method]
-	prompt_save_selection: fn(suggestedFileName: string): bool;
-	[luau_name("PromptSaveSelectionAsync"), luau_method]
-	prompt_save_selection_async: fn(suggestedFileName: string): bool;
+	[luau_name("CreateDockWidgetPluginGui"), luau_method, deprecated, wraps_errors]
+	create_dock_widget_plugin_gui: fn(pluginGuiId: string, dockWidgetPluginGuiInfo: DockWidgetPluginGuiInfo): Result<DockWidgetPluginGui, RobloxError>;
+	[luau_name("CreateDockWidgetPluginGuiAsync"), luau_method, wraps_errors]
+	create_dock_widget_plugin_gui_async: fn(pluginGuiId: string, dockWidgetPluginGuiInfo: DockWidgetPluginGuiInfo): Result<DockWidgetPluginGui, RobloxError>;
+	[luau_name("ImportFbxAnimation"), luau_method, deprecated, wraps_errors]
+	import_fbx_animation: fn(rigModel: Instance, isR15: bool?): Result<Instance, RobloxError>;
+	[luau_name("ImportFbxAnimationAsync"), luau_method, wraps_errors]
+	import_fbx_animation_async: fn(rigModel: Instance, isR15: bool?): Result<Instance, RobloxError>;
+	[luau_name("ImportFbxRig"), luau_method, deprecated, wraps_errors]
+	import_fbx_rig: fn(isR15: bool?): Result<Instance, RobloxError>;
+	[luau_name("ImportFbxRigAsync"), luau_method, wraps_errors]
+	import_fbx_rig_async: fn(isR15: bool?): Result<Instance, RobloxError>;
+	[luau_name("PromptForExistingAssetId"), luau_method, wraps_errors]
+	prompt_for_existing_asset_id: fn(assetType: string): Result<number, RobloxError>;
+	[luau_name("PromptForExistingAssetIdAsync"), luau_method, wraps_errors]
+	prompt_for_existing_asset_id_async: fn(assetType: string): Result<number, RobloxError>;
+	[luau_name("PromptSaveSelection"), luau_method, deprecated, wraps_errors]
+	prompt_save_selection: fn(suggestedFileName: string): Result<bool, RobloxError>;
+	[luau_name("PromptSaveSelectionAsync"), luau_method, wraps_errors]
+	prompt_save_selection_async: fn(suggestedFileName: string): Result<bool, RobloxError>;
 	[luau_name("Deactivation")]
 	event deactivation;
 	[luau_name("Unloading")]
@@ -9361,7 +9367,7 @@ declare interface PluginManagementService: Instance {
 }
 
 declare interface PluginManagerInterface: Instance {
-	[luau_name("CreatePlugin"), luau_method]
+	[luau_name("CreatePlugin"), luau_method, deprecated]
 	create_plugin: fn: Instance;
 	[luau_name("ExportPlace"), luau_method]
 	export_place: fn(filePath: string): void;
@@ -9384,8 +9390,8 @@ declare interface PluginMenu: Instance {
 	add_separator: fn: void;
 	[luau_name("Clear"), luau_method]
 	clear: fn: void;
-	[luau_name("ShowAsync"), luau_method]
-	show_async: fn: Instance;
+	[luau_name("ShowAsync"), luau_method, wraps_errors]
+	show_async: fn: Result<Instance, RobloxError>;
 }
 
 declare interface PluginPolicyService: Instance {
@@ -9596,7 +9602,7 @@ declare interface RunService: Instance {
 	is_edit: fn: bool;
 	[luau_name("Pause"), luau_method]
 	pause: fn: void;
-	[luau_name("Reset"), luau_method]
+	[luau_name("Reset"), luau_method, deprecated]
 	reset: fn: void;
 	[luau_name("Run"), luau_method]
 	run: fn: void;
@@ -9724,18 +9730,18 @@ declare interface ScriptDocument: Instance {
 	has_selected_text: fn: bool;
 	[luau_name("IsCommandBar"), luau_method]
 	is_command_bar: fn: bool;
-	[luau_name("CloseAsync"), luau_method]
-	close_async: fn: unknown;
-	[luau_name("EditTextAsync"), luau_method]
-	edit_text_async: fn(newText: string, startLine: number, startCharacter: number, endLine: number, endCharacter: number): unknown;
-	[luau_name("ForceSetSelectionAsync"), luau_method]
-	force_set_selection_async: fn(cursorLine: number, cursorCharacter: number, anchorLine: number?, anchorCharacter: number?): unknown;
-	[luau_name("MultiEditTextAsync"), luau_method]
-	multi_edit_text_async: fn(edits: unknown[]): unknown;
-	[luau_name("RequestSetSelectionAsync"), luau_method]
-	request_set_selection_async: fn(cursorLine: number, cursorCharacter: number, anchorLine: number?, anchorCharacter: number?): unknown;
-	[luau_name("ReviewableTextEditsAsync"), luau_method]
-	reviewable_text_edits_async: fn(changes: unknown[]): unknown;
+	[luau_name("CloseAsync"), luau_method, wraps_errors]
+	close_async: fn: Result<unknown, RobloxError>;
+	[luau_name("EditTextAsync"), luau_method, wraps_errors]
+	edit_text_async: fn(newText: string, startLine: number, startCharacter: number, endLine: number, endCharacter: number): Result<unknown, RobloxError>;
+	[luau_name("ForceSetSelectionAsync"), luau_method, wraps_errors]
+	force_set_selection_async: fn(cursorLine: number, cursorCharacter: number, anchorLine: number?, anchorCharacter: number?): Result<unknown, RobloxError>;
+	[luau_name("MultiEditTextAsync"), luau_method, wraps_errors]
+	multi_edit_text_async: fn(edits: unknown[]): Result<unknown, RobloxError>;
+	[luau_name("RequestSetSelectionAsync"), luau_method, wraps_errors]
+	request_set_selection_async: fn(cursorLine: number, cursorCharacter: number, anchorLine: number?, anchorCharacter: number?): Result<unknown, RobloxError>;
+	[luau_name("ReviewableTextEditsAsync"), luau_method, wraps_errors]
+	reviewable_text_edits_async: fn(changes: unknown[]): Result<unknown, RobloxError>;
 	[luau_name("SelectionChanged")]
 	event selection_changed(positionLine: number, positionCharacter: number, anchorLine: number, anchorCharacter: number);
 	[luau_name("ViewportChanged")]
@@ -9758,10 +9764,10 @@ declare interface ScriptEditorService: Instance {
 	register_autocomplete_callback: fn(name: string, priority: number, callbackFunction: fn: void): void;
 	[luau_name("RegisterScriptAnalysisCallback"), luau_method]
 	register_script_analysis_callback: fn(name: string, priority: number, callbackFunction: fn: void): void;
-	[luau_name("OpenScriptDocumentAsync"), luau_method]
-	open_script_document_async: fn(script: LuaSourceContainer, options: UnknownRecord?): unknown;
-	[luau_name("UpdateSourceAsync"), luau_method]
-	update_source_async: fn(script: LuaSourceContainer, callback: fn: void): void;
+	[luau_name("OpenScriptDocumentAsync"), luau_method, wraps_errors]
+	open_script_document_async: fn(script: LuaSourceContainer, options: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("UpdateSourceAsync"), luau_method, wraps_errors]
+	update_source_async: fn(script: LuaSourceContainer, callback: fn: void): Result<void, RobloxError>;
 	[luau_name("TextDocumentDidChange")]
 	event text_document_did_change(document: ScriptDocument, changesArray: unknown);
 	[luau_name("TextDocumentDidClose")]
@@ -10002,8 +10008,8 @@ declare interface StudioCaptureService: Instance {
 	can_capture_screenshot: fn: bool;
 	[luau_name("CaptureScreenshot"), luau_method]
 	capture_screenshot: fn(screenshotOptions: UnknownRecord): StudioScreenshotCapture;
-	[luau_name("RequestScreenshotPermissionAsync"), luau_method]
-	request_screenshot_permission_async: fn: bool;
+	[luau_name("RequestScreenshotPermissionAsync"), luau_method, wraps_errors]
+	request_screenshot_permission_async: fn: Result<bool, RobloxError>;
 }
 
 declare interface StudioData: Instance {
@@ -10016,38 +10022,38 @@ declare interface StudioDeviceEmulatorService: Instance {
 
 declare interface StudioDeviceSimulatorService: Instance {
 	_is_service: true;
-	[luau_name("CreateDeviceAsync"), luau_method]
-	create_device_async: fn(config: UnknownRecord): string;
-	[luau_name("GetDeviceAsync"), luau_method]
-	get_device_async: fn: string;
-	[luau_name("GetDeviceInfoAsync"), luau_method]
-	get_device_info_async: fn(deviceId: string): UnknownRecord;
-	[luau_name("GetDeviceListAsync"), luau_method]
-	get_device_list_async: fn: unknown[];
-	[luau_name("GetOrientationAsync"), luau_method]
-	get_orientation_async: fn: Enum["ScreenOrientation"];
-	[luau_name("GetPixelDensityAsync"), luau_method]
-	get_pixel_density_async: fn: number;
-	[luau_name("GetResolutionAsync"), luau_method]
-	get_resolution_async: fn: Vector2;
-	[luau_name("GetScalingModeAsync"), luau_method]
-	get_scaling_mode_async: fn: Enum["DeviceSimulatorScalingMode"];
-	[luau_name("RemoveDeviceAsync"), luau_method]
-	remove_device_async: fn(deviceId: string): void;
-	[luau_name("SetDeviceAsync"), luau_method]
-	set_device_async: fn(deviceId: string): void;
-	[luau_name("SetOrientationAsync"), luau_method]
-	set_orientation_async: fn(orientation: Enum["ScreenOrientation"]): void;
-	[luau_name("SetPixelDensityAsync"), luau_method]
-	set_pixel_density_async: fn(density: number): void;
-	[luau_name("SetResolutionAsync"), luau_method]
-	set_resolution_async: fn(width: number, height: number): void;
-	[luau_name("SetScalingModeAsync"), luau_method]
-	set_scaling_mode_async: fn(mode: Enum["DeviceSimulatorScalingMode"]): void;
-	[luau_name("StopSimulationAsync"), luau_method]
-	stop_simulation_async: fn: void;
-	[luau_name("UpdateDeviceAsync"), luau_method]
-	update_device_async: fn(deviceId: string, config: UnknownRecord): void;
+	[luau_name("CreateDeviceAsync"), luau_method, wraps_errors]
+	create_device_async: fn(config: UnknownRecord): Result<string, RobloxError>;
+	[luau_name("GetDeviceAsync"), luau_method, wraps_errors]
+	get_device_async: fn: Result<string, RobloxError>;
+	[luau_name("GetDeviceInfoAsync"), luau_method, wraps_errors]
+	get_device_info_async: fn(deviceId: string): Result<UnknownRecord, RobloxError>;
+	[luau_name("GetDeviceListAsync"), luau_method, wraps_errors]
+	get_device_list_async: fn: Result<unknown[], RobloxError>;
+	[luau_name("GetOrientationAsync"), luau_method, wraps_errors]
+	get_orientation_async: fn: Result<Enum["ScreenOrientation"], RobloxError>;
+	[luau_name("GetPixelDensityAsync"), luau_method, wraps_errors]
+	get_pixel_density_async: fn: Result<number, RobloxError>;
+	[luau_name("GetResolutionAsync"), luau_method, wraps_errors]
+	get_resolution_async: fn: Result<Vector2, RobloxError>;
+	[luau_name("GetScalingModeAsync"), luau_method, wraps_errors]
+	get_scaling_mode_async: fn: Result<Enum["DeviceSimulatorScalingMode"], RobloxError>;
+	[luau_name("RemoveDeviceAsync"), luau_method, wraps_errors]
+	remove_device_async: fn(deviceId: string): Result<void, RobloxError>;
+	[luau_name("SetDeviceAsync"), luau_method, wraps_errors]
+	set_device_async: fn(deviceId: string): Result<void, RobloxError>;
+	[luau_name("SetOrientationAsync"), luau_method, wraps_errors]
+	set_orientation_async: fn(orientation: Enum["ScreenOrientation"]): Result<void, RobloxError>;
+	[luau_name("SetPixelDensityAsync"), luau_method, wraps_errors]
+	set_pixel_density_async: fn(density: number): Result<void, RobloxError>;
+	[luau_name("SetResolutionAsync"), luau_method, wraps_errors]
+	set_resolution_async: fn(width: number, height: number): Result<void, RobloxError>;
+	[luau_name("SetScalingModeAsync"), luau_method, wraps_errors]
+	set_scaling_mode_async: fn(mode: Enum["DeviceSimulatorScalingMode"]): Result<void, RobloxError>;
+	[luau_name("StopSimulationAsync"), luau_method, wraps_errors]
+	stop_simulation_async: fn: Result<void, RobloxError>;
+	[luau_name("UpdateDeviceAsync"), luau_method, wraps_errors]
+	update_device_async: fn(deviceId: string, config: UnknownRecord): Result<void, RobloxError>;
 	[luau_name("ConfigurationChanged")]
 	event configuration_changed;
 }
@@ -10074,8 +10080,8 @@ declare interface StudioScreenshotCapture: Instance {
 	get_buffer: fn: buffer;
 	[luau_name("GetErrors"), luau_method]
 	get_errors: fn: unknown[];
-	[luau_name("ScaleAsync"), luau_method]
-	scale_async: fn(strategy: Enum["ResamplerMode"], newSize: Vector2): StudioScreenshotCapture;
+	[luau_name("ScaleAsync"), luau_method, wraps_errors]
+	scale_async: fn(strategy: Enum["ResamplerMode"], newSize: Vector2): Result<StudioScreenshotCapture, RobloxError>;
 }
 
 declare interface StudioSdkService: Instance {
@@ -10088,7 +10094,7 @@ declare interface StudioService: Instance {
 	active_script: Instance?;
 	[luau_name("DraggerSolveConstraints")]
 	dragger_solve_constraints: bool;
-	[luau_name("DrawConstraintsOnTop")]
+	[luau_name("DrawConstraintsOnTop"), deprecated]
 	draw_constraints_on_top: bool;
 	[luau_name("GridSize")]
 	grid_size: number;
@@ -10106,26 +10112,26 @@ declare interface StudioService: Instance {
 	get_user_id: fn: number;
 	[luau_name("GizmoRaycast"), luau_method]
 	gizmo_raycast: fn(origin: Vector3, direction: Vector3, raycastParams: RaycastParams?): RaycastResult?;
-	[luau_name("PromptImportFile"), luau_method]
-	prompt_import_file: fn(fileTypeFilter: unknown[]?): Instance;
-	[luau_name("PromptImportFileAsync"), luau_method]
-	prompt_import_file_async: fn(fileTypeFilter: unknown[]?): Instance;
-	[luau_name("PromptImportFiles"), luau_method]
-	prompt_import_files: fn(fileTypeFilter: unknown[]?): Instance[];
-	[luau_name("PromptImportFilesAsync"), luau_method]
-	prompt_import_files_async: fn(fileTypeFilter: unknown[]?): Instance[];
+	[luau_name("PromptImportFile"), luau_method, deprecated, wraps_errors]
+	prompt_import_file: fn(fileTypeFilter: unknown[]?): Result<Instance, RobloxError>;
+	[luau_name("PromptImportFileAsync"), luau_method, wraps_errors]
+	prompt_import_file_async: fn(fileTypeFilter: unknown[]?): Result<Instance, RobloxError>;
+	[luau_name("PromptImportFiles"), luau_method, deprecated, wraps_errors]
+	prompt_import_files: fn(fileTypeFilter: unknown[]?): Result<Instance[], RobloxError>;
+	[luau_name("PromptImportFilesAsync"), luau_method, wraps_errors]
+	prompt_import_files_async: fn(fileTypeFilter: unknown[]?): Result<Instance[], RobloxError>;
 }
 
 declare interface StudioTestService: Instance {
 	_is_service: true;
 	[luau_name("EditModeActive")]
 	mut edit_mode_active: bool;
-	[luau_name("ExecuteMultiplayerTestAsync"), luau_method]
-	execute_multiplayer_test_async: fn(numPlayers: number, args: unknown): unknown;
-	[luau_name("ExecutePlayModeAsync"), luau_method]
-	execute_play_mode_async: fn(args: unknown): unknown;
-	[luau_name("ExecuteRunModeAsync"), luau_method]
-	execute_run_mode_async: fn(args: unknown): unknown;
+	[luau_name("ExecuteMultiplayerTestAsync"), luau_method, wraps_errors]
+	execute_multiplayer_test_async: fn(numPlayers: number, args: unknown): Result<unknown, RobloxError>;
+	[luau_name("ExecutePlayModeAsync"), luau_method, wraps_errors]
+	execute_play_mode_async: fn(args: unknown): Result<unknown, RobloxError>;
+	[luau_name("ExecuteRunModeAsync"), luau_method, wraps_errors]
+	execute_run_mode_async: fn(args: unknown): Result<unknown, RobloxError>;
 }
 
 declare interface StudioTheme: Instance {
@@ -10251,7 +10257,7 @@ declare interface TerrainDetail: Instance {
 
 declare interface TerrainRegion: Instance {
 	_is_creatable: true;
-	[luau_name("ConvertToSmooth"), luau_method]
+	[luau_name("ConvertToSmooth"), luau_method, deprecated]
 	convert_to_smooth: fn: void;
 }
 
@@ -10266,7 +10272,7 @@ declare interface TestService: Instance {
 	error_count: number;
 	[luau_name("ExecuteWithStudioRun")]
 	mut execute_with_studio_run: bool;
-	[luau_name("Is30FpsThrottleEnabled")]
+	[luau_name("Is30FpsThrottleEnabled"), deprecated]
 	mut is30_fps_throttle_enabled: bool;
 	[luau_name("IsPhysicsEnvironmentalThrottled")]
 	mut is_physics_environmental_throttled: bool;
@@ -10324,20 +10330,20 @@ declare interface TestService: Instance {
 	get_test_session_provider_stats: fn(providerName: string): UnknownRecord;
 	[luau_name("isFeatureEnabled"), luau_method]
 	is_feature_enabled: fn(name: string): bool;
-	[luau_name("CaptureScreenshotAsync"), luau_method]
-	capture_screenshot_async: fn(artifactName: string, options: UnknownRecord?): unknown;
-	[luau_name("FetchTestControlsAsync"), luau_method]
-	fetch_test_controls_async: fn(category: string): unknown;
-	[luau_name("RequestValidationAsync"), luau_method]
-	request_validation_async: fn(artifactType: string, artifactName: string, timeoutSeconds: number?): unknown;
-	[luau_name("Run"), luau_method]
-	run: fn: void;
-	[luau_name("RunAsync"), luau_method]
-	run_async: fn: void;
-	[luau_name("StartVideoCaptureAsync"), luau_method]
-	start_video_capture_async: fn(artifactName: string, options: UnknownRecord?): unknown;
-	[luau_name("StopVideoCaptureAsync"), luau_method]
-	stop_video_capture_async: fn: unknown;
+	[luau_name("CaptureScreenshotAsync"), luau_method, wraps_errors]
+	capture_screenshot_async: fn(artifactName: string, options: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("FetchTestControlsAsync"), luau_method, wraps_errors]
+	fetch_test_controls_async: fn(category: string): Result<unknown, RobloxError>;
+	[luau_name("RequestValidationAsync"), luau_method, wraps_errors]
+	request_validation_async: fn(artifactType: string, artifactName: string, timeoutSeconds: number?): Result<unknown, RobloxError>;
+	[luau_name("Run"), luau_method, deprecated, wraps_errors]
+	run: fn: Result<void, RobloxError>;
+	[luau_name("RunAsync"), luau_method, wraps_errors]
+	run_async: fn: Result<void, RobloxError>;
+	[luau_name("StartVideoCaptureAsync"), luau_method, wraps_errors]
+	start_video_capture_async: fn(artifactName: string, options: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("StopVideoCaptureAsync"), luau_method, wraps_errors]
+	stop_video_capture_async: fn: Result<unknown, RobloxError>;
 	[luau_name("ServerCollectConditionalResult")]
 	event server_collect_conditional_result(condition: bool, text: string, script: LuaSourceContainer, line: number);
 	[luau_name("ServerCollectResult")]
