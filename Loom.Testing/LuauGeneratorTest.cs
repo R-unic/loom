@@ -5699,7 +5699,7 @@ public class LuauGeneratorTest
     [Fact]
     public void Generates_ShortCircuit_GuardsThemForACompoundLogicalAssignment()
     {
-        var rendered = Utility.GenerateAgainstWorkspace("let mut ok = true; ok &&= world.get_children::<BasePart>().length > 0;");
+        var rendered = Utility.GenerateAgainstWorkspace("mut ok = true; ok &&= world.get_children::<BasePart>().length > 0;");
 
         Assert.Contains("local _and = ok", rendered);
         Assert.Contains("if _and then", rendered);
