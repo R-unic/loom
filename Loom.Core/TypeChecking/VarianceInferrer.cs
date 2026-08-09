@@ -24,8 +24,13 @@ public static class VarianceInferrer
         var positions = generic.Parameters.Distinct().ToDictionary(p => p, _ => (Variance?)null);
         Walk(generic.UnderlyingType, Variance.Covariant, positions, []);
 
+        // Rewritten in place rather than returned as a new GenericType, so a self-referential alias
+        // that published this instance before its body was known keeps the identity its own body
+        // refers to.
         var newParameters = generic.Parameters.ConvertAll(p => p.WithVariance(positions[p] ?? Variance.Invariant));
-        return new GenericType(generic.Declaration, newParameters, generic.UnderlyingType);
+        generic.Parameters.Clear();
+        generic.Parameters.AddRange(newParameters);
+        return generic;
     }
 
     private static void Walk(Type type, Variance position, Dictionary<TypeParameter, Variance?> positions, HashSet<Type> visiting)
