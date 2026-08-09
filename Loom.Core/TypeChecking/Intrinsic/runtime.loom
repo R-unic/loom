@@ -20,9 +20,10 @@ interface ResultOk<T, Error> {
     unwrap_or: fn<U>(fallback: U): T | U;
     unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
     map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
-    ## Spelled as the union rather than 'Result<U, Error>' on purpose: inference cannot unify U
-    ## through a type alias in this position, and writing the alias here makes the call infer
-    ## 'never'. The return type may use the alias, since nothing is inferred from it.
+    ## The transform's return is spelled as the union rather than 'Result<U, Error>' because a
+    ## recursive alias reference in a parameter position collapses to 'never' on the error arm,
+    ## which leaves the member typed as a union of two different function types and therefore
+    ## not callable. The return position is fine, since nothing is inferred from it.
     and_then: fn<U>(transform: fn(value: T): ResultOk<U, Error> | ResultError<U, Error>): Result<U, Error>;
 }
 
@@ -34,9 +35,10 @@ interface ResultError<T, Error> {
     unwrap_or: fn<U>(fallback: U): T | U;
     unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
     map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
-    ## Spelled as the union rather than 'Result<U, Error>' on purpose: inference cannot unify U
-    ## through a type alias in this position, and writing the alias here makes the call infer
-    ## 'never'. The return type may use the alias, since nothing is inferred from it.
+    ## The transform's return is spelled as the union rather than 'Result<U, Error>' because a
+    ## recursive alias reference in a parameter position collapses to 'never' on the error arm,
+    ## which leaves the member typed as a union of two different function types and therefore
+    ## not callable. The return position is fine, since nothing is inferred from it.
     and_then: fn<U>(transform: fn(value: T): ResultOk<U, Error> | ResultError<U, Error>): Result<U, Error>;
 }
 
