@@ -65,6 +65,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Ternary Operator](#ternary-operator)
   - [keyof](#keyof)
   - [Result Pattern](#result-pattern)
+  - [Panics and `[fallible]`](#panics-and-fallible)
+  - [Deprecation](#deprecation)
   - [Error Propagation](#error-propagation)
   - [Array.join()](#arrayjoin)
   - [Range.clamp()](#rangeclamp)
@@ -984,6 +986,77 @@ const function unsafe_function(condition: boolean): Result<number, string>
 end
 const result = unsafe_function(true)
 print(if result.ok then result.value else result.error)
+```
+
+### Combinators
+
+A `Result<T, E>` carries the usual combinators. None of them survive to runtime - each is lowered inline, so a
+`Result` stays a two-field table rather than one carrying six closures, and the receiver is evaluated exactly once.
+
+| Combinator | Result | Panics? |
+| --- | --- | --- |
+| `unwrap()` | the value, or raises the error | yes |
+| `expect(message)` | the value, or raises `message` | yes |
+| `unwrap_or(fallback)` | the value, or `fallback` | no |
+| `unwrap_or_else(compute)` | the value, or `compute(error)` | no |
+| `map(transform)` | `Result<U, E>` with `transform` applied to the value | no |
+| `and_then(transform)` | `transform(value)`, or the original error | no |
+
+```rs
+let a = unsafe_function(true).unwrap_or(0);
+let b = unsafe_function(true).map(double).unwrap_or(0);
+```
+
+```luau
+const _result = unsafe_function(true)
+const a = if _result.ok then _result.value else 0
+const _result_1 = unsafe_function(true)
+const _result_2 = if _result_1.ok then { ok = true, value = double(_result_1.value) } else _result_1
+const b = if _result_2.ok then _result_2.value else 0
+```
+---
+## Panics and `[fallible]`
+
+`unwrap` and `expect` raise the error rather than returning it, as does `error()`. An operation that can panic is
+only allowed inside a function marked `[fallible]`, so a signature never hides the fact that calling it may end
+the thread.
+
+```rs
+[fallible]
+fn load_or_die(): number {
+    return unsafe_function(true).unwrap();  ## ok - the function declares it
+}
+
+fn load(): Result<number, string> {
+    let value = unsafe_function(true)?;     ## ok - propagates, never panics
+    return Result.ok(value);
+}
+
+fn careless(): number {
+    return unsafe_function(true).unwrap();  ## error - not marked [fallible]
+}
+```
+
+Calling a `[fallible]` function is itself a panicking operation, so the marker travels up until something handles
+the `Result` instead. Two ways out, and the signature tells you which one a function chose: **propagate** by
+returning `Result` and using `?`, or **panic** by marking `[fallible]` and using `unwrap`.
+
+Top-level code cannot be marked, and neither can a function expression - an event handler runs on a thread Roblox
+owns, with no caller to propagate to and nothing above it to recover. Both must handle the `Result` inline.
+
+Loom cannot catch every Luau fault. Integer division by zero, stack overflow and script timeouts are raised by the
+VM itself and are outside the `Result` discipline entirely.
+---
+## Deprecation
+
+`[deprecated]` marks a member whose use should be warned about, with an optional replacement hint. It is generated
+onto every Roblox API member the engine marks deprecated.
+
+```rs
+[deprecated("use new_way instead")]
+fn old_way(): number -> 1;
+
+let n = old_way();  ## warning: 'old_way' is deprecated. (use new_way instead)
 ```
 ---
 ## Error Propagation
