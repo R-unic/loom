@@ -7,17 +7,40 @@ sealed interface Range {
     clamp: fn(n: number): number;
 }
 
-interface ResultOk<T> {
+## Both arms carry both type parameters, even though each only stores one of them: a member is
+## callable on 'Result<T, Error>' only when it exists on every arm of the union, and 'unwrap'
+## cannot be typed 'fn(): T' on the error arm unless that arm knows what T is. The combinators
+## below never survive to runtime - the generator lowers each one inline (see
+## LuauGenerator.Expressions.cs), so neither arm is ever a table carrying functions.
+interface ResultOk<T, Error> {
     ok: true;
     value: T;
+    unwrap: fn(): T;
+    expect: fn(message: string): T;
+    unwrap_or: fn<U>(fallback: U): T | U;
+    unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
+    map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
+    ## Spelled as the union rather than 'Result<U, Error>' on purpose: inference cannot unify U
+    ## through a type alias in this position, and writing the alias here makes the call infer
+    ## 'never'. The return type may use the alias, since nothing is inferred from it.
+    and_then: fn<U>(transform: fn(value: T): ResultOk<U, Error> | ResultError<U, Error>): Result<U, Error>;
 }
 
-interface ResultError<Error> {
+interface ResultError<T, Error> {
     ok: false;
     error: Error;
+    unwrap: fn(): T;
+    expect: fn(message: string): T;
+    unwrap_or: fn<U>(fallback: U): T | U;
+    unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
+    map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
+    ## Spelled as the union rather than 'Result<U, Error>' on purpose: inference cannot unify U
+    ## through a type alias in this position, and writing the alias here makes the call infer
+    ## 'never'. The return type may use the alias, since nothing is inferred from it.
+    and_then: fn<U>(transform: fn(value: T): ResultOk<U, Error> | ResultError<U, Error>): Result<U, Error>;
 }
 
-type Result<T, Error> = ResultOk<T> | ResultError<Error>;
+type Result<T, Error> = ResultOk<T, Error> | ResultError<T, Error>;
 
 declare sealed interface ResultStatic {
     ok: fn<T, Error>(value: T): Result<T, Error>;

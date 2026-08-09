@@ -23,9 +23,9 @@ end
 export type CreatableInstance = Instance
 export type ServiceInstance = Instance
 export type Range = { minimum: number, maximum: number }
-export type ResultOk<T> = { ok: true, value: T }
-export type ResultError<Error> = { ok: false, error: Error }
-export type Result<T, Error> = ResultOk<T> | ResultError<Error>
+export type ResultOk<T, Error> = { ok: true, value: T }
+export type ResultError<T, Error> = { ok: false, error: Error }
+export type Result<T, Error> = ResultOk<T, Error> | ResultError<T, Error>
 export type RobloxError = { message: string, traceback: string? }
 export type DeserializeErrorKind = "truncated" | "invalid_tag" | "invalid_length" | "missing_blob" | "invalid_blob"
 export type Serialized = { buffer: buffer?, blobs: { unknown }? }

@@ -26,6 +26,7 @@ public sealed partial class LuauGenerator
         "ResultOk",
         "ResultError",
         "Result",
+        "RobloxError",
         "Range",
         "Event",
         "ConsumerEvent",
