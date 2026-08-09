@@ -42,6 +42,13 @@ export type EventConnection = Event.Connection
 
 Loom.Event = Event
 
+-- xpcall handler for a Roblox API call the compiler wraps. Shared rather than built per call
+-- site, and only ever invoked when the call actually raised, so the traceback costs nothing on
+-- the success path. Luau permits error() with any value, hence the tostring.
+function Loom.roblox_error(message: any): RobloxError
+	return { message = tostring(message), traceback = debug.traceback(nil, 2) }
+end
+
 function Loom.disconnect_event(connections: { [any]: Event.Connection }, fn: any)
 	const connection = connections[fn]
 	if connection == nil then

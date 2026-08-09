@@ -54,8 +54,42 @@ public sealed partial class LuauGenerator
         if (_semanticModel.GetType(invocation.Expression) is InstantiatedType { GenericType.UnderlyingType: InterfaceType { Name: "Event" } })
             return new Call(new Luau.AST.PropertyAccess(callee, ["Fire"]), arguments, true);
 
+        if (_semanticModel.TryGetIntrinsicAttribute(invocation.Expression, "wraps_errors", out _))
+            return GenerateWrappedCall(callee, arguments);
+
         var call = new Call(callee, arguments, IsMethodReference(invocation.Expression));
         return _macroExpander.TryGetInvocationMacro(invocation, call, out var replacement) ? replacement : call;
+    }
+
+    /// <summary>
+    ///     Lowers a call that can raise into an <c>xpcall</c> whose two returns become a
+    ///     <c>Result</c>. The handler is a shared runtime function rather than a closure built per
+    ///     call site, and the receiver is passed as an argument rather than captured, so nothing is
+    ///     allocated on the success path beyond the Result itself.
+    /// </summary>
+    private LuauExpression GenerateWrappedCall(LuauExpression callee, List<LuauExpression> arguments)
+    {
+        List<LuauExpression> callArguments = [.. arguments];
+        var target = callee;
+        if (callee is Luau.AST.PropertyAccess { Target: var instance } access)
+        {
+            var cached = _state.PushToVariable("_receiver", instance);
+            target = new Luau.AST.PropertyAccess(cached, access.Names);
+            callArguments.Insert(0, cached);
+        }
+
+        var handler = new Luau.AST.PropertyAccess(new Luau.AST.Identifier(LuauFactory.RuntimeImportName), ["roblox_error"]);
+        var okName = _state.Scope.AddIdentifier("_ok");
+        var valueName = _state.Scope.AddIdentifier("_value");
+        _state.Prereq(new MultiConstVariable([okName, valueName], new Call(new Luau.AST.Identifier("xpcall"), [target, handler, .. callArguments])));
+        _semanticModel.RuntimeReferences++;
+
+        return new IfExpression(
+            new Luau.AST.Identifier(okName),
+            new Table([new PropertyTableInitializer("ok", new BooleanLiteral(true)), new PropertyTableInitializer("value", new Luau.AST.Identifier(valueName))]),
+            [],
+            new Table([new PropertyTableInitializer("ok", new BooleanLiteral(false)), new PropertyTableInitializer("error", new Luau.AST.Identifier(valueName))])
+        );
     }
 
     public override LuauNode VisitQualifiedName(QualifiedName qualifiedName)
