@@ -21,7 +21,19 @@ internal static class Utility
 
     public static IReadOnlyList<Token> GetTokens(string source, bool withTrivia = false) => withTrivia ? Tokenize(source).TokensWithTrivia : Tokenize(source).Tokens;
     public static Tree GetAST(string source) => Parse(source).Tree;
-    public static Type GetLastStatementType(string source) => TypeCheck(source).ReturnType;
+
+    /// <summary>
+    ///     The type of <paramref name="source" />'s last statement. Source that does not lex and parse
+    ///     cleanly fails here rather than answering: the parser's recovery node types as 'never', which a
+    ///     test asserting only the type would otherwise read as a real inference result.
+    /// </summary>
+    public static Type GetLastStatementType(string source)
+    {
+        var result = TypeCheck(source, out var upstream);
+        AssertNoErrors(upstream);
+
+        return result.ReturnType;
+    }
 
     public static LuauTree GetLuauAST(string source, bool typeCheck = false, bool disableRuntimeLib = true) =>
         Generate(source, typeCheck, disableRuntimeLib).LuauTree;
@@ -42,27 +54,52 @@ internal static class Utility
 
     private static LuauGeneratorResult Generate(string source, bool typeCheck = false, bool disableRuntimeLib = true)
     {
-        var result = FlowAnalyze(source, disableRuntimeLib);
+        var (_, semanticModel, flowAnalyzer) = FlowAnalyze(source, out var upstream, disableRuntimeLib);
         if (typeCheck)
         {
-            var typeChecker = new TypeChecker(result.SemanticModel, result.Analyzer);
+            var typeChecker = new TypeChecker(semanticModel, flowAnalyzer);
             typeChecker.Check();
         }
 
-        return new LuauGenerator(result.SemanticModel).Generate();
+        var result = new LuauGenerator(semanticModel).Generate();
+        return result with { Diagnostics = DiagnosticBag.Concat([upstream, result.Diagnostics]) };
     }
 
     public static DiagnosticBag GetLexerDiagnostics(string source) => Tokenize(source).Diagnostics;
-    public static ParserResult Parse(string source) => new Parser(Tokenize(source)).Parse();
+    public static ParserResult Parse(string source) => Parse(source, out _);
     public static DiagnosticBag GetParserDiagnostics(string source) => Parse(source).Diagnostics;
+
+    /// <summary>
+    ///     Parses <paramref name="source" />, handing back the lexer's and parser's diagnostics in
+    ///     <paramref name="upstream" /> so a later stage's result can carry them the way
+    ///     <see cref="Compiler" /> does. Without that a malformed source silently reaches the stage
+    ///     under test: the parser recovers, the stage types the recovered node as <c>never</c>, and an
+    ///     assertion on the stage's own bag alone sees no errors at all.
+    /// </summary>
+    private static ParserResult Parse(string source, out DiagnosticBag upstream)
+    {
+        var lexerResult = Tokenize(source);
+        var parserResult = new Parser(lexerResult).Parse();
+        upstream = DiagnosticBag.Concat([lexerResult.Diagnostics, parserResult.Diagnostics]);
+
+        return parserResult;
+    }
 
     public static SemanticModel GetSemanticModel(
         string source,
         bool isDeclaration = false,
         bool disableRuntimeLib = true,
+        ProjectType projectType = ProjectType.Game) =>
+        GetSemanticModel(source, out _, isDeclaration, disableRuntimeLib, projectType);
+
+    private static SemanticModel GetSemanticModel(
+        string source,
+        out DiagnosticBag upstream,
+        bool isDeclaration = false,
+        bool disableRuntimeLib = true,
         ProjectType projectType = ProjectType.Game)
     {
-        var parserResult = Parse(source);
+        var parserResult = Parse(source, out upstream);
         if (isDeclaration)
             parserResult.Tree.File.IsDeclaration = true;
 
@@ -76,21 +113,30 @@ internal static class Utility
     public static (FlowAnalyzerResult AnalyzerResult, SemanticModel SemanticModel, FlowAnalyzer Analyzer) FlowAnalyze(
         string source,
         bool disableRuntimeLib = true,
+        ProjectType projectType = ProjectType.Game) =>
+        FlowAnalyze(source, out _, disableRuntimeLib, projectType);
+
+    private static (FlowAnalyzerResult AnalyzerResult, SemanticModel SemanticModel, FlowAnalyzer Analyzer) FlowAnalyze(
+        string source,
+        out DiagnosticBag upstream,
+        bool disableRuntimeLib = true,
         ProjectType projectType = ProjectType.Game)
     {
-        var semanticModel = GetSemanticModel(source, disableRuntimeLib: disableRuntimeLib, projectType: projectType);
+        var semanticModel = GetSemanticModel(source, out upstream, disableRuntimeLib: disableRuntimeLib, projectType: projectType);
         var flowAnalyzer = new FlowAnalyzer(semanticModel);
         var result = flowAnalyzer.Analyze();
         return (result, semanticModel, flowAnalyzer);
     }
 
-    private static TypeChecker GetTypeChecker(string source, ProjectType projectType = ProjectType.Game)
-    {
-        var (_, semanticModel, flowAnalyzer) = FlowAnalyze(source, projectType: projectType);
-        return new TypeChecker(semanticModel, flowAnalyzer);
-    }
+    public static TypeCheckerResult TypeCheck(string source, ProjectType projectType = ProjectType.Game) => TypeCheck(source, out _, projectType);
 
-    public static TypeCheckerResult TypeCheck(string source, ProjectType projectType = ProjectType.Game) => GetTypeChecker(source, projectType).Check();
+    private static TypeCheckerResult TypeCheck(string source, out DiagnosticBag upstream, ProjectType projectType = ProjectType.Game)
+    {
+        var (_, semanticModel, flowAnalyzer) = FlowAnalyze(source, out upstream, projectType: projectType);
+        var result = new TypeChecker(semanticModel, flowAnalyzer).Check();
+
+        return result with { Diagnostics = DiagnosticBag.Concat([upstream, result.Diagnostics]) };
+    }
 
     public static DiagnosticBag GetTypeCheckerDiagnostics(string source, ProjectType projectType = ProjectType.Game) =>
         TypeCheck(source, projectType).Diagnostics;
