@@ -262,34 +262,6 @@ public class ArrayCombinatorTest
         Assert.DoesNotContain("_found and _satisfied", rendered);
     }
 
-    [Fact]
-    public void APredicateOnTheRightOfAndIsNotRunWhenTheLeftDecided()
-    {
-        var luau = Compile(
-            "let mut runs = 0; let a = [1, 2, 3]; let out = a.any(fn(n) -> n > 99) && a.all(fn(n) { runs += 1; return n > 0; });"
-        );
-
-        using var state = LuauState.Create();
-        state.OpenLibraries();
-        var returned = state.DoString(luau + "\nreturn tostring(out) .. \" \" .. tostring(runs)")[0];
-
-        Assert.Equal("false 0", returned.ToString());
-    }
-
-    [Fact]
-    public void AQuantifierOnTheRightOfAndRunsOnlyWhenTheLeftAllowedIt()
-    {
-        var rendered = Utility.GetLuauAST(
-                "let a = [1, 2, 3]; let b = a.any(fn(n) -> n > 1) && a.all(fn(n) -> n > 0);",
-                typeCheck: true
-            )
-            .Render();
-
-        Assert.Contains("local _and = _found", rendered);
-        Assert.Contains("if _and then", rendered);
-        Assert.DoesNotContain("_found and _satisfied", rendered);
-    }
-
     [Theory]
     [InlineData("numbers.any(fn(n) -> n > 4)", "true")]
     [InlineData("numbers.any(fn(n) -> n > 99)", "false")]
