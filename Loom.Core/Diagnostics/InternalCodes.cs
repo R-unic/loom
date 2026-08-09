@@ -135,6 +135,8 @@ public static class InternalCodes
     public const string UndeclaredDependency = "L411";
     public const string DuplicateGlobal = "L412";
     public const string PackageFailedToCompile = "L413";
+    public const string PanicOutsideFallibleFunction = "L414";
+    public const string DeprecatedMember = "L415";
 
     public const string SimplifiableCode = "L500";
 }

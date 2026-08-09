@@ -98,11 +98,25 @@ public class ResultCombinatorTest
     [Fact]
     public void Combinators_TypeCheckAgainstTheResultsValueType()
     {
-        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(Fetch + "let n: number = fetch().unwrap();"));
+        const string good = """
+            [fallible]
+            fn take(): void {
+                let n: number = fetch().unwrap();
+            }
+            """;
+
+        const string bad = """
+            [fallible]
+            fn take(): void {
+                let s: string = fetch().unwrap();
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(Fetch + good));
         Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(Fetch + "let n: number = fetch().unwrap_or(0);"));
 
         Utility.AssertDiagnostic(
-            Utility.GetTypeCheckerDiagnostics(Fetch + "let s: string = fetch().unwrap();"),
+            Utility.GetTypeCheckerDiagnostics(Fetch + bad),
             InternalCodes.TypeMismatch,
             "Type 'number' is not assignable to type 'string'."
         );
