@@ -74,16 +74,33 @@ internal record MacroContext(SemanticModel SemanticModel, LuauState State, Diagn
         return false;
     }
 
+    /// <summary>
+    ///     Builds the filtered array the instance macros return.
+    /// </summary>
+    /// <remarks>
+    ///     The source is hoisted so its length is available, which lets the result be allocated at
+    ///     the only size it can possibly need - the filter keeps at most every element - instead of
+    ///     growing a table one <c>table.insert</c> at a time. Writing through a counter rather than
+    ///     <c>table.insert</c> also avoids re-deriving the append position on each hit. Neither is
+    ///     something Luau can do for itself: it cannot know the bound, and cannot know the result
+    ///     table does not escape before the loop ends.
+    /// </remarks>
     public Identifier FilterResults(LuauExpression collection, LuauType resultType, Func<Identifier, LuauExpression> condition)
     {
         const string childName = "child";
         var childIdentifier = new Identifier(childName);
-        var resultIdentifier = State.PushToVariable("_result", Table.Empty, TableType.Array(resultType));
+        var sourceIdentifier = State.PushToVariable("_source", collection);
+        var resultIdentifier = State.PushToVariable(
+            "_result",
+            LuauFactory.TableCall("create", [new UnaryOperator("#", sourceIdentifier)]),
+            TableType.Array(resultType)
+        );
 
+        var countIdentifier = State.PushToVariable("_count", new NumberLiteral(0), isConst: false);
         State.Prereq(
             new ForStatement(
                 ["_", childName],
-                collection,
+                sourceIdentifier,
                 new Chunk(
                     [
                         new IfStatement(
@@ -92,7 +109,8 @@ internal record MacroContext(SemanticModel SemanticModel, LuauState State, Diagn
                             [],
                             null
                         ),
-                        new ExpressionStatement(LuauFactory.LibraryCall("table", ["insert"], [resultIdentifier, childIdentifier]))
+                        new ExpressionStatement(new BinaryOperator(countIdentifier, "+=", new NumberLiteral(1))),
+                        new ExpressionStatement(new BinaryOperator(new ElementAccess(resultIdentifier, countIdentifier), "=", childIdentifier))
                     ]
                 )
             )
