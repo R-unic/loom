@@ -5676,7 +5676,7 @@ public class LuauGeneratorTest
     [InlineData("||", "if not _or then")]
     public void Generates_ShortCircuit_GuardsTheRightOperandsHoistedStatements(string @operator, string guard)
     {
-        var rendered = GenerateAgainstWorkspace($"let ok = true {@operator} world.get_children::<BasePart>().length > 0;");
+        var rendered = Utility.GenerateAgainstWorkspace($"let ok = true {@operator} world.get_children::<BasePart>().length > 0;");
 
         Assert.Contains(guard, rendered);
         Assert.Contains("  for _, child in _source do", rendered);
@@ -5686,7 +5686,7 @@ public class LuauGeneratorTest
     [Fact]
     public void Generates_ShortCircuit_GuardsThemBehindANilCheckForNullCoalesce()
     {
-        var rendered = GenerateAgainstWorkspace("let a: number? = 1; let b = a ?? world.get_children::<BasePart>().length;");
+        var rendered = Utility.GenerateAgainstWorkspace("let a: number? = 1; let b = a ?? world.get_children::<BasePart>().length;");
 
         Assert.Contains("local _coalesce = a", rendered);
         Assert.Contains("if _coalesce == nil then", rendered);
@@ -5699,7 +5699,7 @@ public class LuauGeneratorTest
     [Fact]
     public void Generates_ShortCircuit_GuardsThemForACompoundLogicalAssignment()
     {
-        var rendered = GenerateAgainstWorkspace("let mut ok = true; ok &&= world.get_children::<BasePart>().length > 0;");
+        var rendered = Utility.GenerateAgainstWorkspace("let mut ok = true; ok &&= world.get_children::<BasePart>().length > 0;");
 
         Assert.Contains("local _and = ok", rendered);
         Assert.Contains("if _and then", rendered);
@@ -5712,18 +5712,10 @@ public class LuauGeneratorTest
     [InlineData("||", " or ")]
     public void Generates_ShortCircuit_PureRightOperandKeepsThePlainOperator(string @operator, string expected)
     {
-        var rendered = GenerateAgainstWorkspace($"let ok = world.get_children::<BasePart>().length > 0 {@operator} true;");
+        var rendered = Utility.GenerateAgainstWorkspace($"let ok = world.get_children::<BasePart>().length > 0 {@operator} true;");
 
         Assert.Contains(expected, rendered);
         Assert.DoesNotContain("local _and", rendered);
         Assert.DoesNotContain("local _or", rendered);
-    }
-
-    internal static string GenerateAgainstWorkspace(string source)
-    {
-        const string declaration = "declare let world: Workspace;\n";
-        Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(declaration + source, typeCheck: true));
-
-        return Utility.GetLuauAST(declaration + source, typeCheck: true).Render();
     }
 }

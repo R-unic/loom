@@ -36,7 +36,7 @@ public class ShortCircuitRuntimeTest
     [InlineData("let a: number? = none; let b = a ?? world.get_children::<BasePart>().length;", "{}", 1)]
     public void TheSkippedOperandNeverRuns(string source, string children, int expectedCalls)
     {
-        var luau = LuauGeneratorTest.GenerateAgainstWorkspace(source).Replace("const ", "local ");
+        var luau = Utility.GenerateAgainstWorkspace(source).Replace("const ", "local ");
 
         using var state = LuauState.Create();
         state.OpenLibraries();

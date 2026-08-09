@@ -28,6 +28,18 @@ internal static class Utility
 
     public static DiagnosticBag GetGeneratorDiagnostics(string source, bool typeCheck = false) => Generate(source, typeCheck).Diagnostics;
 
+    /// <summary>
+    ///     Renders <paramref name="source" /> with an ambient 'world' in scope, for the generator cases that
+    ///     need a real Instance to hang the instance macros off.
+    /// </summary>
+    public static string GenerateAgainstWorkspace(string source)
+    {
+        const string declaration = "declare let world: Workspace;\n";
+        AssertNoErrors(GetGeneratorDiagnostics(declaration + source, typeCheck: true));
+
+        return GetLuauAST(declaration + source, typeCheck: true).Render();
+    }
+
     private static LuauGeneratorResult Generate(string source, bool typeCheck = false, bool disableRuntimeLib = true)
     {
         var result = FlowAnalyze(source, disableRuntimeLib);
