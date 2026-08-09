@@ -76,6 +76,9 @@ public class VisitorTraversalTest
         );
 
     [Fact]
+    public void ExportAll_VisitsItsModulePath() => AssertVisitOrder("export * from \"./math\"", "ExportAll", "Literal");
+
+    [Fact]
     public void NamespaceImport_DoesNotVisitItsModulePath() => AssertVisitOrder("import * as math from \"./math\"", "NamespaceImport");
 
     [Fact]

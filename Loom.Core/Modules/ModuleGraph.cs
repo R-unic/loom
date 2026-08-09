@@ -141,7 +141,7 @@ public sealed class ModuleGraph
             yield return (import, import.ModuleSpecifier, import.ModulePath);
 
         foreach (var export in parsedFile.ReExports)
-            yield return (export, export.ModuleSpecifier!, export.ModulePath);
+            yield return ((Node)export, export.ModuleSpecifier!, export.ModulePath);
     }
 
     private static ParsedFile? ResolveModuleReference(

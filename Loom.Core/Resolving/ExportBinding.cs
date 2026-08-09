@@ -13,7 +13,7 @@ public sealed record ExportBinding(
     string Name,
     string SourceName,
     Symbol Symbol,
-    ExportList? Export = null,
+    IReExport? Export = null,
     SourceFile? Module = null
 )
 {

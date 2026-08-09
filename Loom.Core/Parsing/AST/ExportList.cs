@@ -22,7 +22,7 @@ public sealed class ExportList(
             ..moduleSpecifier?.Tokens ?? []
         ],
         [..specifiers, moduleSpecifier]
-    )
+    ), IReExport
 {
     public Token ExportKeyword { get; } = exportKeyword;
     public Token? TypeKeyword { get; } = typeKeyword;

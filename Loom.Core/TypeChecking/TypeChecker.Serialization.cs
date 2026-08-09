@@ -39,20 +39,24 @@ public sealed partial class TypeChecker
                 _semanticModel.SerializationSchemas[interfaceSymbol] = schema;
         }
 
-        BuildImportedSchemas(builder);
+        BuildForeignSchemas(builder);
     }
 
     /// <summary>
-    ///     Schemas are per-file, so an interface imported from another module has none here and would
-    ///     look unmarked. An import binding carries the exporting module's own symbol instance, so the
-    ///     schema can simply be rebuilt - the generator then skips emitting it and references the
-    ///     declaring module's codec instead.
+    ///     Schemas are per-file, so an interface another module declared has none here and would look
+    ///     unmarked. An import binding and a re-export alike carry the exporting module's own symbol
+    ///     instance, so the schema can simply be rebuilt - the generator then skips emitting it and
+    ///     references the declaring module's codec instead.
     /// </summary>
-    private void BuildImportedSchemas(SerializationSchemaBuilder builder)
+    private void BuildForeignSchemas(SerializationSchemaBuilder builder)
     {
-        foreach (var binding in _semanticModel.ImportBindings)
+        var foreignSymbols = _semanticModel.ImportBindings
+            .Select(binding => binding.Symbol)
+            .Concat(_semanticModel.Exports.Where(export => export.IsReExport).Select(export => export.Symbol));
+
+        foreach (var symbol in foreignSymbols)
         {
-            if (binding.Symbol is not InterfaceSymbol interfaceSymbol || _semanticModel.SerializationSchemas.ContainsKey(interfaceSymbol))
+            if (symbol is not InterfaceSymbol interfaceSymbol || _semanticModel.SerializationSchemas.ContainsKey(interfaceSymbol))
                 continue;
 
             if (interfaceSymbol.Declaration is not InterfaceDeclaration declaration || !TryGetInterfaceAttribute(declaration, "serializable", out _))

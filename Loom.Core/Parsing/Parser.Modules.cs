@@ -96,8 +96,8 @@ public sealed partial class Parser
         if (Current().Kind is SyntaxKind.LBrace || Current().Kind is SyntaxKind.TypeKeyword && PeekKind(1) is SyntaxKind.LBrace)
             return ParseExportList(exportKeyword);
 
-        if (Match(out _, SyntaxKind.Star))
-            return SkipExportAll(exportKeyword);
+        if (Current().Kind is SyntaxKind.Star || Current().Kind is SyntaxKind.TypeKeyword && PeekKind(1) is SyntaxKind.Star)
+            return ParseExportAll(exportKeyword);
 
         if (Match(out var keyword, SyntaxFacts.IsExportableKeyword))
             return WrapExport(exportKeyword, ParseExportedDeclaration(keyword, attributes));
@@ -111,20 +111,25 @@ public sealed partial class Parser
         return new NullStatement(exportKeyword);
     }
 
-    /// <summary>
-    ///     <c>export * from "./m"</c> is not supported yet. The rest of the statement is consumed so that it
-    ///     reads as one error rather than as a stray '*' followed by whatever the remaining tokens look like.
-    /// </summary>
-    private Statement SkipExportAll(Token exportKeyword)
+    /// <remarks>
+    ///     A star export always names a module: there is nothing local for it to stand for, so unlike an
+    ///     export list the 'from' clause is not optional.
+    /// </remarks>
+    private ExportAll ParseExportAll(Token exportKeyword)
     {
-        if (AtContextualKeyword("from"))
-        {
-            Advance();
-            Expect(SyntaxKind.StringLiteral, "module path");
-        }
+        Match(out var typeKeyword, SyntaxKind.TypeKeyword);
 
-        _diagnostics.NotImplemented(exportKeyword, "Re-exporting everything from a module is not supported yet.", "name the exports with 'export { ... } from'");
-        return new NullStatement(exportKeyword);
+        var star = Expect(SyntaxKind.Star);
+        var fromKeyword = ExpectContextualKeyword("from");
+        var pathToken = Expect(SyntaxKind.StringLiteral, "module path");
+
+        return new ExportAll(
+            exportKeyword,
+            typeKeyword,
+            star,
+            fromKeyword,
+            new Literal(pathToken, LiteralUtility.ResolveValue(pathToken))
+        );
     }
 
     private ExportList ParseExportList(Token exportKeyword)

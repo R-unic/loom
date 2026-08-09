@@ -78,6 +78,92 @@ public sealed partial class Resolver
         return true;
     }
 
+    /// <remarks>
+    ///     What a star forwards depends on every other export the file makes, so it is held here and resolved
+    ///     once the file has been walked rather than in source order — see <see cref="ResolveStarExports" />.
+    /// </remarks>
+    public override bool VisitExportAll(ExportAll export)
+    {
+        if (!AtModuleScope())
+        {
+            _diagnostics.Error(
+                export,
+                InternalCodes.ExportOutsideModuleScope,
+                "Declarations can only be exported at the top level of a module.",
+                "move the 'export' declaration out of the enclosing block"
+            );
+
+            return false;
+        }
+
+        _starExports.Add(export);
+        return true;
+    }
+
+    /// <summary>
+    ///     Forwards every export of each starred module, under the name the module exports it with. Runs once
+    ///     the file's own exports are known: an export the file makes itself wins over one a star would
+    ///     forward, wherever the two sit relative to each other in source. Two stars offering the same name
+    ///     have no such tiebreak, so that is reported instead of resolved.
+    /// </summary>
+    private void ResolveStarExports()
+    {
+        var starredModules = new Dictionary<SourceFile, ExportAll>();
+        foreach (var export in _starExports)
+        {
+            if (!TryGetModule(export, out var module, out var moduleModel))
+                continue; // the module graph has already reported the specifier
+
+            // a wider star over a module already starred more narrowly still has values to add; the other
+            // way round the second statement forwards nothing the first did not
+            if (starredModules.TryGetValue(module, out var first) && (!first.IsTypeOnly || export.IsTypeOnly))
+            {
+                _diagnostics.Error(export, InternalCodes.DuplicateExport, $"Everything from '{export.ModulePath}' is already re-exported.");
+                continue;
+            }
+
+            starredModules[module] = export;
+            foreach (var binding in moduleModel.Exports)
+            {
+                if (export.IsTypeOnly && !binding.Symbol.IsTypeSymbol)
+                    continue;
+
+                ForwardType(binding.Symbol, moduleModel);
+                AddStarExport(export, binding, module);
+            }
+        }
+    }
+
+    /// <remarks>
+    ///     The forwarded name is the one the starred module publishes, so an export it renamed with an
+    ///     <c>as</c> clause is read off its table under that name rather than the one it was declared with.
+    ///     Two stars reaching the same declaration are not ambiguous — through however many modules, the name
+    ///     stands for one thing — so the first to offer it wins and the rest are dropped.
+    /// </remarks>
+    private void AddStarExport(ExportAll export, ExportBinding binding, SourceFile module)
+    {
+        var existing = _semanticModel.FindExports(binding.Name).Find(other => other.Symbol.IsTypeSymbol == binding.Symbol.IsTypeSymbol);
+        switch (existing)
+        {
+            case { Export: ExportAll other } when existing.Symbol != binding.Symbol:
+                _diagnostics.Error(
+                    export,
+                    InternalCodes.AmbiguousStarExport,
+                    $"'{binding.Name}' is exported by both '{other.ModulePath}' and '{export.ModulePath}'.",
+                    $"name it in an 'export {{ {binding.Name} }} from' to pick the one you meant"
+                );
+
+                return;
+
+            case not null:
+                return; // an export the file makes itself wins over one a star forwards
+
+            default:
+                _semanticModel.AddExport(new ExportBinding(binding.Name, binding.Name, binding.Symbol, export, module));
+                return;
+        }
+    }
+
     public override bool VisitNamespaceImport(NamespaceImport import)
     {
         if (!_resolvedImports.Add(import))
@@ -235,8 +321,19 @@ public sealed partial class Resolver
         }
 
         foreach (var binding in exports)
+        {
+            ForwardType(binding.Symbol, moduleModel);
             AddExport(specifier, new ExportBinding(specifier.ExportedName.Text, name, binding.Symbol, export, module));
+        }
     }
+
+    /// <summary>
+    ///     Copies the type of a forwarded declaration into this file's solver, the same thing an import of it
+    ///     does. The declaration belongs to a tree this file never walked, so without it anything reading the
+    ///     type here - a serializable interface's schema above all - sees an unsolved variable instead.
+    /// </summary>
+    private void ForwardType(Symbol symbol, SemanticModel moduleModel) =>
+        _semanticModel.TypeSolver.SetType(symbol.Declaration, moduleModel.GetType(symbol.Declaration));
 
     private void AddExport(Node node, ExportBinding binding)
     {

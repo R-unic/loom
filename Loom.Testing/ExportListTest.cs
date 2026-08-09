@@ -93,6 +93,29 @@ public class ExportListTest
             }
         );
 
+    /// <summary>An interface carries no runtime binding, so only its codec makes it into the table.</summary>
+    [Fact]
+    public void Forwards_TheCodecOfAReExportedSerializableInterface() =>
+        Utility.WithTempProject(
+            [
+                ("geometry.loom", "[serializable]\nexport interface Point { x: number y: number }"),
+                ("index.loom", "export { Point } from \"./geometry\"")
+            ],
+            (_, result) =>
+            {
+                Utility.AssertNoErrors(result);
+                AssertRendered(
+                    result,
+                    "index.loom",
+                    """
+                    const geometry = require("./geometry")
+                    export type Point = geometry.Point
+                    return { Point_serializer = geometry.Point_serializer }
+                    """
+                );
+            }
+        );
+
     [Fact]
     public void Imports_ThroughAReExportingModule() =>
         Utility.WithTempProject(

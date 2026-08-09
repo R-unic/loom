@@ -15,6 +15,7 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
     private readonly SymbolTable _allReferences = [];
     private readonly DiagnosticBag _diagnostics = new(options: compilationUnit.DiagnosticOptionsFor(parserResult.Tree.File));
     private readonly HashSet<Node> _resolvedImports = [];
+    private readonly List<ExportAll> _starExports = [];
     private readonly Stack<ResolverScope> _scopes = [];
     private ResolverScope? _moduleScope;
     private ResolverContext _context = ResolverContext.None;
@@ -48,6 +49,10 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
     ///     them in source order would reject code the output supports. An import that names no module is left
     ///     for its turn in source order: what it binds is only a stand-in, which must not take a name the file
     ///     goes on to declare for itself.
+    ///     <para>
+    ///         Star exports go last for the mirrored reason: what one forwards is whatever the file did not
+    ///         export itself, which is only known once every statement has been resolved.
+    ///     </para>
     /// </remarks>
     public override bool VisitTree(Tree tree)
     {
@@ -55,7 +60,10 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
             if (statement is ImportDeclaration or NamespaceImport && TryGetModule(statement, out _, out _))
                 Visit(statement);
 
-        return ResolveStatements(tree.Statements);
+        var resolved = ResolveStatements(tree.Statements);
+        ResolveStarExports();
+
+        return resolved;
     }
 
     public override bool VisitBlock(Block block)

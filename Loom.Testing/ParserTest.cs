@@ -58,12 +58,9 @@ public class ParserTest
             "Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', and 'event' declarations can be exported, got '123'.",
             null
         ),
-        new(
-            "export * from \"./math\"",
-            InternalCodes.NotImplemented,
-            "Re-exporting everything from a module is not supported yet.",
-            "name the exports with 'export { ... } from'"
-        ),
+        new("export *", InternalCodes.UnexpectedEof, "Expected 'from', got EOF.", null),
+        new("export * from math", InternalCodes.UnexpectedToken, "Expected module path, got 'math'.", null),
+        new("export type * from", InternalCodes.UnexpectedEof, "Expected module path, got EOF.", null),
         new(
             "let v: math.Scalar = 1;",
             InternalCodes.NotImplemented,
