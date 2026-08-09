@@ -24,7 +24,22 @@ public class ArrayCombinatorTest
     [InlineData("let a = [\"a\"]; let b = a.aggregate(\"\", fn(text, n) -> text + n);", "string")]
     [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n) -> n * 2).where(fn(n) -> n > 2);", "number[]")]
     [InlineData("let a = [1, 2, 3]; let b = a.select(fn(n): string -> `{n}`).where(fn(s) -> s != \"\");", "string[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.any(fn(n) -> n > 1);", "bool")]
+    [InlineData("let a = [1, 2, 3]; let b = a.all(fn(n) -> n > 1);", "bool")]
+    [InlineData("let a = [1, 2, 3]; let b = a.count(fn(n) -> n > 1);", "number")]
+    [InlineData("let a = [1, 2, 3]; let b = a.select_many(fn(n) -> [n, n * 2]);", "number[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.select_many(fn(n): string[] -> [`{n}`]);", "string[]")]
+    [InlineData("let a = [[1, 2], [3]]; let b = a.flatten();", "number[]")]
+    [InlineData("let a = [[[1]]]; let b = a.flatten().flatten();", "number[]")]
+    [InlineData("let a = [[1, 2], [3]]; let b = a.flatten().where(fn(n) -> n > 1);", "number[]")]
     public void InfersTheResultType(string source, string expected) => Assert.Equal(expected, Utility.GetLastStatementType(source + " let c = b;").ToString());
+
+    [Fact]
+    public void FlattenIsOnlyAMemberOfAnArrayOfArrays() =>
+        Assert.Contains(
+            Utility.GetTypeCheckerDiagnostics("let a = [1, 2, 3]; let b = a.flatten();").Set,
+            diagnostic => diagnostic.Code == "L320"
+        );
 
     [Theory]
     [InlineData("let a = [1, 2, 3]; let b: number[] = a.select(fn(n) -> n * 2);")]
@@ -175,6 +190,109 @@ public class ArrayCombinatorTest
         var returned = state.DoString(luau + "\nreturn tostring(out)")[0];
 
         Assert.Equal("60", returned.ToString());
+    }
+
+    [Fact]
+    public void AnyStopsAtTheFirstMatch()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.any(fn(n) -> n > 1);", typeCheck: true).Render();
+
+        Assert.Contains("local _found = false", rendered);
+        Assert.Contains("_found = true", rendered);
+        Assert.Contains("break", rendered);
+    }
+
+    [Fact]
+    public void AllStopsAtTheFirstFailure()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.all(fn(n) -> n > 1);", typeCheck: true).Render();
+
+        Assert.Contains("local _satisfied = true", rendered);
+        Assert.Contains("if n > 1 then continue end", rendered);
+        Assert.Contains("_satisfied = false", rendered);
+        Assert.Contains("break", rendered);
+    }
+
+    [Fact]
+    public void CountBuildsNoArray()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.count(fn(n) -> n > 1);", typeCheck: true).Render();
+
+        Assert.Contains("_count += 1", rendered);
+        Assert.DoesNotContain("table.create", rendered);
+        Assert.DoesNotContain("table.insert", rendered);
+    }
+
+    [Fact]
+    public void SelectManyCopiesEachSegmentInBulk()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.select_many(fn(n) -> [n, n * 2]);", typeCheck: true).Render();
+
+        Assert.Contains("const _segment = {n, n * 2}", rendered);
+        Assert.Contains("const _length = #_segment", rendered);
+        Assert.Contains("table.move(_segment, 1, _length, _count + 1, _result)", rendered);
+        Assert.DoesNotContain("table.insert", rendered);
+    }
+
+    [Fact]
+    public void FlattenCopiesEachSegmentInBulk()
+    {
+        var rendered = Utility.GetLuauAST("let a = [[1, 2], [3]]; let b = a.flatten();", typeCheck: true).Render();
+
+        Assert.Contains("for _, _segment in a do", rendered);
+        Assert.Contains("table.move(_segment, 1, _length, _count + 1, _result)", rendered);
+        Assert.DoesNotContain("table.insert", rendered);
+    }
+
+    [Theory]
+    [InlineData("numbers.any(fn(n) -> n > 4)", "true")]
+    [InlineData("numbers.any(fn(n) -> n > 99)", "false")]
+    [InlineData("numbers.all(fn(n) -> n > 0)", "true")]
+    [InlineData("numbers.all(fn(n) -> n > 1)", "false")]
+    [InlineData("numbers.any(fn(n, i) -> i == 5)", "true")]
+    [InlineData("numbers.count(fn(n) -> n > 2)", "3")]
+    [InlineData("numbers.count(fn(n) -> n > 99)", "0")]
+    [InlineData("numbers.where(fn(n) -> n > 3).count(fn(n) -> n > 0)", "2")]
+    public void TheEmittedQuantifierLoopAnswersCorrectly(string expression, string expected)
+    {
+        var luau = Compile($"let numbers = [1, 2, 3, 4, 5]; let out = {expression};");
+
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        var returned = state.DoString(luau + "\nreturn tostring(out)")[0];
+
+        Assert.Equal(expected, returned.ToString());
+    }
+
+    [Theory]
+    [InlineData("let numbers = [1, 2, 3]; let out = numbers.select_many(fn(n) -> [n, n * 10]);", "1, 10, 2, 20, 3, 30")]
+    [InlineData("let numbers = [1, 2, 3]; let out = numbers.select_many(fn(n): number[] -> []);", "")]
+    [InlineData("let rows = [[1, 2], [3], []]; let out = rows.flatten();", "1, 2, 3")]
+    [InlineData("let rows: number[][] = []; let out = rows.flatten();", "")]
+    [InlineData("let rows = [[1, 2], [3]]; let out = rows.flatten().where(fn(n) -> n > 1);", "2, 3")]
+    public void TheEmittedConcatenationLoopProducesTheRightArray(string source, string expected)
+    {
+        var luau = Compile(source);
+
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        var returned = state.DoString(luau + "\nreturn table.concat(out, \", \")")[0];
+
+        Assert.Equal(expected, returned.ToString());
+    }
+
+    [Fact]
+    public void AnEmptyArrayAnswersEachQuantifierWithoutRunningThePredicate()
+    {
+        var luau = Compile(
+            "let empty: number[] = []; let a = empty.any(fn(n) -> n > 0); let b = empty.all(fn(n) -> n > 0); let c = empty.count(fn(n) -> n > 0);"
+        );
+
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        var returned = state.DoString(luau + "\nreturn tostring(a) .. \" \" .. tostring(b) .. \" \" .. tostring(c)")[0];
+
+        Assert.Equal("false true 0", returned.ToString());
     }
 
     private static string Compile(string source) => Utility.GetLuauAST(source, typeCheck: true).Render().Replace("const ", "local ");
