@@ -50,6 +50,18 @@ declare fn luau_method: void;
 [attribute_usage(AttributeTargets.Property)]
 declare fn override: void;
 
+## Declares that a function may panic - that it calls unwrap/expect, error(), or another
+## [fallible] function. Panicking anywhere else is an error, so a signature never hides the
+## fact that calling it can end the thread. Metadata only: it wraps nothing at runtime.
+[attribute_usage(AttributeTargets.Function), metadata_only]
+declare fn fallible: void;
+
+## Marks a member whose use should be warned about. Generated onto every API member the Roblox
+## dump tags Deprecated; 'message' carries a hand-written replacement hint where one is known,
+## since Roblox's metadata supplies none. Metadata only.
+[attribute_usage(AttributeTargets.Function | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
+declare fn deprecated(message: string?): void;
+
 ## Serialization attributes. See TypeChecker.Serialization.cs for the co-requirement rules
 ## these carry: 'packed' requires 'serializable', every property attribute requires its
 ## containing interface to be 'serializable', and 'number_step' requires 'number_range'.

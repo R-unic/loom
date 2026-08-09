@@ -26,6 +26,15 @@ declare sealed interface ResultStatic {
 
 declare let Result: ResultStatic;
 
+## The error half of every fallible Roblox API call. 'traceback' is captured by the xpcall
+## handler the generator installs, so it costs nothing unless the call actually threw; it is
+## optional so a traceback-free mode stays possible without changing the type. Luau permits
+## error() with any value, so 'message' is whatever was thrown, coerced to a string.
+sealed interface RobloxError {
+    message: string;
+    traceback: string?;
+}
+
 ## String-valued so the emitted kind is readable in a payload dump, and so the generated
 ## type alias stays a literal union instead of collapsing to 'number' like a numeric enum.
 enum DeserializeErrorKind: string {

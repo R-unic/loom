@@ -26,6 +26,7 @@ export type Range = { minimum: number, maximum: number }
 export type ResultOk<T> = { ok: true, value: T }
 export type ResultError<Error> = { ok: false, error: Error }
 export type Result<T, Error> = ResultOk<T> | ResultError<Error>
+export type RobloxError = { message: string, traceback: string? }
 export type DeserializeErrorKind = "truncated" | "invalid_tag" | "invalid_length" | "missing_blob" | "invalid_blob"
 export type Serialized = { buffer: buffer?, blobs: { unknown }? }
 export type DeserializeError = { kind: DeserializeErrorKind, field: string?, offset: number? }
