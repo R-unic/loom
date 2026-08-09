@@ -6,7 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Loom.LanguageServer;
 
-public sealed record DocumentState(CompiledFile File, CompilationUnit Unit);
+public sealed record DocumentState(CompiledFile File, IReadOnlyList<VisibleSymbol> VisibleSymbols);
 
 public sealed class DocumentStore
 {
@@ -63,7 +63,7 @@ public sealed class DocumentStore
             var result = unit.Recompile(new Dictionary<string, string> { [path] = text });
             var file = result.Files.Find(f => f.SourceFile.AbsolutePath == path);
             if (file != null)
-                _state[uri] = new DocumentState(file, unit);
+                _state[uri] = new DocumentState(file, SnapshotVisibleSymbols(file, unit));
 
             return result;
         }
@@ -71,6 +71,18 @@ public sealed class DocumentStore
         {
             return null;
         }
+    }
+
+    private static IReadOnlyList<VisibleSymbol> SnapshotVisibleSymbols(CompiledFile file, CompilationUnit unit)
+    {
+        var semanticModel = file.SemanticModel;
+        return semanticModel.Declarations.Values
+            .SelectMany(symbols => symbols)
+            .Concat(unit.Globals.Of(file.SourceFile).Keys)
+            .GroupBy(symbol => symbol.Name)
+            .Select(group => group.First())
+            .Select(symbol => new VisibleSymbol(symbol.Name, symbol.Kind, semanticModel.GetType(symbol.Declaration).ToString()))
+            .ToArray();
     }
 
     private CompilationUnit? GetOrCreateUnit(string absolutePath)

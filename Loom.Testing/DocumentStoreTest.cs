@@ -95,6 +95,40 @@ public class DocumentStoreTest
     }
 
     [Fact]
+    public void TryGetState_ReturnsASymbolSnapshotThatALaterRecompileDoesNotChange()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
+        Directory.CreateDirectory(Path.Combine(directory, "src"));
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            var path = Path.Combine(directory, "src", "main.loom");
+            File.WriteAllText(path, "let x = 1;");
+
+            var store = new DocumentStore();
+            var uri = DocumentUri.FromFileSystemPath(path);
+            store.Open(uri, "let x = 1;");
+
+            Assert.True(store.TryGetState(uri, out var opened));
+            var snapshot = opened.VisibleSymbols;
+            Assert.Contains(snapshot, symbol => symbol.Name == "x" && symbol.TypeDescription == "1");
+            Assert.DoesNotContain(snapshot, symbol => symbol.Name == "y");
+
+            store.Change(uri, [new TextDocumentContentChangeEvent { Text = "let x = 1;\nlet y = \"two\";" }]);
+
+            Assert.Same(snapshot, opened.VisibleSymbols);
+            Assert.DoesNotContain(snapshot, symbol => symbol.Name == "y");
+
+            Assert.True(store.TryGetState(uri, out var changed));
+            Assert.Contains(changed.VisibleSymbols, symbol => symbol.Name == "y" && symbol.TypeDescription == "\"two\"");
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public async Task Change_ConcurrentlyWithStateReads_KeepsEveryEditAndNeverFaults()
     {
         var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
@@ -118,7 +152,7 @@ public class DocumentStoreTest
                         try
                         {
                             if (store.TryGetState(uri, out var state))
-                                _ = state.File.SemanticModel.Declarations.Count;
+                                _ = state.VisibleSymbols.Count(symbol => symbol.Name.Length > 0);
                         }
                         catch (Exception)
                         {

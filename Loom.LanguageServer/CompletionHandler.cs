@@ -1,6 +1,3 @@
-using System.Runtime.CompilerServices;
-using Loom.Core.Resolving;
-using Loom.Core.Resolving.Symbols;
 using LoomSymbolKind = Loom.Core.Resolving.Symbols.SymbolKind;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -10,45 +7,19 @@ namespace Loom.LanguageServer;
 
 public sealed class CompletionHandler(DocumentStore documents) : CompletionHandlerBase
 {
-    private readonly ConditionalWeakTable<DocumentState, Symbol[]> _symbolCache = [];
-
     public override Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
     {
         if (!documents.TryGetState(request.TextDocument.Uri, out var state))
             return Task.FromResult(new CompletionList());
 
-        var semanticModel = state.File.SemanticModel;
-        var sourceFile = state.File.SourceFile;
-        try
-        {
-            if (!_symbolCache.TryGetValue(state, out var symbols))
-            {
-                symbols = semanticModel.Declarations.Values
-                    .SelectMany(list => list)
-                    .Concat(state.Unit.Globals.Of(sourceFile).Keys)
-                    .GroupBy(symbol => symbol.Name)
-                    .Select(group => group.First())
-                    .ToArray();
-
-                _symbolCache.Add(state, symbols);
-            }
-
-            return Task.FromResult(GetCompletionListFromSymbols(symbols, semanticModel));
-        }
-        catch (Exception)
-        {
-            return Task.FromResult(new CompletionList());
-        }
+        return Task.FromResult(new CompletionList(state.VisibleSymbols.Select(GetCompletionItemFromSymbol)));
     }
 
-    private static CompletionList GetCompletionListFromSymbols(IReadOnlyList<Symbol> symbols, SemanticModel semanticModel) =>
-        new(symbols.Select(symbol => GetCompletionItemFromSymbol(symbol, semanticModel)));
-
-    private static CompletionItem GetCompletionItemFromSymbol(Symbol symbol, SemanticModel semanticModel) =>
+    private static CompletionItem GetCompletionItemFromSymbol(VisibleSymbol symbol) =>
         new()
         {
             Label = symbol.Name,
-            LabelDetails = new CompletionItemLabelDetails { Detail = ' ' + semanticModel.GetType(symbol.Declaration).ToString() },
+            LabelDetails = new CompletionItemLabelDetails { Detail = ' ' + symbol.TypeDescription },
             Kind = ToCompletionItemKind(symbol.Kind)
         };
 
