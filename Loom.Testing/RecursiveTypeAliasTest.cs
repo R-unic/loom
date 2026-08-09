@@ -70,4 +70,32 @@ public class RecursiveTypeAliasTest
 
         Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
     }
+
+    /// <summary>
+    ///     'Result' is exactly this shape - an alias over two interfaces whose own members name it
+    ///     back - so 'and_then' can be declared with the alias rather than the union spelled out.
+    /// </summary>
+    [Fact]
+    public void AndThenChainsThroughTheAlias()
+    {
+        const string prefix = """
+            fn step(n: number): Result<number, string> {
+                return Result.ok(n + 1);
+            }
+
+            fn start(): Result<number, string> {
+                return Result.ok(1);
+            }
+
+
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(prefix + "let c: Result<number, string> = start().and_then(step);"));
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(prefix + "let c: Result<string, string> = start().and_then(step);"),
+            Loom.Core.Diagnostics.InternalCodes.TypeMismatch,
+            "Type 'ResultOk | ResultError' is not assignable to type 'ResultOk | ResultError'."
+        );
+    }
 }
