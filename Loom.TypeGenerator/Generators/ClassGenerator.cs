@@ -157,6 +157,17 @@ internal sealed class ClassGenerator(
         attributeList.Add("luau_method");
         var (snakeName, attributes) = GetMemberAttributes(name, attributeList);
 
+        if (Constants.MemberSignatureOverrides.TryGetValue($"{rbxClass.Name}:{function.Name}", out var overloads))
+        {
+            for (var i = 0; i < overloads.Length; i++)
+            {
+                WriteMetadata(i == 0 ? description : [""], attributes);
+                Write($"{snakeName}: {overloads[i]};");
+            }
+
+            return;
+        }
+
         WriteMetadata(description, attributes);
         Write($"{snakeName}: fn{parameterList}: {returnType};");
     }

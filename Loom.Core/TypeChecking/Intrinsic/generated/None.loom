@@ -111,7 +111,9 @@ declare interface Instance: Object {
 	[luau_name("SetAttribute"), luau_method]
 	set_attribute: fn(attribute: string, value: unknown): void;
 	[luau_name("WaitForChild"), luau_method]
-	wait_for_child: fn<T: Instance>(childName: string, timeOut: number): T;
+	wait_for_child: fn<T: Instance>(childName: string): T;
+	[luau_name("WaitForChild"), luau_method]
+	wait_for_child: fn<T: Instance>(childName: string, timeOut: number): T?;
 }
 
 declare sealed interface buffer;

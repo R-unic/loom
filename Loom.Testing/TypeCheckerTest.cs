@@ -8928,4 +8928,28 @@ public class TypeCheckerTest
     public void DoesNotWarnFor_PlainNumberLiteral_OutOfSizedRange() =>
         Assert.DoesNotContain(Utility.GetTypeCheckerDiagnostics("let x: number = 420;").Set, d => d.Code == InternalCodes.NumberOutOfRange);
     #endregion SizedNumberRangeChecks
+    [Fact]
+    public void Checks_WaitForChild_IsGuaranteedWithoutATimeoutAndOptionalWithOne()
+    {
+        const string guaranteed = """
+            fn f(instance: Instance): Part {
+                return instance.wait_for_child::<Part>("Torso");
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(guaranteed));
+
+        const string timedOut = """
+            fn f(instance: Instance): Part {
+                return instance.wait_for_child::<Part>("Torso", 5);
+            }
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(timedOut),
+            InternalCodes.TypeMismatch,
+            "Type 'Part?' is not assignable to type 'Part'."
+        );
+    }
+
 }

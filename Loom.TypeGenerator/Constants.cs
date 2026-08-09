@@ -7,6 +7,31 @@ internal static class Constants
     public const string RootClassName = "<<<ROOT>>>";
     public static readonly List<string> BadNameCharacters = [" ", "/", "\""];
 
+    /// <summary>
+    ///     Signatures the API dump cannot express, written by hand and keyed by
+    ///     <c>Class:Member</c>. Each entry replaces the derived signature with one line per
+    ///     overload; Loom merges same-named function properties into an overload set.
+    /// </summary>
+    /// <remarks>
+    ///     The dump has no way to mark a parameter optional, and no way to give a member more than
+    ///     one shape, so any method whose result depends on which arguments were passed comes out
+    ///     wrong in both directions.
+    /// </remarks>
+    public static readonly Dictionary<string, string[]> MemberSignatureOverrides = new()
+    {
+        // WaitForChild's timeOut is optional, and passing it makes the result nullable - the docs
+        // say it "will time out after the specified number of seconds and return nil". The dump
+        // records neither fact, so the derived signature forced the timeout and then promised a
+        // non-nil T that the method does not deliver.
+        {
+            "Instance:WaitForChild",
+            [
+                "fn<T: Instance>(childName: string): T",
+                "fn<T: Instance>(childName: string, timeOut: number): T?"
+            ]
+        }
+    };
+
     public static readonly Dictionary<string, HashSet<string>> MemberBlacklist = new()
     {
         { "Workspace", ["FilteringEnabled"] },
