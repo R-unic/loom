@@ -78,4 +78,23 @@ public class WrappedCallTest
         Assert.Contains(expected.Split('|')[1], state.DoString(prelude + luau + epilogue)[0].ToString()!);
         Assert.StartsWith(expected.Split('|')[0], state.DoString(prelude + luau + epilogue)[0].ToString()!);
     }
+
+    [Fact]
+    public void AWrappedMemberCannotBeReferencedWithoutCalling()
+    {
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(Store + "let f = store.get_async;"),
+            Loom.Core.Diagnostics.InternalCodes.UncalledWrappedMember,
+            "'get_async' can only be called, not referenced."
+        );
+    }
+
+    [Fact]
+    public void CallingAWrappedMemberIsStillAllowed()
+    {
+        Assert.DoesNotContain(
+            Utility.GetTypeCheckerDiagnostics(Store + """let r = store.get_async("k");""").Set,
+            diagnostic => diagnostic.Code == Loom.Core.Diagnostics.InternalCodes.UncalledWrappedMember
+        );
+    }
 }

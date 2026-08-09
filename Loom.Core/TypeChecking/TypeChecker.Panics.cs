@@ -22,6 +22,7 @@ public sealed partial class TypeChecker
 {
     private const string FallibleAttribute = "fallible";
     private const string DeprecatedAttribute = "deprecated";
+    private const string WrapsErrorsAttribute = "wraps_errors";
     private static readonly HashSet<string> _panickingResultMembers = ["unwrap", "expect"];
 
     private void CheckPanicIsDeclared(Invocation invocation)
@@ -51,6 +52,27 @@ public sealed partial class TypeChecker
             InternalCodes.PanicOutsideFallibleFunction,
             $"'{operation}' can panic, but '{name}' is not marked '[fallible]'.",
             $"return a 'Result<T, Error>' and propagate with '?', or mark '{name}' with '[fallible]' if you really need to panic"
+        );
+    }
+
+    /// <summary>
+    ///     A <c>[wraps_errors]</c> member only becomes a <c>Result</c> because the call site is
+    ///     lowered to an xpcall, so a reference to one that is never called is a lie: its type says
+    ///     it returns a Result while the underlying Luau function raises.
+    /// </summary>
+    private void CheckWrappedMemberIsCalled(Expression access)
+    {
+        if (access.Parent is Invocation invocation && invocation.Expression == access)
+            return;
+
+        if (_semanticModel.GetPropertySymbol(access) is not { } property || !property.TryGetIntrinsicAttribute(WrapsErrorsAttribute, out _))
+            return;
+
+        _diagnostics.Error(
+            access,
+            InternalCodes.UncalledWrappedMember,
+            $"'{property.Name}' can only be called, not referenced.",
+            $"its 'Result' comes from the call being wrapped, so a bare reference would raise instead - wrap it yourself with 'fn(..a) -> {access}(..a)'"
         );
     }
 
