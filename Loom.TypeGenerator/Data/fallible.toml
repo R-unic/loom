@@ -1,0 +1,124 @@
+# Fallibility overrides for the Roblox API (issue #180).
+#
+# The generator classifies a method as fallible - return type wrapped in Result<T, RobloxError>,
+# call lowered to xpcall - when the API dump tags it Yields or CanYield. That seed covers the
+# network/web-service surface, which is where failure the type system cannot exclude lives.
+#
+# Direction of error matters: a wrong "fallible" costs an xpcall frame, a wrong "infallible"
+# restores the bug this issue exists to fix. Subtractions carry the burden of proof.
+#
+# additions:    throws but carries neither tag. Mined from Roblox/creator-docs prose and reviewed
+#               by hand, plus a few known throwers the docs never document.
+# subtractions: carries a tag but cannot actually fail from Loom, or its only documented failure
+#               is one Loom prevents statically.
+
+[additions]
+methods = [
+    "AccessoryDescription:GetAppliedInstance",
+    "AdService:RegisterDisclosureButton",
+    "AnimationTrack:GetTimeOfKeyframe",
+    "Animator:LoadAnimation",
+    "BasePart:GetNetworkOwner",
+    "BasePart:SetNetworkOwner",
+    "Camera:Interpolate",
+    "Chat:InvokeChatCallback",
+    "Chat:RegisterChatCallback",
+    "CustomLog:Open",
+    "CustomLog:WriteAppend",
+    "DataStoreService:GetDataStore",
+    "DataStoreService:GetOrderedDataStore",
+    "DataStoreService:SetRateLimitForRequestType",
+    "EditableMesh:GetBoneByName",
+    "EncodingService:Base64Decode",
+    "EncodingService:DecompressBuffer",
+    "HttpService:JSONDecode",
+    "HttpService:JSONEncode",
+    "Humanoid:GetLimb",
+    "InputBinding:Fire",
+    "Instance:SetAttribute",
+    "LocalizationTable:SetEntryContext",
+    "LocalizationTable:SetEntryKey",
+    "LocalizationTable:SetEntrySource",
+    "LocalizationTable:SetEntryValue",
+    "LogService:Error",
+    "LogService:Log",
+    "MarketplaceService:BindReceiptHandler",
+    "MarketplaceService:PromptBulkPurchase",
+    "Model:GetPrimaryPartCFrame",
+    "Model:SetPrimaryPartCFrame",
+    "Path2D:GetControlPoint",
+    "Path2D:GetPositionOnCurve",
+    "Path2D:GetPositionOnCurveArcLength",
+    "Path2D:GetTangentOnCurve",
+    "Path2D:GetTangentOnCurveArcLength",
+    "PhysicsService:CollisionGroupContainsPart",
+    "PhysicsService:CollisionGroupSetCollidable",
+    "PhysicsService:GetCollisionGroupId",
+    "PhysicsService:GetCollisionGroupName",
+    "PhysicsService:RemoveCollisionGroup",
+    "PhysicsService:RenameCollisionGroup",
+    "PhysicsService:SetPartCollisionGroup",
+    "PhysicsService:UnregisterCollisionGroup",
+    "Player:IsVerified",
+    "PlayerGui:GetTopbarTransparency",
+    "StudioTestService:AddPlayers",
+    "StudioTestService:EndTest",
+    "StudioTestService:LeaveTest",
+    "Terrain:GetMaterialColor",
+    "Terrain:ReadVoxelChannels",
+    "Terrain:ReadVoxels",
+    "Terrain:WriteVoxelChannels",
+    "Terrain:WriteVoxels",
+    "Translator:FormatByKey",
+    "UIPageLayout:JumpTo",
+    "UserGameSettings:GetOnboardingCompleted",
+    "UserGameSettings:SetOnboardingCompleted",
+    "UserSettings:IsUserFeatureEnabled",
+    "VirtualInput:SendKey",
+    "VirtualInput:SendMouseButton",
+    "VirtualInput:SendMouseDelta",
+    "VirtualInput:SendMousePosition",
+    "VirtualInput:SendPointerAction",
+    "VirtualInput:SendTextInput",
+    "Workspace:GetServerTimeNow",
+    "WorldRoot:Blockcast",
+    "WorldRoot:Shapecast",
+    "WorldRoot:Spherecast",
+]
+
+[subtractions]
+methods = [
+    # Yields-tagged, but the only documented failure is an argument-TYPE error that Loom's types
+    # already exclude at the call site.
+    "BasePart:CanCollideWith",
+    "MeshPart:ApplyMesh",
+
+    # The sole CanYield-tagged member, and it does not throw. The docs are explicit: "If the
+    # timeOut parameter is specified, this method will time out after the specified number of
+    # seconds and return nil." An xpcall around it would catch nothing.
+    #
+    # SEPARATE BUG: Loom types this as returning a non-optional T, so that nil is unsound today.
+    # The fix is `T?`, not Result. Tracked apart from #180.
+    "Instance:WaitForChild",
+]
+
+# Reviewed and deliberately NOT added, so a regeneration does not re-litigate them:
+#
+#   Model:ResetOrientationToIdentity   deprecation_message says it exists to STOP legacy errors
+#   Model:SetIdentityOrientation       same
+#   Path2D:InsertControlPoint          docs say "throws a warning", not an error
+#   Path2D:RemoveControlPoint          same
+#   Path2D:SetControlPoints            same
+#   Path2D:UpdateControlPoint          same
+#   PhysicsService:IsCollisionGroupRegistered  prose describes OTHER methods that throw
+#   ContextActionService:SetImage      "does nothing and throws no error"
+#   ContextActionService:SetPosition   same
+#   ContextActionService:SetTitle      same
+#   ContextActionService:UnbindAction  "will not throw an error if there is no such action"
+#   Instance:FindFirstChild            throw prose describes the dot operator, not the method
+#   Instance:RemoveTag                 "will not throw an error if the object does not have the tag"
+#   HumanoidDescription:RemoveEmote    "no error is thrown"
+#   Player:GetNetworkPing              matched "throwing" in "throwing animations"
+#   ServiceProvider:GetService         documented throw needs a duplicate service instance parented
+#                                      outside game; Loom cannot construct one, since new_instance
+#                                      is constrained to CreatableInstance and services are not
