@@ -7,6 +7,7 @@ namespace Loom.Testing;
 ///     so the second interface's member came out with a different type from the first's. A member is
 ///     only callable on a union when every arm agrees, so the mismatch made it uncallable.
 /// </summary>
+[Collection("Assembly")]
 public class RecursiveTypeAliasTest
 {
     private const string MutuallyRecursive = """
@@ -43,5 +44,30 @@ public class RecursiveTypeAliasTest
     {
         Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(MutuallyRecursive + "a.tag"));
         Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(MutuallyRecursive + "b.tag"));
+    }
+
+    [Fact]
+    public void AMemberOfTheAliasedUnionIsCallable()
+    {
+        const string source = """
+            interface A<T, E> {
+                tag: true;
+                go: fn(f: fn(v: T): R<T, E>): R<T, E>;
+            }
+
+            interface B<T, E> {
+                tag: false;
+                go: fn(f: fn(v: T): R<T, E>): R<T, E>;
+            }
+
+            type R<T, E> = A<T, E> | B<T, E>;
+
+            declare let r: R<number, string>;
+            declare fn step(v: number): R<number, string>;
+
+            let chained = r.go(step);
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
     }
 }

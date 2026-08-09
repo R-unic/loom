@@ -93,7 +93,7 @@ public sealed partial class TypeChecker
 
         var underlyingType = Visit(typeAlias.EqualsTypeClause);
         _semanticModel.TypeSolver.CheckCircular(ref underlyingType, typeAlias.Name);
-        genericType.UnderlyingType = TypeSimplifier.Simplify(underlyingType);
+        genericType.UnderlyingType = underlyingType;
 
         return BindType(typeAlias, VarianceInferrer.ApplyInferredVariance(genericType));
     }

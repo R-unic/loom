@@ -20,10 +20,9 @@ interface ResultOk<T, Error> {
     unwrap_or: fn<U>(fallback: U): T | U;
     unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
     map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
-    ## The transform's return is spelled as the union rather than 'Result<U, Error>' because
-    ## union-against-union inference binds U to the first arm instead of the arm's argument,
-    ## which types the parameter as 'fn(T): ResultOk' and rejects any real transform. The
-    ## return position is fine, since nothing is inferred from it.
+    ## The transform's return is spelled as the union rather than 'Result<U, Error>': naming
+    ## the alias from inside a generic member of one of its own arms still resolves wrongly.
+    ## The return position is fine, since nothing is inferred from it.
     and_then: fn<U>(transform: fn(value: T): ResultOk<U, Error> | ResultError<U, Error>): Result<U, Error>;
 }
 
@@ -35,10 +34,9 @@ interface ResultError<T, Error> {
     unwrap_or: fn<U>(fallback: U): T | U;
     unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
     map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
-    ## The transform's return is spelled as the union rather than 'Result<U, Error>' because
-    ## union-against-union inference binds U to the first arm instead of the arm's argument,
-    ## which types the parameter as 'fn(T): ResultOk' and rejects any real transform. The
-    ## return position is fine, since nothing is inferred from it.
+    ## The transform's return is spelled as the union rather than 'Result<U, Error>': naming
+    ## the alias from inside a generic member of one of its own arms still resolves wrongly.
+    ## The return position is fine, since nothing is inferred from it.
     and_then: fn<U>(transform: fn(value: T): ResultOk<U, Error> | ResultError<U, Error>): Result<U, Error>;
 }
 
