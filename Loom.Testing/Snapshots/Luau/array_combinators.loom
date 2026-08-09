@@ -1,0 +1,9 @@
+let numbers = [1, 2, 3, 4, 5];
+let doubled = numbers.select(fn(n) -> n * 2);
+let weighted = numbers.select(fn(n, i) -> n * i);
+let big = numbers.where(fn(n) -> n > 2);
+let total = numbers.aggregate(0, fn(sum, n) -> sum + n);
+let chained = numbers.select(fn(n) -> n * 2).where(fn(n) -> n > 4).aggregate(0, fn(sum, n) -> sum + n);
+
+fn triple(n: number): number -> n * 3;
+let tripled = numbers.select(triple);
