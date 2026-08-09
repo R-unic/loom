@@ -7,7 +7,7 @@ using Loom.Core.TypeChecking.Types;
 namespace Loom.Core.TypeChecking;
 
 using Type = Types.Type;
-using Attribute = Loom.Core.Parsing.AST.Attribute;
+using Attribute = Parsing.AST.Attribute;
 
 /// <summary>
 ///     Enforces that an operation which can raise a Luau error only appears inside a function that

@@ -14,7 +14,7 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 /// <summary>
 ///     Lowers the combinators declared on <c>ResultOk</c>/<c>ResultError</c> in <c>runtime.loom</c>
-///     inline, so a <see cref="Result" /> stays the two-field table the constructors build rather
+///     inline, so a <c>Result</c> stays the two-field table the constructors build rather
 ///     than a table carrying six closures.
 /// </summary>
 /// <remarks>

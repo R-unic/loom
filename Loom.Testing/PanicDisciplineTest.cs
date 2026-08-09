@@ -14,8 +14,7 @@ public class PanicDisciplineTest
         """;
 
     [Fact]
-    public void Unwrap_InsideAFallibleFunction_IsAllowed()
-    {
+    public void Unwrap_InsideAFallibleFunction_IsAllowed() =>
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(
                 Fetch + """
@@ -26,11 +25,9 @@ public class PanicDisciplineTest
                     """
             )
         );
-    }
 
     [Fact]
-    public void Unwrap_InsideAPlainFunction_NamesTheFunctionAndOffersBothFixes()
-    {
+    public void Unwrap_InsideAPlainFunction_NamesTheFunctionAndOffersBothFixes() =>
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(
                 Fetch + """
@@ -43,28 +40,23 @@ public class PanicDisciplineTest
             "'unwrap' can panic, but 'load' is not marked '[fallible]'.",
             "return a 'Result<T, Error>' and propagate with '?', or mark 'load' with '[fallible]' if you really need to panic"
         );
-    }
 
     [Fact]
-    public void Unwrap_AtTopLevel_OmitsTheFallibleSuggestion()
-    {
+    public void Unwrap_AtTopLevel_OmitsTheFallibleSuggestion() =>
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(Fetch + "let n = fetch().unwrap();"),
             InternalCodes.PanicOutsideFallibleFunction,
             "'unwrap' can panic, and this code cannot recover from it.",
             "handle the error instead - 'match', 'unwrap_or', or move this into a function returning 'Result<T, Error>'"
         );
-    }
 
     [Fact]
-    public void Expect_IsPanicking()
-    {
+    public void Expect_IsPanicking() =>
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(Fetch + """let n = fetch().expect("boom");"""),
             InternalCodes.PanicOutsideFallibleFunction,
             "'expect' can panic, and this code cannot recover from it."
         );
-    }
 
     [Fact]
     public void Error_IsPanicking()
@@ -129,8 +121,7 @@ public class PanicDisciplineTest
     }
 
     [Fact]
-    public void PropagatingWithTheQuestionOperator_IsNotPanicking()
-    {
+    public void PropagatingWithTheQuestionOperator_IsNotPanicking() =>
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(
                 Fetch + """
@@ -141,13 +132,10 @@ public class PanicDisciplineTest
                     """
             )
         );
-    }
 
     [Fact]
-    public void NonPanickingCombinators_AreAllowedAnywhere()
-    {
+    public void NonPanickingCombinators_AreAllowedAnywhere() =>
         Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(Fetch + "let n = fetch().unwrap_or(0);"));
-    }
 
     [Fact]
     public void InsideAnEventHandler_TheFallibleSuggestionIsOmitted()

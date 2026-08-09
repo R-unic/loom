@@ -1,3 +1,5 @@
+using Loom.Core.Diagnostics;
+
 namespace Loom.Testing;
 
 /// <summary>
@@ -94,7 +96,7 @@ public class RecursiveTypeAliasTest
 
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(prefix + "let c: Result<string, string> = start().and_then(step);"),
-            Loom.Core.Diagnostics.InternalCodes.TypeMismatch,
+            InternalCodes.TypeMismatch,
             "Type 'ResultOk | ResultError' is not assignable to type 'ResultOk | ResultError'."
         );
     }

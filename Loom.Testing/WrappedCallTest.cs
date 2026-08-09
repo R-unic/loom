@@ -1,3 +1,4 @@
+using Loom.Core.Diagnostics;
 using NuLua;
 using NuLua.Luau;
 
@@ -29,22 +30,18 @@ public class WrappedCallTest
     }
 
     [Fact]
-    public void AWrappedCall_ProducesAResultTheCombinatorsAccept()
-    {
+    public void AWrappedCall_ProducesAResultTheCombinatorsAccept() =>
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(Store + """let value = store.get_async("k").unwrap_or("default");""")
         );
-    }
 
     [Fact]
-    public void AWrappedCall_RequiresHandlingRatherThanPanicking()
-    {
+    public void AWrappedCall_RequiresHandlingRatherThanPanicking() =>
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(Store + """let value = store.get_async("k").unwrap();"""),
-            Loom.Core.Diagnostics.InternalCodes.PanicOutsideFallibleFunction,
+            InternalCodes.PanicOutsideFallibleFunction,
             "'unwrap' can panic, and this code cannot recover from it."
         );
-    }
 
     [Theory]
     [InlineData("return \"payload\"", "true|payload")]
@@ -75,26 +72,24 @@ public class WrappedCallTest
         using var state = LuauState.Create();
         state.OpenLibraries();
 
-        Assert.Contains(expected.Split('|')[1], state.DoString(prelude + luau + epilogue)[0].ToString()!);
-        Assert.StartsWith(expected.Split('|')[0], state.DoString(prelude + luau + epilogue)[0].ToString()!);
+        var returned = state.DoString(prelude + luau + epilogue)[0].ToString() ?? "";
+
+        Assert.StartsWith(expected.Split('|')[0], returned);
+        Assert.Contains(expected.Split('|')[1], returned);
     }
 
     [Fact]
-    public void AWrappedMemberCannotBeReferencedWithoutCalling()
-    {
+    public void AWrappedMemberCannotBeReferencedWithoutCalling() =>
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(Store + "let f = store.get_async;"),
-            Loom.Core.Diagnostics.InternalCodes.UncalledWrappedMember,
+            InternalCodes.UncalledWrappedMember,
             "'get_async' can only be called, not referenced."
         );
-    }
 
     [Fact]
-    public void CallingAWrappedMemberIsStillAllowed()
-    {
+    public void CallingAWrappedMemberIsStillAllowed() =>
         Assert.DoesNotContain(
             Utility.GetTypeCheckerDiagnostics(Store + """let r = store.get_async("k");""").Set,
-            diagnostic => diagnostic.Code == Loom.Core.Diagnostics.InternalCodes.UncalledWrappedMember
+            diagnostic => diagnostic.Code == InternalCodes.UncalledWrappedMember
         );
-    }
 }
