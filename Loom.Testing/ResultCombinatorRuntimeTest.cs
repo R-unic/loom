@@ -93,6 +93,6 @@ public class ResultCombinatorRuntimeTest
         using var state = LuauState.Create();
         state.OpenLibraries();
 
-        return state.DoString($"{luau}{Environment.NewLine}{epilogue}")[0].ToString() ?? "";
+        return state.DoString($"{luau}{Environment.NewLine}{epilogue}")[0].ToString();
     }
 }

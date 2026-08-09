@@ -72,7 +72,7 @@ public class WrappedCallTest
         using var state = LuauState.Create();
         state.OpenLibraries();
 
-        var returned = state.DoString(prelude + luau + epilogue)[0].ToString() ?? "";
+        var returned = state.DoString(prelude + luau + epilogue)[0].ToString();
 
         Assert.StartsWith(expected.Split('|')[0], returned);
         Assert.Contains(expected.Split('|')[1], returned);

@@ -59,7 +59,7 @@ public class PropagatedWrappedCallTest
         state.OpenLibraries();
         var returned = state.DoString(
             prelude + luau + "\nreturn tostring(outcome.ok) .. \"|\" .. (if outcome.ok then outcome.value else outcome.error.message)"
-        )[0].ToString() ?? "";
+        )[0].ToString();
 
         Assert.StartsWith(expected.Split('|')[0], returned);
         Assert.Contains(expected.Split('|')[1], returned);
