@@ -60,20 +60,30 @@ public sealed partial class TypeChecker
     ///     lowered to an xpcall, so a reference to one that is never called is a lie: its type says
     ///     it returns a Result while the underlying Luau function raises.
     /// </summary>
-    private void CheckWrappedMemberIsCalled(Expression access)
+    private void CheckMemberAccess(Expression access)
     {
+        // an invocation's own callee is checked by CheckPanicIsDeclared/CheckDeprecation instead, which
+        // see the call and so can report against it rather than against the name being read
         if (access.Parent is Invocation invocation && invocation.Expression == access)
             return;
 
-        if (_semanticModel.GetPropertySymbol(access) is not { } property || !property.TryGetIntrinsicAttribute(WrapsErrorsAttribute, out _))
+        if (_semanticModel.GetPropertySymbol(access) is not { } property)
             return;
 
-        _diagnostics.Error(
-            access,
-            InternalCodes.UncalledWrappedMember,
-            $"'{property.Name}' can only be called, not referenced.",
-            $"its 'Result' comes from the call being wrapped, so a bare reference would raise instead - wrap it yourself with 'fn(..a) -> {access}(..a)'"
-        );
+        if (property.TryGetIntrinsicAttribute(WrapsErrorsAttribute, out _))
+        {
+            _diagnostics.Error(
+                access,
+                InternalCodes.UncalledWrappedMember,
+                $"'{property.Name}' can only be called, not referenced.",
+                $"its 'Result' comes from the call being wrapped, so a bare reference would raise instead - wrap it yourself with 'fn(..a) -> {access}(..a)'"
+            );
+
+            return;
+        }
+
+        if (TryGetAttribute(property.Declaration, DeprecatedAttribute, out var deprecation))
+            _diagnostics.Warn(access, InternalCodes.DeprecatedMember, $"'{property.Name}' is deprecated.", DeprecationMessage(deprecation));
     }
 
     /// <summary>

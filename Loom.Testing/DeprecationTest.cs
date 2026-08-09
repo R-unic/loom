@@ -74,4 +74,43 @@ public class DeprecationTest
         var deprecation = Assert.Single(Utility.GetTypeCheckerDiagnostics(source).Set, d => d.Code == InternalCodes.DeprecatedMember);
         Assert.Equal(DiagnosticSeverity.Warn, deprecation.Severity);
     }
+
+    [Fact]
+    public void ReadingADeprecatedPropertyWarnsToo()
+    {
+        const string source = """
+            declare interface Legacy {
+                [deprecated("use replacement instead")]
+                old_field: number;
+                replacement: number;
+            }
+
+            declare let legacy: Legacy;
+            let n = legacy.old_field;
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertNoErrors(diagnostics);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.DeprecatedMember, "'old_field' is deprecated.", "use replacement instead");
+    }
+
+    [Fact]
+    public void ReadingANonDeprecatedPropertyDoesNotWarn()
+    {
+        const string source = """
+            declare interface Legacy {
+                [deprecated]
+                old_field: number;
+                replacement: number;
+            }
+
+            declare let legacy: Legacy;
+            let n = legacy.replacement;
+            """;
+
+        Assert.DoesNotContain(
+            Utility.GetTypeCheckerDiagnostics(source).Set,
+            diagnostic => diagnostic.Code == InternalCodes.DeprecatedMember
+        );
+    }
 }

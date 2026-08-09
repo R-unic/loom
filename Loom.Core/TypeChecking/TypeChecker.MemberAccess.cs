@@ -12,7 +12,7 @@ public sealed partial class TypeChecker
     public override Type VisitQualifiedName(QualifiedName qualifiedName)
     {
         var type = GetTypeOfNamedAccess(qualifiedName, qualifiedName.Identifier, qualifiedName.Names);
-        CheckWrappedMemberIsCalled(qualifiedName);
+        CheckMemberAccess(qualifiedName);
 
         return type;
     }
@@ -20,7 +20,7 @@ public sealed partial class TypeChecker
     public override Type VisitPropertyAccess(PropertyAccess propertyAccess)
     {
         var type = GetTypeOfNamedAccess(propertyAccess, propertyAccess.Expression, propertyAccess.Names);
-        CheckWrappedMemberIsCalled(propertyAccess);
+        CheckMemberAccess(propertyAccess);
 
         return type;
     }
