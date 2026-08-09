@@ -48,7 +48,7 @@ public sealed class FunctionType(List<TypeParameter> typeParameters, List<Type> 
             return true;
 
         if (other is not FunctionType functionType
-            || ParameterTypes.Count != functionType.ParameterTypes.Count
+            || ParameterTypes.Count > functionType.ParameterTypes.Count
             || TypeParameters.Count != functionType.TypeParameters.Count
             || HasRestParameter != functionType.HasRestParameter)
             return false;
