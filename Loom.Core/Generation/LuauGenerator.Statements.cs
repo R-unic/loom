@@ -59,7 +59,9 @@ public sealed partial class LuauGenerator
     /// <summary>
     ///     Exports the codec of every exported serializable interface. An interface is a type, so it
     ///     carries no runtime binding of its own - without this the serializer stays file-local and a
-    ///     consumer in another module has nothing to reach.
+    ///     consumer in another module has nothing to reach. A re-exported interface's codec was emitted by
+    ///     the module that declared it, so it is forwarded off that module's table the way its connections
+    ///     store would be, rather than read from a local that does not exist here.
     /// </summary>
     private List<TableInitializer> GenerateSerializerExports()
     {
@@ -69,8 +71,19 @@ public sealed partial class LuauGenerator
             if (export.Symbol is not InterfaceSymbol interfaceSymbol || !_semanticModel.SerializationSchemas.ContainsKey(interfaceSymbol))
                 continue;
 
-            var name = SerializationEmitter.SerializerName(interfaceSymbol.Name);
-            initializers.Add(new PropertyTableInitializer(name, new Luau.AST.Identifier(name)));
+            if (export.Module == null)
+            {
+                var name = SerializationEmitter.SerializerName(interfaceSymbol.Name);
+                initializers.Add(new PropertyTableInitializer(name, new Luau.AST.Identifier(name)));
+                continue;
+            }
+
+            initializers.Add(
+                new PropertyTableInitializer(
+                    SerializationEmitter.SerializerName(export.Name),
+                    _moduleGenerator.GenerateModuleMember(export.Module, SerializationEmitter.SerializerName(export.SourceName))
+                )
+            );
         }
 
         return initializers;

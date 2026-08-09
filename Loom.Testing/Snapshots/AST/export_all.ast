@@ -1,0 +1,26 @@
+﻿ExportAll(
+  ExportKeyword: Token(ExportKeyword, "export")
+  TypeKeyword: null
+  Star: Token(Star, "*")
+  FromKeyword: Token(Identifier, "from")
+  ModuleSpecifier: Literal(
+    Token(StringLiteral, ""./math"")
+    Value: "./math"
+  )
+  IsTypeOnly: False
+  IsReExport: True
+  ModulePath: "./math"
+)
+ExportAll(
+  ExportKeyword: Token(ExportKeyword, "export")
+  TypeKeyword: Token(TypeKeyword, "type")
+  Star: Token(Star, "*")
+  FromKeyword: Token(Identifier, "from")
+  ModuleSpecifier: Literal(
+    Token(StringLiteral, ""./math"")
+    Value: "./math"
+  )
+  IsTypeOnly: True
+  IsReExport: True
+  ModulePath: "./math"
+)

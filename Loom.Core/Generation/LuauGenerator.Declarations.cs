@@ -22,6 +22,7 @@ public sealed partial class LuauGenerator
     public override LuauNode VisitImportDeclaration(ImportDeclaration import) => new NoOpStatement();
     public override LuauNode VisitNamespaceImport(NamespaceImport import) => new NoOpStatement();
     public override LuauNode VisitExportList(ExportList export) => new NoOpStatement();
+    public override LuauNode VisitExportAll(ExportAll export) => new NoOpStatement();
 
     public override LuauNode VisitExportDeclaration(ExportDeclaration export)
     {

@@ -19,5 +19,6 @@ public sealed record ParsedFile(SourceFile File, LexerResult LexerResult, Parser
 
     public IReadOnlyList<NamespaceImport> NamespaceImports => field ??= Tree.Statements.OfType<NamespaceImport>().ToArray();
 
-    public IReadOnlyList<ExportList> ReExports => field ??= Tree.Statements.OfType<ExportList>().Where(export => export.IsReExport).ToArray();
+    /// <summary>Top-level exports that name another module, whether they list its exports or star them.</summary>
+    public IReadOnlyList<IReExport> ReExports => field ??= Tree.Statements.OfType<IReExport>().Where(export => export.IsReExport).ToArray();
 }
