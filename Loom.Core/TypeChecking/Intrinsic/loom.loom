@@ -60,6 +60,7 @@ declare fn override: void;
 [attribute_usage(AttributeTargets.Property)] declare fn number_step(step: number): void;
 [attribute_usage(AttributeTargets.Property)] declare fn cframe_type(ty: CFrameType): void;
 
+declare fn error(message: string, level: number?): never;
 declare fn print(..data: unknown[]): void;
 declare fn string(value: unknown): string;
 declare fn number(value: unknown): number?;
