@@ -66,7 +66,7 @@ public sealed class DocumentStore
                 return null;
 
             var result = unit.Recompile(new Dictionary<string, string> { [path] = text });
-            var file = result.Files.Find(f => f.SourceFile.AbsolutePath == path);
+            var file = result.Files.Find(compiled => FilePaths.Same(compiled.SourceFile.AbsolutePath, path));
             if (file != null)
                 _state[uri] = new DocumentState(file, unit, BuildCompletions(file, unit));
 

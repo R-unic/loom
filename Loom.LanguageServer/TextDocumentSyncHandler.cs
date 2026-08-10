@@ -28,9 +28,15 @@ public sealed class TextDocumentSyncHandler(ILanguageServerFacade server, Docume
 
     public override Task<Unit> Handle(DidSaveTextDocumentParams request, CancellationToken cancellationToken) => Unit.Task;
 
+    /// <summary>
+    ///     Clears the file's diagnostics as it closes. A client keeps whatever the server last published until
+    ///     the server says otherwise, so a closed file's errors would otherwise sit in the Problems panel for
+    ///     the rest of the session, against a document nothing is analyzing any more.
+    /// </summary>
     public override Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
     {
         documents.Close(request.TextDocument.Uri);
+        Clear(request.TextDocument.Uri);
         return Unit.Task;
     }
 
@@ -43,21 +49,15 @@ public sealed class TextDocumentSyncHandler(ILanguageServerFacade server, Docume
 
     private void Publish(DocumentUri uri, Core.Pipeline.CompilationResult? result)
     {
-        if (result == null)
-            return;
-
         try
         {
-            var rawPath = uri.GetFileSystemPath();
-            var diagnostics = string.IsNullOrEmpty(rawPath)
-                ? []
-                : result.Diagnostics.Set.Where(d => d.Span.File.AbsolutePath == Path.GetFullPath(rawPath)).Select(Conversion.ToDiagnostic).ToArray();
-
-            server.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams { Uri = uri, Diagnostics = diagnostics });
+            server.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams { Uri = uri, Diagnostics = Conversion.DiagnosticsFor(result, uri) });
         }
         catch (Exception)
         {
             // ignored
         }
     }
+
+    private void Clear(DocumentUri uri) => Publish(uri, null);
 }

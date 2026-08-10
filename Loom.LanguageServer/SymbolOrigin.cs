@@ -18,7 +18,7 @@ public static class SymbolOrigin
         if (symbol.IsIntrinsic)
             return "intrinsic";
 
-        if (PathComparer.Equals(symbol.File.AbsolutePath, viewedFrom.AbsolutePath))
+        if (FilePaths.Same(symbol.File.AbsolutePath, viewedFrom.AbsolutePath))
             return null;
 
         if (PackageOf(symbol.File, viewedFrom, unit) is { } package)
@@ -60,6 +60,4 @@ public static class SymbolOrigin
             return null;
         }
     }
-
-    private static readonly StringComparer PathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 }

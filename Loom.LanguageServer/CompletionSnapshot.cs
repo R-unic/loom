@@ -204,9 +204,7 @@ public static class CompletionSnapshotBuilder
         };
     }
 
-    private static bool IsLocalTo(Symbol symbol, SourceFile file) => PathComparer.Equals(symbol.File.AbsolutePath, file.AbsolutePath);
-
-    private static readonly StringComparer PathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private static bool IsLocalTo(Symbol symbol, SourceFile file) => FilePaths.Same(symbol.File.AbsolutePath, file.AbsolutePath);
 
     private static CompletionItemKind ToCompletionItemKind(LoomSymbolKind kind) =>
         kind switch
