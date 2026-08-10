@@ -38,7 +38,7 @@ public static class DeclarationDisplay
     /// <summary>The header line shown above a symbol's documentation on hover.</summary>
     public static string Of(Symbol symbol, Type? type)
     {
-        if (IsCallable(symbol.Declaration) && CallSignatures(symbol, type, symbol.Name) is [var signature, ..])
+        if (IsCallable(symbol.Declaration) && CallSignatures([symbol], type, symbol.Name) is [var signature, ..])
             return signature.Label;
 
         return symbol.Declaration switch
@@ -59,13 +59,20 @@ public static class DeclarationDisplay
     /// <summary>
     ///     The signatures a call to <paramref name="type" /> may match, in declaration order. An overload set
     ///     is an intersection of function types (see <c>MergeOverloadedProperties</c>), so a callee with
-    ///     several shapes arrives here as one type rather than as several symbols.
+    ///     several shapes arrives here as one type; <paramref name="symbols" /> is where its parameter names
+    ///     survive, one symbol per shape, and is paired positionally when the two agree on how many there are.
     /// </summary>
-    public static IReadOnlyList<SignatureDisplay> CallSignatures(Symbol? symbol, Type? type, string name)
+    public static IReadOnlyList<SignatureDisplay> CallSignatures(IReadOnlyList<Symbol> symbols, Type? type, string name)
     {
-        var declared = symbol == null ? null : DeclaredParametersOf(symbol.Declaration);
-        return FunctionTypesOf(type).ConvertAll(function => Render(declared, function, name));
+        var functions = FunctionTypesOf(type);
+        var paired = symbols.Count == functions.Count;
+        return functions
+            .Select((function, index) => Render(DeclaredParametersOf(symbols, paired ? index : 0), function, name))
+            .ToArray();
     }
+
+    private static DeclaredParameters? DeclaredParametersOf(IReadOnlyList<Symbol> symbols, int index) =>
+        index < symbols.Count ? DeclaredParametersOf(symbols[index].Declaration) : null;
 
     /// <summary>The attribute list written above a declaration, as source text, or null when it has none.</summary>
     public static string? AttributesOf(Symbol symbol) =>

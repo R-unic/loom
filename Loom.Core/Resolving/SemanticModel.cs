@@ -230,7 +230,10 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         return property != null && property.TryGetIntrinsicAttribute(name, out attribute);
     }
 
-    public PropertySymbol? GetPropertySymbol(Expression expression)
+    public PropertySymbol? GetPropertySymbol(Expression expression) => GetPropertySymbols(expression).FirstOrDefault();
+
+    /// <summary>Every declaration the expression's member name has, which is more than one only for an overload set.</summary>
+    public IReadOnlyList<PropertySymbol> GetPropertySymbols(Expression expression)
     {
         var (objectExpression, names) = expression switch
         {
@@ -240,21 +243,25 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
             _ => (expression, [])
         };
 
-        return names.Length == 0 ? null : GetPropertySymbol(GetType(objectExpression), names);
+        return names.Length == 0 ? [] : GetPropertySymbols(GetType(objectExpression), names);
     }
 
     /// <summary> Looks up a property by path directly off a type, for callers with no access-expression node to read it from (e.g. a match object pattern field). </summary>
-    public PropertySymbol? GetPropertySymbol(Type objectType, IReadOnlyList<string> path)
+    public PropertySymbol? GetPropertySymbol(Type objectType, IReadOnlyList<string> path) => GetPropertySymbols(objectType, path).FirstOrDefault();
+
+    /// <inheritdoc cref="GetPropertySymbol(Type, IReadOnlyList{string})" />
+    /// <remarks>Returns every declaration at the path, which is more than one only for an overload set.</remarks>
+    public IReadOnlyList<PropertySymbol> GetPropertySymbols(Type objectType, IReadOnlyList<string> path)
     {
         objectType = objectType.NonNullable();
         if (objectType is InstantiatedType instantiated)
             objectType = instantiated.Expand();
 
         if (objectType is not InterfaceType interfaceType)
-            return null;
+            return [];
 
         var interfaceSymbol = FindDeclarationSymbol<InterfaceSymbol>(interfaceType.Name);
-        return interfaceSymbol?.GetPropertyAtPath(path);
+        return interfaceSymbol?.GetPropertiesAtPath(path) ?? [];
     }
 
     public Type GetType(Node node) => TypeSolver.GetType(node);
