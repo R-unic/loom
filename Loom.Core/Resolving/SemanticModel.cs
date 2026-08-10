@@ -267,6 +267,9 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
     public Type GetType(Node node) => TypeSolver.GetType(node);
     public Type? GetDeclarationType(Node node) => GetSymbol(node) is { } symbol ? TypeSolver.GetType(symbol.Declaration) : null;
     public T? FindIntrinsicDeclarationSymbol<T>(string name) where T : Symbol => FindDeclarationSymbol<T>(name, s => s.IsIntrinsic);
+
+    /// <summary>The declaration of the named type, for navigating from a value to the type it was given.</summary>
+    public Symbol? FindTypeDeclaration(string name) => FindDeclarationSymbol<Symbol>(name, symbol => symbol.IsTypeSymbol);
     private T? FindDeclarationSymbol<T>(string name) where T : Symbol => FindDeclarationSymbol<T>(name, static _ => true);
 
     /// <remarks>

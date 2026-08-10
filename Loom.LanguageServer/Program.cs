@@ -20,6 +20,8 @@ var server = await LanguageServer.From(options =>
         .WithHandler<PrepareRenameHandler>()
         .WithHandler<RenameHandler>()
         .WithHandler<FoldingRangeHandler>()
+        .WithHandler<TypeDefinitionHandler>()
+        .WithHandler<ImplementationHandler>()
 );
 
 await server.WaitForExit;
