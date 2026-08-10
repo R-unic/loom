@@ -25,7 +25,38 @@ public sealed class Lexer(SourceFile file, DiagnosticOptions? diagnosticOptions 
             significantTokens.Add(token);
         }
 
+        file.Documentation = BuildDocumentation(allTokens);
         return new LexerResult(significantTokens, allTokens, _diagnostics);
+    }
+
+    /// <summary>
+    ///     Pairs each run of consecutive <c>###</c> lines with the token that follows it. Only whitespace may
+    ///     sit between the run and what it documents - a plain comment in between means the run was written
+    ///     about something else, and any other token ends the run outright.
+    /// </summary>
+    private static DocumentationTable BuildDocumentation(List<Token> allTokens)
+    {
+        Dictionary<int, string>? blocks = null;
+        var run = new List<string>();
+        foreach (var token in allTokens)
+            switch (token.Kind)
+            {
+                case SyntaxKind.DocComment:
+                    run.Add(DocumentationTable.StripMarker(token.Text.TrimEnd('\r')));
+                    break;
+                case SyntaxKind.Whitespace:
+                    break;
+                default:
+                    if (run.Count > 0)
+                    {
+                        (blocks ??= [])[token.Span.Position] = string.Join('\n', run);
+                        run.Clear();
+                    }
+
+                    break;
+            }
+
+        return blocks == null ? DocumentationTable.Empty : new DocumentationTable(blocks);
     }
 
     private bool AtDanglingInterpolationText() => _interpolationStack.Count > 0 && _interpolationStack.Peek().Mode == InterpolationMode.Text;
@@ -111,10 +142,15 @@ public sealed class Lexer(SourceFile file, DiagnosticOptions? diagnosticOptions 
         return CreateToken(SyntaxKind.BlockComment, start);
     }
 
+    /// <summary>
+    ///     <c>###</c> documents the declaration below it; <c>##</c> is an ordinary comment, and so is
+    ///     <c>####</c> and longer - a rule of hashes is a section divider, not prose about anything.
+    /// </summary>
     private Token LexLineComment(int start)
     {
+        var isDocComment = PeekOrNull(2) is '#' && PeekOrNull(3) is not '#';
         AdvanceWhile(ch => ch is not '\n');
-        return CreateToken(SyntaxKind.Comment, start);
+        return CreateToken(isDocComment ? SyntaxKind.DocComment : SyntaxKind.Comment, start);
     }
 
     private void TrackInterpolationBraces(SyntaxKind operatorKind)
@@ -428,6 +464,7 @@ public sealed class Lexer(SourceFile file, DiagnosticOptions? diagnosticOptions 
     private void Advance(int length = 1) => _position += length;
     private char Current() => Peek(0);
     private char Peek(int offset) => file.SourceText[_position + offset];
+    private char? PeekOrNull(int offset) => IsEof(offset) ? null : Peek(offset);
     private bool IsEof(int offset = 0) => _position + offset >= _sourceLength;
     private LocationSpan GetSpan(int start) => new(new Location(file, start), _position - start);
 

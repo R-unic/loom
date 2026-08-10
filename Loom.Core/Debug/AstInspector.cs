@@ -16,7 +16,9 @@ public static class AstInspector
         "Children",
         "Id",
         "File",
-        "Keyword"
+        "Keyword",
+        // trivia, not shape: a doc comment says nothing about how the node parsed
+        "Documentation"
     ];
 
     public static string Inspect(Tree tree) => string.Join(Environment.NewLine, tree.Statements.ConvertAll(Inspect));

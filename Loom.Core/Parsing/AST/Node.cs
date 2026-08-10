@@ -26,6 +26,32 @@ public abstract class Node
     public SourceFile File => field ??= Tokens.Count == 0 ? SourceFile.Empty : Tokens[0].File;
     [MaybeNull] public Node Parent { get; private set; }
 
+    /// <summary>
+    ///     The <c>###</c> doc comment written above this node, or null when it has none. Attributes are part of
+    ///     the declaration they annotate, so a doc comment is looked for both above them and between them and
+    ///     the keyword - the two places an author would reasonably write one.
+    /// </summary>
+    public string? Documentation
+    {
+        get
+        {
+            var documentation = File.Documentation;
+            if (documentation.IsEmpty || Tokens.Count == 0)
+                return null;
+
+            if (documentation.At(Span.Position) is { } aboveTheDeclaration)
+                return aboveTheDeclaration;
+
+            // an attributed declaration begins at its '[', so a doc comment written under the attributes
+            // documents the keyword the list ends before rather than the declaration's own first token
+            if ((this as IWithAttributes)?.Attributes is not { } attributes)
+                return null;
+
+            var afterAttributes = Tokens.FirstOrDefault(token => token.Span.Position >= attributes.Span.End);
+            return afterAttributes == null ? null : documentation.At(afterAttributes.Span.Position);
+        }
+    }
+
     public abstract T Accept<T>(Visitor<T> visitor);
     public override string ToString() => LocationSpan.GetText().ToString();
     public IReadOnlyList<T> GetDescendants<T>() where T : Node => GetDescendants().OfType<T>().ToArray();
