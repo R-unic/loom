@@ -54,6 +54,12 @@ before claiming done.
   (non-empty, relative, path-legal), since nothing downstream can report one that isn't: they are resolved as real paths and a stage throwing is the
   compiler-bug path
 - `Loom.CLI/` — entry point; locates config, compiles unit, prints debug info. `Include/loom_runtime.luau` = runtime support emitted alongside output
+- `Loom.LanguageServer/` — LSP server (OmniSharp). `DocumentStore` keeps one `CompilationUnit` per project root and recompiles the open file on every
+  change; `CompletionSnapshot` is rebuilt from that compile and answers "what may be written at this offset" (member scope, import list, attribute
+  list, module specifier, type vs value position — plus keywords, which are never symbols). `DeclarationDisplay` renders a symbol the way its
+  declaration reads, `SymbolMarkdown` composes the hover body, `DocumentationBlock` parses `@param`/`@returns` out of a doc comment, `CallSiteFinder`
+  locates the call the cursor is inside. A completion item's detail and documentation are `Func<>`s resolved on the client's resolve request, never
+  eagerly — a project has thousands of names in scope on every keystroke and the client reads at most one
 - `Loom.TypeGenerator/` — Loom code generator to define types for the Roblox API; tests depend on these types to be generated to pass
 - `Loom.Tools/` — dev tooling (AST dump, snapshot generation)
 - `Loom.Testing/` — all tests, one test class per compiler stage/component
@@ -87,6 +93,9 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:`/`ref:` (see git log).
 - Source files: Loom source uses `.loom` extension; output `.luau`. Indices are 1-based (Luau semantics). Immutability by default (`let` → `const`/local, `mut`
   for mutable).
+- Loom comments: `##` line, `#: … :#` block, `###` doc. A run of `###` lines documents the declaration below it and is the only comment form anything
+  reads — the lexer pairs each run with the token it precedes in `SourceFile.Documentation`, and `Node.Documentation` looks it up. `@param name text`
+  and `@returns text` inside one are pulled out for signature help.
 - ReSharper/Rider settings in `Loom.sln.DotSettings`; formatting handled by linter, don't hand-fight it.
 
 ## Gotchas
