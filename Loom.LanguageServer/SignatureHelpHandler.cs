@@ -51,8 +51,8 @@ public sealed class SignatureHelpHandler(DocumentStore documents) : SignatureHel
     {
         var callee = callSite.Invocation.Expression;
         var semanticModel = state.File.SemanticModel;
-        var symbols = SymbolsOf(callee, semanticModel);
-        var signatures = DeclarationDisplay.CallSignatures(symbols, TypeOf(semanticModel, callee), NameOf(callee, symbols.FirstOrDefault()));
+        var symbols = CallSiteFinder.SymbolsOf(callee, semanticModel);
+        var signatures = DeclarationDisplay.CallSignatures(symbols, TypeOf(semanticModel, callee), CallSiteFinder.NameOf(callee, symbols.FirstOrDefault()));
         if (signatures.Count == 0)
             return null;
 
@@ -96,28 +96,6 @@ public sealed class SignatureHelpHandler(DocumentStore documents) : SignatureHel
 
     private static StringOrMarkupContent? Markdown(string? text) =>
         string.IsNullOrWhiteSpace(text) ? null : new StringOrMarkupContent(new MarkupContent { Kind = MarkupKind.Markdown, Value = text });
-
-    /// <summary>
-    ///     Every declaration the callee names. More than one only for an overload set, whose shapes the type
-    ///     checker merged into a single type - each shape's parameter names are on its own declaration.
-    /// </summary>
-    private static IReadOnlyList<Symbol> SymbolsOf(Expression callee, SemanticModel semanticModel)
-    {
-        if (semanticModel.GetPropertySymbols(callee) is { Count: > 0 } properties)
-            return properties;
-
-        var symbol = semanticModel.GetSymbol(callee) ?? semanticModel.GetNamespaceMemberSymbol(callee);
-        return symbol == null ? [] : [symbol];
-    }
-
-    /// <summary>The name to render the signature under, which for a member is the member's rather than the receiver's.</summary>
-    private static string NameOf(Expression callee, Symbol? symbol) =>
-        callee switch
-        {
-            QualifiedName { Names: [.., var last] } => last.Name.Text,
-            PropertyAccess { Names: [.., var last] } => last.Name.Text,
-            _ => symbol?.Name ?? callee.ToString()
-        };
 
     private static Type? TypeOf(SemanticModel semanticModel, Node node)
     {

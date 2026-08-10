@@ -1,4 +1,6 @@
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving;
+using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
 
@@ -9,6 +11,28 @@ public sealed record CallSite(Invocation Invocation, int ArgumentIndex);
 
 public static class CallSiteFinder
 {
+    /// <summary>
+    ///     Every declaration a call's callee names. More than one only for an overload set, whose shapes the
+    ///     type checker merged into a single type - each shape's parameter names live on its own declaration.
+    /// </summary>
+    public static IReadOnlyList<Symbol> SymbolsOf(Expression callee, SemanticModel semanticModel)
+    {
+        if (semanticModel.GetPropertySymbols(callee) is { Count: > 0 } properties)
+            return properties;
+
+        var symbol = semanticModel.GetSymbol(callee) ?? semanticModel.GetNamespaceMemberSymbol(callee);
+        return symbol == null ? [] : [symbol];
+    }
+
+    /// <summary>The name a call should be rendered under, which for a member is the member's rather than the receiver's.</summary>
+    public static string NameOf(Expression callee, Symbol? symbol) =>
+        callee switch
+        {
+            QualifiedName { Names: [.., var last] } => last.Name.Text,
+            PropertyAccess { Names: [.., var last] } => last.Name.Text,
+            _ => symbol?.Name ?? callee.ToString()
+        };
+
     /// <summary>
     ///     The innermost call whose argument list contains <paramref name="offset" />, or null when the cursor
     ///     is not writing an argument. Innermost wins so that <c>outer(inner(|))</c> describes <c>inner</c>.

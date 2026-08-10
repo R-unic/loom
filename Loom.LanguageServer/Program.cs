@@ -14,6 +14,7 @@ var server = await LanguageServer.From(options =>
         .WithHandler<CompletionHandler>()
         .WithHandler<SignatureHelpHandler>()
         .WithHandler<DocumentSymbolHandler>()
+        .WithHandler<InlayHintHandler>()
 );
 
 await server.WaitForExit;
