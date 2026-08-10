@@ -102,5 +102,8 @@ public enum SyntaxKind : ushort
     IsKeyword,
     NotKeyword,
     Identifier,
-    Eof
+    Eof,
+
+    /// <summary>A <c>###</c> line comment, which documents the declaration it sits above rather than merely annotating it.</summary>
+    DocComment
 }

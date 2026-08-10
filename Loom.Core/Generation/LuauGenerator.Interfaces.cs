@@ -197,7 +197,7 @@ public sealed partial class LuauGenerator
     /// </summary>
     private void CollectSerializationUsage()
     {
-        foreach (var invocation in _semanticModel.Tree.GetDescendants<Invocation>())
+        foreach (var invocation in _semanticModel.Tree.EnumerateDescendants<Invocation>())
         {
             if (invocation.Expression is not Parsing.AST.Identifier identifier
                 || _semanticModel.GetSymbol(identifier) is not { IsIntrinsic: true } symbol)

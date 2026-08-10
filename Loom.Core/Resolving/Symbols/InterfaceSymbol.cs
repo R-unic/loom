@@ -18,16 +18,21 @@ public sealed class InterfaceSymbol(InterfaceDeclaration declaration, string nam
     public IReadOnlyDictionary<string, string> Metamethods { get; } =
         MetamethodAttributes.Collect(declaration.Body?.Members.OfType<PropertyDeclaration>() ?? [], p => p.Name.Text, p => p.Attributes);
 
-    public PropertySymbol? GetPropertyAtPath(IReadOnlyList<string> path)
+    public PropertySymbol? GetPropertyAtPath(IReadOnlyList<string> path) => GetPropertiesAtPath(path).FirstOrDefault();
+
+    /// <summary>
+    ///     Every declaration at <paramref name="path" />, in declaration order. More than one only for an
+    ///     overload set, whose shapes the type checker merges into a single intersection-typed property - the
+    ///     names its parameters were declared under survive only here.
+    /// </summary>
+    public IReadOnlyList<PropertySymbol> GetPropertiesAtPath(IReadOnlyList<string> path)
     {
         if (path.Count == 0)
-            return null;
+            return [];
 
         var firstName = path[0];
-        var property = FullProperties.FirstOrDefault(p => p.Name == firstName);
-        return property is { PointsTo: { } pointsTo } && path.Count > 1
-            ? pointsTo.GetPropertyAtPath(path.Skip(1).ToArray())
-            : property;
+        var properties = FullProperties.Where(p => p.Name == firstName).ToArray();
+        return properties is [{ PointsTo: { } pointsTo }, ..] && path.Count > 1 ? pointsTo.GetPropertiesAtPath(path.Skip(1).ToArray()) : properties;
     }
 
     public override string ToString() =>

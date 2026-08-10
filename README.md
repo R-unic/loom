@@ -154,6 +154,31 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 
 Each example is separated by a line. Top code is written in Loom, bottom code is the Luau output.
 
+### Comments & Documentation
+
+`##` is a line comment and `#: ... :#` a block comment; neither reaches the output. `###` is a doc comment: a run of them
+documents the declaration directly below, and the language server shows that prose on hover, in completion, and in
+signature help. A doc comment may sit above a declaration's attributes or between them and its keyword.
+
+```rs
+## an ordinary comment, for whoever is reading the source
+
+### Adds two numbers together.
+###
+### Returns their sum.
+fn add(x: number, y: number): number {
+  return x + y;
+}
+```
+
+```luau
+local function add(x: number, y: number): number
+	return x + y
+end
+```
+
+---
+
 ### Variables & Mutability
 
 ```rs

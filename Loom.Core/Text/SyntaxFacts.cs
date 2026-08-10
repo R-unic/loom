@@ -120,7 +120,8 @@ public static class SyntaxFacts
         "f32",
         "f64"
     ];
-    private static readonly HashSet<SyntaxKind> _triviaSyntaxes = [SyntaxKind.Whitespace, SyntaxKind.Comment, SyntaxKind.BlockComment];
+    private static readonly HashSet<SyntaxKind> _triviaSyntaxes =
+        [SyntaxKind.Whitespace, SyntaxKind.Comment, SyntaxKind.BlockComment, SyntaxKind.DocComment];
     private static readonly HashSet<SyntaxKind> _literalSyntaxes =
     [
         SyntaxKind.NumberLiteral, SyntaxKind.StringLiteral, SyntaxKind.TrueLiteral, SyntaxKind.FalseLiteral, SyntaxKind.NoneLiteral
@@ -188,4 +189,10 @@ public static class SyntaxFacts
     public static bool IsBitwiseOperator(SyntaxKind kind) => _bitwiseOperators.Contains(kind);
     public static bool IsUnaryOperator(SyntaxKind kind) => _unaryOperators.Contains(kind);
     public static bool IsPrimitiveType(string name) => _primitiveTypeNames.Contains(name);
+
+    /// <summary>Every built-in type name. They are lexer keywords rather than symbols, so anything enumerating what a type annotation may name has to add them itself.</summary>
+    public static IReadOnlyCollection<string> PrimitiveTypeNames => _primitiveTypeNames;
+
+    /// <summary>Every keyword, for callers offering the language's own words alongside the names in scope.</summary>
+    public static IReadOnlyCollection<string> KeywordNames => KeywordMap.Keys;
 }

@@ -35,12 +35,7 @@ public sealed class SourceRoot(LoomConfig config)
     ///     Which root a file <em>belongs</em> to is <see cref="SourceRootSet.Of" />'s answer to give, though:
     ///     roots nest, and then more than one of them contains the file.
     /// </summary>
-    public bool Contains(string absolutePath)
-    {
-        var sourceDirectory = SourceDirectory;
-        return absolutePath == sourceDirectory
-               || absolutePath.StartsWith(sourceDirectory + Path.DirectorySeparatorChar, StringComparison.Ordinal);
-    }
+    public bool Contains(string absolutePath) => PathComparison.IsUnder(absolutePath, SourceDirectory);
 
     /// <summary>
     ///     Names <paramref name="file" /> the way a diagnostic should: relative to this root, qualified by the

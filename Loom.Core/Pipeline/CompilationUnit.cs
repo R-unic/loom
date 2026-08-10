@@ -91,7 +91,7 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     private readonly Dictionary<string, (Compiler Compiler, ParsedFile Parsed)> _parsedByPath = new(_pathComparer);
     private readonly Dictionary<string, (CompiledFile CompiledFile, TimeSpan AnalyzeDuration)> _compiledByPath = new(_pathComparer);
 
-    private static readonly StringComparer _pathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private static readonly StringComparer _pathComparer = PathComparison.Comparer;
 
     public CompilationResult Compile()
     {
@@ -150,6 +150,18 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     }
 
     public CompilationResult Recompile(IReadOnlySet<string> changedAbsolutePaths) => Recompile(NormalizePaths(changedAbsolutePaths), static _ => null);
+
+    /// <summary>
+    ///     Drops everything cached for a file, so that a later compile does not resurrect it. A file removed
+    ///     from <see cref="Roots" /> is otherwise still parsed and analyzed: an incremental compile works from
+    ///     what it parsed last time, not from what is on disk now.
+    /// </summary>
+    public void Forget(string absolutePath)
+    {
+        var path = NormalizePath(absolutePath);
+        _parsedByPath.Remove(path);
+        _compiledByPath.Remove(path);
+    }
 
     public CompilationResult Recompile(IReadOnlyDictionary<string, string> changedContents)
     {

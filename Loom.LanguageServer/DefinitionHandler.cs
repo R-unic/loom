@@ -15,8 +15,11 @@ public sealed class DefinitionHandler(DocumentStore documents) : DefinitionHandl
         try
         {
             var offset = IncrementalText.ToOffset(state.File.SourceFile.SourceText, request.Position);
-            var node = NodeFinder.FindAt(state.File.Tree, offset);
-            var symbol = node == null ? null : state.File.SemanticModel.GetSymbol(node) ?? state.File.SemanticModel.GetDeclarationSymbol(node);
+
+            // the same resolution the other navigation requests use, so a member, an import specifier and a
+            // plain name all lead somewhere - a member name is a token of its access expression rather than a
+            // node, so looking the node up alone finds nothing for it
+            var symbol = SymbolReferences.At(state.File, offset);
             if (symbol == null || !File.Exists(symbol.Declaration.File.AbsolutePath))
                 return Task.FromResult<LocationOrLocationLinks?>(null);
 
@@ -27,6 +30,11 @@ public sealed class DefinitionHandler(DocumentStore documents) : DefinitionHandl
             };
 
             return Task.FromResult<LocationOrLocationLinks?>(new LocationOrLocationLinks(new LocationOrLocationLink(location)));
+        }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {

@@ -22,6 +22,12 @@ public sealed class SourceFile
     public bool IsDeclaration { get; set; }
     public bool IsIntrinsic { get; internal set; }
 
+    /// <summary>
+    ///     The file's <c>###</c> doc comments, filled in by the lexer. Empty until the file has been
+    ///     tokenized, which is why nothing raises when a caller asks a file the compiler never read.
+    /// </summary>
+    public DocumentationTable Documentation { get; internal set; } = DocumentationTable.Empty;
+
     public override string ToString() => Name;
     public string RelativePath(string to = ".") => Path.GetRelativePath(to, AbsolutePath);
 

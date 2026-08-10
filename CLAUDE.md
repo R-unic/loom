@@ -54,6 +54,34 @@ before claiming done.
   (non-empty, relative, path-legal), since nothing downstream can report one that isn't: they are resolved as real paths and a stage throwing is the
   compiler-bug path
 - `Loom.CLI/` — entry point; locates config, compiles unit, prints debug info. `Include/loom_runtime.luau` = runtime support emitted alongside output
+- `Loom.LanguageServer/` — LSP server (OmniSharp). One handler per request, all registered in `Program.cs`, all answering off the `DocumentStore`:
+  it keeps one `CompilationUnit` per project root and recompiles the open file on every change. The pieces the handlers share:
+    - `CompletionSnapshot` — rebuilt from each compile; answers "what may be written at this offset" (member scope, import list, attribute list,
+      module specifier, type vs value position — plus keywords and built-in type names, which are never symbols, and `Importable`, the names other
+      modules export that this file has not imported). A completion item's detail and documentation are `Func<>`s resolved on the client's resolve
+      request, never eagerly: a project has thousands of names in scope on every keystroke and the client reads at most one
+    - `DeclarationDisplay` renders a symbol the way its declaration reads; `SymbolMarkdown` composes the hover body; `DocumentationBlock` parses
+      `@param`/`@returns` out of a doc comment; `CallSiteFinder` locates the call the cursor is inside and who it calls
+    - `SymbolReferences` walks every analyzed tree to invert the resolver — what refers to *this* symbol — behind references, rename, prepare-rename
+      and document highlight. An import binds the exporting module's own `Symbol` instance, so one identity spans every file; a reference whose token
+      text differs from the symbol's name is an alias and is left alone by rename
+    - `ImportCatalog`/`ImportEdits` decide what a file could import and build the edit that imports it, shared by auto-import completion and the
+      "Import 'X'" quick fix
+    - `DocumentStore` splits recording an edit from compiling it: `Change` only records, `Compile`/`TryGetState` bring the document up to date on
+      demand, and only `didChange`'s diagnostic publish is deferred (via `Debouncer`) because it is the one thing nobody is blocked on. Every dirty
+      buffer of a unit goes into one `Recompile` together, and `Close` reverts the file to its saved text — the unit keeps whatever text it was last
+      handed, and an editor discards unsaved edits when a document closes
+    - `DiagnosticPublisher` reports every file the compile found something in, not just the edited one, and remembers what it said so a file whose
+      errors are gone gets an empty set. It only ever clears files the compile covered: a workspace may hold more than one project
+    - `Conversion` owns `DiagnosticsFor`/`DiagnosticsByFile`: a null result means the file was not analyzed, and an empty set is how a client is told
+      to drop what it is still showing
+    - `WatchedFilesHandler` takes the client's file-watcher notifications (the client watches, not the server — it already knows the user's exclusions
+      and would not hear its own writes back) and feeds them to `DocumentStore.ReloadFromDisk`, debounced so a branch switch compiles once rather than
+      once per file. A file open in the editor is skipped: its buffer is what every request is answered against
+    - `FilePaths.Same`, which is `Loom.Core.Text.PathComparison` — never compare paths with `==`. A client's `file:` URI round-trips a Windows drive
+      letter in lower case while the compiler's path came from the project directory, so an ordinal comparison silently matches nothing. *Module
+      specifiers* are deliberately case-sensitive, though (Roblox requires are), so `SourceRootSet.CanonicalPath` is what keeps a path entering the
+      unit from a new source spelled the way the roots already spell it
 - `Loom.TypeGenerator/` — Loom code generator to define types for the Roblox API; tests depend on these types to be generated to pass
 - `Loom.Tools/` — dev tooling (AST dump, snapshot generation)
 - `Loom.Testing/` — all tests, one test class per compiler stage/component
@@ -87,6 +115,9 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:`/`ref:` (see git log).
 - Source files: Loom source uses `.loom` extension; output `.luau`. Indices are 1-based (Luau semantics). Immutability by default (`let` → `const`/local, `mut`
   for mutable).
+- Loom comments: `##` line, `#: … :#` block, `###` doc. A run of `###` lines documents the declaration below it and is the only comment form anything
+  reads — the lexer pairs each run with the token it precedes in `SourceFile.Documentation`, and `Node.Documentation` looks it up. `@param name text`
+  and `@returns text` inside one are pulled out for signature help.
 - ReSharper/Rider settings in `Loom.sln.DotSettings`; formatting handled by linter, don't hand-fight it.
 
 ## Gotchas

@@ -55,7 +55,7 @@ internal static class EventConnectionScopeAnalyzer
         var connectsByKey = new Dictionary<(EventTarget, Symbol), List<AssignmentOperator>>();
         var disconnectsByKey = new Dictionary<(EventTarget, Symbol), List<AssignmentOperator>>();
 
-        foreach (var assignment in semanticModel.Tree.GetDescendants<AssignmentOperator>())
+        foreach (var assignment in semanticModel.Tree.EnumerateDescendants<AssignmentOperator>())
         {
             if (assignment.Operator.Kind is not (SyntaxKind.PlusEquals or SyntaxKind.MinusEquals)) continue;
             if (ResolveEventTarget(semanticModel, assignment.Left) is not { } target) continue;

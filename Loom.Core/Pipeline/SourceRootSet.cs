@@ -24,8 +24,15 @@ public sealed class SourceRootSet : IReadOnlyList<SourceRoot>
     /// <summary>The project the unit was started for, and the root that owns every file no other root claims.</summary>
     public SourceRoot Entry => field ??= _roots[0];
 
-    /// <summary>Every root's files, entry project first.</summary>
-    public IReadOnlyList<SourceFile> Files => field ??= _roots.SelectMany(root => root.Files).ToArray();
+    /// <summary>
+    ///     Every root's files, entry project first. Rebuilt whenever the roots change, so a caller indexing
+    ///     this never holds a file the set has since replaced - the semantic models of a compile are keyed by
+    ///     <see cref="SourceFile" /> instance, and a stale one looks up nothing.
+    /// </summary>
+    public IReadOnlyList<SourceFile> Files => _files ??= _roots.SelectMany(root => root.Files).ToArray();
+
+    private IReadOnlyList<SourceFile>? _files;
+
 
     public int Count => _roots.Count;
     public SourceRoot this[int index] => _roots[index];
@@ -98,11 +105,74 @@ public sealed class SourceRootSet : IReadOnlyList<SourceRoot>
     {
         foreach (var root in _roots)
         {
-            var index = root.Files.FindIndex(existing => existing.AbsolutePath == file.AbsolutePath);
+            var index = root.Files.FindIndex(existing => PathComparison.Same(existing.AbsolutePath, file.AbsolutePath));
             if (index < 0)
                 continue;
 
             root.Files[index] = file;
+            _files = null;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Adds a file the set did not have, to the root owning its path - a file created after the unit was
+    ///     built, which nothing loaded from disk.
+    /// </summary>
+    /// <returns>Whether any root's source directory contains it; a file outside every root belongs to no project here.</returns>
+    public bool Add(SourceFile file)
+    {
+        if (Replace(file))
+            return true;
+
+        if (OwnerOf(Path.GetFullPath(file.AbsolutePath)) is not { } owner)
+            return false;
+
+        owner.Files.Add(file);
+        _files = null;
+        return true;
+    }
+
+    /// <summary>
+    ///     The path this set uses for a file, which may differ in case from the one a caller was handed. Module
+    ///     specifiers resolve case-sensitively on purpose - Roblox requires do - so a file that reaches the set
+    ///     under a different spelling of the same path is a module nothing can import, and the file that used
+    ///     to be importable at that path is gone.
+    /// </summary>
+    public string CanonicalPath(string absolutePath)
+    {
+        var path = Path.GetFullPath(absolutePath);
+        foreach (var root in _roots)
+            if (root.Files.Find(file => PathComparison.Same(file.AbsolutePath, path)) is { } held)
+                return held.AbsolutePath;
+
+        // nothing holds it yet, so the owning root's own spelling of its source directory decides
+        return OwnerOf(path) is { } owner ? Path.Combine(owner.SourceDirectory, Path.GetRelativePath(owner.SourceDirectory, path)) : path;
+    }
+
+    /// <summary>The innermost root whose source directory contains the path, or null when no root does.</summary>
+    private SourceRoot? OwnerOf(string absolutePath)
+    {
+        SourceRoot? owner = null;
+        foreach (var root in _roots)
+            if (root.Contains(absolutePath) && (owner == null || root.SourceDirectory.Length > owner.SourceDirectory.Length))
+                owner = root;
+
+        return owner;
+    }
+
+    /// <summary>Drops the file at <paramref name="absolutePath" /> from whichever root holds it, for a file deleted from disk.</summary>
+    /// <returns>Whether any root held one.</returns>
+    public bool Remove(string absolutePath)
+    {
+        foreach (var root in _roots)
+        {
+            if (root.Files.RemoveAll(existing => PathComparison.Same(existing.AbsolutePath, absolutePath)) == 0)
+                continue;
+
+            _files = null;
             return true;
         }
 
