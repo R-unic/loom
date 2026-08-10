@@ -26,10 +26,14 @@ public class DebouncerTest
         await ran.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
+    /// <remarks>
+    ///     The delay has to outlast the burst by enough that a stalled machine cannot let an early item
+    ///     through, or the test fails for a reason that has nothing to do with the debouncer.
+    /// </remarks>
     [Fact]
     public async Task Schedule_RunsOnlyTheLastOfABurst()
     {
-        using var debouncer = new Debouncer(TimeSpan.FromMilliseconds(30));
+        using var debouncer = new Debouncer(TimeSpan.FromMilliseconds(500));
         var runs = 0;
         var last = new TaskCompletionSource<int>();
 

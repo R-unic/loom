@@ -570,12 +570,39 @@ public class SourceRootTest
     }
 
     /// <summary>Writes a project directory - its manifest and its source files - and returns the config located from it.</summary>
-    /// <summary>
-    ///     Module specifiers resolve case-sensitively on purpose, so a file reaching the set under a different
-    ///     spelling of the same path would become a module nothing can import.
-    /// </summary>
     [Fact]
     public void CanonicalPath_ForAFileTheSetHolds_IsTheSpellingItHolds() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;")],
+            (unit, _) =>
+            {
+                var held = unit.SourceFiles.First(file => file.Name == "math.loom").AbsolutePath;
+                Assert.Equal(held, unit.Roots.CanonicalPath(held));
+            }
+        );
+
+    [Fact]
+    public void CanonicalPath_ForANewFileUnderARoot_IsRootedAtThatRootsSourceDirectory() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;")],
+            (unit, _) =>
+            {
+                var added = Path.Combine(unit.Roots.Entry.SourceDirectory, "added.loom");
+                Assert.Equal(added, unit.Roots.CanonicalPath(added));
+            }
+        );
+
+    /// <summary>
+    ///     Module specifiers resolve case-sensitively on purpose, so a file reaching the set under a different
+    ///     spelling of the same path would become a module nothing can import. Only a case-insensitive
+    ///     filesystem can produce a second spelling of one file; where case matters there is nothing to
+    ///     reconcile, because the two paths are two files.
+    /// </summary>
+    [Fact]
+    public void CanonicalPath_OnACaseInsensitiveFileSystem_ReconcilesASpellingOfAHeldPath()
+    {
+        Assert.SkipUnless(PathComparison.IgnoresCase, "paths are case-sensitive on this platform");
+
         Utility.WithTempProject(
             [("math.loom", "export let value: number = 1;")],
             (unit, _) =>
@@ -586,9 +613,13 @@ public class SourceRootTest
                 Assert.Equal(held, unit.Roots.CanonicalPath(held.ToLowerInvariant()));
             }
         );
+    }
 
     [Fact]
-    public void CanonicalPath_ForANewFile_TakesTheOwningRootsSpellingOfItsDirectory() =>
+    public void CanonicalPath_OnACaseInsensitiveFileSystem_TakesTheOwningRootsSpellingOfItsDirectory()
+    {
+        Assert.SkipUnless(PathComparison.IgnoresCase, "paths are case-sensitive on this platform");
+
         Utility.WithTempProject(
             [("math.loom", "export let value: number = 1;")],
             (unit, _) =>
@@ -599,6 +630,7 @@ public class SourceRootTest
                 Assert.Equal(Path.Combine(sourceDirectory, "added.loom"), unit.Roots.CanonicalPath(added));
             }
         );
+    }
 
     [Fact]
     public void CanonicalPath_ForAFileUnderNoRoot_IsLeftAsItIs() =>

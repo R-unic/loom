@@ -9,6 +9,13 @@ namespace Loom.Core.Text;
 /// </summary>
 public static class PathComparison
 {
+    /// <summary>
+    ///     Whether two paths differing only in case name the same file here. Where they do not, nothing can
+    ///     unify them - <c>/a</c> and <c>/A</c> really are two files - so anything reconciling one spelling of
+    ///     a path with another only has work to do when this is true.
+    /// </summary>
+    public static bool IgnoresCase => OperatingSystem.IsWindows();
+
     public static readonly StringComparer Comparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     public static readonly StringComparison Comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
