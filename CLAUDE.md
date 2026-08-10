@@ -75,8 +75,13 @@ before claiming done.
       errors are gone gets an empty set. It only ever clears files the compile covered: a workspace may hold more than one project
     - `Conversion` owns `DiagnosticsFor`/`DiagnosticsByFile`: a null result means the file was not analyzed, and an empty set is how a client is told
       to drop what it is still showing
-    - `FilePaths.Same` — never compare paths with `==`. A client's `file:` URI round-trips a Windows drive letter in lower case while the compiler's
-      path came from the project directory, so an ordinal comparison silently matches nothing
+    - `WatchedFilesHandler` takes the client's file-watcher notifications (the client watches, not the server — it already knows the user's exclusions
+      and would not hear its own writes back) and feeds them to `DocumentStore.ReloadFromDisk`, debounced so a branch switch compiles once rather than
+      once per file. A file open in the editor is skipped: its buffer is what every request is answered against
+    - `FilePaths.Same`, which is `Loom.Core.Text.PathComparison` — never compare paths with `==`. A client's `file:` URI round-trips a Windows drive
+      letter in lower case while the compiler's path came from the project directory, so an ordinal comparison silently matches nothing. *Module
+      specifiers* are deliberately case-sensitive, though (Roblox requires are), so `SourceRootSet.CanonicalPath` is what keeps a path entering the
+      unit from a new source spelled the way the roots already spell it
 - `Loom.TypeGenerator/` — Loom code generator to define types for the Roblox API; tests depend on these types to be generated to pass
 - `Loom.Tools/` — dev tooling (AST dump, snapshot generation)
 - `Loom.Testing/` — all tests, one test class per compiler stage/component

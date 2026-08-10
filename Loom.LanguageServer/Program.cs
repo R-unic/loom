@@ -29,6 +29,7 @@ var server = await LanguageServer.From(options =>
         .WithHandler<TypeDefinitionHandler>()
         .WithHandler<ImplementationHandler>()
         .WithHandler<CodeActionHandler>()
+        .WithHandler<WatchedFilesHandler>()
 );
 
 await server.WaitForExit;

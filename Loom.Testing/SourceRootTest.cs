@@ -570,6 +570,102 @@ public class SourceRootTest
     }
 
     /// <summary>Writes a project directory - its manifest and its source files - and returns the config located from it.</summary>
+    /// <summary>
+    ///     Module specifiers resolve case-sensitively on purpose, so a file reaching the set under a different
+    ///     spelling of the same path would become a module nothing can import.
+    /// </summary>
+    [Fact]
+    public void CanonicalPath_ForAFileTheSetHolds_IsTheSpellingItHolds() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;")],
+            (unit, _) =>
+            {
+                var held = unit.SourceFiles.First(file => file.Name == "math.loom").AbsolutePath;
+
+                Assert.Equal(held, unit.Roots.CanonicalPath(held.ToUpperInvariant()));
+                Assert.Equal(held, unit.Roots.CanonicalPath(held.ToLowerInvariant()));
+            }
+        );
+
+    [Fact]
+    public void CanonicalPath_ForANewFile_TakesTheOwningRootsSpellingOfItsDirectory() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;")],
+            (unit, _) =>
+            {
+                var sourceDirectory = unit.Roots.Entry.SourceDirectory;
+                var added = Path.Combine(sourceDirectory.ToUpperInvariant(), "added.loom");
+
+                Assert.Equal(Path.Combine(sourceDirectory, "added.loom"), unit.Roots.CanonicalPath(added));
+            }
+        );
+
+    [Fact]
+    public void CanonicalPath_ForAFileUnderNoRoot_IsLeftAsItIs() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;")],
+            (unit, _) =>
+            {
+                var elsewhere = Path.Combine(Path.GetTempPath(), "loom-outside-every-root.loom");
+                Assert.Equal(elsewhere, unit.Roots.CanonicalPath(elsewhere));
+            }
+        );
+
+    [Fact]
+    public void Add_PutsAFileInTheRootThatContainsIt() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;")],
+            (unit, _) =>
+            {
+                var added = new SourceFile(Path.Combine(unit.Roots.Entry.SourceDirectory, "added.loom"), "let x = 1;");
+
+                Assert.True(unit.Roots.Add(added));
+                Assert.Contains(unit.SourceFiles, file => file.Name == "added.loom");
+            }
+        );
+
+    [Fact]
+    public void Add_ForAFileUnderNoRoot_AddsNothing() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;")],
+            (unit, _) =>
+            {
+                var elsewhere = new SourceFile(Path.Combine(Path.GetTempPath(), "loom-outside-every-root.loom"), "let x = 1;");
+
+                Assert.False(unit.Roots.Add(elsewhere));
+                Assert.DoesNotContain(unit.SourceFiles, file => file.Name == "loom-outside-every-root.loom");
+            }
+        );
+
+    [Fact]
+    public void Remove_DropsTheFileFromTheRootHoldingIt() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;"), ("other.loom", "let x = 1;")],
+            (unit, _) =>
+            {
+                var path = unit.SourceFiles.First(file => file.Name == "other.loom").AbsolutePath;
+
+                Assert.True(unit.Roots.Remove(path));
+                Assert.DoesNotContain(unit.SourceFiles, file => file.Name == "other.loom");
+                Assert.False(unit.Roots.Remove(path));
+            }
+        );
+
+    /// <summary>The semantic models of a compile are keyed by <see cref="SourceFile" /> instance, and a stale one looks up nothing.</summary>
+    [Fact]
+    public void Files_AfterAReplace_HandsBackTheFileThatReplacedIt() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;")],
+            (unit, _) =>
+            {
+                var path = unit.SourceFiles.First(file => file.Name == "math.loom").AbsolutePath;
+                var replacement = new SourceFile(path, "export let value: number = 2;");
+
+                Assert.True(unit.Roots.Replace(replacement));
+                Assert.Same(replacement, unit.SourceFiles.First(file => file.Name == "math.loom"));
+            }
+        );
+
     private static LoomConfig WriteProject(string directory, string manifest, IEnumerable<(string Path, string Source)> files)
     {
         var sourceDirectory = Path.Combine(directory, "src");

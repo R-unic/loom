@@ -2,10 +2,14 @@ using System.Collections.Concurrent;
 using Loom.Config;
 using Loom.Core.Modules;
 using Loom.Core.Pipeline;
+using Loom.Core.Text;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Loom.LanguageServer;
+
+/// <summary>A file the editor reported as changed on disk, and whether it is still there.</summary>
+public sealed record WatchedFile(string Path, bool Exists);
 
 /// <summary>
 ///     Everything a request about one open document is answered from. The unit comes along because a symbol's
@@ -123,6 +127,120 @@ public sealed class DocumentStore
 
     /// <summary>Whether the document has edits the last compile did not see.</summary>
     public bool IsDirty(DocumentUri uri) => _documents.TryGetValue(uri, out var document) && document.IsDirty;
+
+    /// <summary>
+    ///     Takes in changes made to files outside the editor - a branch switch, a generator, another tool - and
+    ///     recompiles whatever they touched.
+    /// </summary>
+    /// <remarks>
+    ///     A file open in the editor is skipped: its buffer is the version the user is looking at, and the one
+    ///     every request is answered against, so letting the file on disk overwrite it would answer about text
+    ///     that is not on screen. A saved buffer arrives here identical to what the store already has anyway.
+    /// </remarks>
+    /// <returns>The compiles that ran, one per project the changes reached.</returns>
+    public IReadOnlyList<CompilationResult> ReloadFromDisk(IReadOnlyList<WatchedFile> changes)
+    {
+        lock (_compilationLock)
+        {
+            // a manifest decides where a project's sources are and what it depends on, which is everything the
+            // unit was built around - there is nothing to update in place, so the unit is rebuilt from scratch
+            if (changes.Any(change => Path.GetFileName(change.Path) == ConfigReader.ConfigFileName))
+            {
+                DiscardUnits();
+                return [];
+            }
+
+            var affected = new Dictionary<CompilationUnit, UnitChanges>();
+            foreach (var change in changes)
+            {
+                if (!FileManager.IsLoomFile(change.Path) || IsOpen(change.Path))
+                    continue;
+
+                if (UnitContaining(change.Path) is not { } unit)
+                    continue;
+
+                if (!affected.TryGetValue(unit, out var pending))
+                    affected[unit] = pending = new UnitChanges();
+
+                Apply(unit, change, pending);
+            }
+
+            return affected.Select(entry => Recompile(entry.Key, entry.Value)).OfType<CompilationResult>().ToArray();
+        }
+    }
+
+    /// <summary>What a batch of on-disk changes did to one project: which files changed, and whether the set of files itself did.</summary>
+    private sealed class UnitChanges
+    {
+        public HashSet<string> Paths { get; } = [];
+
+        /// <summary>Whether a file appeared or vanished, which changes the module graph and so cannot be compiled incrementally.</summary>
+        public bool MembershipChanged { get; set; }
+    }
+
+    private static void Apply(CompilationUnit unit, WatchedFile change, UnitChanges pending)
+    {
+        // the roots decide how the path is spelled; a client's URI and a directory listing disagree about the
+        // case of a Windows drive letter, and module specifiers resolve case-sensitively
+        var path = unit.Roots.CanonicalPath(change.Path);
+        if (change.Exists)
+        {
+            if (ReadFromDisk(path) is not { } text)
+                return;
+
+            var file = new SourceFile(path, text);
+
+            // a file the roots already hold is an edit; one they do not is a new module, and the graph has to
+            // be rebuilt around it
+            if (!unit.Roots.Replace(file))
+                pending.MembershipChanged |= unit.Roots.Add(file);
+
+            pending.Paths.Add(path);
+            return;
+        }
+
+        if (!unit.Roots.Remove(path))
+            return;
+
+        unit.Forget(path);
+        pending.MembershipChanged = true;
+    }
+
+    private CompilationResult? Recompile(CompilationUnit unit, UnitChanges changes)
+    {
+        try
+        {
+            // a file appearing or vanishing rewires the module graph, and an incremental compile works from the
+            // graph it built last time
+            var result = changes.MembershipChanged ? unit.Compile() : unit.Recompile(changes.Paths);
+            _results[unit] = result;
+            RefreshStates(unit, result);
+            return result;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Throws away every unit, so the next request builds one from the configuration as it now reads.</summary>
+    private void DiscardUnits()
+    {
+        _unitsByProjectRoot.Clear();
+        _results.Clear();
+        _state.Clear();
+
+        foreach (var document in _documents.Values)
+        {
+            document.Unit = null;
+            document.IsDirty = true;
+        }
+    }
+
+    private bool IsOpen(string path) => _documents.Values.Any(document => FilePaths.Same(document.Path, path));
+
+    private CompilationUnit? UnitContaining(string path) =>
+        _unitsByProjectRoot.Values.FirstOrDefault(unit => unit.Roots.Any(root => root.Contains(Path.GetFullPath(path))));
 
     private CompilationResult? Recompile(CompilationUnit unit, IReadOnlyList<OpenDocument> dirty)
     {
