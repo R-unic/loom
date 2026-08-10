@@ -19,6 +19,7 @@ var server = await LanguageServer.From(options =>
         .WithHandler<DocumentHighlightHandler>()
         .WithHandler<PrepareRenameHandler>()
         .WithHandler<RenameHandler>()
+        .WithHandler<FoldingRangeHandler>()
 );
 
 await server.WaitForExit;
