@@ -22,4 +22,10 @@ public sealed record VisibleSymbol(string Name, CompletionItemKind Kind)
 
     /// <summary>The markdown shown in the item's documentation pane, resolved only when the client asks about this item.</summary>
     public Func<string?> Documentation { get; init; } = _noDocumentation;
+
+    /// <summary>
+    ///     The module this name would have to be imported from before it can be written, or null when it is
+    ///     already in scope. Shown beside the label so an import is never added without the reader seeing it.
+    /// </summary>
+    public string? ImportedFrom { get; init; }
 }

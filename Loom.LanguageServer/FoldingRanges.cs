@@ -1,4 +1,3 @@
-using Loom.Core.Lexing;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Pipeline;
 using Loom.Core.Text;
@@ -20,7 +19,7 @@ public static class FoldingRanges
                 AddBrackets(ranges, open, close);
 
         AddImports(ranges, file.Tree);
-        AddComments(ranges, file.SourceFile);
+        AddComments(ranges, file.Tree);
 
         return ranges;
     }
@@ -55,16 +54,15 @@ public static class FoldingRanges
     }
 
     /// <summary>
-    ///     Comment regions, from a re-lex of the file. The parser drops trivia, so the tokens that would say
-    ///     where the comments are do not survive into the tree - and lexing is the one stage cheap enough to
-    ///     run again for a question this small.
+    ///     Comment regions. No node stands for a comment - the parser drops trivia - but the tree keeps the
+    ///     whole token stream it was built from, trivia included, which is where the comments still are.
     /// </summary>
-    private static void AddComments(List<FoldingRange> ranges, SourceFile file)
+    private static void AddComments(List<FoldingRange> ranges, Tree tree)
     {
         Token? runStart = null;
         Token? runEnd = null;
 
-        foreach (var token in new Lexer(file).Tokenize().TokensWithTrivia)
+        foreach (var token in tree.Tokens)
             switch (token.Kind)
             {
                 case SyntaxKind.BlockComment:

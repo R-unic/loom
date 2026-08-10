@@ -28,6 +28,9 @@ public sealed record CompletionSnapshot
 
     /// <summary>Import lists, each offering the exports of the module its own declaration names.</summary>
     public IReadOnlyList<ExclusiveScope> ImportScopes { get; init; } = [];
+
+    /// <summary>Names other modules export that this file has not imported, offered alongside what is in scope.</summary>
+    public IReadOnlyList<VisibleSymbol> Importable { get; init; } = [];
     public IReadOnlyList<TextSpan> TypeRanges { get; init; } = [];
     public IReadOnlyList<TextSpan> AttributeRanges { get; init; } = [];
     public IReadOnlyList<TextSpan> ModuleSpecifierRanges { get; init; } = [];
@@ -52,6 +55,7 @@ public sealed record CompletionSnapshot
         return Identifiers
             .Where(symbol => symbol.IsTypeSymbol == wantsTypes && symbol.Scope.Contains(offset))
             .Concat(wantsTypes ? LanguageKeywords.Types : LanguageKeywords.Values)
+            .Concat(Importable.Where(symbol => symbol.IsTypeSymbol == wantsTypes))
             .ToArray();
     }
 
@@ -114,6 +118,7 @@ public static class CompletionSnapshotBuilder
                 .Where(symbol => symbol.Kind is LoomSymbolKind.Attribute or LoomSymbolKind.Function)
                 .Select(symbol => ToVisibleSymbol(symbol, context, wholeFile))
                 .ToArray(),
+            Importable = CollectImportable(declared, context),
             ModuleSpecifiers = CollectModuleSpecifiers(sourceFile, unit),
             MemberScopes = CollectMemberScopes(descendants, context),
             ImportScopes = CollectImportScopes(descendants, context),
@@ -121,6 +126,36 @@ public static class CompletionSnapshotBuilder
             AttributeRanges = descendants.OfType<Attributes>().Select(node => BracketRange(node.LeftBracket, node.RightBracket)).ToArray(),
             ModuleSpecifierRanges = descendants.OfType<ImportDeclaration>().Select(node => node.ModuleSpecifier.Span).ToArray()
         };
+    }
+
+    /// <summary>
+    ///     Names another module exports that this file cannot yet write. Anything already in scope is left out:
+    ///     the name is offered from the scope it is in, and offering it twice would put an import beside a
+    ///     candidate that needs none.
+    /// </summary>
+    private static IReadOnlyList<VisibleSymbol> CollectImportable(IReadOnlyList<Symbol> declared, FileContext context)
+    {
+        var inScope = declared.Select(symbol => (symbol.Name, symbol.IsTypeSymbol)).ToHashSet();
+        var importable = new List<VisibleSymbol>();
+
+        foreach (var candidate in ImportCatalog.For(context.SourceFile, context.Unit))
+        {
+            var symbol = candidate.Symbol;
+            if (!inScope.Add((candidate.Name, symbol.IsTypeSymbol)))
+                continue;
+
+            importable.Add(
+                new VisibleSymbol(candidate.Name, ToCompletionItemKind(symbol.Kind))
+                {
+                    IsTypeSymbol = symbol.IsTypeSymbol,
+                    ImportedFrom = candidate.Specifier,
+                    Detail = () => DeclarationDisplay.CompletionDetail(symbol, TypeOf(candidate.Model, symbol.Declaration)),
+                    Documentation = () => SymbolMarkdown.Describe(symbol, TypeOf(candidate.Model, symbol.Declaration), symbol.File, context.Unit)
+                }
+            );
+        }
+
+        return importable;
     }
 
     private static IReadOnlyList<VisibleSymbol> CollectModuleSpecifiers(SourceFile importingFile, CompilationUnit unit)

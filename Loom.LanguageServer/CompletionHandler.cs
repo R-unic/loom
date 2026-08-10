@@ -39,20 +39,30 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
     /// </summary>
     public override Task<CompletionItem> Handle(CompletionItem request, CancellationToken cancellationToken)
     {
-        if (Resolve(request) is not { } symbol)
+        if (Resolve(request) is not var (symbol, state))
             return Task.FromResult(request);
 
         var documentation = symbol.Documentation();
         return Task.FromResult(
             request with
             {
-                LabelDetails = new CompletionItemLabelDetails { Detail = symbol.Detail() },
+                LabelDetails = new CompletionItemLabelDetails { Detail = symbol.Detail(), Description = symbol.ImportedFrom },
                 Documentation = documentation == null
                     ? null
-                    : new StringOrMarkupContent(new MarkupContent { Kind = MarkupKind.Markdown, Value = documentation })
+                    : new StringOrMarkupContent(new MarkupContent { Kind = MarkupKind.Markdown, Value = documentation }),
+                AdditionalTextEdits = ImportEditFor(symbol, state)
             }
         );
     }
+
+    /// <summary>
+    ///     The import that has to be written for a name not yet in scope. It rides along with the completion
+    ///     rather than being a separate step, so accepting the name leaves the file compiling.
+    /// </summary>
+    private static TextEditContainer? ImportEditFor(VisibleSymbol symbol, DocumentState state) =>
+        symbol.ImportedFrom is { } specifier && ImportEdits.Add(state.File, symbol.Name, specifier) is { } edit
+            ? new TextEditContainer(edit)
+            : null;
 
     protected override CompletionRegistrationOptions CreateRegistrationOptions(CompletionCapability capability, ClientCapabilities clientCapabilities) =>
         new()
@@ -73,7 +83,7 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
 
     private static bool IsIdentifierCharacter(char character) => char.IsLetterOrDigit(character) || character == '_';
 
-    private VisibleSymbol? Resolve(CompletionItem item)
+    private (VisibleSymbol Symbol, DocumentState State)? Resolve(CompletionItem item)
     {
         if (item.Data is not { } data
             || data[UriKey]?.Value<string>() is not { } uri
@@ -81,7 +91,10 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
             || data[NameKey]?.Value<string>() is not { } name)
             return null;
 
-        return documents.TryGetState(DocumentUri.Parse(uri), out var state) ? state.Completions.Find(offset, name) : null;
+        if (!documents.TryGetState(DocumentUri.Parse(uri), out var state))
+            return null;
+
+        return state.Completions.Find(offset, name) is { } symbol ? (symbol, state) : null;
     }
 
     private static CompletionItem ToCompletionItem(VisibleSymbol symbol, DocumentUri uri, int offset) =>
@@ -90,8 +103,11 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
             Label = symbol.Name,
             Kind = symbol.Kind,
             // clients re-sort by their own match score and use sortText only to break ties, which is exactly
-            // where a name the file itself declares should win over one of the thousands always in scope
-            SortText = $"{(symbol.IsLocal ? '0' : '1')}{symbol.Name}",
+            // where a name the file itself declares should win over one of the thousands always in scope -
+            // and where a name that is not in scope at all should come last, since taking it edits the file
+            SortText = $"{SortRank(symbol)}{symbol.Name}",
             Data = new JObject { [UriKey] = uri.ToString(), [OffsetKey] = offset, [NameKey] = symbol.Name }
         };
+
+    private static char SortRank(VisibleSymbol symbol) => symbol.ImportedFrom != null ? '2' : symbol.IsLocal ? '0' : '1';
 }

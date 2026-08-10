@@ -22,6 +22,7 @@ var server = await LanguageServer.From(options =>
         .WithHandler<FoldingRangeHandler>()
         .WithHandler<TypeDefinitionHandler>()
         .WithHandler<ImplementationHandler>()
+        .WithHandler<CodeActionHandler>()
 );
 
 await server.WaitForExit;
