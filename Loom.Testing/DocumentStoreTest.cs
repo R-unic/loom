@@ -111,7 +111,7 @@ public class DocumentStoreTest
 
             Assert.True(store.TryGetState(uri, out var opened));
             var snapshot = opened.Completions;
-            Assert.Contains(snapshot.Identifiers, symbol => symbol.Name == "x" && symbol.TypeDescription == "1");
+            Assert.Contains(snapshot.Identifiers, symbol => symbol.Name == "x" && symbol.Detail() == ": 1");
             Assert.DoesNotContain(snapshot.Identifiers, symbol => symbol.Name == "y");
 
             store.Change(uri, [new TextDocumentContentChangeEvent { Text = "let x = 1;\nlet y = \"two\";" }]);
@@ -120,7 +120,7 @@ public class DocumentStoreTest
             Assert.DoesNotContain(snapshot.Identifiers, symbol => symbol.Name == "y");
 
             Assert.True(store.TryGetState(uri, out var changed));
-            Assert.Contains(changed.Completions.Identifiers, symbol => symbol.Name == "y" && symbol.TypeDescription == "\"two\"");
+            Assert.Contains(changed.Completions.Identifiers, symbol => symbol.Name == "y" && symbol.Detail() == ": \"two\"");
         }
         finally
         {

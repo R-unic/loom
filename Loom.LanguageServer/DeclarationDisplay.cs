@@ -74,6 +74,19 @@ public static class DeclarationDisplay
     private static DeclaredParameters? DeclaredParametersOf(IReadOnlyList<Symbol> symbols, int index) =>
         index < symbols.Count ? DeclaredParametersOf(symbols[index].Declaration) : null;
 
+    /// <summary>
+    ///     The signature shown beside a completion label. The label already is the name, and the client prints
+    ///     the two run together, so everything up to and including the name is dropped: <c>add</c> reads
+    ///     <c>(x: number): number</c> and <c>total</c> reads <c>: number</c>.
+    /// </summary>
+    public static string CompletionDetail(Symbol symbol, Type? type)
+    {
+        var signature = Of(symbol, type);
+        var name = signature.IndexOf(symbol.Name, StringComparison.Ordinal);
+        var detail = name < 0 ? $" {signature}" : signature[(name + symbol.Name.Length)..];
+        return detail.Trim() is "" or "]" ? "" : detail;
+    }
+
     /// <summary>The attribute list written above a declaration, as source text, or null when it has none.</summary>
     public static string? AttributesOf(Symbol symbol) =>
         (symbol.Declaration as IWithAttributes)?.Attributes is { AttributeList.Count: > 0 } attributes ? attributes.ToString() : null;

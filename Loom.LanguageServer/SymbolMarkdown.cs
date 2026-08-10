@@ -23,20 +23,6 @@ public static class SymbolMarkdown
     /// <summary>The same body for an interface member, which has a type and a name but no declaration to read a keyword off.</summary>
     public static string DescribeMember(string name, Type type) => Code($"{name}: {type}");
 
-    /// <summary>The documentation half alone, for completion items - the label already carries the signature.</summary>
-    public static string? DocumentationOnly(Symbol symbol, SourceFile viewedFrom, CompilationUnit unit)
-    {
-        var sections = new List<string>();
-        var notes = Notes(symbol, viewedFrom, unit);
-        if (notes.Length > 0)
-            sections.Add(notes);
-
-        if (Documentation(symbol) is { } documentation)
-            sections.Add(documentation);
-
-        return sections.Count == 0 ? null : string.Join("\n\n", sections);
-    }
-
     private static string Compose(string code, string notes, string? documentation)
     {
         var body = Code(code);

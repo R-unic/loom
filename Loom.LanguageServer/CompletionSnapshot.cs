@@ -6,13 +6,16 @@ using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using LoomSymbolKind = Loom.Core.Resolving.Symbols.SymbolKind;
 using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
+using LoomSymbolKind = Loom.Core.Resolving.Symbols.SymbolKind;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.LanguageServer;
 
 public sealed record MemberScope(TextSpan Range, IReadOnlyList<VisibleSymbol> Members);
+
+/// <summary>A range where only one fixed set of names may be written, whatever else happens to be in scope.</summary>
+public sealed record ExclusiveScope(TextSpan Range, IReadOnlyList<VisibleSymbol> Names);
 
 public sealed record CompletionSnapshot
 {
@@ -22,14 +25,20 @@ public sealed record CompletionSnapshot
     public IReadOnlyList<VisibleSymbol> Attributes { get; init; } = [];
     public IReadOnlyList<VisibleSymbol> ModuleSpecifiers { get; init; } = [];
     public IReadOnlyList<MemberScope> MemberScopes { get; init; } = [];
+
+    /// <summary>Import lists, each offering the exports of the module its own declaration names.</summary>
+    public IReadOnlyList<ExclusiveScope> ImportScopes { get; init; } = [];
     public IReadOnlyList<TextSpan> TypeRanges { get; init; } = [];
     public IReadOnlyList<TextSpan> AttributeRanges { get; init; } = [];
     public IReadOnlyList<TextSpan> ModuleSpecifierRanges { get; init; } = [];
 
     public IReadOnlyList<VisibleSymbol> At(int offset)
     {
-        if (NarrowestMemberScope(offset) is { } members)
+        if (Narrowest(MemberScopes.Select(scope => new ExclusiveScope(scope.Range, scope.Members)), offset) is { } members)
             return members;
+
+        if (Narrowest(ImportScopes, offset) is { } imported)
+            return imported;
 
         if (Contains(AttributeRanges, offset))
             return Attributes;
@@ -37,21 +46,29 @@ public sealed record CompletionSnapshot
         if (Contains(ModuleSpecifierRanges, offset))
             return ModuleSpecifiers;
 
+        // keywords are not symbols - the lexer gives them their own token kinds - so no scope will ever
+        // produce them, yet they are exactly what is being typed half the time
         var wantsTypes = Contains(TypeRanges, offset);
-        return Identifiers.Where(symbol => symbol.IsTypeSymbol == wantsTypes && symbol.Scope.Contains(offset)).ToArray();
+        return Identifiers
+            .Where(symbol => symbol.IsTypeSymbol == wantsTypes && symbol.Scope.Contains(offset))
+            .Concat(wantsTypes ? LanguageKeywords.Types : LanguageKeywords.Values)
+            .ToArray();
     }
 
-    private IReadOnlyList<VisibleSymbol>? NarrowestMemberScope(int offset)
+    /// <summary>The symbol a resolve request is asking about, looked up where the request that offered it looked.</summary>
+    public VisibleSymbol? Find(int offset, string name) => At(offset).FirstOrDefault(symbol => symbol.Name == name);
+
+    private static IReadOnlyList<VisibleSymbol>? Narrowest(IEnumerable<ExclusiveScope> scopes, int offset)
     {
-        MemberScope? narrowest = null;
-        foreach (var scope in MemberScopes)
+        ExclusiveScope? narrowest = null;
+        foreach (var scope in scopes)
         {
             if (!scope.Range.Contains(offset)) continue;
             if (narrowest == null || scope.Range.Length < narrowest.Range.Length)
                 narrowest = scope;
         }
 
-        return narrowest?.Members;
+        return narrowest?.Names;
     }
 
     private static bool Contains(IReadOnlyList<TextSpan> ranges, int offset)
@@ -66,14 +83,21 @@ public sealed record CompletionSnapshot
 
 public static class CompletionSnapshotBuilder
 {
+    /// <summary>The one file a snapshot is built for, and the compile it belongs to - what every description of a name is written from the point of view of.</summary>
+    private sealed record FileContext(CompiledFile File, CompilationUnit Unit)
+    {
+        public SemanticModel SemanticModel => File.SemanticModel;
+        public SourceFile SourceFile => File.SourceFile;
+    }
+
     public static CompletionSnapshot Build(CompiledFile file, CompilationUnit unit)
     {
-        var semanticModel = file.SemanticModel;
+        var context = new FileContext(file, unit);
         var sourceFile = file.SourceFile;
         var wholeFile = new TextSpan(0, sourceFile.SourceText.Length);
         var descendants = file.Tree.GetDescendants();
 
-        var declared = semanticModel.Declarations.Values
+        var declared = file.SemanticModel.Declarations.Values
             .SelectMany(symbols => symbols)
             .Concat(unit.Globals.Of(sourceFile).Keys)
             .GroupBy(symbol => (symbol.Name, symbol.IsTypeSymbol))
@@ -84,15 +108,16 @@ public static class CompletionSnapshotBuilder
         {
             Identifiers = declared
                 .Where(symbol => symbol.Kind is not (LoomSymbolKind.Attribute or LoomSymbolKind.Property))
-                .Select(symbol => ToVisibleSymbol(symbol, semanticModel, sourceFile, wholeFile))
+                .Select(symbol => ToVisibleSymbol(symbol, context, wholeFile))
                 .ToArray(),
             Attributes = declared
                 .Where(symbol => symbol.Kind is LoomSymbolKind.Attribute or LoomSymbolKind.Function)
-                .Select(symbol => ToVisibleSymbol(symbol, semanticModel, sourceFile, wholeFile))
+                .Select(symbol => ToVisibleSymbol(symbol, context, wholeFile))
                 .ToArray(),
             ModuleSpecifiers = CollectModuleSpecifiers(sourceFile, unit),
-            MemberScopes = CollectMemberScopes(descendants, semanticModel),
-            TypeRanges = CollectTypeRanges(descendants),
+            MemberScopes = CollectMemberScopes(descendants, context),
+            ImportScopes = CollectImportScopes(descendants, context),
+            TypeRanges = CollectTypeRanges(descendants, sourceFile.SourceText),
             AttributeRanges = descendants.OfType<Attributes>().Select(node => BracketRange(node.LeftBracket, node.RightBracket)).ToArray(),
             ModuleSpecifierRanges = descendants.OfType<ImportDeclaration>().Select(node => node.ModuleSpecifier.Span).ToArray()
         };
@@ -115,18 +140,67 @@ public static class CompletionSnapshotBuilder
             .Where(specifier => !string.IsNullOrEmpty(specifier))
             .Distinct()
             .Order(StringComparer.Ordinal)
-            .Select(specifier => new VisibleSymbol(specifier, CompletionItemKind.Module, ""))
+            .Select(specifier => new VisibleSymbol(specifier, CompletionItemKind.Module))
             .ToArray();
     }
 
-    private static VisibleSymbol ToVisibleSymbol(Symbol symbol, SemanticModel semanticModel, SourceFile file, TextSpan wholeFile)
+    /// <summary>
+    ///     What each <c>import { … } from "…"</c> list may name: the exports of the module it imports from,
+    ///     and nothing else. Without this the braces offer every name already in scope, which is precisely
+    ///     the set that cannot be written there.
+    /// </summary>
+    private static IReadOnlyList<ExclusiveScope> CollectImportScopes(IReadOnlyList<Node> descendants, FileContext context)
     {
-        var isLocal = IsLocalTo(symbol, file);
-        return new VisibleSymbol(symbol.Name, ToCompletionItemKind(symbol.Kind), Describe(semanticModel, symbol.Declaration))
+        var imports = descendants.OfType<ImportDeclaration>().ToArray();
+        if (imports.Length == 0)
+            return [];
+
+        var resolver = new ModuleResolver(context.Unit.SourceFiles, context.Unit.Roots);
+        var scopes = new List<ExclusiveScope>();
+        foreach (var import in imports)
+        {
+            if (import.ModulePath is not { Length: > 0 } specifier)
+                continue;
+
+            if (resolver.Resolve(context.SourceFile, specifier).File is not { } module
+                || !context.Unit.AnalyzedModules.TryGetValue(module, out var moduleModel))
+                continue;
+
+            var exports = moduleModel.Exports
+                .Where(export => !import.IsTypeOnly || export.Symbol.IsTypeSymbol)
+                // an interface exports a type and a value under one name, but an import list names it once
+                .GroupBy(export => export.Name)
+                .Select(group => ToImportedSymbol(group.First(), moduleModel, context.Unit))
+                .ToArray();
+
+            if (exports.Length > 0)
+                scopes.Add(new ExclusiveScope(BracketRange(import.LeftBrace, import.RightBrace), exports));
+        }
+
+        return scopes;
+    }
+
+    private static VisibleSymbol ToImportedSymbol(ExportBinding export, SemanticModel moduleModel, CompilationUnit unit)
+    {
+        var symbol = export.Symbol;
+        return new VisibleSymbol(export.Name, ToCompletionItemKind(symbol.Kind))
+        {
+            IsTypeSymbol = symbol.IsTypeSymbol,
+            Detail = () => DeclarationDisplay.CompletionDetail(symbol, TypeOf(moduleModel, symbol.Declaration)),
+            Documentation = () => SymbolMarkdown.Describe(symbol, TypeOf(moduleModel, symbol.Declaration), symbol.File, unit)
+        };
+    }
+
+    private static VisibleSymbol ToVisibleSymbol(Symbol symbol, FileContext context, TextSpan wholeFile)
+    {
+        var isLocal = IsLocalTo(symbol, context.SourceFile);
+        return new VisibleSymbol(symbol.Name, ToCompletionItemKind(symbol.Kind))
         {
             IsTypeSymbol = symbol.IsTypeSymbol,
             IsLocal = isLocal,
-            Scope = isLocal ? ScopeOf(symbol.Declaration, wholeFile) : wholeFile
+            Scope = isLocal ? ScopeOf(symbol.Declaration, wholeFile) : wholeFile,
+            Detail = () => DeclarationDisplay.CompletionDetail(symbol, TypeOf(context.SemanticModel, symbol.Declaration)),
+            Documentation = () => SymbolMarkdown.Describe(symbol, TypeOf(context.SemanticModel, symbol.Declaration), context.SourceFile, context.Unit)
         };
     }
 
@@ -157,7 +231,7 @@ public static class CompletionSnapshotBuilder
         return wholeFile;
     }
 
-    private static IReadOnlyList<TextSpan> CollectTypeRanges(IReadOnlyList<Node> descendants)
+    private static IReadOnlyList<TextSpan> CollectTypeRanges(IReadOnlyList<Node> descendants, string text)
     {
         var ranges = new List<TextSpan>();
         foreach (var node in descendants)
@@ -166,48 +240,94 @@ public static class CompletionSnapshotBuilder
                 ranges.Add(node.Span);
 
             if (node is ColonTypeClause clause)
-                ranges.Add(TextSpan.FromStartEnd(clause.ColonToken.Span.End, Math.Max(clause.ColonToken.Span.End, clause.Type.Span.End)));
+                ranges.Add(
+                    TextSpan.FromStartEnd(
+                        clause.ColonToken.Span.End,
+                        TypeSyntaxEnd(text, Math.Max(clause.ColonToken.Span.End, clause.Type.Span.End))
+                    )
+                );
         }
 
         return ranges;
     }
 
-    private static IReadOnlyList<MemberScope> CollectMemberScopes(IReadOnlyList<Node> descendants, SemanticModel semanticModel)
+    /// <summary>
+    ///     Where an annotation stops, counting the type syntax the parser dropped. A half-written generic -
+    ///     <c>let a: Array&lt;n</c> - leaves no node past <c>Array</c>, so the annotation's parsed range ends
+    ///     before the name being typed and the cursor reads as a value position. Scanning on from the parsed
+    ///     end recovers that, and stops at the first character that could not continue a type, so a finished
+    ///     annotation keeps its own bounds.
+    /// </summary>
+    private static int TypeSyntaxEnd(string text, int start)
+    {
+        var position = start;
+        var depth = 0;
+        while (position < text.Length)
+        {
+            var character = text[position];
+            if (char.IsLetterOrDigit(character) || character is '_' or '.' or '?' or '[' or ']' or '|' or '&' or ' ' or '\t')
+            {
+                position++;
+                continue;
+            }
+
+            switch (character)
+            {
+                case '<':
+                    depth++;
+                    break;
+                case '>' when depth > 0:
+                    depth--;
+                    break;
+                // a comma separates type arguments inside a list, but parameters or declarations outside one
+                case ',' when depth > 0:
+                    break;
+                default:
+                    return position;
+            }
+
+            position++;
+        }
+
+        return position;
+    }
+
+    private static IReadOnlyList<MemberScope> CollectMemberScopes(IReadOnlyList<Node> descendants, FileContext context)
     {
         var scopes = new List<MemberScope>();
         foreach (var node in descendants)
             switch (node)
             {
                 case QualifiedName qualifiedName:
-                    AddDottedScopes(scopes, semanticModel, qualifiedName.Identifier, qualifiedName.Names);
+                    AddDottedScopes(scopes, context, qualifiedName.Identifier, qualifiedName.Names);
                     break;
                 case PropertyAccess propertyAccess:
-                    AddDottedScopes(scopes, semanticModel, propertyAccess.Expression, propertyAccess.Names);
+                    AddDottedScopes(scopes, context, propertyAccess.Expression, propertyAccess.Names);
                     break;
                 case ElementAccess { IndexExpression: Literal { Value: string } literal } elementAccess:
-                    AddScope(scopes, literal.Span, TypeOf(semanticModel, elementAccess.Expression));
+                    AddScope(scopes, context, literal.Span, TypeOf(context.SemanticModel, elementAccess.Expression));
                     break;
             }
 
         return scopes;
     }
 
-    private static void AddDottedScopes(List<MemberScope> scopes, SemanticModel semanticModel, Node receiver, List<DotName> names)
+    private static void AddDottedScopes(List<MemberScope> scopes, FileContext context, Node receiver, List<DotName> names)
     {
-        var type = TypeOf(semanticModel, receiver);
+        var type = TypeOf(context.SemanticModel, receiver);
         foreach (var dotName in names)
         {
-            AddScope(scopes, WrittenNameRange(dotName), type);
+            AddScope(scopes, context, WrittenNameRange(dotName), type);
             type = TypeMembers.PropertyType(type, dotName.Name.Text);
         }
     }
 
-    private static void AddScope(List<MemberScope> scopes, TextSpan range, Type? type)
+    private static void AddScope(List<MemberScope> scopes, FileContext context, TextSpan range, Type? receiver)
     {
-        var members = TypeMembers.Of(type);
+        var members = TypeMembers.Of(receiver);
         if (members.Count == 0) return;
 
-        scopes.Add(new MemberScope(range, members.Select(ToMemberSymbol).ToArray()));
+        scopes.Add(new MemberScope(range, members.Select(property => ToMemberSymbol(property, receiver, context)).ToArray()));
     }
 
     private static TextSpan WrittenNameRange(DotName dotName)
@@ -218,12 +338,24 @@ public static class CompletionSnapshotBuilder
             : TextSpan.FromStartEnd(afterDot, dotName.Name.Span.End);
     }
 
-    private static VisibleSymbol ToMemberSymbol(ObjectProperty property) =>
-        new(
-            property.Name,
-            property.ValueType is FunctionType ? CompletionItemKind.Method : CompletionItemKind.Property,
-            property.ValueType.ToString()
-        );
+    private static VisibleSymbol ToMemberSymbol(ObjectProperty property, Type? receiver, FileContext context) =>
+        new(property.Name, property.ValueType is FunctionType ? CompletionItemKind.Method : CompletionItemKind.Property)
+        {
+            Detail = () => property.ValueType.ToString(),
+            Documentation = () => MemberDocumentation(property, receiver, context)
+        };
+
+    /// <summary>
+    ///     What a member's own declaration says about it, which only a declared interface has - a structural
+    ///     type's property is a name and a type and nothing more.
+    /// </summary>
+    private static string? MemberDocumentation(ObjectProperty property, Type? receiver, FileContext context)
+    {
+        if (receiver == null || context.SemanticModel.GetPropertySymbol(receiver, [property.Name]) is not { } symbol)
+            return null;
+
+        return SymbolMarkdown.Describe(symbol, property.ValueType, context.SourceFile, context.Unit);
+    }
 
     private static TextSpan BracketRange(Token leftBracket, Token rightBracket) =>
         TextSpan.FromStartEnd(leftBracket.Span.End, rightBracket.Span.Position);
@@ -237,18 +369,6 @@ public static class CompletionSnapshotBuilder
         catch (Exception)
         {
             return null;
-        }
-    }
-
-    private static string Describe(SemanticModel semanticModel, Node declaration)
-    {
-        try
-        {
-            return semanticModel.GetType(declaration).ToString();
-        }
-        catch (Exception)
-        {
-            return "";
         }
     }
 }
