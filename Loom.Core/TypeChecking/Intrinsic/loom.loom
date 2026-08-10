@@ -16,6 +16,45 @@ interface MutRecord<K, V> {
 ### type argument rather than always writing the array's length as a 'u32'.
 type Array<T, L: number = u32> = T[];
 
+declare interface Set<T> {
+    [T]: bool;
+    size: number;
+    is_empty: bool;
+    has: fn(value: T): bool;
+    union: fn(other: Set<T>): Set<T>;
+    intersect: fn(other: Set<T>): Set<T>;
+    difference: fn(other: Set<T>): Set<T>;
+    is_subset_of: fn(other: Set<T>): bool;
+    to_array: fn(): T[];
+}
+
+declare interface MutSet<T> {
+    mut [T]: bool;
+    size: number;
+    is_empty: bool;
+    has: fn(value: T): bool;
+    add: fn(value: T): void;
+    remove: fn(value: T): void;
+    union: fn(other: Set<T>): Set<T>;
+    intersect: fn(other: Set<T>): Set<T>;
+    difference: fn(other: Set<T>): Set<T>;
+    is_subset_of: fn(other: Set<T>): bool;
+    to_array: fn(): T[];
+}
+
+declare sealed interface SetStatic {
+    of: fn<T>(..values: T[]): Set<T>;
+    empty: fn<T>(): Set<T>;
+}
+
+declare sealed interface MutSetStatic {
+    of: fn<T>(..values: T[]): MutSet<T>;
+    empty: fn<T>(): MutSet<T>;
+}
+
+declare let Set: SetStatic;
+declare let MutSet: MutSetStatic;
+
 enum AttributeTargets {
     Function = 1 << 0,
     Interface = 1 << 1,
