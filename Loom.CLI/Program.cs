@@ -11,7 +11,7 @@ var cliParser = new Parser(settings =>
         settings.CaseInsensitiveEnumValues = true;
         settings.HelpWriter = Console.Out;
         settings.AutoHelp = true;
-        settings.AutoVersion = false;
+        settings.AutoVersion = true;
     }
 );
 
@@ -58,7 +58,10 @@ static int compile(BuildCommand options, bool watch)
 
 static int handleParseError(IEnumerable<Error> errors)
 {
-    if (errors.IsHelp())
+    // Asking for help or for the version is not a failure: the parser has already written the
+    // answer to the help writer, and exiting non-zero would fail any script that asked.
+    var parseErrors = errors as IReadOnlyList<Error> ?? errors.ToList();
+    if (parseErrors.IsHelp() || parseErrors.IsVersion())
         return 0;
 
     Log.Fatal("invalid command");
