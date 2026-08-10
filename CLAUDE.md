@@ -54,12 +54,23 @@ before claiming done.
   (non-empty, relative, path-legal), since nothing downstream can report one that isn't: they are resolved as real paths and a stage throwing is the
   compiler-bug path
 - `Loom.CLI/` — entry point; locates config, compiles unit, prints debug info. `Include/loom_runtime.luau` = runtime support emitted alongside output
-- `Loom.LanguageServer/` — LSP server (OmniSharp). `DocumentStore` keeps one `CompilationUnit` per project root and recompiles the open file on every
-  change; `CompletionSnapshot` is rebuilt from that compile and answers "what may be written at this offset" (member scope, import list, attribute
-  list, module specifier, type vs value position — plus keywords, which are never symbols). `DeclarationDisplay` renders a symbol the way its
-  declaration reads, `SymbolMarkdown` composes the hover body, `DocumentationBlock` parses `@param`/`@returns` out of a doc comment, `CallSiteFinder`
-  locates the call the cursor is inside. A completion item's detail and documentation are `Func<>`s resolved on the client's resolve request, never
-  eagerly — a project has thousands of names in scope on every keystroke and the client reads at most one
+- `Loom.LanguageServer/` — LSP server (OmniSharp). One handler per request, all registered in `Program.cs`, all answering off the `DocumentStore`:
+  it keeps one `CompilationUnit` per project root and recompiles the open file on every change. The pieces the handlers share:
+    - `CompletionSnapshot` — rebuilt from each compile; answers "what may be written at this offset" (member scope, import list, attribute list,
+      module specifier, type vs value position — plus keywords and built-in type names, which are never symbols, and `Importable`, the names other
+      modules export that this file has not imported). A completion item's detail and documentation are `Func<>`s resolved on the client's resolve
+      request, never eagerly: a project has thousands of names in scope on every keystroke and the client reads at most one
+    - `DeclarationDisplay` renders a symbol the way its declaration reads; `SymbolMarkdown` composes the hover body; `DocumentationBlock` parses
+      `@param`/`@returns` out of a doc comment; `CallSiteFinder` locates the call the cursor is inside and who it calls
+    - `SymbolReferences` walks every analyzed tree to invert the resolver — what refers to *this* symbol — behind references, rename, prepare-rename
+      and document highlight. An import binds the exporting module's own `Symbol` instance, so one identity spans every file; a reference whose token
+      text differs from the symbol's name is an alias and is left alone by rename
+    - `ImportCatalog`/`ImportEdits` decide what a file could import and build the edit that imports it, shared by auto-import completion and the
+      "Import 'X'" quick fix
+    - `Conversion` also owns `DiagnosticsFor`, which is what publishes and what clears: a null result means the file was not analyzed, and an empty
+      set is how a client is told to drop what it is still showing
+    - `FilePaths.Same` — never compare paths with `==`. A client's `file:` URI round-trips a Windows drive letter in lower case while the compiler's
+      path came from the project directory, so an ordinal comparison silently matches nothing
 - `Loom.TypeGenerator/` — Loom code generator to define types for the Roblox API; tests depend on these types to be generated to pass
 - `Loom.Tools/` — dev tooling (AST dump, snapshot generation)
 - `Loom.Testing/` — all tests, one test class per compiler stage/component
