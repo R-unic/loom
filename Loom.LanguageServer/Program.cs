@@ -15,6 +15,10 @@ var server = await LanguageServer.From(options =>
         .WithHandler<SignatureHelpHandler>()
         .WithHandler<DocumentSymbolHandler>()
         .WithHandler<InlayHintHandler>()
+        .WithHandler<ReferencesHandler>()
+        .WithHandler<DocumentHighlightHandler>()
+        .WithHandler<PrepareRenameHandler>()
+        .WithHandler<RenameHandler>()
 );
 
 await server.WaitForExit;

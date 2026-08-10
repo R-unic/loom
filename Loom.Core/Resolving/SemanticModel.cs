@@ -269,8 +269,15 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
     public T? FindIntrinsicDeclarationSymbol<T>(string name) where T : Symbol => FindDeclarationSymbol<T>(name, s => s.IsIntrinsic);
     private T? FindDeclarationSymbol<T>(string name) where T : Symbol => FindDeclarationSymbol<T>(name, static _ => true);
 
+    /// <remarks>
+    ///     A declaration of this file's own wins over an intrinsic of the same name. Both are in the table -
+    ///     intrinsics reach every file - and a project interface named after a Roblox class would otherwise
+    ///     resolve to the class, so its own members could not be found from its own type.
+    /// </remarks>
     private T? FindDeclarationSymbol<T>(string name, Func<T, bool> predicate) where T : Symbol =>
-        DeclarationsByName.TryGetValue(name, out var symbols) ? symbols.OfType<T>().FirstOrDefault(predicate) : null;
+        DeclarationsByName.TryGetValue(name, out var symbols)
+            ? symbols.OfType<T>().Where(predicate).OrderBy(symbol => symbol.IsIntrinsic).FirstOrDefault()
+            : null;
 
     private static Symbol? FindSymbol(Node node, SymbolKind? kind, SymbolTable table)
     {
