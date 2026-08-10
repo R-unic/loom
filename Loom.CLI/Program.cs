@@ -48,8 +48,9 @@ static int compile(BuildCommand options, bool watch)
     FileManager.WriteIncludeFolder(config.ProjectDirectory);
     if (!watch)
     {
-        Log.OutputResult(new CompilationUnit(config, diagnosticOptions).Compile());
-        return 0;
+        var result = new CompilationUnit(config, diagnosticOptions).Compile();
+        Log.OutputResult(result);
+        return result.Failed ? 1 : 0;
     }
 
     var watcher = new Watcher(diagnosticOptions);
