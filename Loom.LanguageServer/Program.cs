@@ -13,6 +13,7 @@ var server = await LanguageServer.From(options =>
         .WithHandler<DefinitionHandler>()
         .WithHandler<CompletionHandler>()
         .WithHandler<SignatureHelpHandler>()
+        .WithHandler<DocumentSymbolHandler>()
 );
 
 await server.WaitForExit;
