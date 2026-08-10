@@ -23,7 +23,7 @@ public static class InlayHints
     {
         var hints = new List<InlayHint>();
         var semanticModel = file.SemanticModel;
-        foreach (var node in file.Tree.GetDescendants())
+        foreach (var node in file.Tree.EnumerateDescendants())
         {
             if (!Overlaps(node.Span, range)) continue;
 

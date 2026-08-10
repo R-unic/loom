@@ -190,7 +190,7 @@ public static class SymbolReferences
         return null;
     }
 
-    private static IEnumerable<Node> Walk(Tree tree) => tree.GetDescendants().Prepend(tree);
+    private static IEnumerable<Node> Walk(Tree tree) => tree.EnumerateDescendants().Prepend(tree);
 
     private static Type? TypeOf(SemanticModel semanticModel, Node node)
     {

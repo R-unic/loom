@@ -40,7 +40,7 @@ public static class CallSiteFinder
     public static CallSite? FindAt(Tree tree, int offset)
     {
         Invocation? innermost = null;
-        foreach (var invocation in tree.GetDescendants<Invocation>())
+        foreach (var invocation in tree.EnumerateDescendants<Invocation>())
         {
             // an attribute is an invocation too, but one whose arguments are written before its own
             // parentheses exist when uninvoked - and there is nothing to help with in '[serializable]'

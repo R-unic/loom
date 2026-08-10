@@ -14,7 +14,7 @@ public static class FoldingRanges
     public static IReadOnlyList<FoldingRange> Of(CompiledFile file)
     {
         var ranges = new List<FoldingRange>();
-        foreach (var node in file.Tree.GetDescendants())
+        foreach (var node in file.Tree.EnumerateDescendants())
             if (BracketsOf(node) is var (open, close))
                 AddBrackets(ranges, open, close);
 

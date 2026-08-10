@@ -59,21 +59,29 @@ public abstract class Node
 
     public abstract T Accept<T>(Visitor<T> visitor);
     public override string ToString() => LocationSpan.GetText().ToString();
-    public IReadOnlyList<T> GetDescendants<T>() where T : Node => GetDescendants().OfType<T>().ToArray();
+    public IReadOnlyList<T> GetDescendants<T>() where T : Node => EnumerateDescendants<T>().ToArray();
 
-    public IReadOnlyList<Node> GetDescendants()
+    /// <inheritdoc cref="EnumerateDescendants" />
+    public IEnumerable<T> EnumerateDescendants<T>() where T : Node => EnumerateDescendants().OfType<T>();
+
+    /// <summary>Every node below this one, materialized. Use <see cref="EnumerateDescendants" /> for a walk that only passes through once.</summary>
+    public IReadOnlyList<Node> GetDescendants() => EnumerateDescendants().ToArray();
+
+    /// <summary>
+    ///     Every node below this one, in breadth-first order, produced as it is asked for. A caller that walks
+    ///     the tree once - looking for one kind of node, or stopping at the first match - pays for the walk
+    ///     either way, but not for a list of the whole tree it never reads twice.
+    /// </summary>
+    public IEnumerable<Node> EnumerateDescendants()
     {
-        var result = new List<Node>();
         var queue = new Queue<Node>(Children);
         while (queue.Count > 0)
         {
             var node = queue.Dequeue();
-            result.Add(node);
+            yield return node;
             foreach (var child in node.Children)
                 queue.Enqueue(child);
         }
-
-        return result;
     }
 
     public bool IsDescendantOf<T>() where T : Node => FirstAncestorOfType<T>() != null;

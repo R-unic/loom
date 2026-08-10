@@ -103,7 +103,7 @@ public sealed partial class TypeChecker
             return BindType(indexedType, Types.PrimitiveType.Never);
         }
 
-        var type = indexedType.GetDescendants<TypeName>().Any(n => _semanticModel.GetType(n) is Types.TypeParameter)
+        var type = indexedType.EnumerateDescendants<TypeName>().Any(n => _semanticModel.GetType(n) is Types.TypeParameter)
             ? new Types.IndexedType(targetType, indexType)
             : GetTypeAtIndex(indexedType, targetType, indexType);
 

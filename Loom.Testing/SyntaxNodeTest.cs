@@ -106,6 +106,48 @@ public class SyntaxNodeTest
     }
 
     [Fact]
+    public void EnumerateDescendants_VisitsTheSameNodesInTheSameOrderAsGetDescendants()
+    {
+        var block = NestedBlock();
+        Assert.Equal(block.GetDescendants(), block.EnumerateDescendants());
+    }
+
+    /// <summary>Walking lazily is only worth anything if a caller that stops early stops the walk with it.</summary>
+    [Fact]
+    public void EnumerateDescendants_StopsWhenTheCallerDoes()
+    {
+        var block = NestedBlock();
+        var visited = 0;
+
+        var first = block.EnumerateDescendants().Select(node => { visited++; return node; }).First();
+
+        Assert.Equal(1, visited);
+        Assert.Equal(block.Children[0], first);
+    }
+
+    [Fact]
+    public void EnumerateDescendants_T_FiltersByType()
+    {
+        var block = NestedBlock();
+        Assert.Equal(block.GetDescendants<Literal>(), block.EnumerateDescendants<Literal>());
+    }
+
+    private static Block NestedBlock()
+    {
+        var letKw = T("let", 0, 3, SyntaxKind.LetKeyword);
+        var name = T("x", 4, 1);
+        var equals = T("=", 6, 1, SyntaxKind.Equals);
+        var lit = new Literal(T("1", 8, 1, SyntaxKind.NumberLiteral), 1L);
+        var init = new EqualsValueClause(equals, lit);
+        var varDecl = new VariableDeclaration(letKw, name, null, init);
+
+        var retKw = T("return", 10, 6, SyntaxKind.ReturnKeyword);
+        var retStmt = new Return(retKw, new Identifier(T("x", 17, 1)));
+
+        return new Block(T("{", 0, 1, SyntaxKind.LBrace), T("}", 19, 1, SyntaxKind.RBrace), [varDecl, retStmt]);
+    }
+
+    [Fact]
     public void IsDescendantOf()
     {
         var lit = new Literal(T("42", 0, 2, SyntaxKind.NumberLiteral), 42L);

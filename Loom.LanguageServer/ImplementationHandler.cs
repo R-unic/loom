@@ -81,7 +81,7 @@ public sealed class ImplementationHandler(DocumentStore documents) : Implementat
     ///     there, not in whichever file happens to be open.
     /// </summary>
     private static IEnumerable<(Implement Node, SemanticModel Model)> Blocks(CompilationUnit unit) =>
-        unit.AnalyzedModules.Values.SelectMany(model => model.Tree.GetDescendants<Implement>().Select(block => (block, model)));
+        unit.AnalyzedModules.Values.SelectMany(model => model.Tree.EnumerateDescendants<Implement>().Select(block => (block, model)));
 
     /// <summary>The name of the trait method declaration the cursor is on, or null when it is not on one.</summary>
     private static string? MethodNameAt(Node node, int offset) =>
