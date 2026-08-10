@@ -36,6 +36,11 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
 
             return Task.FromResult<CommandOrCodeActionContainer?>(new CommandOrCodeActionContainer(actions));
         }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult<CommandOrCodeActionContainer?>(null);

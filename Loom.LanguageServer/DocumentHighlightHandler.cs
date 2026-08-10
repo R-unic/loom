@@ -32,6 +32,11 @@ public sealed class DocumentHighlightHandler(DocumentStore documents) : Document
 
             return Task.FromResult<DocumentHighlightContainer?>(new DocumentHighlightContainer(highlights));
         }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult<DocumentHighlightContainer?>(null);

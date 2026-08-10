@@ -27,6 +27,11 @@ public sealed class PrepareRenameHandler(DocumentStore documents) : PrepareRenam
                 here == null ? null : new RangeOrPlaceholderRange(Conversion.ToRange(here.Name.GetLocation()))
             );
         }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult<RangeOrPlaceholderRange?>(null);

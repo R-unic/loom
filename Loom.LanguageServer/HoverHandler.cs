@@ -32,6 +32,11 @@ public sealed class HoverHandler(DocumentStore documents) : HoverHandlerBase
 
             return Task.FromResult<Hover?>(hover);
         }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult<Hover?>(null);

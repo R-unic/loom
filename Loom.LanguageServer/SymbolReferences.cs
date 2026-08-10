@@ -49,12 +49,19 @@ public static class SymbolReferences
             _ => null
         };
 
-    /// <summary>Every reference in every file the unit analyzed, declaration included.</summary>
-    public static IReadOnlyList<SymbolReference> Of(Symbol symbol, CompilationUnit unit)
+    /// <summary>
+    ///     Every reference in every file the unit analyzed, declaration included. The whole project is walked,
+    ///     so the caller's cancellation is checked between files - this is the one request whose cost grows
+    ///     with the project rather than with the document.
+    /// </summary>
+    public static IReadOnlyList<SymbolReference> Of(Symbol symbol, CompilationUnit unit, CancellationToken cancellationToken = default)
     {
         var references = new List<SymbolReference>();
         foreach (var (file, semanticModel) in unit.AnalyzedModules)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             Collect(references, symbol, file, semanticModel);
+        }
 
         return references;
     }

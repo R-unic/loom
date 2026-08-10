@@ -27,7 +27,7 @@ public sealed class RenameHandler(DocumentStore documents) : IRenameHandler
                 return Task.FromResult<WorkspaceEdit?>(null);
 
             var changes = new Dictionary<DocumentUri, IEnumerable<TextEdit>>();
-            foreach (var group in SymbolReferences.Of(symbol, state.Unit).GroupBy(reference => reference.File.AbsolutePath))
+            foreach (var group in SymbolReferences.Of(symbol, state.Unit, cancellationToken).GroupBy(reference => reference.File.AbsolutePath))
             {
                 if (!Path.IsPathRooted(group.Key))
                     continue;
@@ -38,6 +38,11 @@ public sealed class RenameHandler(DocumentStore documents) : IRenameHandler
             }
 
             return Task.FromResult<WorkspaceEdit?>(changes.Count == 0 ? null : new WorkspaceEdit { Changes = changes });
+        }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {

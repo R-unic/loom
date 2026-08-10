@@ -16,6 +16,11 @@ public sealed class DocumentSymbolHandler(DocumentStore documents) : DocumentSym
             var symbols = DocumentOutline.Of(state.File).Select(symbol => new SymbolInformationOrDocumentSymbol(symbol));
             return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(new SymbolInformationOrDocumentSymbolContainer(symbols));
         }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(null);

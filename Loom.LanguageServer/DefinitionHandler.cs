@@ -28,6 +28,11 @@ public sealed class DefinitionHandler(DocumentStore documents) : DefinitionHandl
 
             return Task.FromResult<LocationOrLocationLinks?>(new LocationOrLocationLinks(new LocationOrLocationLink(location)));
         }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult<LocationOrLocationLinks?>(null);

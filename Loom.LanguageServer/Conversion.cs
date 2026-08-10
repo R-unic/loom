@@ -62,6 +62,21 @@ public static class Conversion
         return result.Diagnostics.Set.Where(diagnostic => FilePaths.Same(diagnostic.Span.File.AbsolutePath, path)).Select(ToDiagnostic).ToArray();
     }
 
+    /// <summary>
+    ///     Everything the compile found, grouped by the file it was found in. A compile spans the whole
+    ///     project, so an edit in one file routinely breaks another - reporting only the file that was edited
+    ///     computes those and throws them away.
+    /// </summary>
+    /// <remarks>
+    ///     Files with no path a client could open are left out: an intrinsic is an embedded resource, so there
+    ///     is no document to attach its diagnostics to.
+    /// </remarks>
+    public static IReadOnlyDictionary<DocumentUri, LspDiagnostic[]> DiagnosticsByFile(CompilationResult result) =>
+        result.Diagnostics.Set
+            .Where(diagnostic => Path.IsPathRooted(diagnostic.Span.File.AbsolutePath))
+            .GroupBy(diagnostic => diagnostic.Span.File.AbsolutePath, FilePaths.Comparer)
+            .ToDictionary(group => DocumentUri.FromFileSystemPath(group.Key), group => group.Select(ToDiagnostic).ToArray());
+
     private static Container<DiagnosticRelatedInformation>? ToRelatedInformation(LoomDiagnostic diagnostic)
     {
         if (diagnostic.Hint is not { Length: > 0 } hint || ToLocation(diagnostic.Span) is not { } location)

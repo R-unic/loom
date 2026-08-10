@@ -17,13 +17,18 @@ public sealed class ReferencesHandler(DocumentStore documents) : ReferencesHandl
             if (SymbolReferences.At(state.File, offset) is not { } symbol)
                 return Task.FromResult<LocationContainer?>(null);
 
-            var references = SymbolReferences.Of(symbol, state.Unit)
+            var references = SymbolReferences.Of(symbol, state.Unit, cancellationToken)
                 .Where(reference => request.Context.IncludeDeclaration || !reference.IsDeclaration)
                 .Select(ToLocation)
                 .OfType<Location>()
                 .ToArray();
 
             return Task.FromResult<LocationContainer?>(new LocationContainer(references));
+        }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {

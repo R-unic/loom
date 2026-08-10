@@ -29,6 +29,11 @@ public sealed class SignatureHelpHandler(DocumentStore documents) : SignatureHel
 
             return Task.FromResult(Describe(callSite, state));
         }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult<SignatureHelp?>(null);

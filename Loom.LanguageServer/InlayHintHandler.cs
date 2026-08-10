@@ -19,6 +19,11 @@ public sealed class InlayHintHandler(DocumentStore documents) : InlayHintsHandle
 
             return Task.FromResult<InlayHintContainer?>(new InlayHintContainer(InlayHints.Of(state.File, range)));
         }
+        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult<InlayHintContainer?>(null);

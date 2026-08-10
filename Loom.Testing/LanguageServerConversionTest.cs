@@ -140,6 +140,33 @@ public class LanguageServerConversionTest
             }
         );
 
+    /// <summary>
+    ///     A compile spans the whole project, so an edit in one file routinely breaks another. Reporting only
+    ///     the file that was edited computes those and throws them away.
+    /// </summary>
+    [Fact]
+    public void DiagnosticsByFile_ReportsEveryFileTheCompileFoundSomethingIn() =>
+        Utility.WithTempProject(
+            [("main.loom", "let x: string = 1;"), ("other.loom", "let y: number = \"two\";"), ("clean.loom", "let z = 1;")],
+            (_, result) =>
+            {
+                var byFile = Conversion.DiagnosticsByFile(result);
+
+                Assert.Equal(2, byFile.Count);
+                Assert.Contains(byFile.Keys, uri => uri.Path.EndsWith("main.loom"));
+                Assert.Contains(byFile.Keys, uri => uri.Path.EndsWith("other.loom"));
+                Assert.DoesNotContain(byFile.Keys, uri => uri.Path.EndsWith("clean.loom"));
+            }
+        );
+
+    /// <summary>An intrinsic is an embedded resource, so there is no document to attach its diagnostics to.</summary>
+    [Fact]
+    public void DiagnosticsByFile_LeavesOutFilesAClientCouldNotOpen() =>
+        Utility.WithTempProject(
+            [("main.loom", "let x: string = 1;")],
+            (_, result) => Assert.All(Conversion.DiagnosticsByFile(result).Keys, uri => Assert.True(Path.IsPathRooted(uri.GetFileSystemPath())))
+        );
+
     private static readonly string RootedPath = Path.Combine(Path.GetTempPath(), "loom-conversion-test", "main.loom");
 
     private static LoomDiagnostic OnDisk(string message, string? hint)

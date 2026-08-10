@@ -7,7 +7,13 @@ var server = await LanguageServer.From(options =>
     options
         .WithInput(streams.Input)
         .WithOutput(streams.Output)
-        .WithServices(services => services.AddSingleton<DocumentStore>())
+        .WithServices(services =>
+            services.AddSingleton<DocumentStore>()
+                .AddSingleton<DiagnosticPublisher>()
+                // long enough that a burst of keystrokes settles into one compile, short enough that a pause
+                // to look at what you wrote is already long enough to have the diagnostics for it
+                .AddSingleton(new Debouncer(TimeSpan.FromMilliseconds(300)))
+        )
         .WithHandler<TextDocumentSyncHandler>()
         .WithHandler<HoverHandler>()
         .WithHandler<DefinitionHandler>()
