@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Loom.Config;
+using Loom.Core.Modules;
 using Loom.Core.Pipeline;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -11,7 +12,15 @@ namespace Loom.LanguageServer;
 ///     origin - which package, which module, whether it is ambient at all - is a fact about the whole compile
 ///     rather than about the file the cursor is in.
 /// </summary>
-public sealed record DocumentState(CompiledFile File, CompilationUnit Unit, CompletionSnapshot Completions);
+public sealed record DocumentState(CompiledFile File, CompilationUnit Unit, CompletionSnapshot Completions)
+{
+    /// <summary>
+    ///     The unit's modules, indexed once per compile and shared by everything answering from this state.
+    ///     Building one walks every file of the project, and it holds the <see cref="SourceFile" /> instances
+    ///     of the compile it was built for - which is exactly this state's lifetime, and no longer.
+    /// </summary>
+    public required ModuleResolver Modules { get; init; }
+}
 
 public sealed class DocumentStore
 {
@@ -116,6 +125,7 @@ public sealed class DocumentStore
             foreach (var document in dirty)
                 document.IsDirty = false;
 
+            var modules = new ModuleResolver(unit.SourceFiles, unit.Roots);
             foreach (var (openUri, open) in _documents)
             {
                 if (open.Unit != unit)
@@ -123,7 +133,7 @@ public sealed class DocumentStore
 
                 var file = result.Files.Find(compiled => FilePaths.Same(compiled.SourceFile.AbsolutePath, open.Path));
                 if (file != null)
-                    _state[openUri] = new DocumentState(file, unit, BuildCompletions(file, unit));
+                    _state[openUri] = new DocumentState(file, unit, BuildCompletions(file, unit, modules)) { Modules = modules };
             }
 
             return result;
@@ -138,11 +148,11 @@ public sealed class DocumentStore
 
     private CompilationUnit? UnitOf(OpenDocument document) => document.Unit ??= GetOrCreateUnit(document.Path);
 
-    private static CompletionSnapshot BuildCompletions(CompiledFile file, CompilationUnit unit)
+    private static CompletionSnapshot BuildCompletions(CompiledFile file, CompilationUnit unit, ModuleResolver modules)
     {
         try
         {
-            return CompletionSnapshotBuilder.Build(file, unit);
+            return CompletionSnapshotBuilder.Build(file, unit, modules);
         }
         catch (Exception)
         {

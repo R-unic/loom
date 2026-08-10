@@ -13,7 +13,7 @@ namespace Loom.LanguageServer;
 public static class SymbolOrigin
 {
     /// <summary>A one-line description of <paramref name="symbol" />'s source, or null when it is declared in <paramref name="viewedFrom" /> itself.</summary>
-    public static string? Describe(Symbol symbol, SourceFile viewedFrom, CompilationUnit unit)
+    public static string? Describe(Symbol symbol, SourceFile viewedFrom, CompilationUnit unit, ModuleResolver resolver)
     {
         if (symbol.IsIntrinsic)
             return "intrinsic";
@@ -27,7 +27,7 @@ public static class SymbolOrigin
         if (symbol.File.IsDeclaration)
             return $"ambient, declared in `{symbol.File.Name}`";
 
-        return SpecifierOf(symbol.File, viewedFrom, unit) is { } specifier ? $"exported by `{specifier}`" : $"declared in `{symbol.File.Name}`";
+        return SpecifierOf(symbol.File, viewedFrom, resolver) is { } specifier ? $"exported by `{specifier}`" : $"declared in `{symbol.File.Name}`";
     }
 
     private static string? PackageOf(SourceFile declaringFile, SourceFile viewedFrom, CompilationUnit unit)
@@ -36,11 +36,11 @@ public static class SymbolOrigin
         return root == null || root == RootOf(viewedFrom, unit) ? null : root.Package?.Name?.ToString();
     }
 
-    private static string? SpecifierOf(SourceFile declaringFile, SourceFile viewedFrom, CompilationUnit unit)
+    private static string? SpecifierOf(SourceFile declaringFile, SourceFile viewedFrom, ModuleResolver resolver)
     {
         try
         {
-            var specifier = new ModuleResolver(unit.SourceFiles, unit.Roots).SpecifierOf(viewedFrom, declaringFile);
+            var specifier = resolver.SpecifierOf(viewedFrom, declaringFile);
             return string.IsNullOrEmpty(specifier) ? null : specifier;
         }
         catch (Exception)

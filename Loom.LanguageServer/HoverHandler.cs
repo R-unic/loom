@@ -55,7 +55,7 @@ public sealed class HoverHandler(DocumentStore documents) : HoverHandlerBase
             return member;
 
         if (SymbolAt(node, semanticModel) is { } symbol)
-            return SymbolMarkdown.Describe(symbol, TypeOf(semanticModel, symbol.Declaration) ?? TypeOf(semanticModel, node), state.File.SourceFile, state.Unit);
+            return SymbolMarkdown.Describe(symbol, TypeOf(semanticModel, symbol.Declaration) ?? TypeOf(semanticModel, node), state.File.SourceFile, state.Unit, state.Modules);
 
         var type = TypeOf(semanticModel, node);
         return type == null ? null : $"```loom\n{type}\n```";
@@ -101,7 +101,7 @@ public sealed class HoverHandler(DocumentStore documents) : HoverHandlerBase
             var property = receiverType == null ? null : semanticModel.GetPropertySymbol(receiverType, [name]);
             return property == null
                 ? SymbolMarkdown.DescribeMember(name, memberType)
-                : SymbolMarkdown.Describe(property, memberType, state.File.SourceFile, state.Unit);
+                : SymbolMarkdown.Describe(property, memberType, state.File.SourceFile, state.Unit, state.Modules);
         }
 
         return null;

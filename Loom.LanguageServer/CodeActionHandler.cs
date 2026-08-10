@@ -77,7 +77,7 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
         if (name.Length == 0)
             return [];
 
-        return ImportCatalog.For(state.File.SourceFile, state.Unit)
+        return ImportCatalog.For(state.File.SourceFile, state.Unit, state.Modules)
             .Where(candidate => candidate.Name == name)
             .GroupBy(candidate => candidate.Specifier)
             .Select(group => ImportEdits.Add(state.File, name, group.Key) is { } edit

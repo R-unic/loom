@@ -1,5 +1,6 @@
 using Loom.Core.Pipeline;
 using Loom.LanguageServer;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Loom.Testing;
 
@@ -24,39 +25,40 @@ public class DiagnosticPublisherTest
     ///     explicitly - nothing else in the protocol says it.
     /// </summary>
     [Fact]
-    public void Next_ClearsAFileThatHadDiagnosticsAndNoLongerDoes()
-    {
-        var publisher = Publisher();
-
-        Utility.WithTempProject([("main.loom", "let x: string = 1;")], (_, broken) => publisher.Next(broken));
-        Utility.WithTempProject(
-            [("main.loom", "let x = 1;")],
-            (_, fixedUp) =>
+    public async Task Next_ClearsAFileThatHadDiagnosticsAndNoLongerDoes() =>
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
             {
-                var sent = publisher.Next(fixedUp);
-                var cleared = Assert.Single(sent);
+                var publisher = Publisher();
+                publisher.Next(store.Compile(uri)!);
+
+                store.Change(uri, [new TextDocumentContentChangeEvent { Text = "let x = 1;" }]);
+                var cleared = Assert.Single(publisher.Next(store.Compile(uri)!));
 
                 Assert.EndsWith("main.loom", cleared.Key.Path);
                 Assert.Empty(cleared.Value);
-            }
+                return Task.CompletedTask;
+            },
+            "let x: string = 1;"
         );
-    }
 
     [Fact]
-    public void Next_DoesNotKeepClearingAFileItAlreadyCleared()
-    {
-        var publisher = Publisher();
-
-        Utility.WithTempProject([("main.loom", "let x: string = 1;")], (_, broken) => publisher.Next(broken));
-        Utility.WithTempProject(
-            [("main.loom", "let x = 1;")],
-            (_, fixedUp) =>
+    public async Task Next_DoesNotKeepClearingAFileItAlreadyCleared() =>
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
             {
-                publisher.Next(fixedUp);
-                Assert.Empty(publisher.Next(fixedUp));
-            }
+                var publisher = Publisher();
+                publisher.Next(store.Compile(uri)!);
+
+                store.Change(uri, [new TextDocumentContentChangeEvent { Text = "let x = 1;" }]);
+                var result = store.Compile(uri)!;
+
+                publisher.Next(result);
+                Assert.Empty(publisher.Next(result));
+                return Task.CompletedTask;
+            },
+            "let x: string = 1;"
         );
-    }
 
     [Fact]
     public void Next_KeepsSendingAFileThatStillHasDiagnostics() =>
@@ -73,6 +75,31 @@ public class DiagnosticPublisherTest
 
     [Fact]
     public void Publish_WithNoResult_SendsNothing() => Publisher().Publish(null);
+
+    /// <summary>
+    ///     A workspace may hold more than one project, and each compiles on its own. Clearing every file not in
+    ///     this result would wipe the other project's diagnostics every time this one is edited.
+    /// </summary>
+    [Fact]
+    public void Next_LeavesAnotherProjectsFilesAlone()
+    {
+        var publisher = Publisher();
+        var otherProjectsFile = "";
+
+        Utility.WithTempProject(
+            [("other.loom", "let y: number = \"two\";")],
+            (unit, result) =>
+            {
+                otherProjectsFile = unit.SourceFiles.First().AbsolutePath;
+                publisher.Next(result);
+            }
+        );
+
+        Utility.WithTempProject(
+            [("main.loom", "let x = 1;")],
+            (_, clean) => Assert.DoesNotContain(publisher.Next(clean).Keys, uri => FilePaths.Same(uri.GetFileSystemPath(), otherProjectsFile))
+        );
+    }
 
     /// <summary>
     ///     The facade is only ever used to send; every decision the publisher makes is in

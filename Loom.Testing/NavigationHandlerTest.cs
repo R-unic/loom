@@ -110,6 +110,50 @@ public class NavigationHandlerTest
     public async Task Implementation_ForSomethingWithNoImplementations_GoesNowhere() =>
         Assert.Empty(await ImplementationAsync("fn main(): void { }", 0, 4));
 
+    /// <summary>A member name is a token of its access expression rather than a node, so looking the node up alone finds nothing for it.</summary>
+    [Fact]
+    public async Task Definition_OnAMember_GoesToThePropertyDeclaration()
+    {
+        var locations = await DefinitionAsync(
+            """
+            interface Vec {
+              x: number;
+            }
+
+            fn main(v: Vec): void {
+              print(v.x);
+            }
+            """,
+            5,
+            10
+        );
+
+        Assert.Equal(1, Assert.Single(locations).Range.Start.Line);
+    }
+
+    [Fact]
+    public async Task Definition_OnAName_StillGoesToItsDeclaration()
+    {
+        var locations = await DefinitionAsync("fn double(n: number): number { return n * 2; }\nlet four = double(2);", 1, 11);
+        Assert.Equal(0, Assert.Single(locations).Range.Start.Line);
+    }
+
+    [Fact]
+    public async Task Definition_OnAnImportSpecifier_GoesToTheExportedDeclaration() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                var result = await new DefinitionHandler(store).Handle(
+                    new DefinitionParams { TextDocument = new TextDocumentIdentifier(uri), Position = new Position(0, 11) },
+                    TestContext.Current.CancellationToken
+                );
+
+                Assert.EndsWith("math.loom", Assert.Single(ToLocations(result)).Uri.Path);
+            },
+            "import { double } from \"./util/math\";\nlet four = double(2);",
+            ("util/math.loom", "export fn double(n: number): number { return n * 2; }")
+        );
+
     [Fact]
     public async Task TypeDefinition_ForAnUnknownDocument_ReturnsNothing()
     {
@@ -151,6 +195,25 @@ public class NavigationHandlerTest
             {
                 var result = await new ImplementationHandler(store).Handle(
                     new ImplementationParams { TextDocument = new TextDocumentIdentifier(uri), Position = new Position(line, character) },
+                    TestContext.Current.CancellationToken
+                );
+
+                locations = ToLocations(result);
+            },
+            source
+        );
+
+        return locations;
+    }
+
+    private static async Task<Location[]> DefinitionAsync(string source, int line, int character)
+    {
+        var locations = Array.Empty<Location>();
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                var result = await new DefinitionHandler(store).Handle(
+                    new DefinitionParams { TextDocument = new TextDocumentIdentifier(uri), Position = new Position(line, character) },
                     TestContext.Current.CancellationToken
                 );
 

@@ -1,3 +1,4 @@
+using Loom.Core.Modules;
 using Loom.Core.Pipeline;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
@@ -13,11 +14,11 @@ namespace Loom.LanguageServer;
 public static class SymbolMarkdown
 {
     /// <summary>The full hover body: the declaration as code, followed by everything said about it.</summary>
-    public static string Describe(Symbol symbol, Type? type, SourceFile viewedFrom, CompilationUnit unit)
+    public static string Describe(Symbol symbol, Type? type, SourceFile viewedFrom, CompilationUnit unit, ModuleResolver resolver)
     {
         var attributes = DeclarationDisplay.AttributesOf(symbol);
         var signature = DeclarationDisplay.Of(symbol, type);
-        return Compose($"{(attributes == null ? "" : attributes + '\n')}{signature}", Notes(symbol, viewedFrom, unit), Documentation(symbol));
+        return Compose($"{(attributes == null ? "" : attributes + '\n')}{signature}", Notes(symbol, viewedFrom, unit, resolver), Documentation(symbol));
     }
 
     /// <summary>The same body for an interface member, which has a type and a name but no declaration to read a keyword off.</summary>
@@ -33,13 +34,13 @@ public static class SymbolMarkdown
     }
 
     /// <summary>The italicised lines under the signature: what is wrong with using this symbol, and where it came from.</summary>
-    private static string Notes(Symbol symbol, SourceFile viewedFrom, CompilationUnit unit)
+    private static string Notes(Symbol symbol, SourceFile viewedFrom, CompilationUnit unit, ModuleResolver resolver)
     {
         var notes = new List<string>();
         if (DeclarationDisplay.DeprecationOf(symbol) is { } deprecation)
             notes.Add(deprecation);
 
-        if (SymbolOrigin.Describe(symbol, viewedFrom, unit) is { } origin)
+        if (SymbolOrigin.Describe(symbol, viewedFrom, unit, resolver) is { } origin)
             notes.Add($"*{origin}*");
 
         return string.Join("\n\n", notes);

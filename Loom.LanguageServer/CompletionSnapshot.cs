@@ -88,15 +88,15 @@ public sealed record CompletionSnapshot
 public static class CompletionSnapshotBuilder
 {
     /// <summary>The one file a snapshot is built for, and the compile it belongs to - what every description of a name is written from the point of view of.</summary>
-    private sealed record FileContext(CompiledFile File, CompilationUnit Unit)
+    private sealed record FileContext(CompiledFile File, CompilationUnit Unit, ModuleResolver Modules)
     {
         public SemanticModel SemanticModel => File.SemanticModel;
         public SourceFile SourceFile => File.SourceFile;
     }
 
-    public static CompletionSnapshot Build(CompiledFile file, CompilationUnit unit)
+    public static CompletionSnapshot Build(CompiledFile file, CompilationUnit unit, ModuleResolver modules)
     {
-        var context = new FileContext(file, unit);
+        var context = new FileContext(file, unit, modules);
         var sourceFile = file.SourceFile;
         var wholeFile = new TextSpan(0, sourceFile.SourceText.Length);
         var descendants = file.Tree.GetDescendants();
@@ -119,7 +119,7 @@ public static class CompletionSnapshotBuilder
                 .Select(symbol => ToVisibleSymbol(symbol, context, wholeFile))
                 .ToArray(),
             Importable = CollectImportable(declared, context),
-            ModuleSpecifiers = CollectModuleSpecifiers(sourceFile, unit),
+            ModuleSpecifiers = CollectModuleSpecifiers(context),
             MemberScopes = CollectMemberScopes(descendants, context),
             ImportScopes = CollectImportScopes(descendants, context),
             TypeRanges = CollectTypeRanges(descendants, sourceFile.SourceText),
@@ -138,7 +138,7 @@ public static class CompletionSnapshotBuilder
         var inScope = declared.Select(symbol => (symbol.Name, symbol.IsTypeSymbol)).ToHashSet();
         var importable = new List<VisibleSymbol>();
 
-        foreach (var candidate in ImportCatalog.For(context.SourceFile, context.Unit))
+        foreach (var candidate in ImportCatalog.For(context.SourceFile, context.Unit, context.Modules))
         {
             var symbol = candidate.Symbol;
             if (!inScope.Add((candidate.Name, symbol.IsTypeSymbol)))
@@ -150,7 +150,7 @@ public static class CompletionSnapshotBuilder
                     IsTypeSymbol = symbol.IsTypeSymbol,
                     ImportedFrom = candidate.Specifier,
                     Detail = () => DeclarationDisplay.CompletionDetail(symbol, TypeOf(candidate.Model, symbol.Declaration)),
-                    Documentation = () => SymbolMarkdown.Describe(symbol, TypeOf(candidate.Model, symbol.Declaration), symbol.File, context.Unit)
+                    Documentation = () => SymbolMarkdown.Describe(symbol, TypeOf(candidate.Model, symbol.Declaration), symbol.File, context.Unit, context.Modules)
                 }
             );
         }
@@ -158,9 +158,9 @@ public static class CompletionSnapshotBuilder
         return importable;
     }
 
-    private static IReadOnlyList<VisibleSymbol> CollectModuleSpecifiers(SourceFile importingFile, CompilationUnit unit)
+    private static IReadOnlyList<VisibleSymbol> CollectModuleSpecifiers(FileContext context)
     {
-        var resolver = new ModuleResolver(unit.SourceFiles, unit.Roots);
+        var (importingFile, unit, resolver) = (context.SourceFile, context.Unit, context.Modules);
         var root = unit.Roots.Of(importingFile);
         var siblings = root.Files
             .Where(module => module != importingFile && !module.IsDeclaration)
@@ -190,7 +190,7 @@ public static class CompletionSnapshotBuilder
         if (imports.Length == 0)
             return [];
 
-        var resolver = new ModuleResolver(context.Unit.SourceFiles, context.Unit.Roots);
+        var resolver = context.Modules;
         var scopes = new List<ExclusiveScope>();
         foreach (var import in imports)
         {
@@ -205,7 +205,7 @@ public static class CompletionSnapshotBuilder
                 .Where(export => !import.IsTypeOnly || export.Symbol.IsTypeSymbol)
                 // an interface exports a type and a value under one name, but an import list names it once
                 .GroupBy(export => export.Name)
-                .Select(group => ToImportedSymbol(group.First(), moduleModel, context.Unit))
+                .Select(group => ToImportedSymbol(group.First(), moduleModel, context.Unit, resolver))
                 .ToArray();
 
             if (exports.Length > 0)
@@ -215,14 +215,14 @@ public static class CompletionSnapshotBuilder
         return scopes;
     }
 
-    private static VisibleSymbol ToImportedSymbol(ExportBinding export, SemanticModel moduleModel, CompilationUnit unit)
+    private static VisibleSymbol ToImportedSymbol(ExportBinding export, SemanticModel moduleModel, CompilationUnit unit, ModuleResolver resolver)
     {
         var symbol = export.Symbol;
         return new VisibleSymbol(export.Name, ToCompletionItemKind(symbol.Kind))
         {
             IsTypeSymbol = symbol.IsTypeSymbol,
             Detail = () => DeclarationDisplay.CompletionDetail(symbol, TypeOf(moduleModel, symbol.Declaration)),
-            Documentation = () => SymbolMarkdown.Describe(symbol, TypeOf(moduleModel, symbol.Declaration), symbol.File, unit)
+            Documentation = () => SymbolMarkdown.Describe(symbol, TypeOf(moduleModel, symbol.Declaration), symbol.File, unit, resolver)
         };
     }
 
@@ -235,7 +235,7 @@ public static class CompletionSnapshotBuilder
             IsLocal = isLocal,
             Scope = isLocal ? ScopeOf(symbol.Declaration, wholeFile) : wholeFile,
             Detail = () => DeclarationDisplay.CompletionDetail(symbol, TypeOf(context.SemanticModel, symbol.Declaration)),
-            Documentation = () => SymbolMarkdown.Describe(symbol, TypeOf(context.SemanticModel, symbol.Declaration), context.SourceFile, context.Unit)
+            Documentation = () => SymbolMarkdown.Describe(symbol, TypeOf(context.SemanticModel, symbol.Declaration), context.SourceFile, context.Unit, context.Modules)
         };
     }
 
@@ -387,7 +387,7 @@ public static class CompletionSnapshotBuilder
         if (receiver == null || context.SemanticModel.GetPropertySymbol(receiver, [property.Name]) is not { } symbol)
             return null;
 
-        return SymbolMarkdown.Describe(symbol, property.ValueType, context.SourceFile, context.Unit);
+        return SymbolMarkdown.Describe(symbol, property.ValueType, context.SourceFile, context.Unit, context.Modules);
     }
 
     private static TextSpan BracketRange(Token leftBracket, Token rightBracket) =>

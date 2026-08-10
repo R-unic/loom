@@ -20,9 +20,8 @@ public sealed record ImportCandidate(string Name, string Specifier, Symbol Symbo
 /// </summary>
 public static class ImportCatalog
 {
-    public static IReadOnlyList<ImportCandidate> For(SourceFile importingFile, CompilationUnit unit)
+    public static IReadOnlyList<ImportCandidate> For(SourceFile importingFile, CompilationUnit unit, ModuleResolver resolver)
     {
-        var resolver = new ModuleResolver(unit.SourceFiles, unit.Roots);
         var importingRoot = RootOf(importingFile, unit);
         var candidates = new List<ImportCandidate>();
 

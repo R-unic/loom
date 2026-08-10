@@ -28,25 +28,42 @@ public sealed class DiagnosticPublisher(ILanguageServerFacade server)
 
     /// <summary>
     ///     What to send for this result: a set per file the compile found something in, plus an empty set per
-    ///     file that had diagnostics last time and does not now. Advances what the publisher remembers, so it
-    ///     is the state machine rather than a query.
+    ///     file this compile covered that had diagnostics last time and does not now. Advances what the
+    ///     publisher remembers, so it is the state machine rather than a query.
     /// </summary>
+    /// <remarks>
+    ///     Only files the compile covered are cleared. A workspace may hold more than one project, and each
+    ///     compiles on its own - clearing every file not in this result would wipe the other project's
+    ///     diagnostics every time this one is edited.
+    /// </remarks>
     public IReadOnlyDictionary<DocumentUri, Diagnostic[]> Next(CompilationResult result)
     {
         var byFile = Conversion.DiagnosticsByFile(result);
+        var covered = CoveredBy(result);
+
         lock (_gate)
         {
             var toSend = byFile.ToDictionary(entry => entry.Key, entry => entry.Value);
-            foreach (var uri in _reported.Where(uri => !byFile.ContainsKey(uri)))
+            foreach (var uri in _reported.Where(uri => covered.Contains(uri) && !byFile.ContainsKey(uri)))
                 toSend[uri] = [];
 
-            _reported.Clear();
-            foreach (var uri in byFile.Keys)
-                _reported.Add(uri);
+            foreach (var uri in toSend.Keys)
+                if (toSend[uri].Length == 0)
+                    _reported.Remove(uri);
+                else
+                    _reported.Add(uri);
 
             return toSend;
         }
     }
+
+    /// <summary>Every file this compile had an answer for, whether or not it found anything wrong with it.</summary>
+    private static HashSet<DocumentUri> CoveredBy(CompilationResult result) =>
+        result.Files.Select(file => file.SourceFile)
+            .Concat(result.Failures.Select(failure => failure.File))
+            .Where(file => Path.IsPathRooted(file.AbsolutePath))
+            .Select(file => DocumentUri.FromFileSystemPath(file.AbsolutePath))
+            .ToHashSet();
 
     /// <summary>
     ///     Clears one file, for a document whose diagnostics stop being the server's business - it closed, or
