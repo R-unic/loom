@@ -6,7 +6,12 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Loom.LanguageServer;
 
-public sealed record DocumentState(CompiledFile File, CompletionSnapshot Completions);
+/// <summary>
+///     Everything a request about one open document is answered from. The unit comes along because a symbol's
+///     origin - which package, which module, whether it is ambient at all - is a fact about the whole compile
+///     rather than about the file the cursor is in.
+/// </summary>
+public sealed record DocumentState(CompiledFile File, CompilationUnit Unit, CompletionSnapshot Completions);
 
 public sealed class DocumentStore
 {
@@ -63,7 +68,7 @@ public sealed class DocumentStore
             var result = unit.Recompile(new Dictionary<string, string> { [path] = text });
             var file = result.Files.Find(f => f.SourceFile.AbsolutePath == path);
             if (file != null)
-                _state[uri] = new DocumentState(file, BuildCompletions(file, unit));
+                _state[uri] = new DocumentState(file, unit, BuildCompletions(file, unit));
 
             return result;
         }
