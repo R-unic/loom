@@ -54,8 +54,14 @@ before claiming done.
       text differs from the symbol's name is an alias and is left alone by rename
     - `ImportCatalog`/`ImportEdits` decide what a file could import and build the edit that imports it, shared by auto-import completion and the
       "Import 'X'" quick fix
-    - `Conversion` also owns `DiagnosticsFor`, which is what publishes and what clears: a null result means the file was not analyzed, and an empty
-      set is how a client is told to drop what it is still showing
+    - `DocumentStore` splits recording an edit from compiling it: `Change` only records, `Compile`/`TryGetState` bring the document up to date on
+      demand, and only `didChange`'s diagnostic publish is deferred (via `Debouncer`) because it is the one thing nobody is blocked on. Every dirty
+      buffer of a unit goes into one `Recompile` together, and `Close` reverts the file to its saved text — the unit keeps whatever text it was last
+      handed, and an editor discards unsaved edits when a document closes
+    - `DiagnosticPublisher` reports every file the compile found something in, not just the edited one, and remembers what it said so a file whose
+      errors are gone gets an empty set. It only ever clears files the compile covered: a workspace may hold more than one project
+    - `Conversion` owns `DiagnosticsFor`/`DiagnosticsByFile`: a null result means the file was not analyzed, and an empty set is how a client is told
+      to drop what it is still showing
     - `FilePaths.Same` — never compare paths with `==`. A client's `file:` URI round-trips a Windows drive letter in lower case while the compiler's
       path came from the project directory, so an ordinal comparison silently matches nothing
 - `Loom.TypeGenerator/` — Loom code generator to define types for the Roblox API; tests depend on these types to be generated to pass
