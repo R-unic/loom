@@ -15,12 +15,5 @@
     <ItemGroup>
       <PackageReference Include="CommandLineParser" Version="2.9.1" />
     </ItemGroup>
-    
-    <ItemGroup>
-        <Content Include="include\**">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
-        </Content>
-    </ItemGroup>
 
 </Project>

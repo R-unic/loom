@@ -23,9 +23,10 @@ end
 export type CreatableInstance = Instance
 export type ServiceInstance = Instance
 export type Range = { minimum: number, maximum: number }
-export type ResultOk<T> = { ok: true, value: T }
-export type ResultError<Error> = { ok: false, error: Error }
-export type Result<T, Error> = ResultOk<T> | ResultError<Error>
+export type ResultOk<T, Error> = { ok: true, value: T }
+export type ResultError<T, Error> = { ok: false, error: Error }
+export type Result<T, Error> = ResultOk<T, Error> | ResultError<T, Error>
+export type RobloxError = { message: string, traceback: string? }
 export type DeserializeErrorKind = "truncated" | "invalid_tag" | "invalid_length" | "missing_blob" | "invalid_blob"
 export type Serialized = { buffer: buffer?, blobs: { unknown }? }
 export type DeserializeError = { kind: DeserializeErrorKind, field: string?, offset: number? }
@@ -40,6 +41,13 @@ export type UserEvent<T... = ...any> = Event.UserEvent<T...>
 export type EventConnection = Event.Connection
 
 Loom.Event = Event
+
+-- xpcall handler for a Roblox API call the compiler wraps. Shared rather than built per call
+-- site, and only ever invoked when the call actually raised, so the traceback costs nothing on
+-- the success path. Luau permits error() with any value, hence the tostring.
+function Loom.roblox_error(message: any): RobloxError
+	return { message = tostring(message), traceback = debug.traceback(nil, 2) }
+end
 
 function Loom.disconnect_event(connections: { [any]: Event.Connection }, fn: any)
 	const connection = connections[fn]
