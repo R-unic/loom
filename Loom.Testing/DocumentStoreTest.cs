@@ -308,6 +308,50 @@ public class DocumentStoreTest
         }
     }
 
+    /// <summary>An editor discards unsaved edits when a document closes, so the project has to go back to what is on disk.</summary>
+    [Fact]
+    public void Close_PutsTheFileBackToItsSavedText()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
+        Directory.CreateDirectory(Path.Combine(directory, "src"));
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            var mathPath = Path.Combine(directory, "src", "math.loom");
+            var mainPath = Path.Combine(directory, "src", "main.loom");
+            File.WriteAllText(mathPath, "export fn double(n: number): number { return n * 2; }");
+            File.WriteAllText(mainPath, "import { double } from \"./math\";\nlet four = double(2);");
+
+            var store = new DocumentStore();
+            var mathUri = DocumentUri.FromFileSystemPath(mathPath);
+            var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+            store.Open(mathUri, File.ReadAllText(mathPath));
+            store.Open(mainUri, File.ReadAllText(mainPath));
+
+            store.Change(mathUri, [new TextDocumentContentChangeEvent { Text = "export fn twice(n: number): number { return n * 2; }" }]);
+            Assert.Contains(store.Compile(mainUri)!.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.NoExportedMember);
+
+            store.Close(mathUri);
+
+            Assert.True(store.TryGetState(mainUri, out var state));
+            Utility.AssertNoErrors(state.File.Diagnostics);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void Close_WithNoUnsavedEdits_LeavesTheProjectAlone() =>
+        WithProject(
+            (store, uri, _) =>
+            {
+                store.Close(uri);
+                Assert.False(store.TryGetState(uri, out DocumentState _));
+            }
+        );
+
     private static void WithProject(Action<DocumentStore, DocumentUri, string> act)
     {
         var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());

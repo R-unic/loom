@@ -339,6 +339,31 @@ public class CompilationUnitTest
             }
         );
 
+    /// <summary>
+    ///     A dependent keeps the compiler that parsed it across re-analyses, so an analysis has to drop what
+    ///     the last one reported - otherwise fixing the module a file imports from leaves the error that fix
+    ///     resolved reported against it forever.
+    /// </summary>
+    [Fact]
+    public void Recompile_AfterADependencyIsFixed_DropsTheDependentsOldDiagnostics() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;"), ("main.loom", "import { value } from \"./math\"\nlet doubled: number = value;")],
+            (unit, _) =>
+            {
+                var mathFile = unit.SourceFiles.First(file => file.Name == "math.loom");
+
+                File.WriteAllText(mathFile.AbsolutePath, "export let value: string = \"hi\";");
+                var broken = unit.Recompile(new HashSet<string> { mathFile.AbsolutePath });
+                Utility.AssertDiagnostic(broken.Diagnostics, InternalCodes.TypeMismatch, "Type 'string' is not assignable to type 'number'.");
+
+                File.WriteAllText(mathFile.AbsolutePath, "export let value: number = 2;");
+                var repaired = unit.Recompile(new HashSet<string> { mathFile.AbsolutePath });
+
+                Utility.AssertNoErrors(repaired);
+                Assert.Empty(repaired.Files.Find(file => file.SourceFile.Name == "main.loom")!.Diagnostics.Set);
+            }
+        );
+
     [Fact]
     public void Recompile_UnknownChangedPath_FallsBackToFullCompile() =>
         Utility.WithTempProject(

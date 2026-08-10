@@ -69,12 +69,21 @@ public sealed class DocumentStore
         return true;
     }
 
+    /// <summary>
+    ///     Drops the buffer and puts the file back to what is on disk. An editor discards unsaved edits when a
+    ///     document closes, but the unit keeps whatever text it was last handed - so without this, every other
+    ///     file in the project would go on being analyzed against a version of this one that no longer exists
+    ///     anywhere.
+    /// </summary>
     public void Close(DocumentUri uri)
     {
         lock (_compilationLock)
         {
-            _documents.TryRemove(uri, out _);
+            if (!_documents.TryRemove(uri, out var document))
+                return;
+
             _state.TryRemove(uri, out _);
+            RevertToDisk(document);
         }
     }
 
@@ -125,23 +134,58 @@ public sealed class DocumentStore
             foreach (var document in dirty)
                 document.IsDirty = false;
 
-            var modules = new ModuleResolver(unit.SourceFiles, unit.Roots);
-            foreach (var (openUri, open) in _documents)
-            {
-                if (open.Unit != unit)
-                    continue;
-
-                var file = result.Files.Find(compiled => FilePaths.Same(compiled.SourceFile.AbsolutePath, open.Path));
-                if (file != null)
-                    _state[openUri] = new DocumentState(file, unit, BuildCompletions(file, unit, modules)) { Modules = modules };
-            }
-
+            RefreshStates(unit, result);
             return result;
         }
         catch (Exception)
         {
             // the buffers stay dirty, so the next request tries again rather than answering from a compile
             // that never finished
+            return null;
+        }
+    }
+
+    /// <summary>Rebuilds what every open document of the unit is answered from, since one compile moves all of them.</summary>
+    private void RefreshStates(CompilationUnit unit, CompilationResult result)
+    {
+        var modules = new ModuleResolver(unit.SourceFiles, unit.Roots);
+        foreach (var (openUri, open) in _documents)
+        {
+            if (open.Unit != unit)
+                continue;
+
+            var file = result.Files.Find(compiled => FilePaths.Same(compiled.SourceFile.AbsolutePath, open.Path));
+            if (file != null)
+                _state[openUri] = new DocumentState(file, unit, BuildCompletions(file, unit, modules)) { Modules = modules };
+        }
+    }
+
+    private void RevertToDisk(OpenDocument document)
+    {
+        if (document.Unit is not { } unit || ReadFromDisk(document.Path) is not { } disk || disk == document.Text)
+            return;
+
+        try
+        {
+            var result = unit.Recompile(new Dictionary<string, string> { [document.Path] = disk });
+            _results[unit] = result;
+            RefreshStates(unit, result);
+        }
+        catch (Exception)
+        {
+            // nothing to report against: the document that would have carried the failure just closed
+        }
+    }
+
+    /// <summary>The file's saved text, or null when it has none - a document may close without ever having been saved.</summary>
+    private static string? ReadFromDisk(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.ReadAllText(path) : null;
+        }
+        catch (Exception)
+        {
             return null;
         }
     }

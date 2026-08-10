@@ -13,6 +13,9 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
 {
     private readonly List<DiagnosticBag> _pipelineDiagnostics = [];
 
+    /// <summary>How much of <see cref="_pipelineDiagnostics" /> the parse phase contributed, which is what an analysis keeps and everything after it replaces.</summary>
+    private int _parsePhaseDiagnostics;
+
     public SourceFile SourceFile { get; } = file;
 
     /// <summary>
@@ -42,6 +45,7 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
                 var lexerResult = TrackDiagnostics(lexer.Tokenize());
                 var parser = new Parser(lexerResult);
                 var parserResult = TrackDiagnostics(parser.Parse());
+                _parsePhaseDiagnostics = _pipelineDiagnostics.Count;
 
                 return new ParsedFile(SourceFile, lexerResult, parserResult);
             }
@@ -53,9 +57,15 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
     ///     file reports every diagnostic raised against it regardless of which phase found it.
     /// </summary>
     /// <returns>Null when the phase failed; <see cref="Diagnostics" /> says why.</returns>
+    /// <remarks>
+    ///     A file is analyzed more than once whenever an import's exports change, and it keeps the compiler
+    ///     that parsed it - so an analysis starts by dropping what the last one reported. Without that, fixing
+    ///     the module a file imports from leaves the error that fix resolved reported against it forever.
+    /// </remarks>
     public CompiledFile? Analyze(ParsedFile parsedFile, DiagnosticBag? moduleDiagnostics = null) =>
         RunPhase(() =>
             {
+                _pipelineDiagnostics.RemoveRange(_parsePhaseDiagnostics, _pipelineDiagnostics.Count - _parsePhaseDiagnostics);
                 if (moduleDiagnostics != null)
                     _pipelineDiagnostics.Add(moduleDiagnostics);
 
