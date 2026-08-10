@@ -219,7 +219,7 @@ public class CompletionHandlerTest
 
     [Fact]
     public async Task Handle_ResolvesTheSignatureAndDocumentationLazily() =>
-        await Utility.WithLspProject(
+        await Utility.WithLspProjectAsync(
             async (store, uri) =>
             {
                 var handler = new CompletionHandler(store);
@@ -251,7 +251,7 @@ public class CompletionHandlerTest
 
     [Fact]
     public async Task Handle_InsideAnImportSpecifier_CompletesSiblingModules() =>
-        await Utility.WithLspProject(
+        await Utility.WithLspProjectAsync(
             async (store, uri) =>
             {
                 var completions = await new CompletionHandler(store).Handle(
@@ -269,7 +269,7 @@ public class CompletionHandlerTest
 
     [Fact]
     public async Task Handle_InsideAnImportList_CompletesTheModulesExportsAndNothingElse() =>
-        await Utility.WithLspProject(
+        await Utility.WithLspProjectAsync(
             async (store, uri) =>
             {
                 var completions = await new CompletionHandler(store).Handle(
@@ -307,7 +307,7 @@ public class CompletionHandlerTest
     private static async Task<CompletionItem[]> CompleteAsync(string source, int? line = null, int? character = null)
     {
         var completions = Array.Empty<CompletionItem>();
-        await Utility.WithLspProject(
+        await Utility.WithLspProjectAsync(
             async (store, uri) =>
             {
                 var position = line != null && character != null ? new Position(line.Value, character.Value) : EndOfPenultimateLine(source);

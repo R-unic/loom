@@ -48,7 +48,9 @@ public static class DeclarationDisplay
                 $"{(@interface.SealedKeyword == null ? "" : "sealed ")}interface {symbol.Name}{Render(@interface.TypeParameters)}",
             TraitDeclaration trait => $"trait {symbol.Name}{Render(trait.TypeParameters)}",
             EnumDeclaration => $"enum {symbol.Name}",
-            TypeAlias alias => $"type {symbol.Name}{Render(alias.TypeParameters)} = {type?.ToString() ?? alias.EqualsTypeClause.Type.ToString()}",
+            // an alias reads as what was written on its right-hand side; the type it resolves to has already
+            // substituted the parameters away, which turns 'T[]' into the alias's own instantiation
+            TypeAlias alias => $"type {symbol.Name}{Render(alias.TypeParameters)} = {alias.EqualsTypeClause.Type}",
             Parameter parameter => $"{(parameter.DotDot == null ? "" : "..")}{symbol.Name}: {TypeText(type)}",
             DeclareVariableSignature variable => $"{variable.Keyword.Text} {symbol.Name}: {TypeText(type)}",
             PropertyDeclaration property => $"{(property.MutKeyword == null ? "" : "mut ")}{symbol.Name}: {TypeText(type)}",

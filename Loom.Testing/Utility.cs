@@ -240,7 +240,7 @@ internal static class Utility
     ///     alongside any <paramref name="otherFiles" /> the case needs, and hands both to <paramref name="act" />.
     ///     Language server requests are answered from a real compilation, so they need a project on disk.
     /// </summary>
-    public static async Task WithLspProject(
+    public static async Task WithLspProjectAsync(
         Func<DocumentStore, DocumentUri, Task> act,
         string source,
         params (string Path, string Source)[] otherFiles)

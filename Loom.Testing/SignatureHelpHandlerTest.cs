@@ -109,7 +109,7 @@ public class SignatureHelpHandlerTest
         var position = new Position(lines.Length - 1, lines[^1].Length);
 
         SignatureHelp? help = null;
-        await Utility.WithLspProject(
+        await Utility.WithLspProjectAsync(
             async (store, uri) =>
                 help = await new SignatureHelpHandler(store).Handle(
                     new SignatureHelpParams { TextDocument = new TextDocumentIdentifier(uri), Position = position },

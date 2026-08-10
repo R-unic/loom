@@ -82,6 +82,13 @@ public class HoverHandlerTest
     public async Task Handle_OnAMethod_RendersItAsACallRatherThanAProperty() => Assert.Contains("fn floor(x: number): number", await HoverAsync(Source, 20, 15));
 
     [Fact]
+    public async Task Handle_OnAnIntrinsic_ShowsTheDocCommentTheIntrinsicWasDeclaredWith()
+    {
+        var hover = await HoverAsync(Source, 18, 4);
+        Assert.Contains("Writes its arguments to the output", hover);
+    }
+
+    [Fact]
     public async Task Handle_OnADeprecatedDeclaration_SaysSo()
     {
         var hover = await HoverAsync(
@@ -100,7 +107,7 @@ public class HoverHandlerTest
 
     [Fact]
     public async Task Handle_OnASymbolFromAnotherModule_NamesTheModuleItCameFrom() =>
-        await Utility.WithLspProject(
+        await Utility.WithLspProjectAsync(
             async (store, uri) =>
             {
                 var hover = await new HoverHandler(store).Handle(
@@ -133,7 +140,7 @@ public class HoverHandlerTest
     private static async Task<string> HoverAsync(string source, int line, int character)
     {
         var result = "";
-        await Utility.WithLspProject(
+        await Utility.WithLspProjectAsync(
             async (store, uri) =>
             {
                 var hover = await new HoverHandler(store).Handle(

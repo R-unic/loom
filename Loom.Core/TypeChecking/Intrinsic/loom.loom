@@ -10,8 +10,10 @@ interface MutRecord<K, V> {
     mut [K]: V;
 }
 
-## Identical to 'T[]' - 'L' only matters to the serializer, which reads it off the type argument
-## directly rather than the array's own length prefix always being 'u32'.
+### An array of 'T' whose serialized length prefix is written as 'L'.
+###
+### Identical to 'T[]' at the type level - 'L' only matters to the serializer, which reads it off the
+### type argument rather than always writing the array's length as a 'u32'.
 type Array<T, L: number = u32> = T[];
 
 enum AttributeTargets {
@@ -50,38 +52,53 @@ declare fn luau_method: void;
 [attribute_usage(AttributeTargets.Property)]
 declare fn override: void;
 
-## Declares that a function may panic - that it calls unwrap/expect, error(), or another
-## [fallible] function. Panicking anywhere else is an error, so a signature never hides the
-## fact that calling it can end the thread. Metadata only: it wraps nothing at runtime.
+### Declares that a function may panic - that it calls unwrap/expect, error(), or another
+### [fallible] function. Panicking anywhere else is an error, so a signature never hides the
+### fact that calling it can end the thread. Metadata only: it wraps nothing at runtime.
 [attribute_usage(AttributeTargets.Function), metadata_only]
 declare fn fallible: void;
 
-## Declares that a call to this method raises rather than returning, and that the compiler should
-## catch that instead of letting it end the thread: the call is lowered to an xpcall and its result
-## becomes 'Result<T, RobloxError>'. Generated onto every Roblox API method classified as fallible,
-## which is why the return type on those is already a Result. Metadata only.
+### Declares that a call to this method raises rather than returning, and that the compiler should
+### catch that instead of letting it end the thread: the call is lowered to an xpcall and its result
+### becomes 'Result<T, RobloxError>'. Generated onto every Roblox API method classified as fallible,
+### which is why the return type on those is already a Result. Metadata only.
 [attribute_usage(AttributeTargets.Function | AttributeTargets.Property), metadata_only]
 declare fn wraps_errors: void;
 
-## Marks a member whose use should be warned about. Generated onto every API member the Roblox
-## dump tags Deprecated; 'message' carries a hand-written replacement hint where one is known,
-## since Roblox's metadata supplies none. Metadata only.
+### Marks a member whose use should be warned about. Generated onto every API member the Roblox
+### dump tags Deprecated; 'message' carries a hand-written replacement hint where one is known,
+### since Roblox's metadata supplies none. Metadata only.
 [attribute_usage(AttributeTargets.Function | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
 declare fn deprecated(message: string?): void;
 
 ## Serialization attributes. See TypeChecker.Serialization.cs for the co-requirement rules
 ## these carry: 'packed' requires 'serializable', every property attribute requires its
 ## containing interface to be 'serializable', and 'number_step' requires 'number_range'.
+
+### Gives the interface a binary wire format, and emits the serializer and deserializer for it.
 [attribute_usage(AttributeTargets.Interface)] declare fn serializable: void;
+### Packs the interface's booleans into shared bits rather than a byte each. Requires 'serializable'.
 [attribute_usage(AttributeTargets.Interface)] declare fn packed: void;
+### Leaves the property out of the wire format entirely.
 [attribute_usage(AttributeTargets.Property)] declare fn ignore_serialization: void;
+### Narrows the property to a known range, so it serializes in as few bits as that range needs.
+### @param min the smallest value the property may hold
+### @param max the largest value the property may hold
 [attribute_usage(AttributeTargets.Property)] declare fn number_range(min: number, max: number): void;
+### Quantizes the property to multiples of 'step' within its range. Requires 'number_range'.
 [attribute_usage(AttributeTargets.Property)] declare fn number_step(step: number): void;
+### Chooses how the CFrame property is encoded - compressed, or with full precision.
 [attribute_usage(AttributeTargets.Property)] declare fn cframe_type(ty: CFrameType): void;
 
+### Raises 'message', ending the calling thread unless something catches it.
+### @param message what to raise
+### @param level how far up the call stack to blame, defaulting to the caller
 declare fn error(message: string, level: number?): never;
+### Writes its arguments to the output, separated by tabs.
 declare fn print(..data: unknown[]): void;
+### Converts any value to its string form.
 declare fn string(value: unknown): string;
+### Parses a value as a number, or 'none' when it does not describe one.
 declare fn number(value: unknown): number?;
 
 declare fn get_metadata<T>(member_name: string?, attribute: unknown): unknown[]?;

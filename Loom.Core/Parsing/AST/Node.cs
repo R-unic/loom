@@ -42,6 +42,11 @@ public abstract class Node
             if (documentation.At(Span.Position) is { } aboveTheDeclaration)
                 return aboveTheDeclaration;
 
+            // 'declare' sits above the signature that names the symbol, so a doc comment written above the
+            // statement documents a token belonging to the wrapper rather than to the signature itself
+            if (Parent is Declare declare && declare.Signature == this && documentation.At(declare.Span.Position) is { } aboveTheDeclareKeyword)
+                return aboveTheDeclareKeyword;
+
             // an attributed declaration begins at its '[', so a doc comment written under the attributes
             // documents the keyword the list ends before rather than the declaration's own first token
             if ((this as IWithAttributes)?.Attributes is not { } attributes)

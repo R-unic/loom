@@ -80,6 +80,19 @@ public class DocumentationCommentTest
     }
 
     [Fact]
+    public void Documentation_ReachesTheSignatureUnderADeclareKeyword()
+    {
+        var tree = Utility.GetAST(
+            """
+            ### Writes its arguments to the output.
+            declare fn write(..data: unknown[]): void;
+            """
+        );
+
+        Assert.Equal("Writes its arguments to the output.", Assert.Single(tree.GetDescendants<DeclareFunctionSignature>()).Documentation);
+    }
+
+    [Fact]
     public void Documentation_IsNullForAnUndocumentedDeclaration() =>
         Assert.Null(Assert.Single(Utility.GetAST("fn add(x: number): number { return x; }").GetDescendants<FunctionDeclaration>()).Documentation);
 
