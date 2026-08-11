@@ -169,6 +169,34 @@ public class MacroExpanderTest
         Assert.Equal(["bogus"], callee.Names);
     }
 
+    /// <summary>
+    ///     A macro that is <em>called</em> inside another call's arguments is a call, not a reference. It
+    ///     used to be both: the reference context test only asks whether some ancestor is an argument list,
+    ///     which the callee of the inner call satisfies through the outer one, so the callee became a lambda
+    ///     and the invocation macro was then expanded on top of it - emitting
+    ///     <c>table.find(function(argument0) ... end, 2)</c>.
+    /// </summary>
+    [Fact]
+    public void Generates_InvocationMacro_CalledInsideAnotherCallsArguments_AsACall()
+    {
+        const string source = """
+            declare fn consume(value: bool): void;
+            let xs = [1, 2, 3];
+            consume(xs.has(2));
+            """;
+
+        var luauTree = Utility.GetLuauAST(source, true);
+        Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
+
+        var statement = Assert.IsType<ExpressionStatement>(luauTree.Statements.Last());
+        var consumeCall = Assert.IsType<Call>(statement.Expression);
+        var comparison = Assert.IsType<BinaryOperator>(Assert.Single(consumeCall.Arguments));
+        var find = Assert.IsType<Call>(comparison.Left);
+
+        Assert.Equal("xs", Assert.IsType<Identifier>(find.Arguments[0]).Name);
+        Assert.DoesNotContain(find.Arguments, argument => argument is AnonymousFunction);
+    }
+
     [Fact]
     public void Generates_InvocationMacroReference_NestedInArgument()
     {
