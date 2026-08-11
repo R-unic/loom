@@ -366,8 +366,26 @@ public sealed partial class TypeChecker
         if (!InvocationMacroReference.TryClassify(_semanticModel, expression, out _, out var memberName))
             return false;
 
-        if (InvocationMacroReference.IsValidReferenceContext(expression, _semanticModel) || InvocationMacroReference.IsDirectInvocationCallee(expression))
+        if (InvocationMacroReference.IsDirectInvocationCallee(expression))
             return true;
+
+        if (InvocationMacroReference.IsValidReferenceContext(expression, _semanticModel))
+        {
+            // Referencing a macro emits a lambda with one parameter per declared parameter, which cannot
+            // stand for a variadic one - the lambda would take a single argument and silently drop the
+            // rest. There is nothing to fall back on, since the macro has no runtime definition to pass.
+            if (_semanticModel.GetType(expression) is not Types.FunctionType { HasRestParameter: true })
+                return true;
+
+            _diagnostics.Error(
+                expression,
+                InternalCodes.InvalidMacroReference,
+                $"Invocation macro '{memberName}' takes a variable number of arguments, so it cannot be passed as a value.",
+                $"call it directly (e.g. {memberName}(...)), or wrap it in a function of your own"
+            );
+
+            return true;
+        }
 
         _diagnostics.Error(
             expression,

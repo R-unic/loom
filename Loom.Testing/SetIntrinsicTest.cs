@@ -79,6 +79,26 @@ public class SetIntrinsicTest
         Assert.Equal(PrimitiveType.String, Assert.Single(instantiated.Arguments));
     }
 
+    /// <summary>
+    ///     Referencing a macro emits a lambda with one parameter per declared parameter, which cannot stand
+    ///     for a variadic one - it would take a single argument and silently drop the rest. <c>Set.of</c> is
+    ///     the first variadic macro, so this had no way of coming up before.
+    /// </summary>
+    [Fact]
+    public void ThrowsFor_VariadicConstructorPassedAsAValue()
+    {
+        const string source = """
+            declare fn consume<T>(make: fn(..values: T[]): Set<T>): void;
+            consume(Set.of);
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(source),
+            InternalCodes.InvalidMacroReference,
+            "Invocation macro 'of' takes a variable number of arguments, so it cannot be passed as a value."
+        );
+    }
+
     /// <summary>A set is a plain table of members, so it indexes with its element type.</summary>
     [Fact]
     public void IndexesWithTheElementType()
