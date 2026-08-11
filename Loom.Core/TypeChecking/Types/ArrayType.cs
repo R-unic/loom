@@ -1,5 +1,7 @@
 namespace Loom.Core.TypeChecking.Types;
 
+using Intrinsics = Loom.Core.TypeChecking.Intrinsics;
+
 public sealed class ArrayType(Type elementType, bool isMutable)
     : ObjectType(new ObjectIndexer(isMutable, PrimitiveType.Number, elementType), [])
 {
@@ -70,6 +72,9 @@ public sealed class ArrayType(Type elementType, bool isMutable)
 
         if (elementType is ArrayType nested)
             properties.Add(new ObjectProperty(false, "flatten", new FunctionType([], [], new ArrayType(nested.ElementType, false))));
+
+        if (Intrinsics.SetDefinition is { } setDefinition)
+            properties.Add(new ObjectProperty(false, "to_set", new FunctionType([], [], setDefinition.Construct([elementType]))));
 
         if (!isMutable)
             return properties;

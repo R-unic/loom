@@ -499,6 +499,29 @@ public class TypeInferrerTest
         Assert.Equal(PrimitiveType.Number, result[elementParameter]);
     }
 
+    /// <summary>
+    ///     One argument is enough: an array rest is a homogeneous run, so its element type widens the way an
+    ///     array literal's does rather than waiting for a second argument to disagree with the first.
+    /// </summary>
+    [Fact]
+    public void InferFunctionTypeArguments_RestParameter_WidensASingleLiteralArgument()
+    {
+        var elementParameter = TypeParameter("T");
+        var function = new FunctionType([elementParameter], [new ArrayType(elementParameter, false)], elementParameter, true);
+        var result = TypeInferrer.InferFunctionTypeArguments(function, [new LiteralType(1L)]);
+        Assert.Equal(PrimitiveType.Number, result[elementParameter]);
+    }
+
+    /// <summary>A fixed parameter keeps the literal, so 'Result.ok(1)' stays 'Result&lt;1, E&gt;'.</summary>
+    [Fact]
+    public void InferFunctionTypeArguments_FixedParameter_KeepsALiteralArgument()
+    {
+        var elementParameter = TypeParameter("T");
+        var function = FunctionType([elementParameter], [elementParameter], elementParameter);
+        var result = TypeInferrer.InferFunctionTypeArguments(function, [new LiteralType(1L)]);
+        Assert.Equal(new LiteralType(1L), result[elementParameter]);
+    }
+
     /// <summary>Without a rest parameter the extra argument still binds nothing, so the arity rules are unchanged.</summary>
     [Fact]
     public void InferFunctionTypeArguments_ArrayParameterWithoutRest_DoesNotInferFromExtraArguments()

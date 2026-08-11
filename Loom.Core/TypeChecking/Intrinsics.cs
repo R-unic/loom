@@ -62,6 +62,19 @@ public static class Intrinsics
         )
     );
 
+    /// <summary>
+    ///     The <c>Set&lt;T&gt;</c> definition from <c>loom.loom</c>, published once the intrinsics have
+    ///     compiled so <see cref="ArrayType" /> can name it in <c>to_set</c>'s return type.
+    ///     <para>
+    ///         An array's members are built in C# rather than declared, so unlike every other reference to an
+    ///         intrinsic type there is no semantic model in reach to look this up through. It is null until
+    ///         the intrinsics finish compiling - an array built during that bootstrap simply has no
+    ///         <c>to_set</c>, which is fine because no intrinsic source calls it. First writer wins: every
+    ///         project type includes <c>loom.loom</c>, so the definitions are interchangeable.
+    ///     </para>
+    /// </summary>
+    internal static GenericType? SetDefinition;
+
     public static HashSet<(Symbol, Type)> Register(SemanticModel model, CompilationUnit injectInto)
     {
         var projectType = injectInto.Config.ProjectType;
@@ -186,7 +199,11 @@ public static class Intrinsics
                 symbol.IsIntrinsic = true;
                 symbol.IsGlobal = true;
                 symbol.AttributeUsageFlags = ResolveAttributeUsageFlags(compiledFile.SemanticModel, symbol);
-                intrinsicSymbols.Add((symbol, compiledFile.SemanticModel.GetType(symbol.Declaration)));
+                var type = compiledFile.SemanticModel.GetType(symbol.Declaration);
+                intrinsicSymbols.Add((symbol, type));
+
+                if (symbol is { Name: "Set", IsTypeSymbol: true } && type is GenericType setDefinition)
+                    Interlocked.CompareExchange(ref SetDefinition, setDefinition, null);
             }
 
         return intrinsicSymbols;

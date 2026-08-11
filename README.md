@@ -64,6 +64,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [For Loops](#for-loops)
   - [Ternary Operator](#ternary-operator)
   - [keyof](#keyof)
+  - [Sets](#sets)
   - [Result Pattern](#result-pattern)
   - [Fallible Roblox API calls](#fallible-roblox-api-calls)
   - [Panics and `[fallible]`](#panics-and-fallible)
@@ -113,6 +114,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   `Result<T, RobloxError>`, so the failure is in the signature rather than waiting to kill the thread. See [example](#result-pattern).
 - **Error propagation** – The postfix `?` operator unwraps a `Result<T, E>`, returning early on failure - same idea as Rust's `?`. See
   [example](#error-propagation).
+- **Sets** – `Set<T>`/`MutSet<T>` with the usual algebra, lowered to a plain table whose keys are its members. No
+  runtime library, no wrapper object. See [example](#sets).
 - **Events** – Built-in user events with shorthand syntax. See [example](#events).
 - **Traits** – Define reusable behavior that interfaces can implement, enabling shared APIs and generic constraints that reflect behavior, including an
   explicit `@` self receiver inside implementations. See [example](#traits--implementations).
@@ -997,6 +1000,72 @@ type Foo = {
 type K = keyof<Foo>
 ```
 ---
+## Sets
+
+A `Set<T>` is a table whose keys are its members. Nothing about it survives to runtime: the constructors build
+that table directly and every operation is lowered inline, so a set costs exactly what the table costs.
+
+```rs
+let tags = Set.of("boss", "flying");
+let flying = tags.has("flying");
+let names = ["ana", "bo", "ana"].to_set();
+```
+
+```luau
+const tags = { ["boss"] = true, ["flying"] = true }
+const flying = tags["flying"] == true
+const _result = {}
+for _, _element in {"ana", "bo", "ana"} do
+  _result[_element] = true
+end
+const names = _result
+```
+
+---
+
+`Set<T>` is read-only. `MutSet<T>` adds `add` and `remove`, and is assignable to `Set<T>` - so a set you are still
+building can be passed to anything that only reads one.
+
+```rs
+mut visited = MutSet.of(1);
+visited.add(2);
+visited.remove(1);
+let more = visited.union(Set.of(3));
+```
+
+```luau
+local visited = { [1] = true }
+visited[2] = true
+visited[1] = nil
+const _other = { [3] = true }
+const _result = table.clone(visited)
+for _key in _other do
+  _result[_key] = true
+end
+const more = _result
+```
+
+---
+
+| Member | Result | Cost |
+| --- | --- | --- |
+| `size` | how many members | walks the set |
+| `is_empty` | whether it has none | `next(t) == nil` |
+| `has(value)` | whether `value` is a member | one lookup |
+| `add(value)` / `remove(value)` | `MutSet<T>` only | one assignment |
+| `union(other)` | every member of either | clones, then walks `other` |
+| `intersect(other)` / `difference(other)` | members in both / in this one only | walks this one |
+| `is_subset_of(other)` | whether `other` has all of them | walks until one is missing, then stops |
+| `to_array()` | the members as a `T[]`, in no particular order | walks the set |
+
+`size` is a count, not a stored field - storing one would collide with the members, since they *are* the keys. Reach
+for `is_empty` over `size == 0`: it stops at the first member instead of counting them all.
+
+Membership is `value == true` rather than "key present". The indexer is declared `[T]: bool` and `MutSet`'s is
+mutable, so writing `false` through it directly means what it says.
+
+---
+
 ## Result Pattern
 
 ```rs

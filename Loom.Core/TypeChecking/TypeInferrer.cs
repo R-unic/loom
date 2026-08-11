@@ -86,7 +86,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         // 'T[]' against '1', which matches no inference rule, and 'T' fell back to 'unknown'.
         for (var i = 0; i < argumentTypes.Count; i++)
             if (functionType.ParameterTypeAt(i) is { } parameterType)
-                TryInferTypes(parameterType, argumentTypes[i], inferred, visited);
+                TryInferTypes(parameterType, WidensAt(functionType, i) ? argumentTypes[i].Widen() : argumentTypes[i], inferred, visited);
 
         var substitution = new TypeParameterSubstitution();
         foreach (var typeParameter in functionType.TypeParameters)
@@ -96,6 +96,25 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
 
         return substitution;
     }
+
+    /// <summary>
+    ///     Whether the argument at <paramref name="index" /> lands in an array rest parameter, and so is one
+    ///     element of a homogeneous run rather than a value in its own right.
+    ///     <para>
+    ///         That is the same shape as an array literal, whose elements the checker widens one by one, so
+    ///         the type parameter is inferred from the widened argument: <c>Set.of(1)</c> is a
+    ///         <c>Set&lt;number&gt;</c>, matching <c>mut [1]</c> being a <c>number[mut]</c>. Left narrow, a
+    ///         one-element set was unusable - nothing else could be added to a <c>MutSet&lt;1&gt;</c>.
+    ///     </para>
+    ///     <para>
+    ///         A fixed parameter keeps the literal, so <c>Result.ok(1)</c> is still <c>Result&lt;1, E&gt;</c>,
+    ///         and so does a tuple rest, whose positions are separately typed rather than a run of one type.
+    ///     </para>
+    /// </summary>
+    private static bool WidensAt(FunctionType functionType, int index) =>
+        functionType.HasRestParameter
+        && index >= functionType.ParameterTypes.Count - 1
+        && functionType.ParameterTypes[^1] is ArrayType;
 
     private static bool TryInferTypes(Type parameterType, Type argumentType, TypeParameterSubstitution inferredTypes, HashSet<(Type, Type)> visitedPairs)
     {
