@@ -87,7 +87,7 @@ public class NamespaceImportTest
             "import * as math from \"./math\"\nlet x = 1;\nprint(x);",
             static (result, bindings) =>
             {
-                Assert.False(bindings[0].IsUsed);
+                Assert.Equal(0, bindings.Count(binding => binding.IsUsed));
                 Utility.AssertDiagnostic(
                     result.Diagnostics,
                     InternalCodes.UnusedImport,

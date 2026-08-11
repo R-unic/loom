@@ -6,7 +6,10 @@ namespace Loom.Config;
 ///     The <c>[package]</c> table: the identity a source-distributed package is published and depended upon under.
 ///     Absent for projects that are never published, such as games.
 /// </summary>
+// Tomlyn constructs this and fills its collections by reflection, so nothing here is instantiated or
+// added to anywhere an inspection can see.
 // ReSharper disable file ClassNeverInstantiated.Global
+// ReSharper disable file CollectionNeverUpdated.Global
 public sealed class PackageConfig
 {
     [TomlPropertyName("name")]

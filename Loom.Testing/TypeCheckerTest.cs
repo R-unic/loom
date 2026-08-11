@@ -4436,10 +4436,8 @@ public class TypeCheckerTest
     [Theory]
     [InlineData("interface Src { mut value: number }\ninterface Dst { value: number }")]
     [InlineData("interface Src { mut [string]: number }\ninterface Dst { [string]: number }")]
-    public void Checks_MutableMember_IsAssignableToImmutable(string declarations)
-    {
+    public void Checks_MutableMember_IsAssignableToImmutable(string declarations) =>
         Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics($"{declarations}\ndeclare let src: Src;\ndeclare fn take(x: Dst): void;\ntake(src)"));
-    }
 
     /// <summary>Gaining it is not: a mutable target hands out write access an immutable source never granted.</summary>
     [Theory]

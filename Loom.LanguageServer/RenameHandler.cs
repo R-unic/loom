@@ -37,7 +37,7 @@ public sealed class RenameHandler(DocumentStore documents) : IRenameHandler
                     .ToArray();
             }
 
-            return Task.FromResult<WorkspaceEdit?>(changes.Count == 0 ? null : new WorkspaceEdit { Changes = changes });
+            return Task.FromResult(changes.Count == 0 ? null : new WorkspaceEdit { Changes = changes });
         }
         // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
         catch (OperationCanceledException)

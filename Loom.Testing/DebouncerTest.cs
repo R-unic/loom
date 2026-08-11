@@ -1,8 +1,15 @@
+using System.Runtime.CompilerServices;
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 
 namespace Loom.Testing;
 
+/// <remarks>
+///     Flags the debounced work sets are held in a <see cref="StrongBox{T}" /> rather than in a local. The
+///     work runs on another thread, so reading one takes a <c>ref</c> - and taking a <c>ref</c> to a local
+///     that a lambda has also captured is the shape of the classic modified-closure bug, even where it is
+///     deliberate. Boxing the flag says which one this is.
+/// </remarks>
 public class DebouncerTest
 {
     private static readonly DocumentUri First = DocumentUri.From("file:///first.loom");
@@ -34,7 +41,7 @@ public class DebouncerTest
     public async Task Schedule_RunsOnlyTheLastOfABurst()
     {
         using var debouncer = new Debouncer(TimeSpan.FromMilliseconds(500));
-        var runs = 0;
+        var runs = new StrongBox<int>(0);
         var last = new TaskCompletionSource<int>();
 
         for (var keystroke = 1; keystroke <= 20; keystroke++)
@@ -44,7 +51,7 @@ public class DebouncerTest
                 First,
                 _ =>
                 {
-                    Interlocked.Increment(ref runs);
+                    Interlocked.Increment(ref runs.Value);
                     last.TrySetResult(value);
                     return Task.CompletedTask;
                 }
@@ -52,7 +59,7 @@ public class DebouncerTest
         }
 
         Assert.Equal(20, await last.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
-        Assert.Equal(1, Volatile.Read(ref runs));
+        Assert.Equal(1, Volatile.Read(ref runs.Value));
     }
 
     [Fact]
@@ -81,13 +88,13 @@ public class DebouncerTest
     public async Task Cancel_DropsWorkThatHasNotRunYet()
     {
         using var debouncer = new Debouncer(TimeSpan.FromMilliseconds(50));
-        var ran = false;
+        var ran = new StrongBox<bool>(false);
 
         debouncer.Schedule(
             First,
             _ =>
             {
-                Volatile.Write(ref ran, true);
+                Volatile.Write(ref ran.Value, true);
                 return Task.CompletedTask;
             }
         );
@@ -95,25 +102,25 @@ public class DebouncerTest
         debouncer.Cancel(First);
         await Task.Delay(TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken);
 
-        Assert.False(Volatile.Read(ref ran));
+        Assert.False(Volatile.Read(ref ran.Value));
     }
 
     [Fact]
     public async Task Dispose_DropsEverythingStillScheduled()
     {
-        var ran = false;
+        var ran = new StrongBox<bool>(false);
         using (var debouncer = new Debouncer(TimeSpan.FromMilliseconds(50)))
             debouncer.Schedule(
                 First,
                 _ =>
                 {
-                    Volatile.Write(ref ran, true);
+                    Volatile.Write(ref ran.Value, true);
                     return Task.CompletedTask;
                 }
             );
 
         await Task.Delay(TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken);
-        Assert.False(Volatile.Read(ref ran));
+        Assert.False(Volatile.Read(ref ran.Value));
     }
 
     [Fact]

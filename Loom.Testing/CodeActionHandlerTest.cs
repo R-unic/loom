@@ -113,7 +113,7 @@ public class CodeActionHandlerTest
                     TestContext.Current.CancellationToken
                 );
 
-                actions = result?.Select(entry => entry.CodeAction!).OfType<CodeAction>().ToArray() ?? [];
+                actions = result?.Where(entry => entry.CodeAction != null).Select(entry => entry.CodeAction!).ToArray() ?? [];
             },
             source,
             otherFiles

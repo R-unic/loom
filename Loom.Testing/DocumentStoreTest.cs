@@ -150,9 +150,12 @@ public class DocumentStoreTest
             var names = Enumerable.Range(0, 24).Select(index => $"a{index}").ToArray();
             var readerFaults = 0;
             using var editsDone = new CancellationTokenSource();
+            // The token rather than the source: a token is a struct, so the reader does not hold the
+            // disposable that this scope owns.
+            var stopReading = editsDone.Token;
             var reader = Task.Run(() =>
                 {
-                    while (!editsDone.IsCancellationRequested)
+                    while (!stopReading.IsCancellationRequested)
                         try
                         {
                             if (store.TryGetState(uri, out var state))

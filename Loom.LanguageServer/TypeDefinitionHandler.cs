@@ -1,5 +1,6 @@
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
+using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking.Types;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -37,13 +38,13 @@ public sealed class TypeDefinitionHandler(DocumentStore documents) : TypeDefinit
             var locations = NamesOf(type, 0)
                 .Distinct()
                 .Select(state.File.SemanticModel.FindTypeDeclaration)
-                .OfType<Loom.Core.Resolving.Symbols.Symbol>()
+                .OfType<Symbol>()
                 .Select(symbol => Conversion.ToLocation(symbol.Declaration.LocationSpan))
                 .OfType<Location>()
                 .Select(location => new LocationOrLocationLink(location))
                 .ToArray();
 
-            return Task.FromResult<LocationOrLocationLinks?>(locations.Length == 0 ? null : new LocationOrLocationLinks(locations));
+            return Task.FromResult(locations.Length == 0 ? null : new LocationOrLocationLinks(locations));
         }
         // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
         catch (OperationCanceledException)

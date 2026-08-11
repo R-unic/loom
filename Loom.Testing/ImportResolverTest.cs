@@ -198,9 +198,11 @@ public class ImportResolverTest
             [("main.loom", "import type { Thing } from \"./nope\"\nprint(Thing);")],
             (_, result) =>
             {
+                var codes = result.Diagnostics.Set.Select(diagnostic => diagnostic.Code).ToList();
+
                 // the value namespace is left alone, so using it as a value is still an error
-                Assert.Contains(result.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.ModuleNotFound);
-                Assert.Contains(result.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.CannotFindName);
+                Assert.Contains(InternalCodes.ModuleNotFound, codes);
+                Assert.Contains(InternalCodes.CannotFindName, codes);
             }
         );
 

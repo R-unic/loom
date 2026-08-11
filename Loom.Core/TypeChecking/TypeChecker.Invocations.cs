@@ -156,7 +156,7 @@ public sealed partial class TypeChecker
     {
         var argumentList = invocation.Arguments.ArgumentList;
         var deferred = argumentList.ConvertAll(IsContextSensitive);
-        var argumentTypes = argumentList.Select((argument, i) => deferred[i] ? (Type)Types.PrimitiveType.Unknown : Visit(argument)).ToList();
+        var argumentTypes = argumentList.Select((argument, i) => deferred[i] ? Types.PrimitiveType.Unknown : Visit(argument)).ToList();
         var substitution = ResolveTypeArguments(invocation, functionType, argumentTypes, expectedReturnType);
         if (substitution == null)
             return BindType(invocation, Types.PrimitiveType.Never);

@@ -23,9 +23,7 @@ public sealed class PrepareRenameHandler(DocumentStore documents) : PrepareRenam
                 return Task.FromResult<RangeOrPlaceholderRange?>(null);
 
             var here = SymbolReferences.In(symbol, state.File).FirstOrDefault(reference => reference.Name.Span.Contains(offset));
-            return Task.FromResult<RangeOrPlaceholderRange?>(
-                here == null ? null : new RangeOrPlaceholderRange(Conversion.ToRange(here.Name.GetLocation()))
-            );
+            return Task.FromResult(here == null ? null : new RangeOrPlaceholderRange(Conversion.ToRange(here.Name.GetLocation())));
         }
         // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
         catch (OperationCanceledException)
