@@ -372,14 +372,15 @@ public class TypeSolverTest
     }
 
     [Fact]
+    /// <summary>Same direction as <see cref="Type.IsAssignableTo" />: an immutable property cannot satisfy a mutable one.</summary>
     public void Unify_ObjectTypes_MutabilityMismatch()
     {
         var diagnostics = CreateDiagnostics();
         var solver = new TypeSolver(diagnostics);
-        var obj1 = new ObjectType(null, [new ObjectProperty(true, "x", PrimitiveType.Number)]);
-        var obj2 = new ObjectType(null, [new ObjectProperty(false, "x", PrimitiveType.Number)]);
+        var immutable = new ObjectType(null, [new ObjectProperty(false, "x", PrimitiveType.Number)]);
+        var mutable = new ObjectType(null, [new ObjectProperty(true, "x", PrimitiveType.Number)]);
 
-        solver.AddConstraint(obj1, obj2, Utility.Span);
+        solver.AddConstraint(immutable, mutable, Utility.Span);
         Assert.False(solver.SolveConstraints());
         Assert.NotEmpty(diagnostics.Errors().Set);
     }

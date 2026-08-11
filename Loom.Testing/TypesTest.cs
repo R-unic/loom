@@ -521,12 +521,17 @@ public class TypesTest
     }
 
     [Fact]
+    /// <summary>
+    ///     'mut' is a capability: giving it up is safe, gaining it is not. Reading it the other way round
+    ///     let an immutable property stand in for a mutable one, which hands out write access the source
+    ///     never granted.
+    /// </summary>
     public void ObjectType_Assignability_PropertyMutability()
     {
         var mutableProp = new ObjectType(null, [new ObjectProperty(true, "x", Number)]);
         var immutableProp = new ObjectType(null, [new ObjectProperty(false, "x", Number)]);
-        Assert.True(immutableProp.IsAssignableTo(mutableProp));
-        Assert.False(mutableProp.IsAssignableTo(immutableProp));
+        Assert.True(mutableProp.IsAssignableTo(immutableProp));
+        Assert.False(immutableProp.IsAssignableTo(mutableProp));
     }
 
     [Fact]
@@ -639,12 +644,43 @@ public class TypesTest
         Assert.False(unknownObj.IsAssignableTo(numberObj));
     }
 
+    /// <summary>
+    ///     A mutable property is invariant, like a mutable array's elements. Letting it vary is unsound in
+    ///     either direction: through a target typed <c>mut set: fn(string): void</c> you can store a
+    ///     string-taking function, and the source - still believing the slot holds <c>fn(unknown): void</c> -
+    ///     will then call it with anything.
+    /// </summary>
     [Fact]
-    public void ObjectType_Assignability_PropertyTypeContravariance()
+    public void ObjectType_Assignability_MutableProperty_IsInvariant()
     {
         var animalWriter = new ObjectType(null, [new ObjectProperty(true, "set", new FunctionType([], [Unknown], Void))]);
         var catWriter = new ObjectType(null, [new ObjectProperty(true, "set", new FunctionType([], [String], Void))]);
-        Assert.True(animalWriter.IsAssignableTo(catWriter));
+        Assert.False(animalWriter.IsAssignableTo(catWriter));
+        Assert.False(catWriter.IsAssignableTo(animalWriter));
+    }
+
+    /// <summary>An immutable property can only be read through, so it varies with its type.</summary>
+    [Fact]
+    public void ObjectType_Assignability_ImmutableProperty_IsCovariant()
+    {
+        var cat = new ObjectType(null, [new ObjectProperty(false, "name", String)]);
+        var animal = new ObjectType(null, [new ObjectProperty(false, "name", Unknown)]);
+        Assert.True(cat.IsAssignableTo(animal));
+        Assert.False(animal.IsAssignableTo(cat));
+    }
+
+    /// <summary>
+    ///     Dropping 'mut' also opens the value type up, since the target can only be read through. Built here
+    ///     rather than from source, where a mutable member's declared type is widened ('mut [string]: 1' is
+    ///     declared as 'number') - the narrow case reaches assignability through inference and substitution.
+    /// </summary>
+    [Fact]
+    public void ObjectType_Assignability_MutableIndexerToImmutable_IsCovariant()
+    {
+        var source = new ObjectType(new ObjectIndexer(true, String, new LiteralType(1L)), []);
+        var target = new ObjectType(new ObjectIndexer(false, String, Number), []);
+        Assert.True(source.IsAssignableTo(target));
+        Assert.False(target.IsAssignableTo(source));
     }
 
     [Fact]

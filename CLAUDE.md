@@ -120,6 +120,11 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:`/`ref:` (see git log).
 - Source files: Loom source uses `.loom` extension; output `.luau`. Indices are 1-based (Luau semantics). Immutability by default (`let` → `const`/local, `mut`
   for mutable).
+- `mut` is a **capability, not a guarantee**. Giving one up is safe, gaining one is not: a mutable member (property, indexer, array element) satisfies an
+  immutable one, and never the reverse. An immutable target can only be read through, so its type is covariant; a mutable one is invariant, since anything
+  written through it is read back through the source. One rule, in `ObjectType.IsMemberAssignable` and mirrored by `ArrayType.IsAssignableTo` and
+  `TypeSolver.UnifyObjectTypes` — assignability and unification answer the same question and must not diverge. Loom cannot promise an immutably-typed value
+  never changes (it does not track who else holds a mutable alias), so reading `mut` as a guarantee would cost the widening and buy nothing.
 - Loom comments: `##` line, `#: … :#` block, `###` doc. A run of `###` lines documents the declaration below it and is the only comment form anything
   reads — the lexer pairs each run with the token it precedes in `SourceFile.Documentation`, and `Node.Documentation` looks it up. `@param name text`
   and `@returns text` inside one are pulled out for signature help.

@@ -4429,6 +4429,48 @@ public class TypeCheckerTest
         Assert.Equal(42L, literal.Value);
     }
 
+    /// <summary>
+    ///     Giving up 'mut' is safe, so a mutable member satisfies an immutable one - the rule mutable arrays
+    ///     already followed, now shared by properties and indexers.
+    /// </summary>
+    [Theory]
+    [InlineData("interface Src { mut value: number }\ninterface Dst { value: number }")]
+    [InlineData("interface Src { mut [string]: number }\ninterface Dst { [string]: number }")]
+    public void Checks_MutableMember_IsAssignableToImmutable(string declarations)
+    {
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics($"{declarations}\ndeclare let src: Src;\ndeclare fn take(x: Dst): void;\ntake(src)"));
+    }
+
+    /// <summary>Gaining it is not: a mutable target hands out write access an immutable source never granted.</summary>
+    [Theory]
+    [InlineData("interface Src { value: number }\ninterface Dst { mut value: number }")]
+    [InlineData("interface Src { [string]: number }\ninterface Dst { mut [string]: number }")]
+    public void ThrowsFor_ImmutableMember_AssignedToMutable(string declarations)
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics($"{declarations}\ndeclare let src: Src;\ndeclare fn take(x: Dst): void;\ntake(src)");
+        Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.TypeMismatch);
+    }
+
+    /// <summary>
+    ///     A mutable member is invariant, since whatever is written through the target is read back through
+    ///     the source. Contravariance was allowed here before: a <c>fn(string): void</c> could be stored in a
+    ///     slot the source still believed held a <c>fn(unknown): void</c>, which would then be called with
+    ///     anything.
+    /// </summary>
+    [Fact]
+    public void ThrowsFor_MutableMember_WithContravariantFunctionType()
+    {
+        const string source = """
+            interface Src { mut set: fn(value: unknown): void }
+            interface Dst { mut set: fn(value: string): void }
+            declare let src: Src;
+            declare fn take(x: Dst): void;
+            take(src)
+            """;
+
+        Assert.Contains(Utility.GetTypeCheckerDiagnostics(source).Set, d => d.Code == InternalCodes.TypeMismatch);
+    }
+
     [Fact]
     public void Checks_TypeAlias_PartialTypeArguments()
     {

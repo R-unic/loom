@@ -53,6 +53,27 @@ public class ObjectType(ObjectIndexer? indexer, List<ObjectProperty> properties)
 
     protected override ObjectProperty? FindProperty(string name) => PropertyMap.GetValueOrDefault(name);
 
+    /// <summary>
+    ///     Whether <paramref name="source" /> may stand in for <paramref name="target" />, by the rule
+    ///     <see cref="ArrayType.IsAssignableTo" /> already applies to an array's elements - an array being an
+    ///     object with an indexer, the two had no business disagreeing.
+    ///     <para>
+    ///         <c>mut</c> is a capability, so giving one up is always safe: a mutable member satisfies an
+    ///         immutable one, and because the target can then only be read through, its type is covariant.
+    ///         Gaining one is not: an immutable member cannot satisfy a mutable one, and a mutable target is
+    ///         invariant, since anything written through it is also visible to the source's own type.
+    ///     </para>
+    ///     <para>
+    ///         Loom cannot promise that an immutably-typed value never changes - it does not track who else
+    ///         holds a mutable alias - so reading <c>mut</c> as a guarantee rather than a capability would cost
+    ///         every widening here and buy nothing.
+    ///     </para>
+    /// </summary>
+    private static bool IsMemberAssignable(ObjectBodyType source, ObjectBodyType target) =>
+        target.IsMutable
+            ? source.IsMutable && source.ValueType.Equals(target.ValueType)
+            : source.ValueType.IsAssignableTo(target.ValueType);
+
     public Type KeyUnion()
     {
         var propertyKeyType = PropertyKeyUnion();
@@ -163,10 +184,7 @@ public class ObjectType(ObjectIndexer? indexer, List<ObjectProperty> properties)
                     if (!sourcePropertyMap.TryGetValue(targetProperty.Name, out var sourceProperty))
                         return false;
 
-                    if (sourceProperty.IsMutable && !targetProperty.IsMutable)
-                        return false;
-
-                    if (!sourceProperty.ValueType.IsAssignableTo(targetProperty.ValueType))
+                    if (!IsMemberAssignable(sourceProperty, targetProperty))
                         return false;
                 }
 
@@ -176,21 +194,11 @@ public class ObjectType(ObjectIndexer? indexer, List<ObjectProperty> properties)
                 if (Indexer == null)
                     return false;
 
-                if (Indexer.IsMutable || objectType.Indexer.IsMutable)
-                {
-                    if (!Indexer.IsMutable && objectType.Indexer.IsMutable
-                        || !Indexer.KeyType.Equals(objectType.Indexer.KeyType)
-                        || !Indexer.ValueType.Equals(objectType.Indexer.ValueType))
-                        return false;
-                }
-                else
-                {
-                    if (!Indexer.KeyType.IsAssignableTo(objectType.Indexer.KeyType)
-                        || !Indexer.ValueType.IsAssignableTo(objectType.Indexer.ValueType))
-                        return false;
-                }
+                var keyOk = objectType.Indexer.IsMutable
+                    ? Indexer.KeyType.Equals(objectType.Indexer.KeyType)
+                    : Indexer.KeyType.IsAssignableTo(objectType.Indexer.KeyType);
 
-                return true;
+                return keyOk && IsMemberAssignable(Indexer, objectType.Indexer);
             }
         );
 
