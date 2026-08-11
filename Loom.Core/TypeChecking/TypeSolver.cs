@@ -10,6 +10,7 @@ using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using TypePredicateType = Loom.Core.TypeChecking.Types.TypePredicateType;
+using TupleType = Loom.Core.TypeChecking.Types.TupleType;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
 namespace Loom.Core.TypeChecking;
@@ -98,6 +99,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                     : null,
                 objectType.Properties.ConvertAll(p => new ObjectProperty(p.IsMutable, p.Name, Map(p.ValueType)))
             ),
+            TupleType tupleType => new TupleType(tupleType.ElementTypes.ConvertAll(Map)),
             IntersectionType intersectionType => new IntersectionType(intersectionType.Types.ConvertAll(Map)),
             UnionType unionType => new UnionType(unionType.Types.ConvertAll(Map)),
             FunctionType functionType => new FunctionType(
@@ -388,6 +390,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 || obj.Properties.Any(p => OccursIn(variable, p.ValueType, visited)),
             GenericType generic => OccursIn(variable, generic.UnderlyingType, visited),
             InstantiatedType inst => inst.Arguments.Any(a => OccursIn(variable, a, visited)),
+            TupleType tuple => tuple.ElementTypes.Any(t => OccursIn(variable, t, visited)),
             IntersectionType inter => inter.Types.Any(t => OccursIn(variable, t, visited)),
             UnionType union => union.Types.Any(t => OccursIn(variable, t, visited)),
             FunctionType fn => fn.TypeParameters.Any(p => OccursIn(variable, p, visited))

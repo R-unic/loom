@@ -486,6 +486,40 @@ public class TypeInferrerTest
         Assert.Equal(PrimitiveType.Number, result[elementParameter]);
     }
 
+    /// <summary>
+    ///     Every rest argument infers against the rest parameter's element type, and the widening in
+    ///     <c>BindTypeParameter</c> then takes the two literals to their common type.
+    /// </summary>
+    [Fact]
+    public void InferFunctionTypeArguments_RestParameter_InfersElementTypeFromEveryArgument()
+    {
+        var elementParameter = TypeParameter("T");
+        var function = new FunctionType([elementParameter], [new ArrayType(elementParameter, false)], elementParameter, true);
+        var result = TypeInferrer.InferFunctionTypeArguments(function, [new LiteralType(1L), new LiteralType(2L)]);
+        Assert.Equal(PrimitiveType.Number, result[elementParameter]);
+    }
+
+    /// <summary>Without a rest parameter the extra argument still binds nothing, so the arity rules are unchanged.</summary>
+    [Fact]
+    public void InferFunctionTypeArguments_ArrayParameterWithoutRest_DoesNotInferFromExtraArguments()
+    {
+        var elementParameter = TypeParameter("T");
+        var function = FunctionType([elementParameter], [new ArrayType(elementParameter, false)], elementParameter);
+        var result = TypeInferrer.InferFunctionTypeArguments(function, [new LiteralType(1L), new LiteralType(2L)]);
+        Assert.Equal(PrimitiveType.Unknown, result[elementParameter]);
+    }
+
+    [Fact]
+    public void InferFunctionTypeArguments_TupleRestParameter_InfersEachPositionSeparately()
+    {
+        var first = TypeParameter("A");
+        var second = TypeParameter("B");
+        var function = new FunctionType([first, second], [new Core.TypeChecking.Types.TupleType([first, second])], first, true);
+        var result = TypeInferrer.InferFunctionTypeArguments(function, [PrimitiveType.Number, PrimitiveType.String]);
+        Assert.Equal(PrimitiveType.Number, result[first]);
+        Assert.Equal(PrimitiveType.String, result[second]);
+    }
+
     [Fact]
     public void InferFunctionTypeArguments_OptionalParameter_WithOptionalArgument()
     {

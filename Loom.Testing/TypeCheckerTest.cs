@@ -4884,6 +4884,54 @@ public class TypeCheckerTest
         var diagnostic = diagnostics.Find(d => d.Code == InternalCodes.InvalidRestParameterType);
         Assert.NotNull(diagnostic);
     }
+
+    /// <summary>
+    ///     A rest argument infers against the rest parameter's <em>element</em> type. Comparing it against the
+    ///     array itself matches no inference rule, so the type parameter used to fall through to 'unknown'.
+    /// </summary>
+    [Fact]
+    public void Checks_Inference_RestParameter_InfersElementTypeFromArguments()
+    {
+        var type = Utility.GetLastStatementType("declare fn of<T>(..values: T[]): T[]; of(1, 2)");
+        var arrayType = Assert.IsType<ArrayType>(type);
+        Assert.Equal(PrimitiveType.Number, arrayType.ElementType);
+    }
+
+    [Fact]
+    public void Checks_Inference_RestParameter_AfterFixedParameter_InfersFromBoth()
+    {
+        var type = Utility.GetLastStatementType("declare fn of<T>(first: T, ..rest: T[]): T[]; of(1, 2, 3)");
+        var arrayType = Assert.IsType<ArrayType>(type);
+        Assert.Equal(PrimitiveType.Number, arrayType.ElementType);
+    }
+
+    [Fact]
+    public void Checks_Inference_RestParameter_WithNoArguments_FallsBackToUnknown()
+    {
+        var type = Utility.GetLastStatementType("declare fn of<T>(..values: T[]): T[]; of()");
+        var arrayType = Assert.IsType<ArrayType>(type);
+        Assert.Equal(PrimitiveType.Unknown, arrayType.ElementType);
+    }
+
+    /// <summary>A tuple rest answers per position, so each argument infers a different type parameter.</summary>
+    [Fact]
+    public void Checks_Inference_TupleRestParameter_InfersEachPositionSeparately()
+    {
+        const string source = """
+            declare fn pair<A, B>(..values: (A, B)): (B, A);
+            pair(1, "x")
+            """;
+
+        var tupleType = Assert.IsType<TupleType>(Utility.GetLastStatementType(source));
+        Assert.Equal([new LiteralType("x"), new LiteralType(1L)], tupleType.ElementTypes);
+    }
+
+    [Fact]
+    public void ThrowsFor_RestParameterCall_WithArgumentOfWrongElementType()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("""declare fn nums(..values: number[]): void; nums(1, "a")""");
+        Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.TypeMismatch);
+    }
     #endregion Rest Parameters
 
     #region Destructuring

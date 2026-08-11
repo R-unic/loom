@@ -80,8 +80,13 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         if (contextualType != null)
             TryInferTypes(functionType.ReturnType, contextualType, inferred, visited);
 
-        for (var i = 0; i < Math.Min(functionType.ParameterTypes.Count, argumentTypes.Count); i++)
-            TryInferTypes(functionType.ParameterTypes[i], argumentTypes[i], inferred, visited);
+        // Every argument against the parameter it actually binds to, which past the fixed parameters is the
+        // rest parameter's element type rather than the rest parameter itself. Walking the two lists straight
+        // down left `fn make<T>(..values: T[])` called as `make(1, 2)` inferring nothing at all: it compared
+        // 'T[]' against '1', which matches no inference rule, and 'T' fell back to 'unknown'.
+        for (var i = 0; i < argumentTypes.Count; i++)
+            if (functionType.ParameterTypeAt(i) is { } parameterType)
+                TryInferTypes(parameterType, argumentTypes[i], inferred, visited);
 
         var substitution = new TypeParameterSubstitution();
         foreach (var typeParameter in functionType.TypeParameters)
