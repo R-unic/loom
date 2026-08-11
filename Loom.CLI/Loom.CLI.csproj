@@ -6,6 +6,14 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AssemblyName>loom</AssemblyName>
+
+        <!--
+            Overridden by the release workflow with the version off the tag. The placeholder is
+            deliberately not a real version: a binary built anywhere else reports itself as one.
+        -->
+        <Version>0.0.0-dev</Version>
+        <!-- Keeps the reported version to the version itself, rather than appending the commit hash. -->
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     </PropertyGroup>
 
     <ItemGroup>
@@ -14,13 +22,6 @@
 
     <ItemGroup>
       <PackageReference Include="CommandLineParser" Version="2.9.1" />
-    </ItemGroup>
-    
-    <ItemGroup>
-        <Content Include="include\**">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
-        </Content>
     </ItemGroup>
 
 </Project>

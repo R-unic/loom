@@ -79,18 +79,17 @@ const function HelloPacket_apply_diff_binary_read(baseline: HelloPacket, diff: L
   const id_changed = buffer_readbits(b, 0, 1) == 1
   local id = nil
   if id_changed then
-    const read_0 = buffer_readu8(b, offset)
+    const id_2 = buffer_readu8(b, offset)
     offset += 1
-    id = read_0
+    id = id_2
   else
     id = baseline.id
   end
   const message_changed = buffer_readbits(b, 1, 1) == 1
   local message = nil
   if message_changed then
-    const read_1 = buffer_readu8(b, offset)
+    const message_2_length = buffer_readu8(b, offset)
     offset += 1
-    const message_2_length = read_1
     if buffer_len(b) < offset + message_2_length then
       return { ok = false, error = { kind = "invalid_length", field = "message" } }
     end
@@ -118,7 +117,7 @@ export type HelloPacket = {
   read id: number,
   read message: string,
 }
-type MessageData = { read [index<Message, "Hello">]: HelloPacket }
+type MessageData = { read [number]: HelloPacket }
 const function on<K>(message: K & Message, handler: (index<MessageData, K & Message>) -> ()): ()
   const message_serializer = MessageData_serializer_map[message]
   remote.OnServerEvent:Connect(function(_, __)

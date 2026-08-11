@@ -1,0 +1,120 @@
+name: Release
+
+# Publishes the compiler as one self-contained binary per platform, shaped so that Rokit can
+# install it: Rokit picks a release asset by reading the OS and architecture out of its *file name*,
+# then extracts a single file from the archive and throws away everything beside it. So each archive
+# holds exactly one executable, named `loom`, and nothing else - the Luau runtime support the
+# compiler writes into a project ships as an embedded resource rather than as sibling files.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, without the leading v (e.g. 0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.artifact }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Every target is built on a runner of its own architecture, so each binary is exercised
+          # by the smoke test below before it is ever published. It also keeps macOS honest: the
+          # arm64 kernel refuses to run an unsigned binary, and the SDK ad-hoc signs the ones it
+          # produces on macOS.
+          - { runner: ubuntu-latest, rid: linux-x64, artifact: linux-x86_64 }
+          - { runner: ubuntu-24.04-arm, rid: linux-arm64, artifact: linux-aarch64 }
+          - { runner: macos-15-intel, rid: osx-x64, artifact: macos-x86_64 }
+          - { runner: macos-latest, rid: osx-arm64, artifact: macos-aarch64 }
+          - { runner: windows-latest, rid: win-x64, artifact: windows-x86_64 }
+          - { runner: windows-11-arm, rid: win-arm64, artifact: windows-aarch64 }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        env:
+          RAW_VERSION: ${{ inputs.version || github.ref_name }}
+        run: echo "version=${RAW_VERSION#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        shell: bash
+        # PublishTrimmed is deliberately absent: CommandLineParser discovers the build/watch/new
+        # verbs by reflection, and trimming removes them without failing the build - the compiler
+        # then rejects every command it is given. Leave it off unless the CLI stops using it.
+        run: |
+          dotnet publish Loom.CLI/Loom.CLI.csproj \
+            --configuration Release \
+            --runtime ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:Version=${{ steps.version.outputs.version }} \
+            --output publish
+
+      - name: Smoke test
+        shell: bash
+        # Compiling a real project on a clean machine is what catches a binary that cannot stand on
+        # its own - anything it expected to find beside itself is not here.
+        run: |
+          binary="$PWD/publish/loom"
+          if [ "$RUNNER_OS" = "Windows" ]; then binary="$binary.exe"; fi
+          "$binary" --version
+          mkdir smoke && cd smoke
+          "$binary" new .
+          "$binary" build .
+          test -f include/loom_runtime.luau
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x publish/loom
+          zip --junk-paths "loom-${{ steps.version.outputs.version }}-${{ matrix.artifact }}.zip" publish/loom
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path publish/loom.exe -DestinationPath "loom-${{ steps.version.outputs.version }}-${{ matrix.artifact }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: "*.zip"
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      # Created as a draft: Rokit reads published releases only, so nothing is installable until
+      # the release is reviewed and published by hand.
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ inputs.version && format('v{0}', inputs.version) || github.ref_name }}"
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$tag" \
+            --draft \
+            --generate-notes \
+            artifacts/*.zip

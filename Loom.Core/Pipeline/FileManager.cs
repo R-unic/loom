@@ -1,3 +1,4 @@
+using System.Reflection;
 using Loom.Config;
 using Loom.Core.Text;
 
@@ -7,18 +8,33 @@ public static class FileManager
 {
     public const string LoomExtension = ".loom";
     private const string IncludeFolderName = "include";
-    
+    private const string IncludeResourcePrefix = "Include/";
+
+    private static readonly Assembly _resourceAssembly = typeof(FileManager).Assembly;
+
+    /// <summary>
+    ///     Writes the bundled Luau runtime support into the project's include folder, overwriting whatever is
+    ///     already there. The sources are embedded resources rather than files beside the executable: the compiler
+    ///     is installed as a lone binary by a toolchain manager, so nothing may be assumed to sit next to it.
+    /// </summary>
     public static void WriteIncludeFolder(string projectDirectory)
     {
-        var source = Path.Combine(AppContext.BaseDirectory, IncludeFolderName);
-
-        if (!Directory.Exists(source))
-            throw new DirectoryNotFoundException(
-                $"Could not locate bundled '{IncludeFolderName}' directory at '{source}'.");
-
         var destination = Path.Combine(projectDirectory, IncludeFolderName);
+        Directory.CreateDirectory(destination);
 
-        CopyDirectory(source, destination);
+        foreach (var resourceName in _resourceAssembly.GetManifestResourceNames())
+        {
+            if (!resourceName.StartsWith(IncludeResourcePrefix, StringComparison.Ordinal)) continue;
+
+            var relativePath = resourceName[IncludeResourcePrefix.Length..].Replace('/', Path.DirectorySeparatorChar);
+            var destinationFile = Path.Combine(destination, relativePath);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
+
+            using var stream = _resourceAssembly.GetManifestResourceStream(resourceName)!;
+            using var file = File.Create(destinationFile);
+            stream.CopyTo(file);
+        }
     }
 
     /// <summary>Writes the file's rendered Luau, skipping the write entirely when it would be byte-identical to what's already on disk.</summary>
@@ -54,24 +70,4 @@ public static class FileManager
         !string.IsNullOrWhiteSpace(directoryPath) && Directory.Exists(directoryPath)
             ? Directory.GetFiles(directoryPath, $"*{LoomExtension}", searchOption).Select(LoadSingle).ToList()
             : [];
-    
-    private static void CopyDirectory(string source, string destination)
-    {
-        Directory.CreateDirectory(destination);
-
-        foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
-        {
-            var relative = Path.GetRelativePath(source, directory);
-            Directory.CreateDirectory(Path.Combine(destination, relative));
-        }
-
-        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
-        {
-            var relative = Path.GetRelativePath(source, file);
-            var destinationFile = Path.Combine(destination, relative);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
-            File.Copy(file, destinationFile, overwrite: true);
-        }
-    }
 }
