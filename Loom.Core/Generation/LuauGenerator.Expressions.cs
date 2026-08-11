@@ -543,8 +543,8 @@ public sealed partial class LuauGenerator
             return substitution;
 
         var symbol = _semanticModel.GetSymbol(identifier);
-        if (symbol is PropertySymbol propertySymbol
-            && propertySymbol.TryGetIntrinsicAttribute("luau_name", out var luauNameAttribute)
+        if (symbol != null
+            && symbol.TryGetIntrinsicAttribute("luau_name", out var luauNameAttribute)
             && ValidateLuauNameAttribute(luauNameAttribute, out var nameLiteral))
             return new Luau.AST.Identifier(nameLiteral.Value);
 

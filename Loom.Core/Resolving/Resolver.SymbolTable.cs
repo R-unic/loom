@@ -8,11 +8,9 @@ namespace Loom.Core.Resolving;
 
 public sealed partial class Resolver
 {
-    private bool DeclareVariable(NamedDeclaration node, SymbolKind symbolKind, bool isMutable = false) =>
-        DeclareVariable(node, node.Name.Text, symbolKind, isMutable);
+    private bool DeclareVariable(NamedDeclaration node, bool isMutable = false) => DeclareVariable(node, node.Name.Text, isMutable);
 
-    private bool DeclareVariable(Node node, string name, SymbolKind symbolKind, bool isMutable = false) =>
-        DeclareVariable(node, new Symbol(node, symbolKind, name, isMutable));
+    private bool DeclareVariable(Node node, string name, bool isMutable = false) => DeclareVariable(node, new VariableSymbol(node, name, isMutable));
 
     private bool DeclareVariable(Node node, Symbol symbol)
     {
@@ -23,13 +21,13 @@ public sealed partial class Resolver
         return true;
     }
 
-    private bool DeclareType(NamedDeclaration node, SymbolKind symbolKind = SymbolKind.Type)
+    private bool DeclareType(NamedDeclaration node) => DeclareType(node, new TypeAliasSymbol(node, node.Name.Text));
+
+    private bool DeclareType(NamedDeclaration node, TypeSymbol symbol)
     {
-        var name = node.Name.Text;
-        if (HasDuplicateSymbol(node, false, $"Type '{name}' is already declared in this scope."))
+        if (HasDuplicateSymbol(node, false, $"Type '{node.Name.Text}' is already declared in this scope."))
             return false;
 
-        var symbol = new Symbol(node, symbolKind, name);
         DeclareSymbol(symbol);
         return true;
     }
@@ -73,7 +71,7 @@ public sealed partial class Resolver
     private void AddToLookup(string name, Symbol symbol)
     {
         var scope = CurrentScope();
-        var lookup = GetLookup(symbol.Kind, scope);
+        var lookup = symbol.IsTypeSymbol ? scope.TypeLookup : scope.VariableLookup;
         if (!lookup.ContainsKey(name))
             lookup[name] = [];
 

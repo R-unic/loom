@@ -1,19 +1,17 @@
-using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
 
 namespace Loom.Core.Resolving.Symbols;
 
-public class PropertySymbol(NamedDeclaration declaration, InterfaceSymbol? pointsTo, List<AttributeSymbol> attributes, SymbolKind kind = SymbolKind.Property)
-    : Symbol(declaration, kind, declaration.Name.Text, declaration is PropertyDeclaration { MutKeyword: not null })
+/// <summary>
+///     A member of an interface or trait body. <see cref="EventSymbol" /> refines it: an event is a member
+///     of the same list, told apart by its <see cref="Symbol.Kind" />.
+/// </summary>
+public class PropertySymbol(NamedDeclaration declaration, InterfaceSymbol? pointsTo, List<AttributeSymbol> attributes)
+    : ValueSymbol(declaration, declaration.Name.Text, declaration is PropertyDeclaration { MutKeyword: not null })
 {
+    public override SymbolKind Kind => SymbolKind.Property;
+
+    /// <summary>The interface this member's declared type names, when it names one - the step a dotted member path walks through.</summary>
     public InterfaceSymbol? PointsTo { get; } = pointsTo;
-    public List<AttributeSymbol> Attributes { get; } = attributes;
-
-    public bool HasIntrinsicAttribute(string name) => TryGetIntrinsicAttribute(name, out _);
-
-    public bool TryGetIntrinsicAttribute(string name, [MaybeNullWhen(false)] out AttributeSymbol attribute)
-    {
-        attribute = Attributes.Find(a => a.IsIntrinsic && a.Name == name);
-        return attribute != null;
-    }
+    public override IReadOnlyList<AttributeSymbol> Attributes { get; } = attributes;
 }

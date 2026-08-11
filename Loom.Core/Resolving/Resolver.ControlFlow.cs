@@ -36,7 +36,7 @@ public sealed partial class Resolver
     {
         Visit(@for.CollectionExpression);
         PushScope();
-        var namesDeclared = !@for.Names.Any(name => !DeclareVariable(name, name.Token.Text, SymbolKind.Variable));
+        var namesDeclared = !@for.Names.Any(name => !DeclareVariable(name, name.Token.Text));
         if (namesDeclared)
         {
             var lastContext = _context;

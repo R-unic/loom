@@ -23,7 +23,12 @@ before claiming done.
     - `Lexing/` — `Lexer`, rule-based (`LexerRules.cs`)
     - `Parsing/` — `Parser` (partial class split: `.Declarations`, `.Expressions`, `.Statements`, `.Types`), `AST/` one file per node type (~90 files)
     - `Resolving/` — `Resolver` (partial: `.ControlFlow`, `.Declarations`, `.Interfaces`, `.Modules`, `.Patterns`, `.SymbolTable`), `SemanticModel`, scopes +
-      `Symbols/`
+      `Symbols/`. One class per `SymbolKind`, so `Symbol.Kind` is a fact about the class rather than a
+      constructor argument, and a kind-specific member has somewhere to live. `Symbol` splits into
+      `TypeSymbol` (looked up in type position) and `ValueSymbol` (value position) — which is the same
+      split the resolver's two per-scope lookup tables make, and `Symbol.IsTypeKind` answers it for callers
+      holding a bare kind (`SymbolHierarchyTest` keeps the two from drifting). Attributes hang off `Symbol`
+      itself: reading one should not require first knowing what kind of symbol you have
     - `FlowAnalysis/` — `FlowAnalyzer`, flow state for control-flow reasoning
     - `TypeChecking/` — `TypeChecker` (partial: `.Enums`, `.Generics`, `.Interfaces`, `.ControlFlow`, `.Declarations`, `.Invocations`, `.Match`, `.MemberAcess`,
       `.Operators`, `.TypeNodes`, , `.Check` (bidirectional/contextual typing)), plus `TypeInferrer`, `TypeNarrower`, `TypeSimplifier`, `TypeSolver`; Intrinsics

@@ -3,8 +3,9 @@ using Loom.Core.Parsing.AST;
 namespace Loom.Core.Resolving.Symbols;
 
 public sealed class TraitSymbol(TraitDeclaration declaration, string name)
-    : Symbol(declaration, SymbolKind.Trait, name)
+    : TypeSymbol(declaration, name)
 {
+    public override SymbolKind Kind => SymbolKind.Trait;
     public IReadOnlySet<string> MethodNames { get; } = declaration.Body.Members.Select(sig => sig.Name.Text).ToHashSet();
     public List<InterfaceSymbol> ImplementedBy { get; } = [];
 

@@ -6,12 +6,12 @@ namespace Loom.Core.Resolving;
 public sealed partial class Resolver
 {
     public override bool VisitIdentifierPattern(IdentifierPattern identifierPattern) =>
-        DeclareVariable(identifierPattern, identifierPattern.Name.Text, SymbolKind.Variable);
+        DeclareVariable(identifierPattern, identifierPattern.Name.Text);
 
-    public override bool VisitLetPattern(LetPattern letPattern) => DeclareVariable(letPattern, letPattern.Name.Text, SymbolKind.Variable);
+    public override bool VisitLetPattern(LetPattern letPattern) => DeclareVariable(letPattern, letPattern.Name.Text);
 
     public override bool VisitTypedPattern(TypedPattern typedPattern) =>
-        DeclareVariable(typedPattern, typedPattern.Name.Text, SymbolKind.Variable)
+        DeclareVariable(typedPattern, typedPattern.Name.Text)
         && Visit(typedPattern.Type)
         && (typedPattern.ObjectPattern == null || Visit(typedPattern.ObjectPattern));
 
