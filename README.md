@@ -16,6 +16,36 @@
 > - Breaking changes may occur at any time.
 > - Expect bugs.
 
+## Installation
+
+Loom is distributed with [Rokit](https://github.com/rojo-rbx/rokit), a toolchain manager for Roblox projects:
+
+```sh
+rokit add rbx-loom/loom
+```
+
+This pins the compiler in the project's `rokit.toml`, so everyone working on it builds with the same version:
+
+```toml
+[tools]
+loom = "rbx-loom/loom@0.1.0"
+```
+
+The published binaries are self-contained — there is no runtime or SDK to install alongside them — and cover Windows, macOS
+and Linux on both x86-64 and arm64. If you would rather not use Rokit, download the archive for your platform from the
+[releases page](https://github.com/rbx-loom/loom/releases) and put the binary on your `PATH`.
+
+Then:
+
+```sh
+loom new my-game    # scaffold a project
+cd my-game
+loom build          # compile src/ to dist/
+loom watch          # ... and keep compiling as files change
+```
+
+Every command takes the project directory as an optional argument, defaulting to the current one.
+
 ## Quick look
 
 ```ts
@@ -38,6 +68,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 
 ## Table of Contents
 
+- [Installation](#installation)
 - [Features](#features)
 - [Upcoming Features](#upcoming-features)
 - [Examples](#working-examples)

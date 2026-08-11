@@ -71,4 +71,21 @@
         </EmbeddedResource>
     </ItemGroup>
 
+    <!--
+        The Luau runtime support written into a project's include folder is embedded for the same
+        reason the intrinsics above are, plus one more: a toolchain manager installs the compiler as
+        a single binary. Rokit keeps exactly one file out of a release archive and discards its
+        siblings, so an include folder shipped as Content next to the executable does not survive
+        installation and FileManager.WriteIncludeFolder would find nothing to copy. LogicalNames are
+        listed explicitly for the '/' separator, as above.
+    -->
+    <ItemGroup>
+        <EmbeddedResource Include="Pipeline\Include\loom_runtime.luau">
+            <LogicalName>Include/loom_runtime.luau</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Pipeline\Include\event.luau">
+            <LogicalName>Include/event.luau</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
 </Project>

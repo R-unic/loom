@@ -15,6 +15,18 @@ public sealed record CompilationResult(List<CompiledFile> Files, DiagnosticBag D
     /// <summary>Files actually re-parsed and re-analyzed this call, as opposed to reused from a prior compile's cache.</summary>
     public IReadOnlyList<SourceFile> Reanalyzed { get; init; } = [];
 
+    /// <summary>
+    ///     Whether the compile failed: a file the compiler gave up on, or an error reported against the unit or
+    ///     any one of its files. This is how a caller compiling on someone else's behalf decides success - the
+    ///     CLI's exit code, or a package manager building a dependency - rather than by whether
+    ///     <see cref="DiagnosticOptions.FailFast" /> happened to kill the process, which only holds for a caller
+    ///     that turned it on and only for the files it turned it on for.
+    /// </summary>
+    public bool Failed =>
+        Failures.Count > 0
+        || Diagnostics.ContainsErrors()
+        || Files.Any(file => file.Diagnostics.ContainsErrors());
+
     /// <summary>Wall-clock time the call took, start to finish.</summary>
     public TimeSpan Elapsed { get; init; }
 
