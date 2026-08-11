@@ -17,7 +17,7 @@ public sealed partial class Resolver
             return false;
         }
 
-        if (!DeclareVariable(functionDeclaration, SymbolKind.Function))
+        if (!DeclareVariable(functionDeclaration, new FunctionSymbol(functionDeclaration, name)))
             return false;
 
         PushScope();
@@ -63,7 +63,7 @@ public sealed partial class Resolver
     public override bool VisitVariableDeclaration(VariableDeclaration variableDeclaration)
     {
         var isMutable = variableDeclaration.Keyword.Kind == SyntaxKind.MutKeyword;
-        if (!DeclareVariable(variableDeclaration, SymbolKind.Variable, isMutable))
+        if (!DeclareVariable(variableDeclaration, isMutable))
             return false;
 
         base.VisitVariableDeclaration(variableDeclaration);
@@ -86,11 +86,11 @@ public sealed partial class Resolver
         var declared = destructuringDeclaration.Target switch
         {
             ArrayDestructuringTarget arrayTarget =>
-                arrayTarget.Elements.All(element => DeclareVariable(element, element.Name.Text, SymbolKind.Variable)),
+                arrayTarget.Elements.All(element => DeclareVariable(element, element.Name.Text)),
             ObjectDestructuringTarget objectTarget =>
-                objectTarget.Fields.All(field => DeclareVariable(field, field.BindingName.Text, SymbolKind.Variable)),
+                objectTarget.Fields.All(field => DeclareVariable(field, field.BindingName.Text)),
             TupleDestructuringTarget tupleTarget =>
-                tupleTarget.Elements.All(element => DeclareVariable(element, element.Name.Text, SymbolKind.Variable)),
+                tupleTarget.Elements.All(element => DeclareVariable(element, element.Name.Text)),
             _ => true
         };
 
@@ -107,19 +107,8 @@ public sealed partial class Resolver
 
     public override bool VisitDeclareFunctionSignature(DeclareFunctionSignature declareFunctionSignature)
     {
-        var declared = declareFunctionSignature.Attributes != null
-            ? DeclareVariable(
-                declareFunctionSignature,
-                new PropertySymbol(
-                    declareFunctionSignature,
-                    null,
-                    declareFunctionSignature.Attributes.AttributeList.Select(DeclareAttribute).ToList(),
-                    SymbolKind.Function
-                )
-            )
-            : DeclareVariable(declareFunctionSignature, SymbolKind.Function);
-
-        if (!declared)
+        var attributes = declareFunctionSignature.Attributes?.AttributeList.Select(DeclareAttribute).ToList();
+        if (!DeclareVariable(declareFunctionSignature, new FunctionSymbol(declareFunctionSignature, declareFunctionSignature.Name.Text, attributes)))
             return false;
 
         PushScope();
@@ -143,7 +132,7 @@ public sealed partial class Resolver
         }
 
         var isMutable = declareVariableSignature.Keyword.Kind == SyntaxKind.MutKeyword;
-        return DeclareVariable(declareVariableSignature, SymbolKind.Variable, isMutable) && base.VisitDeclareVariableSignature(declareVariableSignature);
+        return DeclareVariable(declareVariableSignature, isMutable) && base.VisitDeclareVariableSignature(declareVariableSignature);
     }
 
     public override bool VisitFunctionType(FunctionType functionType)
@@ -172,7 +161,7 @@ public sealed partial class Resolver
             return false;
         }
 
-        var symbol = new Symbol(parameter, SymbolKind.Parameter, name);
+        var symbol = new ParameterSymbol(parameter, name);
         DeclareSymbol(symbol);
 
         if (parameter.EqualsValueClause != null
@@ -204,13 +193,15 @@ public sealed partial class Resolver
         && assignment.Right == functionExpression;
 
     public override bool VisitEnumDeclaration(EnumDeclaration enumDeclaration) =>
-        DeclareVariable(enumDeclaration, SymbolKind.Variable)
-        && DeclareType(enumDeclaration, SymbolKind.EnumType)
+        DeclareVariable(enumDeclaration)
+        && DeclareType(enumDeclaration, new EnumTypeSymbol(enumDeclaration, enumDeclaration.Name.Text))
         && base.VisitEnumDeclaration(enumDeclaration);
 
     public override bool VisitEventDeclaration(EventDeclaration eventDeclaration)
     {
-        if (!DeclareVariable(eventDeclaration, SymbolKind.Event))
+        // No attributes: an attribute on a module-level event has never meant anything (unlike one on an
+        // interface's event member), and recording it here would start feeding it to the generator.
+        if (!DeclareVariable(eventDeclaration, new EventSymbol(eventDeclaration)))
             return false;
 
         PushScope();

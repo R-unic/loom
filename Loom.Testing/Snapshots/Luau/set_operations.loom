@@ -1,0 +1,12 @@
+let letters = Set.of("a", "b", "c");
+let vowels = Set.of("a", "e");
+
+print(letters.size, letters.is_empty, letters.has("b"));
+print(letters.union(vowels).to_array());
+print(letters.intersect(vowels), letters.difference(vowels));
+print(vowels.is_subset_of(letters));
+
+mut seen = MutSet.of(1, 2);
+seen.add(3);
+seen.remove(1);
+print(seen.size, [4, 4, 5].to_set().size);

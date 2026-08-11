@@ -35,7 +35,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
 
     public bool IsInvocationOnlyMember(string memberName) =>
         memberName is "join" or "push" or "pop" or "insert" or "remove" or "index_of" or "has" or "select" or "where" or "aggregate" or "select_many"
-            or "any" or "all" or "count" or "flatten";
+            or "any" or "all" or "count" or "flatten" or "to_set";
 
     public bool TryProperty(MacroContext context, string name, LuauExpression target, [MaybeNullWhen(false)] out LuauExpression expression)
     {
@@ -125,6 +125,11 @@ internal sealed class ArrayMacroProvider : IMacroProvider
             case "count":
             {
                 expression = GenerateCount(context.State, array, call.Arguments[0]);
+                return true;
+            }
+            case "to_set":
+            {
+                expression = GenerateToSet(context.State, array);
                 return true;
             }
         }
@@ -284,6 +289,25 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         var body = new List<LuauStatement>();
         AppendSegment(state, body, result, count, new Identifier(segmentName));
         state.Prereq(new ForStatement([DiscardName, segmentName], array, new Chunk(body)));
+
+        return result;
+    }
+
+    /// <summary>
+    ///     Builds the same plain keys-are-members table <see cref="SetStaticMacroProvider" /> does, so a set
+    ///     from an array is the same thing as a set from <c>Set.of</c> and needs no conversion between them.
+    /// </summary>
+    private static LuauExpression GenerateToSet(LuauState state, LuauExpression array)
+    {
+        var result = state.PushToVariable(ResultName, new Table([]));
+        var elementName = state.Scope.AddIdentifier(ElementName);
+        state.Prereq(
+            new ForStatement(
+                [DiscardName, elementName],
+                array,
+                new Chunk([new ExpressionStatement(new BinaryOperator(new ElementAccess(result, new Identifier(elementName)), "=", new BooleanLiteral(true)))])
+            )
+        );
 
         return result;
     }

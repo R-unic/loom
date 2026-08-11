@@ -10,6 +10,7 @@ using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using TypePredicateType = Loom.Core.TypeChecking.Types.TypePredicateType;
+using TupleType = Loom.Core.TypeChecking.Types.TupleType;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
 namespace Loom.Core.TypeChecking;
@@ -98,6 +99,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                     : null,
                 objectType.Properties.ConvertAll(p => new ObjectProperty(p.IsMutable, p.Name, Map(p.ValueType)))
             ),
+            TupleType tupleType => new TupleType(tupleType.ElementTypes.ConvertAll(Map)),
             IntersectionType intersectionType => new IntersectionType(intersectionType.Types.ConvertAll(Map)),
             UnionType unionType => new UnionType(unionType.Types.ConvertAll(Map)),
             FunctionType functionType => new FunctionType(
@@ -112,10 +114,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 genericType.Parameters,
                 Map(genericType.UnderlyingType)
             ),
-            InstantiatedType instantiatedType => new InstantiatedType(
-                instantiatedType.GenericType,
-                instantiatedType.Arguments.ConvertAll(Map)
-            ),
+            InstantiatedType instantiatedType => instantiatedType.GenericType.Construct(instantiatedType.Arguments.ConvertAll(Map)),
             _ => MapDefault()
         };
 
@@ -298,8 +297,12 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             CombineUnify(a.Indexer.KeyType, b.Indexer.KeyType, span, ref success, ref updated, childTrace);
             CombineUnify(a.Indexer.ValueType, b.Indexer.ValueType, span, ref success, ref updated, childTrace);
 
-            if (a.Indexer.IsMutable != b.Indexer.IsMutable)
-                if (!ReportTypeMismatch(a, b, span, $"Indexer types match, but indexer mutability of type '{a}' does not match that of type '{b}'.", trace))
+            // Only the unsound direction, matching ObjectType.IsAssignableTo: giving up 'mut' is safe,
+            // gaining it is not. Demanding the two agree exactly made this the stricter of two rules for
+            // the same question, so whether a pair was accepted depended on whether it reached checking
+            // or constraint solving.
+            if (!a.Indexer.IsMutable && b.Indexer.IsMutable)
+                if (!ReportTypeMismatch(a, b, span, $"Type '{a}' has an immutable indexer, but type '{b}' requires a mutable one.", trace))
                     success = false;
         }
         else if (a.Indexer == null && b.Indexer != null)
@@ -328,8 +331,8 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
             CombineUnify(propA.ValueType, propB.ValueType, span, ref success, ref updated, childTrace);
 
-            if (propA.IsMutable == propB.IsMutable) continue;
-            if (!ReportTypeMismatch(a, b, span, $"Property types match, but mutability of property '{propB.Name}' does not match that of type '{b}'.", trace))
+            if (propA.IsMutable || !propB.IsMutable) continue;
+            if (!ReportTypeMismatch(a, b, span, $"Property '{propB.Name}' is immutable on type '{a}', but type '{b}' requires a mutable one.", trace))
                 success = false;
         }
 
@@ -391,6 +394,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 || obj.Properties.Any(p => OccursIn(variable, p.ValueType, visited)),
             GenericType generic => OccursIn(variable, generic.UnderlyingType, visited),
             InstantiatedType inst => inst.Arguments.Any(a => OccursIn(variable, a, visited)),
+            TupleType tuple => tuple.ElementTypes.Any(t => OccursIn(variable, t, visited)),
             IntersectionType inter => inter.Types.Any(t => OccursIn(variable, t, visited)),
             UnionType union => union.Types.Any(t => OccursIn(variable, t, visited)),
             FunctionType fn => fn.TypeParameters.Any(p => OccursIn(variable, p, visited))
@@ -421,7 +425,13 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             return existing;
 
         visited[type] = type;
-        var transformed = Transform(type, t => SubstituteTypeParameters(mapping, t, visited));
+        // simplify: false, like every other substituter (InstantiatedType.SubstituteTypeParameters,
+        // TypeInferrer.Substitute). Simplifying here rewrites every nested InstantiatedType into its
+        // expansion, which Transform then sees as a change and rebuilds the whole enclosing type around -
+        // so renaming nothing still handed back a structurally identical but freshly allocated graph. On a
+        // self-referential generic that is fatal: TryUnify's visiting set keys on reference identity, so it
+        // met an unseen pair on every level and never terminated.
+        var transformed = Transform(type, t => SubstituteTypeParameters(mapping, t, visited), simplify: false);
         visited[type] = transformed;
         return transformed;
     }

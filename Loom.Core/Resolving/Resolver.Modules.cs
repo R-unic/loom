@@ -189,7 +189,7 @@ public sealed partial class Resolver
             return true;
 
         // the symbol stands for the required table, so unlike a named import it is declared on this node
-        var symbol = new Symbol(import, SymbolKind.Variable, name);
+        var symbol = new VariableSymbol(import, name);
         DeclareSymbol(symbol);
         _semanticModel.AddNamespaceImport(new NamespaceImportBinding(import, symbol, module, moduleModel));
         _semanticModel.TypeSolver.SetType(import, GetNamespaceType(moduleModel));
@@ -242,7 +242,7 @@ public sealed partial class Resolver
             if (LookupSymbolCurrentScope(name, kind) != null)
                 return;
 
-            var symbol = new Symbol(declaration, kind, name);
+            Symbol symbol = kind == SymbolKind.Type ? new TypeAliasSymbol(declaration, name) : new VariableSymbol(declaration, name);
             DeclareSymbol(symbol);
 
             // it names something declared elsewhere, so flow analysis must not read the import as the

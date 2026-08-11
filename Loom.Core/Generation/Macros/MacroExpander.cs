@@ -27,6 +27,8 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         new InstanceMacroProvider(),
         new ResultStaticMacroProvider(),
         new ResultMacroProvider(),
+        new SetStaticMacroProvider(),
+        new SetMacroProvider(),
         new IntrinsicGlobalInvocationMacroProvider()
     ];
 
@@ -48,6 +50,13 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         _context.Node = expression;
         referenceExpression = null;
         if (!InvocationMacroReference.TryClassify(semanticModel, expression, out var provider, out var memberName))
+            return false;
+
+        // The callee of a call is being called, not referenced, and TryGetInvocationMacro handles it.
+        // IsValidReferenceContext only asks whether some ancestor is an argument list, which is true of
+        // 'xs.has(1)' inside 'print(...)' too - so the callee was wrapped in a reference lambda and then
+        // expanded again as an invocation on top of it, emitting 'table.find(function(argument0) ... end, 1)'.
+        if (InvocationMacroReference.IsDirectInvocationCallee(expression))
             return false;
 
         if (!InvocationMacroReference.IsValidReferenceContext(expression, semanticModel))

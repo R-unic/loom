@@ -312,7 +312,7 @@ public static class TypeSimplifier
             }
         }
 
-        replacement = new InstantiatedType(generic, newArguments);
+        replacement = generic.Construct(newArguments);
         return true;
     }
 

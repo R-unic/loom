@@ -96,7 +96,7 @@ public sealed partial class Resolver
                 .Where(other => other != implement)
                 .SelectMany(other => other.Body.Implementations);
 
-            success = !otherMethods.Any(declaration => !DeclareVariable(declaration, new Symbol(declaration, SymbolKind.Function, declaration.Name.Text)));
+            success = !otherMethods.Any(declaration => !DeclareVariable(declaration, new FunctionSymbol(declaration, declaration.Name.Text)));
         }
 
         if (success)
@@ -163,7 +163,7 @@ public sealed partial class Resolver
     public override bool VisitInterfaceDeclaration(InterfaceDeclaration interfaceDeclaration)
     {
         var isSealed = interfaceDeclaration.SealedKeyword != null;
-        if (!DeclareVariable(interfaceDeclaration, SymbolKind.Variable)
+        if (!DeclareVariable(interfaceDeclaration)
             || DeclareInterface(interfaceDeclaration, isSealed) is not { } symbol
             || !ResolveInterfaceConstraints(interfaceDeclaration.ColonTypeListClause, symbol))
             return false;
@@ -279,7 +279,7 @@ public sealed partial class Resolver
         foreach (var symbol in
                  from eventDeclaration in events
                  let attributeSymbols = eventDeclaration.Attributes?.AttributeList.Select(DeclareAttribute).ToList() ?? []
-                 select new PropertySymbol(eventDeclaration, null, attributeSymbols, SymbolKind.Event) { IsIntrinsic = interfaceSymbol.IsIntrinsic })
+                 select new EventSymbol(eventDeclaration, attributeSymbols) { IsIntrinsic = interfaceSymbol.IsIntrinsic })
         {
             interfaceSymbol.Properties.Add(symbol);
             AddDeclaration(symbol);

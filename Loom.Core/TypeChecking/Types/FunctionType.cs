@@ -8,6 +8,36 @@ public sealed class FunctionType(List<TypeParameter> typeParameters, List<Type> 
     public List<Type> RequiredParameterTypes { get; } = GetRequiredParameterTypes(parameterTypes, hasRestParameter);
     public Type ReturnType { get; } = returnType;
 
+    /// <summary>
+    ///     The parameter type the argument at <paramref name="index" /> binds to, or null when there is none -
+    ///     an argument past the end of a non-rest parameter list, or one past the end of a tuple rest.
+    ///     <para>
+    ///         Past the fixed parameters, a rest parameter answers for every remaining argument: an array rest
+    ///         with its element type, a tuple rest with the type at that position. Both the type checker (to
+    ///         decide what to check an argument against) and <see cref="TypeInferrer" /> (to decide what to
+    ///         infer it against) have to agree on this, so it lives here rather than in either of them.
+    ///     </para>
+    /// </summary>
+    public static Type? ParameterTypeAt(List<Type> parameterTypes, bool hasRestParameter, int index)
+    {
+        var fixedCount = hasRestParameter ? parameterTypes.Count - 1 : parameterTypes.Count;
+        if (index < fixedCount)
+            return index < parameterTypes.Count ? parameterTypes[index] : null;
+
+        if (!hasRestParameter || parameterTypes.Count == 0)
+            return null;
+
+        return parameterTypes[^1] switch
+        {
+            TupleType restTuple => index - fixedCount < restTuple.ElementTypes.Count ? restTuple.ElementTypes[index - fixedCount] : null,
+            ArrayType restArray => restArray.ElementType,
+            _ => null
+        };
+    }
+
+    /// <inheritdoc cref="ParameterTypeAt(List{Type}, bool, int)" />
+    public Type? ParameterTypeAt(int index) => ParameterTypeAt(ParameterTypes, HasRestParameter, index);
+
     private static List<Type> GetRequiredParameterTypes(List<Type> parameterTypes, bool hasRestParameter)
     {
         var fixedParameterTypes = hasRestParameter ? parameterTypes.Take(parameterTypes.Count - 1).ToList() : parameterTypes;

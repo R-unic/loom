@@ -23,7 +23,12 @@ before claiming done.
     - `Lexing/` — `Lexer`, rule-based (`LexerRules.cs`)
     - `Parsing/` — `Parser` (partial class split: `.Declarations`, `.Expressions`, `.Statements`, `.Types`), `AST/` one file per node type (~90 files)
     - `Resolving/` — `Resolver` (partial: `.ControlFlow`, `.Declarations`, `.Interfaces`, `.Modules`, `.Patterns`, `.SymbolTable`), `SemanticModel`, scopes +
-      `Symbols/`
+      `Symbols/`. One class per `SymbolKind`, so `Symbol.Kind` is a fact about the class rather than a
+      constructor argument, and a kind-specific member has somewhere to live. `Symbol` splits into
+      `TypeSymbol` (looked up in type position) and `ValueSymbol` (value position) — which is the same
+      split the resolver's two per-scope lookup tables make, and `Symbol.IsTypeKind` answers it for callers
+      holding a bare kind (`SymbolHierarchyTest` keeps the two from drifting). Attributes hang off `Symbol`
+      itself: reading one should not require first knowing what kind of symbol you have
     - `FlowAnalysis/` — `FlowAnalyzer`, flow state for control-flow reasoning
     - `TypeChecking/` — `TypeChecker` (partial: `.Enums`, `.Generics`, `.Interfaces`, `.ControlFlow`, `.Declarations`, `.Invocations`, `.Match`, `.MemberAcess`,
       `.Operators`, `.TypeNodes`, , `.Check` (bidirectional/contextual typing)), plus `TypeInferrer`, `TypeNarrower`, `TypeSimplifier`, `TypeSolver`; Intrinsics
@@ -115,6 +120,11 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:`/`ref:` (see git log).
 - Source files: Loom source uses `.loom` extension; output `.luau`. Indices are 1-based (Luau semantics). Immutability by default (`let` → `const`/local, `mut`
   for mutable).
+- `mut` is a **capability, not a guarantee**. Giving one up is safe, gaining one is not: a mutable member (property, indexer, array element) satisfies an
+  immutable one, and never the reverse. An immutable target can only be read through, so its type is covariant; a mutable one is invariant, since anything
+  written through it is read back through the source. One rule, in `ObjectType.IsMemberAssignable` and mirrored by `ArrayType.IsAssignableTo` and
+  `TypeSolver.UnifyObjectTypes` — assignability and unification answer the same question and must not diverge. Loom cannot promise an immutably-typed value
+  never changes (it does not track who else holds a mutable alias), so reading `mut` as a guarantee would cost the widening and buy nothing.
 - Loom comments: `##` line, `#: … :#` block, `###` doc. A run of `###` lines documents the declaration below it and is the only comment form anything
   reads — the lexer pairs each run with the token it precedes in `SourceFile.Documentation`, and `Node.Documentation` looks it up. `@param name text`
   and `@returns text` inside one are pulled out for signature help.

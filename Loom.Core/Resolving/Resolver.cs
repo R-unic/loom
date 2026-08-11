@@ -93,17 +93,17 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
                     DeclareTrait(traitDeclaration);
                     break;
                 case InterfaceDeclaration interfaceDeclaration:
-                    if (DeclareVariable(interfaceDeclaration, SymbolKind.Variable))
+                    if (DeclareVariable(interfaceDeclaration))
                         DeclareInterface(interfaceDeclaration, interfaceDeclaration.SealedKeyword != null);
 
                     break;
                 case EnumDeclaration enumDeclaration:
-                    if (DeclareVariable(enumDeclaration, SymbolKind.Variable))
-                        DeclareType(enumDeclaration, SymbolKind.EnumType);
+                    if (DeclareVariable(enumDeclaration))
+                        DeclareType(enumDeclaration, new EnumTypeSymbol(enumDeclaration, enumDeclaration.Name.Text));
 
                     break;
-                case EventDeclaration enumDeclaration:
-                    DeclareVariable(enumDeclaration, SymbolKind.Event);
+                case EventDeclaration eventDeclaration:
+                    DeclareVariable(eventDeclaration, new EventSymbol(eventDeclaration));
                     break;
                 case Declare { Signature: InterfaceDeclaration nested }:
                     DeclareInterface(nested, nested.SealedKeyword != null);

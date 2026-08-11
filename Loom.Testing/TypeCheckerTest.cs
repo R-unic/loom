@@ -4429,6 +4429,48 @@ public class TypeCheckerTest
         Assert.Equal(42L, literal.Value);
     }
 
+    /// <summary>
+    ///     Giving up 'mut' is safe, so a mutable member satisfies an immutable one - the rule mutable arrays
+    ///     already followed, now shared by properties and indexers.
+    /// </summary>
+    [Theory]
+    [InlineData("interface Src { mut value: number }\ninterface Dst { value: number }")]
+    [InlineData("interface Src { mut [string]: number }\ninterface Dst { [string]: number }")]
+    public void Checks_MutableMember_IsAssignableToImmutable(string declarations)
+    {
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics($"{declarations}\ndeclare let src: Src;\ndeclare fn take(x: Dst): void;\ntake(src)"));
+    }
+
+    /// <summary>Gaining it is not: a mutable target hands out write access an immutable source never granted.</summary>
+    [Theory]
+    [InlineData("interface Src { value: number }\ninterface Dst { mut value: number }")]
+    [InlineData("interface Src { [string]: number }\ninterface Dst { mut [string]: number }")]
+    public void ThrowsFor_ImmutableMember_AssignedToMutable(string declarations)
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics($"{declarations}\ndeclare let src: Src;\ndeclare fn take(x: Dst): void;\ntake(src)");
+        Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.TypeMismatch);
+    }
+
+    /// <summary>
+    ///     A mutable member is invariant, since whatever is written through the target is read back through
+    ///     the source. Contravariance was allowed here before: a <c>fn(string): void</c> could be stored in a
+    ///     slot the source still believed held a <c>fn(unknown): void</c>, which would then be called with
+    ///     anything.
+    /// </summary>
+    [Fact]
+    public void ThrowsFor_MutableMember_WithContravariantFunctionType()
+    {
+        const string source = """
+            interface Src { mut set: fn(value: unknown): void }
+            interface Dst { mut set: fn(value: string): void }
+            declare let src: Src;
+            declare fn take(x: Dst): void;
+            take(src)
+            """;
+
+        Assert.Contains(Utility.GetTypeCheckerDiagnostics(source).Set, d => d.Code == InternalCodes.TypeMismatch);
+    }
+
     [Fact]
     public void Checks_TypeAlias_PartialTypeArguments()
     {
@@ -4883,6 +4925,54 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics("declare fn foo(..a: number): void");
         var diagnostic = diagnostics.Find(d => d.Code == InternalCodes.InvalidRestParameterType);
         Assert.NotNull(diagnostic);
+    }
+
+    /// <summary>
+    ///     A rest argument infers against the rest parameter's <em>element</em> type. Comparing it against the
+    ///     array itself matches no inference rule, so the type parameter used to fall through to 'unknown'.
+    /// </summary>
+    [Fact]
+    public void Checks_Inference_RestParameter_InfersElementTypeFromArguments()
+    {
+        var type = Utility.GetLastStatementType("declare fn of<T>(..values: T[]): T[]; of(1, 2)");
+        var arrayType = Assert.IsType<ArrayType>(type);
+        Assert.Equal(PrimitiveType.Number, arrayType.ElementType);
+    }
+
+    [Fact]
+    public void Checks_Inference_RestParameter_AfterFixedParameter_InfersFromBoth()
+    {
+        var type = Utility.GetLastStatementType("declare fn of<T>(first: T, ..rest: T[]): T[]; of(1, 2, 3)");
+        var arrayType = Assert.IsType<ArrayType>(type);
+        Assert.Equal(PrimitiveType.Number, arrayType.ElementType);
+    }
+
+    [Fact]
+    public void Checks_Inference_RestParameter_WithNoArguments_FallsBackToUnknown()
+    {
+        var type = Utility.GetLastStatementType("declare fn of<T>(..values: T[]): T[]; of()");
+        var arrayType = Assert.IsType<ArrayType>(type);
+        Assert.Equal(PrimitiveType.Unknown, arrayType.ElementType);
+    }
+
+    /// <summary>A tuple rest answers per position, so each argument infers a different type parameter.</summary>
+    [Fact]
+    public void Checks_Inference_TupleRestParameter_InfersEachPositionSeparately()
+    {
+        const string source = """
+            declare fn pair<A, B>(..values: (A, B)): (B, A);
+            pair(1, "x")
+            """;
+
+        var tupleType = Assert.IsType<TupleType>(Utility.GetLastStatementType(source));
+        Assert.Equal([new LiteralType("x"), new LiteralType(1L)], tupleType.ElementTypes);
+    }
+
+    [Fact]
+    public void ThrowsFor_RestParameterCall_WithArgumentOfWrongElementType()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("""declare fn nums(..values: number[]): void; nums(1, "a")""");
+        Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.TypeMismatch);
     }
     #endregion Rest Parameters
 
@@ -6696,6 +6786,66 @@ public class TypeCheckerTest
 
         var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
         Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.TypeMismatch);
+    }
+
+    /// <summary>
+    ///     Two generic interfaces whose members name the interface itself, compared structurally, with the
+    ///     type argument arriving from inference rather than from source. Each of those on its own was fine;
+    ///     together they expanded forever and took the process down with them
+    ///     (<see href="https://github.com/rbx-loom/loom/issues/194" />).
+    /// </summary>
+    [Fact]
+    public void Checks_SelfReferentialGenerics_ComparedWithAnInferredTypeArgument_NoErrors()
+    {
+        const string source = """
+            declare interface Bag<T> {
+                [T]: bool;
+                merge: fn(other: Bag<T>): Bag<T>;
+            }
+
+            declare interface MutBag<T> {
+                mut [T]: bool;
+                merge: fn(other: Bag<T>): Bag<T>;
+                add: fn(value: T): void;
+            }
+
+            declare fn make<T>(..values: T[]): MutBag<T>;
+            declare fn take(b: Bag<number>): void;
+
+            fn main(): void {
+                let m = make(1, 2);
+                take(m);
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+    }
+
+    /// <summary>Written out rather than inferred, the same pair has to stay clean.</summary>
+    [Fact]
+    public void Checks_SelfReferentialGenerics_ComparedWithAnExplicitTypeArgument_NoErrors()
+    {
+        const string source = """
+            declare interface Bag<T> {
+                [T]: bool;
+                merge: fn(other: Bag<T>): Bag<T>;
+            }
+
+            declare interface MutBag<T> {
+                [T]: bool;
+                merge: fn(other: Bag<T>): Bag<T>;
+                add: fn(value: T): void;
+            }
+
+            declare let m: MutBag<number>;
+            declare fn take(b: Bag<number>): void;
+
+            fn main(): void {
+                take(m);
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
     }
     #endregion SelfReferentialTypes
 

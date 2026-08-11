@@ -3,8 +3,9 @@ using Loom.Core.Parsing.AST;
 namespace Loom.Core.Resolving.Symbols;
 
 public sealed class InterfaceSymbol(InterfaceDeclaration declaration, string name, bool isSealed, List<InterfaceSymbol>? constraints)
-    : Symbol(declaration, SymbolKind.Interface, name)
+    : TypeSymbol(declaration, name)
 {
+    public override SymbolKind Kind => SymbolKind.Interface;
     public bool IsSealed { get; } = isSealed;
     public IReadOnlyList<InterfaceSymbol>? Constraints { get; } = constraints;
     public List<PropertySymbol> Properties { get; } = [];

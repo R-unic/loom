@@ -28,7 +28,7 @@ public class TypeSolverTest
             PrimitiveType.Never
         );
 
-        var instantiated = new InstantiatedType(generic, [PrimitiveType.Number]);
+        var instantiated = generic.Construct([PrimitiveType.Number]);
 
         solver.AddConstraint(instantiated, generic, Utility.Span);
         Assert.True(solver.SolveConstraints());
@@ -127,8 +127,8 @@ public class TypeSolverTest
         var declaration = new TypeAlias(null!, Utility.IdentifierToken("Box"), null, null!);
         var typeParameter = new TypeParameter("T");
         var generic = new GenericType(declaration, [typeParameter], typeParameter);
-        var instantiatedNumber = new InstantiatedType(generic, [PrimitiveType.Number]);
-        var instantiatedString = new InstantiatedType(generic, [PrimitiveType.String]);
+        var instantiatedNumber = generic.Construct([PrimitiveType.Number]);
+        var instantiatedString = generic.Construct([PrimitiveType.String]);
 
         solver.AddConstraint(instantiatedNumber, instantiatedString, Utility.Span);
         Assert.False(solver.SolveConstraints());
@@ -372,14 +372,15 @@ public class TypeSolverTest
     }
 
     [Fact]
+    /// <summary>Same direction as <see cref="Type.IsAssignableTo" />: an immutable property cannot satisfy a mutable one.</summary>
     public void Unify_ObjectTypes_MutabilityMismatch()
     {
         var diagnostics = CreateDiagnostics();
         var solver = new TypeSolver(diagnostics);
-        var obj1 = new ObjectType(null, [new ObjectProperty(true, "x", PrimitiveType.Number)]);
-        var obj2 = new ObjectType(null, [new ObjectProperty(false, "x", PrimitiveType.Number)]);
+        var immutable = new ObjectType(null, [new ObjectProperty(false, "x", PrimitiveType.Number)]);
+        var mutable = new ObjectType(null, [new ObjectProperty(true, "x", PrimitiveType.Number)]);
 
-        solver.AddConstraint(obj1, obj2, Utility.Span);
+        solver.AddConstraint(immutable, mutable, Utility.Span);
         Assert.False(solver.SolveConstraints());
         Assert.NotEmpty(diagnostics.Errors().Set);
     }
@@ -409,17 +410,38 @@ public class TypeSolverTest
         Assert.NotEmpty(diagnostics.Errors().Set);
     }
 
+    /// <summary>
+    ///     Unification answers the same question as <see cref="Type.IsAssignableTo" /> and has to give the
+    ///     same answer: only asking for a mutable indexer you were not given is a mismatch. Handing a mutable
+    ///     indexer to something that only reads through it is not.
+    /// </summary>
     [Fact]
-    public void Unify_ObjectTypes_WithIndexer_MutabilityMismatch()
+    public void Unify_ObjectTypes_ImmutableIndexerAgainstMutable_IsAMismatch()
     {
         var diagnostics = CreateDiagnostics();
         var solver = new TypeSolver(diagnostics);
-        var obj1 = new ObjectType(new ObjectIndexer(true, PrimitiveType.String, PrimitiveType.Number), []);
-        var obj2 = new ObjectType(new ObjectIndexer(false, PrimitiveType.String, PrimitiveType.Number), []);
+        var immutable = new ObjectType(new ObjectIndexer(false, PrimitiveType.String, PrimitiveType.Number), []);
+        var mutable = new ObjectType(new ObjectIndexer(true, PrimitiveType.String, PrimitiveType.Number), []);
 
-        solver.AddConstraint(obj1, obj2, Utility.Span);
+        solver.AddConstraint(immutable, mutable, Utility.Span);
         Assert.False(solver.SolveConstraints());
         Assert.NotEmpty(diagnostics.Errors().Set);
+    }
+
+    /// <inheritdoc cref="Unify_ObjectTypes_ImmutableIndexerAgainstMutable_IsAMismatch" />
+    [Fact]
+    public void Unify_ObjectTypes_MutableIndexerAgainstImmutable_Unifies()
+    {
+        var diagnostics = CreateDiagnostics();
+        var solver = new TypeSolver(diagnostics);
+        var mutable = new ObjectType(new ObjectIndexer(true, PrimitiveType.String, PrimitiveType.Number), []);
+        var immutable = new ObjectType(new ObjectIndexer(false, PrimitiveType.String, PrimitiveType.Number), []);
+
+        Assert.True(mutable.IsAssignableTo(immutable));
+
+        solver.AddConstraint(mutable, immutable, Utility.Span);
+        Assert.True(solver.SolveConstraints());
+        Utility.AssertNoErrors(diagnostics);
     }
 
     [Fact]
@@ -472,8 +494,8 @@ public class TypeSolverTest
             PrimitiveType.Never
         );
 
-        var inst1 = new InstantiatedType(generic, [PrimitiveType.Number]);
-        var inst2 = new InstantiatedType(generic, [PrimitiveType.Number]);
+        var inst1 = generic.Construct([PrimitiveType.Number]);
+        var inst2 = generic.Construct([PrimitiveType.Number]);
 
         solver.AddConstraint(inst1, inst2, Utility.Span);
         Assert.True(solver.SolveConstraints());

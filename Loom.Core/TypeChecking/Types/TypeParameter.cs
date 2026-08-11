@@ -24,6 +24,12 @@ public sealed class TypeParameter(string name, Type? constraint = null, Type? de
         return hash.ToHashCode();
     }
 
+    /// <summary>
+    ///     Deliberately name-blind: two type parameters of the same shape are the same type whatever their
+    ///     binders called them, which is what makes <c>fn&lt;T&gt;(T): T</c> and <c>fn&lt;U&gt;(U): U</c> the
+    ///     same function type. <see cref="GenericType.Construct" /> is the one place that must not use this,
+    ///     and does not - it matches arguments by reference.
+    /// </summary>
     public override bool Equals(Type? other) =>
         other is TypeParameter parameter
         && Equals(Constraint, parameter.Constraint)

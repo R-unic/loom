@@ -76,7 +76,7 @@ public sealed partial class TypeChecker
             CheckTypeParameterConstraints(node, argument, parameter);
         }
 
-        var instantiated = new InstantiatedType(genericType, fullArguments);
+        var instantiated = genericType.Construct(fullArguments);
         return BindType(node, instantiated);
     }
 

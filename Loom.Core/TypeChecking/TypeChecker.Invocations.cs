@@ -88,7 +88,7 @@ public sealed partial class TypeChecker
                     && arityOk
                     && !argumentTypes.Where((argumentType, i) =>
                     {
-                        var expected = GetArgumentExpectedType(candidate.ParameterTypes, candidate.HasRestParameter, i, fixedCount);
+                        var expected = Types.FunctionType.ParameterTypeAt(candidate.ParameterTypes, candidate.HasRestParameter, i);
                         return expected != null && !argumentType.IsAssignableTo(expected);
                     }).Any();
             }
@@ -203,12 +203,11 @@ public sealed partial class TypeChecker
         List<bool> deferred)
     {
         var parameterTypes = SubstituteTypeParameters(invocation.Arguments, functionType.ParameterTypes, substitution);
-        var fixedCount = functionType.HasRestParameter ? parameterTypes.Count - 1 : parameterTypes.Count;
         for (var i = 0; i < argumentList.Count; i++)
         {
             if (!deferred[i]) continue;
 
-            var expected = GetArgumentExpectedType(parameterTypes, functionType.HasRestParameter, i, fixedCount);
+            var expected = Types.FunctionType.ParameterTypeAt(parameterTypes, functionType.HasRestParameter, i);
             argumentTypes[i] = expected != null ? Check(argumentList[i], expected) : Visit(argumentList[i]);
         }
     }
@@ -226,12 +225,11 @@ public sealed partial class TypeChecker
 
     private List<Type> BuildArgumentTypes(List<Expression> argumentList, List<Type> parameterTypes, bool hasRestParameter = false)
     {
-        var fixedCount = hasRestParameter ? parameterTypes.Count - 1 : parameterTypes.Count;
         var argumentTypes = new List<Type>(argumentList.Count);
         argumentTypes.AddRange(
             argumentList.Select((t, i) =>
             {
-                var expected = GetArgumentExpectedType(parameterTypes, hasRestParameter, i, fixedCount);
+                var expected = Types.FunctionType.ParameterTypeAt(parameterTypes, hasRestParameter, i);
                 return expected != null ? Check(t, expected) : Visit(t);
             })
         );
@@ -248,34 +246,12 @@ public sealed partial class TypeChecker
         bool hasRestParameter = false)
     {
         CheckArity(arguments, parameters, argumentTypes, parameterTypes, hasRestParameter);
-        var fixedCount = hasRestParameter ? parameterTypes.Count - 1 : parameterTypes.Count;
         for (var i = 0; i < args.Count; i++)
         {
-            var expected = GetArgumentExpectedType(parameterTypes, hasRestParameter, i, fixedCount);
+            var expected = Types.FunctionType.ParameterTypeAt(parameterTypes, hasRestParameter, i);
             if (expected != null)
                 Check(args[i], expected);
         }
-    }
-
-    /// <summary>
-    ///     The type argument <paramref name="index" /> should be checked against, or null when it's an extra
-    ///     rest-position argument with no uniform element type to check (an array rest with no element type
-    ///     information reaching this point, which shouldn't happen but is handled permissively).
-    /// </summary>
-    private static Type? GetArgumentExpectedType(List<Type> parameterTypes, bool hasRestParameter, int index, int fixedCount)
-    {
-        if (index < fixedCount)
-            return index < parameterTypes.Count ? parameterTypes[index] : null;
-
-        if (!hasRestParameter || parameterTypes.Count == 0)
-            return null;
-
-        return parameterTypes[^1] switch
-        {
-            Types.TupleType restTuple => index - fixedCount < restTuple.ElementTypes.Count ? restTuple.ElementTypes[index - fixedCount] : null,
-            Types.ArrayType restArray => restArray.ElementType,
-            _ => null
-        };
     }
 
     /// <summary>
@@ -377,8 +353,7 @@ public sealed partial class TypeChecker
         if (index < 0 || _semanticModel.GetType(invocation.Expression) is not Types.FunctionType functionType)
             return null;
 
-        var fixedCount = functionType.HasRestParameter ? functionType.ParameterTypes.Count - 1 : functionType.ParameterTypes.Count;
-        return GetArgumentExpectedType(functionType.ParameterTypes, functionType.HasRestParameter, index, fixedCount);
+        return functionType.ParameterTypeAt(index);
     }
 
     /// <summary>
@@ -391,8 +366,26 @@ public sealed partial class TypeChecker
         if (!InvocationMacroReference.TryClassify(_semanticModel, expression, out _, out var memberName))
             return false;
 
-        if (InvocationMacroReference.IsValidReferenceContext(expression, _semanticModel) || InvocationMacroReference.IsDirectInvocationCallee(expression))
+        if (InvocationMacroReference.IsDirectInvocationCallee(expression))
             return true;
+
+        if (InvocationMacroReference.IsValidReferenceContext(expression, _semanticModel))
+        {
+            // Referencing a macro emits a lambda with one parameter per declared parameter, which cannot
+            // stand for a variadic one - the lambda would take a single argument and silently drop the
+            // rest. There is nothing to fall back on, since the macro has no runtime definition to pass.
+            if (_semanticModel.GetType(expression) is not Types.FunctionType { HasRestParameter: true })
+                return true;
+
+            _diagnostics.Error(
+                expression,
+                InternalCodes.InvalidMacroReference,
+                $"Invocation macro '{memberName}' takes a variable number of arguments, so it cannot be passed as a value.",
+                $"call it directly (e.g. {memberName}(...)), or wrap it in a function of your own"
+            );
+
+            return true;
+        }
 
         _diagnostics.Error(
             expression,
