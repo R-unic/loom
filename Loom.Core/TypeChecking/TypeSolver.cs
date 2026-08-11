@@ -297,8 +297,11 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             CombineUnify(a.Indexer.KeyType, b.Indexer.KeyType, span, ref success, ref updated, childTrace);
             CombineUnify(a.Indexer.ValueType, b.Indexer.ValueType, span, ref success, ref updated, childTrace);
 
-            if (a.Indexer.IsMutable != b.Indexer.IsMutable)
-                if (!ReportTypeMismatch(a, b, span, $"Indexer types match, but indexer mutability of type '{a}' does not match that of type '{b}'.", trace))
+            // Only the unsound direction, matching ObjectType.IsAssignableTo. Demanding the two agree
+            // exactly made this the stricter of two rules for the same question, so whether a pair was
+            // accepted depended on whether it reached checking or constraint solving.
+            if (!a.Indexer.IsMutable && b.Indexer.IsMutable)
+                if (!ReportTypeMismatch(a, b, span, $"Type '{a}' has an immutable indexer, but type '{b}' requires a mutable one.", trace))
                     success = false;
         }
         else if (a.Indexer == null && b.Indexer != null)
@@ -327,7 +330,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
             CombineUnify(propA.ValueType, propB.ValueType, span, ref success, ref updated, childTrace);
 
-            if (propA.IsMutable == propB.IsMutable) continue;
+            if (!propA.IsMutable || propB.IsMutable) continue;
             if (!ReportTypeMismatch(a, b, span, $"Property types match, but mutability of property '{propB.Name}' does not match that of type '{b}'.", trace))
                 success = false;
         }
