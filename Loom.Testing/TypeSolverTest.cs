@@ -28,7 +28,7 @@ public class TypeSolverTest
             PrimitiveType.Never
         );
 
-        var instantiated = new InstantiatedType(generic, [PrimitiveType.Number]);
+        var instantiated = generic.Construct([PrimitiveType.Number]);
 
         solver.AddConstraint(instantiated, generic, Utility.Span);
         Assert.True(solver.SolveConstraints());
@@ -127,8 +127,8 @@ public class TypeSolverTest
         var declaration = new TypeAlias(null!, Utility.IdentifierToken("Box"), null, null!);
         var typeParameter = new TypeParameter("T");
         var generic = new GenericType(declaration, [typeParameter], typeParameter);
-        var instantiatedNumber = new InstantiatedType(generic, [PrimitiveType.Number]);
-        var instantiatedString = new InstantiatedType(generic, [PrimitiveType.String]);
+        var instantiatedNumber = generic.Construct([PrimitiveType.Number]);
+        var instantiatedString = generic.Construct([PrimitiveType.String]);
 
         solver.AddConstraint(instantiatedNumber, instantiatedString, Utility.Span);
         Assert.False(solver.SolveConstraints());
@@ -472,8 +472,8 @@ public class TypeSolverTest
             PrimitiveType.Never
         );
 
-        var inst1 = new InstantiatedType(generic, [PrimitiveType.Number]);
-        var inst2 = new InstantiatedType(generic, [PrimitiveType.Number]);
+        var inst1 = generic.Construct([PrimitiveType.Number]);
+        var inst2 = generic.Construct([PrimitiveType.Number]);
 
         solver.AddConstraint(inst1, inst2, Utility.Span);
         Assert.True(solver.SolveConstraints());

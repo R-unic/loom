@@ -96,8 +96,8 @@ public class GenericTypesTest
         var decl = new MockGenericNamedDeclaration("Record");
         var generic = new GenericType(decl, [paramT], ObjectType.Empty);
 
-        var inst1 = new InstantiatedType(generic, [Number]);
-        var inst2 = new InstantiatedType(generic, [Number]);
+        var inst1 = generic.Construct([Number]);
+        var inst2 = generic.Construct([Number]);
 
         Assert.True(inst1.Equals(inst2));
     }
@@ -109,9 +109,9 @@ public class GenericTypesTest
         var decl = new MockGenericNamedDeclaration("Record");
         var generic = new GenericType(decl, [paramT], ObjectType.Empty);
 
-        var inst1 = new InstantiatedType(generic, [Number]);
-        var inst2 = new InstantiatedType(generic, [String]);
-        var inst3 = new InstantiatedType(generic, []);
+        var inst1 = generic.Construct([Number]);
+        var inst2 = generic.Construct([String]);
+        var inst3 = generic.Construct([]);
 
         Assert.False(inst1.Equals(inst2));
         Assert.False(inst1.Equals(inst3));
@@ -127,8 +127,8 @@ public class GenericTypesTest
         var generic1 = new GenericType(decl1, [paramT], ObjectType.Empty);
         var generic2 = new GenericType(decl2, [paramT], ObjectType.Empty);
 
-        var inst1 = new InstantiatedType(generic1, [Number]);
-        var inst2 = new InstantiatedType(generic2, [Number]);
+        var inst1 = generic1.Construct([Number]);
+        var inst2 = generic2.Construct([Number]);
 
         Assert.False(inst1.Equals(inst2));
     }
@@ -141,7 +141,7 @@ public class GenericTypesTest
         var decl = new MockGenericNamedDeclaration("Record");
         var generic = new GenericType(decl, [paramT, paramU], ObjectType.Empty);
 
-        var inst = new InstantiatedType(generic, [Number, String]);
+        var inst = generic.Construct([Number, String]);
         Assert.Equal("Record<number, string>", inst.ToString());
     }
 
@@ -153,7 +153,7 @@ public class GenericTypesTest
         var underlying = new ObjectType(null, [new ObjectProperty(false, "value", paramT)]);
         var generic = new GenericType(decl, [paramT], underlying);
 
-        var inst = new InstantiatedType(generic, [Number]);
+        var inst = generic.Construct([Number]);
         var expanded = inst.Expand();
 
         var expected = new ObjectType(null, [new ObjectProperty(false, "value", Number)]);
@@ -172,7 +172,7 @@ public class GenericTypesTest
         );
 
         var generic = new GenericType(decl, [paramK, paramV], underlying);
-        var inst = new InstantiatedType(generic, [String, Bool]);
+        var inst = generic.Construct([String, Bool]);
         var expanded = inst.Expand();
         var expected = new ObjectType(
             new ObjectIndexer(false, String, Bool),
@@ -194,7 +194,7 @@ public class GenericTypesTest
         var underlying = new ObjectType(null, [new ObjectProperty(false, "value", paramT)]);
         var generic = new GenericType(decl, [paramT], underlying);
 
-        var inst = new InstantiatedType(generic, [Number]);
+        var inst = generic.Construct([Number]);
         var expanded = inst.Expand();
 
         var expected = new ObjectType(null, [new ObjectProperty(false, "value", Number)]);
@@ -208,9 +208,9 @@ public class GenericTypesTest
         var decl = new MockGenericNamedDeclaration("Box");
         var underlying = new ObjectType(null, [new ObjectProperty(false, "value", paramT)]);
         var generic = new GenericType(decl, [paramT], underlying);
-        var boxNumber = new InstantiatedType(generic, [Number]);
-        var boxUnknown = new InstantiatedType(generic, [Unknown]);
-        var boxString = new InstantiatedType(generic, [String]);
+        var boxNumber = generic.Construct([Number]);
+        var boxUnknown = generic.Construct([Unknown]);
+        var boxString = generic.Construct([String]);
         Assert.True(
             boxNumber.Expand().Equals(new ObjectType(null, [new ObjectProperty(false, "value", Number)])),
             $"Expected '{{ value: number }}', got '{boxNumber.Expand()}'"
@@ -225,7 +225,7 @@ public class GenericTypesTest
         Assert.False(boxUnknown.IsAssignableTo(boxNumber));
         Assert.False(boxNumber.IsAssignableTo(boxString));
 
-        var boxNever = new InstantiatedType(generic, [Never]);
+        var boxNever = generic.Construct([Never]);
         Assert.True(boxNever.IsAssignableTo(boxNumber));
         Assert.False(boxNumber.IsAssignableTo(boxNever));
     }
@@ -237,7 +237,7 @@ public class GenericTypesTest
         var decl = new MockGenericNamedDeclaration("Box");
         var underlying = new ObjectType(null, [new ObjectProperty(false, "value", paramT)]);
         var generic = new GenericType(decl, [paramT], underlying);
-        var boxNumber = new InstantiatedType(generic, [Number]);
+        var boxNumber = generic.Construct([Number]);
         var expected = new ObjectType(null, [new ObjectProperty(false, "value", Number)]);
         Assert.True(boxNumber.IsAssignableTo(expected));
         Assert.True(expected.IsAssignableTo(boxNumber));
@@ -253,7 +253,7 @@ public class GenericTypesTest
         var underlying = new ObjectType(null, [new ObjectProperty(false, "first", paramT), new ObjectProperty(false, "second", paramU)]);
 
         var generic = new GenericType(decl, [paramT, paramU], underlying);
-        var inst = new InstantiatedType(generic, [Number, String]);
+        var inst = generic.Construct([Number, String]);
         var expanded = inst.Expand();
         var expected = new ObjectType(null, [new ObjectProperty(false, "first", Number), new ObjectProperty(false, "second", String)]);
         Assert.True(expected.Equals(expanded), $"Expected '{expected}', got '{expanded}'");
@@ -270,7 +270,7 @@ public class GenericTypesTest
         var underlying = new ObjectType(null, [new ObjectProperty(false, "map", fnType)]);
 
         var generic = new GenericType(decl, [paramT, paramU], underlying);
-        var inst = new InstantiatedType(generic, [Number, String]);
+        var inst = generic.Construct([Number, String]);
         var expanded = inst.Expand();
 
         var expectedFn = new FunctionType([], [Number], String);
@@ -287,7 +287,7 @@ public class GenericTypesTest
         var intersection = new IntersectionType([paramT, String]);
         var underlying = new ObjectType(null, [new ObjectProperty(false, "union", union), new ObjectProperty(false, "intersection", intersection)]);
         var generic = new GenericType(decl, [paramT], underlying);
-        var inst = new InstantiatedType(generic, [Bool]);
+        var inst = generic.Construct([Bool]);
         var expanded = TypeSimplifier.Simplify(inst.Expand());
         var expectedUnion = new UnionType([Bool, Number]);
         var expectedIntersection = new IntersectionType([Bool, String]);
@@ -305,7 +305,7 @@ public class GenericTypesTest
         var underlying = new ObjectType(null, [new ObjectProperty(false, "items", arrayType)]);
 
         var generic = new GenericType(decl, [paramT], underlying);
-        var inst = new InstantiatedType(generic, [Number]);
+        var inst = generic.Construct([Number]);
         var expanded = inst.Expand();
 
         var expectedArray = new ArrayType(Number, false);
@@ -321,7 +321,7 @@ public class GenericTypesTest
         var optionalType = new OptionalType(paramT);
         var underlying = new ObjectType(null, [new ObjectProperty(false, "value", optionalType)]);
         var generic = new GenericType(decl, [paramT], underlying);
-        var inst = new InstantiatedType(generic, [String]);
+        var inst = generic.Construct([String]);
         var expanded = inst.Expand();
         var expectedOptional = new UnionType([String, None]);
         var expected = new ObjectType(null, [new ObjectProperty(false, "value", expectedOptional)]);
@@ -341,7 +341,7 @@ public class GenericTypesTest
         );
 
         var generic = new GenericType(decl, [paramK, paramV], underlying);
-        var inst = new InstantiatedType(generic, [String, Bool]);
+        var inst = generic.Construct([String, Bool]);
         var expanded = inst.Expand();
 
         var objectType = Assert.IsType<ObjectType>(expanded);
@@ -361,7 +361,7 @@ public class GenericTypesTest
         var underlying = new ObjectType(null, [new ObjectProperty(true, "counter", Number), new ObjectProperty(false, "value", paramT)]);
 
         var generic = new GenericType(decl, [paramT], underlying);
-        var inst = new InstantiatedType(generic, [String]);
+        var inst = generic.Construct([String]);
         var expanded = inst.Expand();
 
         var objectType = Assert.IsType<ObjectType>(expanded);
@@ -389,12 +389,12 @@ public class GenericTypesTest
         Assert.Equal(Number, paramT.DefaultType);
         Assert.Single(generic.Parameters);
 
-        var inst1 = new InstantiatedType(generic, [String]);
+        var inst1 = generic.Construct([String]);
         var expanded1 = inst1.Expand();
         var expected1 = new ObjectType(null, [new ObjectProperty(false, "value", String)]);
         Assert.True(expected1.Equals(expanded1), $"Expected '${expected1}', got ${expanded1}");
 
-        var inst2 = new InstantiatedType(generic, []);
+        var inst2 = generic.Construct([]);
         var expanded2 = inst2.Expand();
         var expected2 = new ObjectType(null, [new ObjectProperty(false, "value", Number)]);
         Assert.True(expected2.Equals(expanded2), $"Expected '${expected2}', got ${expanded2}");
@@ -424,12 +424,64 @@ public class GenericTypesTest
         );
 
         var generic = new GenericType(decl, [paramK, paramV], underlying);
-        var inst = new InstantiatedType(generic, [String, Bool]);
+        var inst = generic.Construct([String, Bool]);
         var expanded = inst.Expand();
         var objectType = Assert.IsType<ObjectType>(expanded);
         var indexer = Assert.IsType<ObjectIndexer>(objectType.Indexer);
         Assert.Equal(String, indexer.KeyType);
         Assert.Equal(Bool, indexer.ValueType);
+    }
+
+    [Fact]
+    public void Construct_SameArguments_ReturnsSameInstance()
+    {
+        var paramT = new TypeParameter("T");
+        var decl = new MockGenericNamedDeclaration("Box");
+        var generic = new GenericType(decl, [paramT], new ObjectType(null, [new ObjectProperty(false, "value", paramT)]));
+
+        Assert.Same(generic.Construct([Number]), generic.Construct([Number]));
+        Assert.Same(generic.Construct([]), generic.Construct([]));
+        Assert.NotSame(generic.Construct([Number]), generic.Construct([String]));
+    }
+
+    /// <summary>
+    ///     Arguments are matched by reference, not by <see cref="Type.Equals" />: two interfaces that merely
+    ///     look alike are different types, and fusing their instantiations would let one compilation's type
+    ///     reach another through a process-cached intrinsic definition.
+    /// </summary>
+    [Fact]
+    public void Construct_StructurallyEqualButDistinctArguments_ReturnsDistinctInstances()
+    {
+        var paramT = new TypeParameter("T");
+        var decl = new MockGenericNamedDeclaration("Box");
+        var generic = new GenericType(decl, [paramT], ObjectType.Empty);
+        var first = new InterfaceType("Thing", [], new ObjectType(null, [new ObjectProperty(false, "value", Number)]));
+        var second = new InterfaceType("Thing", [], new ObjectType(null, [new ObjectProperty(false, "value", Number)]));
+
+        Assert.True(first.Equals(second));
+        Assert.NotSame(generic.Construct([first]), generic.Construct([second]));
+    }
+
+    /// <summary>
+    ///     The self-reference in a generic's own body has to expand to the instantiation being expanded, not
+    ///     to a copy of it. A copy makes expansion an infinite unrolling, which is what took the process down
+    ///     in <see href="https://github.com/rbx-loom/loom/issues/194" />.
+    /// </summary>
+    [Fact]
+    public void Expand_SelfReferentialGeneric_ClosesTheCycleOnItself()
+    {
+        var paramT = new TypeParameter("T");
+        var decl = new MockGenericNamedDeclaration("Bag");
+        var body = new ObjectType(new ObjectIndexer(false, paramT, Bool), []);
+        var generic = new GenericType(decl, [paramT], body);
+        body.AddProperties([new ObjectProperty(false, "merge", new FunctionType([], [generic.Construct([paramT])], generic.Construct([paramT])))]);
+
+        var bagOfNumber = generic.Construct([Number]);
+        var expanded = Assert.IsType<ObjectType>(bagOfNumber.Expand());
+        var merge = Assert.IsType<FunctionType>(expanded.Properties.Single(p => p.Name == "merge").ValueType);
+
+        Assert.Same(bagOfNumber, merge.ParameterTypes.Single());
+        Assert.Same(bagOfNumber, merge.ReturnType);
     }
 
     private class MockGenericNamedDeclaration(string name)

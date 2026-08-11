@@ -186,7 +186,7 @@ public class TypeInferrerTest
     {
         var typeParameter = TypeParameter("T");
         var listGeneric = GenericType("List", [typeParameter], PrimitiveType.Unknown);
-        var parameterType = new InstantiatedType(listGeneric, [typeParameter]);
+        var parameterType = listGeneric.Construct([typeParameter]);
         var function = FunctionType([typeParameter], [parameterType], typeParameter);
         var result = TypeInferrer.InferFunctionTypeArguments(function, [listGeneric]);
         Assert.Contains(typeParameter, result.Keys);
@@ -197,7 +197,7 @@ public class TypeInferrerTest
     {
         var typeParameter = TypeParameter("T");
         var listGeneric = GenericType("List", [typeParameter], typeParameter);
-        var argumentType = new InstantiatedType(listGeneric, [PrimitiveType.Number]);
+        var argumentType = listGeneric.Construct([PrimitiveType.Number]);
         var function = FunctionType([typeParameter], [listGeneric], typeParameter);
         var result = TypeInferrer.InferFunctionTypeArguments(function, [argumentType]);
         Assert.Equal(PrimitiveType.Number, result[typeParameter]);
@@ -209,8 +209,8 @@ public class TypeInferrerTest
         var typeParameter = TypeParameter("T");
         var listGeneric = GenericType("List", [typeParameter], PrimitiveType.Unknown);
         var otherGeneric = GenericType("Other", [typeParameter], PrimitiveType.Unknown);
-        var parameterType = new InstantiatedType(listGeneric, [typeParameter]);
-        var argumentType = new InstantiatedType(otherGeneric, [PrimitiveType.Number]);
+        var parameterType = listGeneric.Construct([typeParameter]);
+        var argumentType = otherGeneric.Construct([PrimitiveType.Number]);
         var function = FunctionType([typeParameter], [parameterType], typeParameter);
         var result = TypeInferrer.InferFunctionTypeArguments(function, [argumentType]);
         Assert.Equal(PrimitiveType.Unknown, result[typeParameter]);
@@ -342,9 +342,9 @@ public class TypeInferrerTest
         var keyParameter = TypeParameter("K");
         var valueParameter = TypeParameter("V");
         var mapGeneric = GenericType("Map", [keyParameter, valueParameter], ObjectType([], new ObjectIndexer(false, keyParameter, valueParameter)));
-        var mapParameterType = new InstantiatedType(mapGeneric, [keyParameter, valueParameter]);
+        var mapParameterType = mapGeneric.Construct([keyParameter, valueParameter]);
         var function = FunctionType([keyParameter, valueParameter], [mapParameterType], mapParameterType);
-        var argumentMap = new InstantiatedType(mapGeneric, [PrimitiveType.String, PrimitiveType.Number]);
+        var argumentMap = mapGeneric.Construct([PrimitiveType.String, PrimitiveType.Number]);
         var result = TypeInferrer.InferFunctionTypeArguments(function, [argumentMap]);
         Assert.Equal(PrimitiveType.String, result[keyParameter]);
         Assert.Equal(PrimitiveType.Number, result[valueParameter]);
@@ -707,8 +707,8 @@ public class TypeInferrerTest
     {
         var elementParameter = TypeParameter("T");
         var listGeneric = GenericType("List", [elementParameter], new ArrayType(elementParameter, false));
-        var instantiatedParameter = new InstantiatedType(listGeneric, [elementParameter]);
-        var instantiatedArgument = new InstantiatedType(listGeneric, [PrimitiveType.Number]);
+        var instantiatedParameter = listGeneric.Construct([elementParameter]);
+        var instantiatedArgument = listGeneric.Construct([PrimitiveType.Number]);
         var function = FunctionType([elementParameter], [instantiatedParameter], elementParameter);
         var result = TypeInferrer.InferFunctionTypeArguments(function, [instantiatedArgument]);
         Assert.Equal(PrimitiveType.Number, result[elementParameter]);

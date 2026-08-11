@@ -264,7 +264,7 @@ public sealed partial class TypeChecker
     {
         var genericType = GetGenericEventType(failNode, isConsumer);
         var fullArguments = FillGenericArguments(genericType.Parameters, parameterTypes);
-        return new InstantiatedType(genericType, fullArguments);
+        return genericType.Construct(fullArguments);
     }
 
     private GenericType GetGenericEventType(Node failNode, bool isConsumer) => GetIntrinsicType<GenericType>(failNode, isConsumer ? "ConsumerEvent" : "Event");

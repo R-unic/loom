@@ -112,10 +112,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 genericType.Parameters,
                 Map(genericType.UnderlyingType)
             ),
-            InstantiatedType instantiatedType => new InstantiatedType(
-                instantiatedType.GenericType,
-                instantiatedType.Arguments.ConvertAll(Map)
-            ),
+            InstantiatedType instantiatedType => instantiatedType.GenericType.Construct(instantiatedType.Arguments.ConvertAll(Map)),
             _ => MapDefault()
         };
 
@@ -421,7 +418,13 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             return existing;
 
         visited[type] = type;
-        var transformed = Transform(type, t => SubstituteTypeParameters(mapping, t, visited));
+        // simplify: false, like every other substituter (InstantiatedType.SubstituteTypeParameters,
+        // TypeInferrer.Substitute). Simplifying here rewrites every nested InstantiatedType into its
+        // expansion, which Transform then sees as a change and rebuilds the whole enclosing type around -
+        // so renaming nothing still handed back a structurally identical but freshly allocated graph. On a
+        // self-referential generic that is fatal: TryUnify's visiting set keys on reference identity, so it
+        // met an unseen pair on every level and never terminated.
+        var transformed = Transform(type, t => SubstituteTypeParameters(mapping, t, visited), simplify: false);
         visited[type] = transformed;
         return transformed;
     }
