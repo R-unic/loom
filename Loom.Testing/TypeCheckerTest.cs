@@ -6750,11 +6750,10 @@ public class TypeCheckerTest
     ///     Two generic interfaces whose members name the interface itself, compared structurally, with the
     ///     type argument arriving from inference rather than from source. Each of those on its own was fine;
     ///     together they expanded forever and took the process down with them
-    ///     (<see href="https://github.com/rbx-loom/loom/issues/194" />), so what this asserts is that checking
-    ///     finishes at all - the diagnostics it settles on are the subject of other cases.
+    ///     (<see href="https://github.com/rbx-loom/loom/issues/194" />).
     /// </summary>
     [Fact]
-    public void Checks_SelfReferentialGenerics_ComparedWithAnInferredTypeArgument_WithoutStackOverflow()
+    public void Checks_SelfReferentialGenerics_ComparedWithAnInferredTypeArgument_NoErrors()
     {
         const string source = """
             declare interface Bag<T> {
@@ -6777,7 +6776,7 @@ public class TypeCheckerTest
             }
             """;
 
-        Assert.NotNull(Utility.GetTypeCheckerDiagnostics(source));
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
     }
 
     /// <summary>Written out rather than inferred, the same pair has to stay clean.</summary>
