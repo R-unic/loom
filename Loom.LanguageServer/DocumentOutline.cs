@@ -61,7 +61,7 @@ public static class DocumentOutline
     private static List<DocumentSymbol> Members(IEnumerable<Statement>? members, SemanticModel semanticModel) =>
         members?.Select(member => ToSymbol(member, semanticModel, LspSymbolKind.Method)).OfType<DocumentSymbol>().ToList() ?? [];
 
-    private static DocumentSymbol? ImplementSymbol(Implement implement, SemanticModel semanticModel) =>
+    private static DocumentSymbol ImplementSymbol(Implement implement, SemanticModel semanticModel) =>
         new()
         {
             Name = implement.TraitName.Name.Text,

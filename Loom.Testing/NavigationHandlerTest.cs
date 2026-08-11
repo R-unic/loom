@@ -226,5 +226,5 @@ public class NavigationHandlerTest
     }
 
     private static Location[] ToLocations(LocationOrLocationLinks? result) =>
-        result?.Select(entry => entry.Location!).OfType<Location>().ToArray() ?? [];
+        result?.Where(entry => entry.Location != null).Select(entry => entry.Location!).ToArray() ?? [];
 }

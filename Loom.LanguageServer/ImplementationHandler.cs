@@ -33,7 +33,7 @@ public sealed class ImplementationHandler(DocumentStore documents) : Implementat
                 .Select(location => new LocationOrLocationLink(location))
                 .ToArray();
 
-            return Task.FromResult<LocationOrLocationLinks?>(locations.Length == 0 ? null : new LocationOrLocationLinks(locations));
+            return Task.FromResult(locations.Length == 0 ? null : new LocationOrLocationLinks(locations));
         }
         // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
         catch (OperationCanceledException)

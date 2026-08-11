@@ -35,7 +35,9 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
         if (!TryFlatten(interfaceSymbol, ResolveInterfaceType(interfaceSymbol), "", isPacked, fields))
             return null;
 
-        return new SerializationSchema(interfaceSymbol, isPacked, fields);
+        // isPacked shapes the fields rather than surviving alongside them: the generator reads widths off
+        // SerializationField, so carrying the flag onto the schema only invited it to be read instead.
+        return new SerializationSchema(interfaceSymbol, fields);
     }
 
     /// <summary>

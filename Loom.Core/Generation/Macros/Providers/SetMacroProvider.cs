@@ -11,7 +11,6 @@ using ElementAccess = Loom.Luau.AST.ElementAccess;
 using ExpressionStatement = Loom.Luau.AST.ExpressionStatement;
 using Identifier = Loom.Luau.AST.Identifier;
 using Type = Loom.Core.TypeChecking.Types.Type;
-using UnaryOperator = Loom.Luau.AST.UnaryOperator;
 
 namespace Loom.Core.Generation.Macros.Providers;
 
@@ -27,7 +26,6 @@ namespace Loom.Core.Generation.Macros.Providers;
 /// </remarks>
 internal sealed class SetMacroProvider : IMacroProvider
 {
-    private const string SetName = "_set";
     private const string OtherName = "_other";
     private const string ResultName = "_result";
     private const string CountName = "_count";

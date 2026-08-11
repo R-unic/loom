@@ -3,7 +3,6 @@ using Loom.Core.Pipeline;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
-using Loom.Core.TypeChecking.Types;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.LanguageServer;

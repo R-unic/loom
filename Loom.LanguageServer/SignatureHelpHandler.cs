@@ -1,7 +1,5 @@
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
-using Loom.Core.Resolving.Symbols;
-using Loom.Core.TypeChecking.Types;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;

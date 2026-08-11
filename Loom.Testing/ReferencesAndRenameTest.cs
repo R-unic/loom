@@ -1,5 +1,4 @@
 using Loom.LanguageServer;
-using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Loom.Testing;

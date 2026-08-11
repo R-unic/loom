@@ -15,7 +15,7 @@ using TypeParameters = Loom.Core.Parsing.AST.TypeParameters;
 namespace Loom.LanguageServer;
 
 /// <summary>One parameter of a rendered signature, and where its text sits inside the signature's label.</summary>
-public sealed record ParameterDisplay(string Name, string Label, int Start, int End)
+public sealed record ParameterDisplay(string Name, int Start, int End)
 {
     /// <summary>The doc comment written directly above the parameter, for a declaration spelling its parameters over several lines.</summary>
     public string? Documentation { get; init; }
@@ -161,7 +161,7 @@ public static class DeclarationDisplay
             var parameterName = parameter?.Name.Text ?? $"arg{index + 1}";
             var text = $"{(isRest ? ".." : "")}{parameterName}: {TypeText(function.ParameterTypes[index])}";
 
-            parameters.Add(new ParameterDisplay(parameterName, text, label.Length, label.Length + text.Length) { Documentation = parameter?.Documentation });
+            parameters.Add(new ParameterDisplay(parameterName, label.Length, label.Length + text.Length) { Documentation = parameter?.Documentation });
             label += text;
         }
 

@@ -2,7 +2,10 @@ using Tomlyn.Serialization;
 
 namespace Loom.Config;
 
+// Tomlyn constructs this and fills its collections by reflection, so nothing here is instantiated or
+// added to anywhere an inspection can see.
 // ReSharper disable file ClassNeverInstantiated.Global
+// ReSharper disable file CollectionNeverUpdated.Global
 public sealed class LoomConfig
 {
     [TomlIgnore] public string ProjectDirectory { get; set; } = "?";

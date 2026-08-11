@@ -103,7 +103,7 @@ public class SetIntrinsicTest
     [Fact]
     public void IndexesWithTheElementType()
     {
-        Assert.Equal(PrimitiveType.Bool, (Type)Utility.GetLastStatementType("Set.of(1, 2)[1]"));
+        Assert.Equal(PrimitiveType.Bool, Utility.GetLastStatementType("Set.of(1, 2)[1]"));
         Assert.Contains(Utility.GetTypeCheckerDiagnostics("Set.of(1, 2)[\"a\"];").Set, d => d.Severity == DiagnosticSeverity.Error);
     }
 }

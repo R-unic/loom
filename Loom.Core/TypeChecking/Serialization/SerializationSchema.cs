@@ -7,7 +7,7 @@ namespace Loom.Core.TypeChecking.Serialization;
 ///     output: the generator consumes it to emit straight-line code with constant offsets, so there is no
 ///     runtime schema to walk.
 /// </summary>
-public sealed record SerializationSchema(InterfaceSymbol Interface, bool IsPacked, IReadOnlyList<SerializationField> Fields)
+public sealed record SerializationSchema(InterfaceSymbol Interface, IReadOnlyList<SerializationField> Fields)
 {
     /// <summary>Bits in the header written at offset zero: bools, optional-presence bits, union tags, ranged numbers, sentinels.</summary>
     public int HeaderBits { get; } = Fields.Sum(f => f.HeaderBits);

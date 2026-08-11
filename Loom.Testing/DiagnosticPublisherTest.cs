@@ -1,4 +1,3 @@
-using Loom.Core.Pipeline;
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
