@@ -32,8 +32,8 @@ const function Entity_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
       return { ok = false, error = { kind = "truncated", field = "target" } }
     end
     const target_2 = buffer_readi16(b, offset)
-    offset += 2
     target = target_2
+    offset += 2
   end
   return { ok = true, value = { id = buffer_readu8(b, 1), target = target } }
 end

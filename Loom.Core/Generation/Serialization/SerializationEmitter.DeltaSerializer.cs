@@ -38,6 +38,7 @@ internal sealed partial class SerializationEmitter
         foreach (var field in diffFields)
             EmitFieldDiffWrite(field, Access(new Identifier(BaselineParameter), field.Path), Access(new Identifier(ValueParameter), field.Path), cursor, body);
 
+        cursor.Flush(body);
         var returns = new List<LuauExpression> { cursor.Position };
         if (schema.HasBlobs)
             returns.Add(new Identifier(BlobsLocal));
@@ -299,9 +300,12 @@ internal sealed partial class SerializationEmitter
         body.Add(new ConstVariable(changed, null, new UnaryOperator("not ", DeepEqual(baselineValue, currentValue))));
         body.Add(new ExpressionStatement(WriteBits(cursor, 1, new IfExpression(new Identifier(changed), _one, [], _zero))));
 
+        cursor.Flush(body);
+
         var resend = new List<LuauStatement>();
         ResolveSentinel(field, currentValue, resend);
         EmitValueWrite(field, currentValue, cursor, resend);
+        cursor.Flush(resend);
         if (resend.Count > 0)
             body.Add(new IfStatement(new Identifier(changed), new Chunk(resend), [], null));
     }
@@ -350,12 +354,14 @@ internal sealed partial class SerializationEmitter
 
         body.Add(new ExpressionStatement(WriteBits(cursor, 1, new IfExpression(new Identifier(changed), _one, [], _zero))));
 
+        cursor.Flush(body);
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
 
         var resend = new List<LuauStatement>();
         EmitValueWrite(optional, currentValue, cursor, resend);
         widestBit = Math.Max(widestBit, cursor.BitOffset);
+        cursor.Flush(resend);
 
         cursor.BitOffset = startBit;
         var innerWrite = new List<LuauStatement>();
@@ -363,6 +369,7 @@ internal sealed partial class SerializationEmitter
         var innerCurrent = AccessRelative(currentValue, optional.Inner.Path, optional.Path);
         EmitFieldDiffWrite(optional.Inner, innerBaseline, innerCurrent, cursor, innerWrite);
         widestBit = Math.Max(widestBit, cursor.BitOffset);
+        cursor.Flush(innerWrite);
 
         var unchanged = new List<LuauStatement>();
         if (innerWrite.Count > 0)
@@ -385,6 +392,7 @@ internal sealed partial class SerializationEmitter
         body.Add(new ConstVariable(changed, null, new BinaryOperator(baselineTag, "~=", currentTag)));
         body.Add(new ExpressionStatement(WriteBits(cursor, 1, new IfExpression(new Identifier(changed), _one, [], _zero))));
 
+        cursor.Flush(body);
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
 
@@ -393,6 +401,7 @@ internal sealed partial class SerializationEmitter
         EmitValueWrite(union, currentValue, cursor, resend);
         _resolvedTags.Remove(union.Path);
         widestBit = Math.Max(widestBit, cursor.BitOffset);
+        cursor.Flush(resend);
 
         var unchanged = new List<LuauStatement>();
         var branches = new List<ElseIfBranch>();
@@ -410,6 +419,7 @@ internal sealed partial class SerializationEmitter
             }
 
             widestBit = Math.Max(widestBit, cursor.BitOffset);
+            cursor.Flush(variantBody);
             if (variantBody.Count == 0)
                 continue;
 
@@ -439,8 +449,11 @@ internal sealed partial class SerializationEmitter
         body.Add(new ConstVariable(changed, null, new BinaryOperator(Length(baselineValue), "~=", count)));
         body.Add(new ExpressionStatement(WriteBits(cursor, 1, new IfExpression(new Identifier(changed), _one, [], _zero))));
 
+        cursor.Flush(body);
+
         var resend = new List<LuauStatement>();
         EmitValueWrite(array, currentValue, cursor, resend);
+        cursor.Flush(resend);
 
         var unchanged = new List<LuauStatement>();
 
@@ -458,9 +471,11 @@ internal sealed partial class SerializationEmitter
             new ConstVariable(elementCurrent.Name, null, new ElementAccess(currentValue, new Identifier(loop)))
         };
 
+        cursor.Flush(unchanged);
         var restore = EnterElement(cursor, bitBase, array.Element.DiffHeaderBits, loop);
         EmitFieldDiffWrite(array.Element, elementBaseline, elementCurrent, cursor, elementBody);
         restore();
+        cursor.Flush(elementBody);
         unchanged.Add(new NumericForStatement(loop, _one, count, null, new Chunk(elementBody)));
 
         body.Add(new IfStatement(new Identifier(changed), new Chunk(resend), [], new Chunk(unchanged)));
@@ -579,6 +594,8 @@ internal sealed partial class SerializationEmitter
             ? ReserveElementBits(map.DiffEntryBits, leaf + "_entry", count, cursor, body)
             : null;
 
+        cursor.Flush(body);
+
         using var entryScope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
         var boundKey = ReserveLocal(leaf + "_key");
@@ -590,6 +607,7 @@ internal sealed partial class SerializationEmitter
             var addedEntry = new Identifier(ReserveLocal(leaf + "_entry"));
             loopBody.Add(new ConstVariable(addedEntry.Name, null, new ElementAccess(currentValue!, new Identifier(boundKey))));
             EmitValueWrite(map.Value, addedEntry, cursor, loopBody);
+            cursor.Flush(loopBody);
             body.Add(new NumericForStatement(loop, _one, count, null, new Chunk(loopBody)));
             return;
         }
@@ -606,6 +624,7 @@ internal sealed partial class SerializationEmitter
             restore();
         }
 
+        cursor.Flush(loopBody);
         body.Add(new NumericForStatement(loop, _one, count, null, new Chunk(loopBody)));
     }
 }

@@ -18,13 +18,10 @@ const function Waypoint_serialize_binary(value: Waypoint): Loom.Serialized
   local offset = 1
   if frame_sentinel == 0 then
     buffer_writef32(b, offset, frame_value.X)
-    offset += 4
-    buffer_writef32(b, offset, frame_value.Y)
-    offset += 4
-    buffer_writef32(b, offset, frame_value.Z)
-    offset += 4
-    buffer_writeu32(b, offset, Loom.pack_quaternion(Loom.cframe_to_quaternion(frame_value)))
-    offset += 4
+    buffer_writef32(b, offset + 4, frame_value.Y)
+    buffer_writef32(b, offset + 8, frame_value.Z)
+    buffer_writeu32(b, offset + 12, Loom.pack_quaternion(Loom.cframe_to_quaternion(frame_value)))
+    offset += 16
   end
   return { buffer = b }
 end
@@ -42,14 +39,11 @@ const function Waypoint_deserialize_binary(serialized: Loom.Serialized): Loom.Re
       return { ok = false, error = { kind = "truncated", field = "frame" } }
     end
     const frame_x = buffer_readf32(b, offset)
-    offset += 4
-    const frame_y = buffer_readf32(b, offset)
-    offset += 4
-    const frame_z = buffer_readf32(b, offset)
-    offset += 4
-    const frame_rotation = buffer_readu32(b, offset)
-    offset += 4
+    const frame_y = buffer_readf32(b, offset + 4)
+    const frame_z = buffer_readf32(b, offset + 8)
+    const frame_rotation = buffer_readu32(b, offset + 12)
     frame = CFrame.new(frame_x, frame_y, frame_z, Loom.unpack_quaternion(frame_rotation))
+    offset += 16
   elseif frame_sentinel == 1 then
     frame = CFrame.identity
   else

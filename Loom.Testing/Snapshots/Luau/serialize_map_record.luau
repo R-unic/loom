@@ -22,9 +22,8 @@ const function Scores_serialize_binary(value: Scores): Loom.Serialized
   for entries_key, entries_value in value.entries do
     const entries_key_length = #entries_key
     buffer_writeu32(b, offset, entries_key_length)
-    offset += 4
-    buffer_writestring(b, offset, entries_key)
-    offset += entries_key_length
+    buffer_writestring(b, offset + 4, entries_key)
+    offset += 4 + entries_key_length
     buffer_writef32(b, offset, entries_value)
     offset += 4
   end
@@ -41,12 +40,11 @@ const function Scores_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   const entries = {}
   for i = 1, entries_count do
     const entries_key_length = buffer_readu32(b, offset)
-    offset += 4
-    if b_len < offset + entries_key_length then
+    if b_len < offset + 4 + entries_key_length then
       return { ok = false, error = { kind = "invalid_length", field = "entries[k]" } }
     end
-    const entries_key = buffer_readstring(b, offset, entries_key_length)
-    offset += entries_key_length
+    const entries_key = buffer_readstring(b, offset + 4, entries_key_length)
+    offset += 4 + entries_key_length
     const entries_value = buffer_readf32(b, offset)
     offset += 4
     entries[entries_key] = entries_value

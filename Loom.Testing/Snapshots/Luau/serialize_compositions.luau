@@ -77,9 +77,8 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
     for maybe_map_key, maybe_map_value in value.maybe_map do
       const maybe_map_key_length = #maybe_map_key
       buffer_writeu32(b, offset, maybe_map_key_length)
-      offset += 4
-      buffer_writestring(b, offset, maybe_map_key)
-      offset += maybe_map_key_length
+      buffer_writestring(b, offset + 4, maybe_map_key)
+      offset += 4 + maybe_map_key_length
       buffer_writef32(b, offset, maybe_map_value)
       offset += 4
     end
@@ -97,9 +96,8 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
     for map_list_element_key, map_list_element_value in map_list_element do
       const map_list_element_key_length = #map_list_element_key
       buffer_writeu32(b, offset, map_list_element_key_length)
-      offset += 4
-      buffer_writestring(b, offset, map_list_element_key)
-      offset += map_list_element_key_length
+      buffer_writestring(b, offset + 4, map_list_element_key)
+      offset += 4 + map_list_element_key_length
       buffer_writeu8(b, offset, map_list_element_value.n)
       offset += 1
     end
@@ -112,16 +110,14 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
   for sparse_key, sparse_value in value.sparse do
     const sparse_key_length = #sparse_key
     buffer_writeu32(b, offset, sparse_key_length)
-    offset += 4
-    buffer_writestring(b, offset, sparse_key)
-    offset += sparse_key_length
+    buffer_writestring(b, offset + 4, sparse_key)
+    offset += 4 + sparse_key_length
     buffer_writebits(b, sparse_bits + (sparse_index - 1), 1, if sparse_value ~= nil then 1 else 0)
     if sparse_value ~= nil then
       const sparse_value_length = #sparse_value
       buffer_writeu32(b, offset, sparse_value_length)
-      offset += 4
-      buffer_writestring(b, offset, sparse_value)
-      offset += sparse_value_length
+      buffer_writestring(b, offset + 4, sparse_value)
+      offset += 4 + sparse_value_length
     end
     sparse_index += 1
   end
@@ -139,9 +135,8 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
       const maybe_names_element = value.maybe_names[i]
       const maybe_names_element_length = #maybe_names_element
       buffer_writeu32(b, offset, maybe_names_element_length)
-      offset += 4
-      buffer_writestring(b, offset, maybe_names_element)
-      offset += maybe_names_element_length
+      buffer_writestring(b, offset + 4, maybe_names_element)
+      offset += 4 + maybe_names_element_length
     end
   end
   return { buffer = b }
@@ -157,16 +152,15 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
   local offset = 1
   if maybe_map_present then
     const maybe_map_2_count = buffer_readu32(b, offset)
-    offset += 4
     const maybe_map_2 = {}
+    offset += 4
     for i = 1, maybe_map_2_count do
       const maybe_map_key_length = buffer_readu32(b, offset)
-      offset += 4
-      if b_len < offset + maybe_map_key_length then
+      if b_len < offset + 4 + maybe_map_key_length then
         return { ok = false, error = { kind = "invalid_length", field = "maybe_map[k]" } }
       end
-      const maybe_map_key = buffer_readstring(b, offset, maybe_map_key_length)
-      offset += maybe_map_key_length
+      const maybe_map_key = buffer_readstring(b, offset + 4, maybe_map_key_length)
+      offset += 4 + maybe_map_key_length
       const maybe_map_value = buffer_readf32(b, offset)
       offset += 4
       maybe_map_2[maybe_map_key] = maybe_map_value
@@ -174,20 +168,19 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
     maybe_map = maybe_map_2
   end
   const map_list_count = buffer_readu32(b, offset)
-  offset += 4
   const map_list = {}
+  offset += 4
   for i = 1, map_list_count do
     const map_list_element_count = buffer_readu32(b, offset)
-    offset += 4
     const map_list_element = {}
+    offset += 4
     for i_2 = 1, map_list_element_count do
       const map_list_element_key_length = buffer_readu32(b, offset)
-      offset += 4
-      if b_len < offset + map_list_element_key_length then
+      if b_len < offset + 4 + map_list_element_key_length then
         return { ok = false, error = { kind = "invalid_length", field = "map_list[][k]" } }
       end
-      const map_list_element_key = buffer_readstring(b, offset, map_list_element_key_length)
-      offset += map_list_element_key_length
+      const map_list_element_key = buffer_readstring(b, offset + 4, map_list_element_key_length)
+      offset += 4 + map_list_element_key_length
       const n = buffer_readu8(b, offset)
       offset += 1
       map_list_element[map_list_element_key] = { n = n }
@@ -201,22 +194,20 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
   const sparse = {}
   for i = 1, sparse_count do
     const sparse_key_length = buffer_readu32(b, offset)
-    offset += 4
-    if b_len < offset + sparse_key_length then
+    if b_len < offset + 4 + sparse_key_length then
       return { ok = false, error = { kind = "invalid_length", field = "sparse[k]" } }
     end
-    const sparse_key = buffer_readstring(b, offset, sparse_key_length)
-    offset += sparse_key_length
+    const sparse_key = buffer_readstring(b, offset + 4, sparse_key_length)
+    offset += 4 + sparse_key_length
     const sparse_value_present = buffer_readbits(b, sparse_bits + (i - 1), 1) == 1
     local sparse_value = nil
     if sparse_value_present then
       const sparse_value_2_length = buffer_readu32(b, offset)
-      offset += 4
-      if b_len < offset + sparse_value_2_length then
+      if b_len < offset + 4 + sparse_value_2_length then
         return { ok = false, error = { kind = "invalid_length", field = "sparse[v]" } }
       end
-      const sparse_value_2 = buffer_readstring(b, offset, sparse_value_2_length)
-      offset += sparse_value_2_length
+      const sparse_value_2 = buffer_readstring(b, offset + 4, sparse_value_2_length)
+      offset += 4 + sparse_value_2_length
       sparse_value = sparse_value_2
     end
     sparse[sparse_key] = sparse_value
@@ -228,23 +219,22 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
       return { ok = false, error = { kind = "truncated", field = "maybe_leaf" } }
     end
     const n = buffer_readu8(b, offset)
-    offset += 1
     maybe_leaf = { n = n }
+    offset += 1
   end
   const maybe_names_present = buffer_readbits(b, 2, 1) == 1
   local maybe_names = nil
   if maybe_names_present then
     const maybe_names_2_count = buffer_readu32(b, offset)
-    offset += 4
     const maybe_names_2 = {}
+    offset += 4
     for i = 1, maybe_names_2_count do
       const maybe_names_element_length = buffer_readu32(b, offset)
-      offset += 4
-      if b_len < offset + maybe_names_element_length then
+      if b_len < offset + 4 + maybe_names_element_length then
         return { ok = false, error = { kind = "invalid_length", field = "maybe_names[]" } }
       end
-      const maybe_names_element = buffer_readstring(b, offset, maybe_names_element_length)
-      offset += maybe_names_element_length
+      const maybe_names_element = buffer_readstring(b, offset + 4, maybe_names_element_length)
+      offset += 4 + maybe_names_element_length
       maybe_names_2[i] = maybe_names_element
     end
     maybe_names = maybe_names_2

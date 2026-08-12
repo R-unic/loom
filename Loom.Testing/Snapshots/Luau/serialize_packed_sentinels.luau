@@ -27,11 +27,9 @@ const function Entity_serialize_binary(value: Entity): Loom.Serialized
   local offset = 2
   if position_sentinel == 0 then
     buffer_writei16(b, offset, position_value.X)
-    offset += 2
-    buffer_writei16(b, offset, position_value.Y)
-    offset += 2
-    buffer_writei16(b, offset, position_value.Z)
-    offset += 2
+    buffer_writei16(b, offset + 2, position_value.Y)
+    buffer_writei16(b, offset + 4, position_value.Z)
+    offset += 6
   end
   return { buffer = b }
 end
@@ -49,12 +47,10 @@ const function Entity_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
       return { ok = false, error = { kind = "truncated", field = "position" } }
     end
     const position_x = buffer_readi16(b, offset)
-    offset += 2
-    const position_y = buffer_readi16(b, offset)
-    offset += 2
-    const position_z = buffer_readi16(b, offset)
-    offset += 2
+    const position_y = buffer_readi16(b, offset + 2)
+    const position_z = buffer_readi16(b, offset + 4)
     position = Vector3.new(position_x, position_y, position_z)
+    offset += 6
   elseif position_sentinel == 1 then
     position = Vector3.zero
   elseif position_sentinel == 2 then

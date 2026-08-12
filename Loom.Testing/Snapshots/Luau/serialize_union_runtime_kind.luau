@@ -31,9 +31,8 @@ const function Cell_serialize_binary(value: Cell): Loom.Serialized
     const content_value = value.content
     const content_length = #content_value
     buffer_writeu32(b, offset, content_length)
-    offset += 4
-    buffer_writestring(b, offset, content_value)
-    offset += content_length
+    buffer_writestring(b, offset + 4, content_value)
+    offset += 4 + content_length
   end
   return { buffer = b }
 end
@@ -51,16 +50,15 @@ const function Cell_deserialize_binary(serialized: Loom.Serialized): Loom.Result
       return { ok = false, error = { kind = "truncated", field = "content" } }
     end
     const content_2 = buffer_readf32(b, offset)
-    offset += 4
     content = content_2
+    offset += 4
   elseif content_tag == 1 then
     const content_3_length = buffer_readu32(b, offset)
-    offset += 4
-    if b_len < offset + content_3_length then
+    if b_len < offset + 4 + content_3_length then
       return { ok = false, error = { kind = "invalid_length", field = "content" } }
     end
-    const content_3 = buffer_readstring(b, offset, content_3_length)
-    offset += content_3_length
+    const content_3 = buffer_readstring(b, offset + 4, content_3_length)
+    offset += 4 + content_3_length
     content = content_3
   else
     return { ok = false, error = { kind = "invalid_tag", field = "content" } }

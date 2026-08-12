@@ -436,11 +436,16 @@ internal sealed partial class SerializationEmitter
     ///     the entries need no bits at all. The block is claimed before any body so the bodies keep their
     ///     byte alignment.
     /// </summary>
+    /// <remarks>
+    ///     The origin scales the position rather than indexing at it, so the cursor is settled first: a
+    ///     folded position is a sum, and multiplying it whole is not what writing it out would mean.
+    /// </remarks>
     private Identifier? ReserveElementBits(int bitsPerElement, string leaf, LuauExpression count, Cursor cursor, List<LuauStatement> body)
     {
         if (bitsPerElement == 0)
             return null;
 
+        cursor.Flush(body);
         var origin = ReserveLocal(leaf + "_bits");
         body.Add(new ConstVariable(origin, null, Multiply(cursor.Position, new NumberLiteral(8))));
 
@@ -551,11 +556,13 @@ internal sealed partial class SerializationEmitter
                 body.Add(new ExpressionStatement(WriteBits(cursor, 1, new IfExpression(IsPresent(value), _one, [], _zero))));
 
                 cursor.GoDynamic(body);
+                cursor.Flush(body);
 
                 var present = new List<LuauStatement>();
                 foreach (var (inner, innerValue) in ChildrenOf(optionalField, value))
                     EmitValueWrite(inner, innerValue, cursor, present);
 
+                cursor.Flush(present);
                 body.Add(new IfStatement(IsPresent(value), new Chunk(present), [], null));
 
                 return;
@@ -575,6 +582,8 @@ internal sealed partial class SerializationEmitter
                 if (pairBits != null)
                     body.Add(new LocalVariable(index, null, _one));
 
+                cursor.Flush(body);
+
                 using var pairScope = LoopScope();
                 var keyLocal = ReserveLocal(LeafName(mapField.Key.Path));
                 var valueLocal = ReserveLocal(LeafName(mapField.Value.Path));
@@ -584,6 +593,7 @@ internal sealed partial class SerializationEmitter
                 EmitValueWrite(mapField.Key, new Identifier(keyLocal), cursor, pairBody);
                 EmitValueWrite(mapField.Value, new Identifier(valueLocal), cursor, pairBody);
                 restorePair();
+                cursor.Flush(pairBody);
 
                 if (pairBits != null)
                     pairBody.Add(new ExpressionStatement(new BinaryOperator(new Identifier(index), "+=", _one)));
@@ -601,6 +611,7 @@ internal sealed partial class SerializationEmitter
                     cursor.GoDynamic(body);
 
                 var bitBase = ReserveElementBits(arrayField.Element.HeaderBits, leaf, count, cursor, body);
+                cursor.Flush(body);
 
                 using var elementScope = LoopScope();
                 var loop = ReserveLocal(LoopLocal);
@@ -611,6 +622,7 @@ internal sealed partial class SerializationEmitter
                 var restore = EnterElement(cursor, bitBase, arrayField.Element.HeaderBits, loop);
                 EmitValueWrite(arrayField.Element, element, cursor, elementBody);
                 restore();
+                cursor.Flush(elementBody);
 
                 body.Add(new NumericForStatement(loop, _one, count, null, new Chunk(elementBody)));
                 return;
@@ -650,6 +662,7 @@ internal sealed partial class SerializationEmitter
                 body.Add(new ExpressionStatement(WriteBits(cursor, BitWidth.ForStateCount(sentinels.Count + 1), indexLocal)));
 
                 cursor.GoDynamic(body);
+                cursor.Flush(body);
 
                 var components = new List<LuauStatement>();
                 if (serializationField is DatatypeField datatype)
@@ -658,6 +671,7 @@ internal sealed partial class SerializationEmitter
                 else
                     EmitCFrameWrite((CFrameField)serializationField, bound, cursor, components);
 
+                cursor.Flush(components);
                 body.Add(new IfStatement(new BinaryOperator(indexLocal, "==", _zero), new Chunk(components), [], null));
                 return;
             }
@@ -673,6 +687,7 @@ internal sealed partial class SerializationEmitter
                 var tag = UnionTag(unionField, value, body);
                 body.Add(new ExpressionStatement(WriteBits(cursor, unionField.TagBits, tag)));
                 cursor.GoDynamic(body);
+                cursor.Flush(body);
 
                 var startBit = cursor.BitOffset;
                 var widestBit = startBit;
@@ -686,6 +701,7 @@ internal sealed partial class SerializationEmitter
                         EmitValueWrite(variantField, variantValue, cursor, variantBody);
 
                     widestBit = Math.Max(widestBit, cursor.BitOffset);
+                    cursor.Flush(variantBody);
 
                     if (variantBody.Count == 0)
                         continue;

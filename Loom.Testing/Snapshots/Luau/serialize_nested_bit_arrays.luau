@@ -58,9 +58,8 @@ const function Canvas_serialize_binary(value: Canvas): Loom.Serialized
       const label_value = shapes_element.label
       const label_length = #label_value
       buffer_writeu32(b, offset, label_length)
-      offset += 4
-      buffer_writestring(b, offset, label_value)
-      offset += label_length
+      buffer_writestring(b, offset + 4, label_value)
+      offset += 4 + label_length
     end
   end
   return { buffer = b }
@@ -97,12 +96,11 @@ const function Canvas_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
       shapes_element = { kind = "Dot" }
     elseif shapes_element_tag == 1 then
       const label_length = buffer_readu32(b, offset)
-      offset += 4
-      if b_len < offset + label_length then
+      if b_len < offset + 4 + label_length then
         return { ok = false, error = { kind = "invalid_length", field = "shapes[].label" } }
       end
-      const label = buffer_readstring(b, offset, label_length)
-      offset += label_length
+      const label = buffer_readstring(b, offset + 4, label_length)
+      offset += 4 + label_length
       shapes_element = { kind = "Line", label = label }
     else
       return { ok = false, error = { kind = "invalid_tag", field = "shapes[]" } }

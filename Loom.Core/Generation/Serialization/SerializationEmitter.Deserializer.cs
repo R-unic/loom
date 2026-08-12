@@ -269,6 +269,7 @@ internal sealed partial class SerializationEmitter
 
         var pairBits = ReserveElementBits(mapField.EntryBits, leaf, count, cursor, statements);
         statements.Add(new ConstVariable(leaf, null, Table.Empty));
+        cursor.Flush(statements);
 
         using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
@@ -277,6 +278,7 @@ internal sealed partial class SerializationEmitter
         var key = EmitRead(mapField.Key, cursor, pairBody);
         var value = EmitRead(mapField.Value, cursor, pairBody);
         restorePair();
+        cursor.Flush(pairBody);
 
         pairBody.Add(new ExpressionStatement(new BinaryOperator(new ElementAccess(new Identifier(leaf), key), "=", value)));
         statements.Add(new NumericForStatement(loop, _one, count, null, new Chunk(pairBody)));
@@ -297,7 +299,7 @@ internal sealed partial class SerializationEmitter
                     new BinaryOperator(
                         BufferLength(),
                         "<",
-                        Add(new Identifier(OffsetLocal), Multiply(count, new NumberLiteral(elementBytes)))
+                        Add(cursor.Position, Multiply(count, new NumberLiteral(elementBytes)))
                     ),
                     new Chunk([new Return(BuildErrorTable("invalid_length", arrayField.Path, null))]),
                     [],
@@ -308,6 +310,7 @@ internal sealed partial class SerializationEmitter
         var bitBase = ReserveElementBits(arrayField.Element.HeaderBits, leaf, count, cursor, statements);
 
         statements.Add(new ConstVariable(leaf, null, Table.Empty));
+        cursor.Flush(statements);
 
         using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
@@ -315,6 +318,7 @@ internal sealed partial class SerializationEmitter
         var restore = EnterElement(cursor, bitBase, arrayField.Element.HeaderBits, loop);
         var element = EmitRead(arrayField.Element, cursor, elementBody);
         restore();
+        cursor.Flush(elementBody);
 
         elementBody.Add(
             new ExpressionStatement(new BinaryOperator(new ElementAccess(new Identifier(leaf), new Identifier(loop)), "=", element))
@@ -329,7 +333,7 @@ internal sealed partial class SerializationEmitter
     ///     carries, so a branch the sender chose to take has to prove the bytes are actually there -
     ///     otherwise a truncated buffer throws out of the read instead of reporting.
     /// </summary>
-    private void EmitBoundsGuard(List<LuauStatement> statements, int byteCount, string path)
+    private void EmitBoundsGuard(List<LuauStatement> statements, int byteCount, string path, Cursor cursor)
     {
         if (byteCount <= 0)
             return;
@@ -339,7 +343,7 @@ internal sealed partial class SerializationEmitter
                 new BinaryOperator(
                     BufferLength(),
                     "<",
-                    Add(new Identifier(OffsetLocal), new NumberLiteral(byteCount))
+                    Add(cursor.Position, new NumberLiteral(byteCount))
                 ),
                 new Chunk([new Return(BuildErrorTable("truncated", path, null))]),
                 [],
@@ -359,6 +363,7 @@ internal sealed partial class SerializationEmitter
         statements.Add(new ConstVariable(tagLocal, null, ReadBits(cursor, unionField.TagBits)));
         statements.Add(new LocalVariable(leaf, null, new NilLiteral()));
         cursor.GoDynamic(statements);
+        cursor.Flush(statements);
 
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
@@ -368,11 +373,12 @@ internal sealed partial class SerializationEmitter
             cursor.BitOffset = startBit;
             var variant = unionField.Variants[index];
             var variantBody = new List<LuauStatement>();
-            EmitBoundsGuard(variantBody, VariantBytes(variant), unionField.Path);
+            EmitBoundsGuard(variantBody, VariantBytes(variant), unionField.Path, cursor);
 
             var rebuilt = RebuildVariant(unionField, variant, cursor, variantBody);
             variantBody.Add(new ExpressionStatement(new BinaryOperator(new Identifier(leaf), "=", rebuilt)));
             widestBit = Math.Max(widestBit, cursor.BitOffset);
+            cursor.Flush(variantBody);
 
             var condition = new BinaryOperator(new Identifier(tagLocal), "==", new NumberLiteral(index));
             if (index == 0)
@@ -428,9 +434,10 @@ internal sealed partial class SerializationEmitter
         statements.Add(new ConstVariable(indexLocal, null, ReadBits(cursor, BitWidth.ForStateCount(sentinels.Count + 1))));
         statements.Add(new LocalVariable(leaf, null, new NilLiteral()));
         cursor.GoDynamic(statements);
+        cursor.Flush(statements);
 
         var componentBody = new List<LuauStatement>();
-        EmitBoundsGuard(componentBody, SentinelComponentBytes(serializationField), serializationField.Path);
+        EmitBoundsGuard(componentBody, SentinelComponentBytes(serializationField), serializationField.Path, cursor);
 
         var rebuilt = serializationField is DatatypeField datatypeField
             ? new Call(
@@ -442,6 +449,7 @@ internal sealed partial class SerializationEmitter
             : EmitCFrameRead((CFrameField)serializationField, cursor, componentBody);
 
         componentBody.Add(new ExpressionStatement(new BinaryOperator(new Identifier(leaf), "=", rebuilt)));
+        cursor.Flush(componentBody);
 
         var branches = new List<ElseIfBranch>();
         for (var index = 0; index < sentinels.Count; index++)
@@ -475,12 +483,14 @@ internal sealed partial class SerializationEmitter
         statements.Add(new ConstVariable(presentLocal, null, new BinaryOperator(ReadBits(cursor, 1), "==", _one)));
         statements.Add(new LocalVariable(leaf, null, new NilLiteral()));
         cursor.GoDynamic(statements);
+        cursor.Flush(statements);
 
         var present = new List<LuauStatement>();
-        EmitBoundsGuard(present, optionalField.Inner.BodyBytes ?? 0, optionalField.Path);
+        EmitBoundsGuard(present, optionalField.Inner.BodyBytes ?? 0, optionalField.Path, cursor);
 
         var inner = EmitRead(optionalField.Inner, cursor, present);
         present.Add(new ExpressionStatement(new BinaryOperator(new Identifier(leaf), "=", inner)));
+        cursor.Flush(present);
 
         statements.Add(new IfStatement(new Identifier(presentLocal), new Chunk(present), [], null));
         return new Identifier(leaf);
@@ -498,7 +508,7 @@ internal sealed partial class SerializationEmitter
 
         statements.Add(
             new IfStatement(
-                new BinaryOperator(BufferLength(), "<", Add(new Identifier(OffsetLocal), length)),
+                new BinaryOperator(BufferLength(), "<", Add(cursor.Position, length)),
                 new Chunk([new Return(BuildErrorTable("invalid_length", stringField.Path, null))]),
                 [],
                 null

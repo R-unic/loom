@@ -48,8 +48,8 @@ const function Envelope_deserialize_binary(serialized: Loom.Serialized): Loom.Re
       return { ok = false, error = { kind = "truncated", field = "action" } }
     end
     const x = buffer_readu8(b, offset)
-    offset += 1
     action = { kind = "Click", x = x }
+    offset += 1
   else
     return { ok = false, error = { kind = "invalid_tag", field = "action" } }
   end

@@ -443,7 +443,9 @@ public class SerializationSchemaTest
             .Render();
 
         Assert.Contains("buffer_create(1 + (if frame_sentinel == 0 then 16 else 0))", luau);
-        Assert.Contains("buffer_writeu32(b, offset, Loom.pack_quaternion(", luau);
+
+        // The rotation goes out as one u32, past the three position components the addressing folded in.
+        Assert.Contains("buffer_writeu32(b, offset + 12, Loom.pack_quaternion(", luau);
     }
 
     [Fact]

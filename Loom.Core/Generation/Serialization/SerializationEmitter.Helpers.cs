@@ -24,7 +24,36 @@ internal sealed partial class SerializationEmitter
         public int ByteOffset = startingByteOffset;
         public bool IsDynamic;
 
-        public LuauExpression Position => IsDynamic ? new Identifier(OffsetLocal) : new NumberLiteral(ByteOffset);
+        /// <summary>
+        ///     Fixed-width advances taken since the local was last written to. A run of them is a constant
+        ///     the addressing can simply carry, so the local is stepped once at the end of the run rather
+        ///     than after every field. Valid only along the straight line it accumulated on: a branch or a
+        ///     loop body is a different path, and <see cref="Flush" /> settles the count before one starts
+        ///     and again before one ends.
+        /// </summary>
+        private int _pending;
+
+        public bool HasPending => _pending != 0;
+
+        public LuauExpression Position =>
+            !IsDynamic ? new NumberLiteral(ByteOffset)
+            : _pending == 0 ? new Identifier(OffsetLocal)
+            : Add(new Identifier(OffsetLocal), new NumberLiteral(_pending));
+
+        /// <summary>
+        ///     Writes the folded advances out to the local, leaving it holding the true position. Callers
+        ///     that need the local itself rather than the position - anything reading <see cref="OffsetLocal" />
+        ///     through something other than <see cref="Position" />, and every path in or out of a block -
+        ///     have to settle it first.
+        /// </summary>
+        public void Flush(List<LuauStatement> body)
+        {
+            if (!IsDynamic || _pending == 0)
+                return;
+
+            body.Add(new ExpressionStatement(new BinaryOperator(new Identifier(OffsetLocal), "+=", new NumberLiteral(_pending))));
+            _pending = 0;
+        }
 
         /// <summary>
         ///     Runtime origin for bit positions, set while emitting one entry of a collection. Header bits
@@ -44,13 +73,19 @@ internal sealed partial class SerializationEmitter
                 return;
             }
 
-            body.Add(new ExpressionStatement(new BinaryOperator(new Identifier(OffsetLocal), "+=", new NumberLiteral(bytes))));
+            _pending += bytes;
         }
 
+        /// <summary>
+        ///     Advances by an amount only known at runtime. Whatever was folded so far rides along in the
+        ///     same statement, since the local has to be written either way.
+        /// </summary>
         public void AdvanceBy(List<LuauStatement> body, LuauExpression bytes)
         {
             GoDynamic(body);
-            body.Add(new ExpressionStatement(new BinaryOperator(new Identifier(OffsetLocal), "+=", bytes)));
+            var amount = _pending == 0 ? bytes : Add(new NumberLiteral(_pending), bytes);
+            _pending = 0;
+            body.Add(new ExpressionStatement(new BinaryOperator(new Identifier(OffsetLocal), "+=", amount)));
         }
 
         public void GoDynamic(List<LuauStatement> body)

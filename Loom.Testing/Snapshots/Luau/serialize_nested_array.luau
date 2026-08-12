@@ -30,9 +30,8 @@ const function Grid_serialize_binary(value: Grid): Loom.Serialized
       const rows_element_element = rows_element[i_2]
       const rows_element_element_length = #rows_element_element
       buffer_writeu32(b, offset, rows_element_element_length)
-      offset += 4
-      buffer_writestring(b, offset, rows_element_element)
-      offset += rows_element_element_length
+      buffer_writestring(b, offset + 4, rows_element_element)
+      offset += 4 + rows_element_element_length
     end
   end
   return { buffer = b }
@@ -48,16 +47,15 @@ const function Grid_deserialize_binary(serialized: Loom.Serialized): Loom.Result
   const rows = {}
   for i = 1, rows_count do
     const rows_element_count = buffer_readu32(b, offset)
-    offset += 4
     const rows_element = {}
+    offset += 4
     for i_2 = 1, rows_element_count do
       const rows_element_element_length = buffer_readu32(b, offset)
-      offset += 4
-      if b_len < offset + rows_element_element_length then
+      if b_len < offset + 4 + rows_element_element_length then
         return { ok = false, error = { kind = "invalid_length", field = "rows[][]" } }
       end
-      const rows_element_element = buffer_readstring(b, offset, rows_element_element_length)
-      offset += rows_element_element_length
+      const rows_element_element = buffer_readstring(b, offset + 4, rows_element_element_length)
+      offset += 4 + rows_element_element_length
       rows_element[i_2] = rows_element_element
     end
     rows[i] = rows_element
