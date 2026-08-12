@@ -198,7 +198,7 @@ public abstract class Visitor<T>(Func<Node?, T> defaultValue)
     public virtual T VisitAs(As @as) => CombineResults([Visit(@as.Expression), Visit(@as.Type)]);
     public virtual T VisitNullForgiving(NullForgiving nullForgiving) => Visit(nullForgiving.Expression);
     public virtual T VisitErrorPropagation(ErrorPropagation errorPropagation) => Visit(errorPropagation.Expression);
-    public virtual T VisitAwait(Await @await) => Visit(@await.Expression);
+    public virtual T VisitAwait(Await await) => Visit(await.Expression);
     public virtual T VisitIs(Is @is) => CombineResults([Visit(@is.Expression), Visit(@is.Pattern)]);
 
     public virtual T VisitAssignmentOperator(AssignmentOperator assignmentOperator) =>

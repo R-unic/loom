@@ -26,13 +26,13 @@ namespace Loom.Core.Generation;
 /// </remarks>
 public sealed partial class LuauGenerator
 {
-    public override LuauNode VisitAwait(Await @await)
+    public override LuauNode VisitAwait(Await await)
     {
-        if (@await.Expression is Invocation invocation && IsFusedAwaitedCall(invocation))
-            return Visit(@await.Expression);
+        if (await.Expression is Invocation invocation && IsFusedAwaitedCall(invocation))
+            return Visit(await.Expression);
 
         _semanticModel.RuntimeReferences++;
-        return LuauFactory.RuntimeLibraryCall(["await"], [Visit(@await.Expression)]);
+        return LuauFactory.RuntimeLibraryCall(["await"], [Visit(await.Expression)]);
     }
 
     /// <summary>
