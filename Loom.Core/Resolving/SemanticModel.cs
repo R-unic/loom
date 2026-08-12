@@ -169,7 +169,7 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         expression switch
         {
             QualifiedName qn when GetType(qn.Identifier) is ObjectType objectType
-                && objectType.GetProperty(qn.Names.First().Name.Text) is { ValueType: LiteralType literalType } =>
+                && objectType.GetProperty(qn.Names[0].Name.Text) is { ValueType: LiteralType literalType } =>
                 literalType.Value,
             UnaryOperator { Operator.Text: "-" } unary when ToDouble(GetConstantValue(unary.Operand)) is { } d => -d,
             BinaryOperator { Operator.Text: var op } binary
@@ -203,7 +203,7 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
             "~" => (double)((long)l ^ (long)r),
             "<<" => (double)((long)l << (int)r),
             ">>" => (double)((long)l >> (int)r),
-            ">>>" => (double)(long)((ulong)(long)l >> (int)r),
+            ">>>" => (double)((long)l >>> (int)r),
             _ => null
         };
 

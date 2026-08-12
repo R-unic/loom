@@ -32,7 +32,7 @@ public sealed partial class LuauGenerator
             return Visit(@await.Expression);
 
         _semanticModel.RuntimeReferences++;
-        return LuauFactory.RuntimeLibraryCall(["await"], [(LuauExpression)Visit(@await.Expression)]);
+        return LuauFactory.RuntimeLibraryCall(["await"], [Visit(@await.Expression)]);
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ public sealed partial class LuauGenerator
     /// </remarks>
     private LuauExpression AccessTarget(Expression access, Expression receiver)
     {
-        var generated = (LuauExpression)Visit(receiver);
+        var generated = Visit(receiver);
         if (!IsChainAwaited(access) || receiver is Invocation invocation && IsFusedAwaitedCall(invocation))
             return generated;
 

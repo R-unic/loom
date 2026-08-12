@@ -194,7 +194,7 @@ public sealed partial class LuauGenerator
             incrementBy = new IfExpression(new Luau.AST.BinaryOperator(end, "<", start), negativeOne, [], one);
         }
 
-        return new NumericForStatement(names.First(), start, end, incrementBy, body);
+        return new NumericForStatement(names[0], start, end, incrementBy, body);
     }
 
     private LuauNode GenerateAssignment(AssignmentOperator assignmentOperator)

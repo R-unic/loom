@@ -596,7 +596,7 @@ public sealed partial class LuauGenerator
         TryCompilePattern(@is.Pattern, subject, conditions, bindings, out _);
 
         var prelude = new List<LuauStatement>();
-        if (@is.Expression is AssignmentTarget && @is.Pattern is TypePattern typePattern)
+        if (@is is { Expression: AssignmentTarget, Pattern: TypePattern typePattern })
             prelude.Add(new ExpressionStatement(new Luau.AST.BinaryOperator(subject, "=", new TypeCast(subject, Visit(typePattern.Type)))));
 
         prelude.AddRange(bindings);

@@ -82,8 +82,8 @@ public sealed partial class Resolver
         interfaceSymbol.Implementations.Add(implement);
         interfaceSymbol.Implements.Add(traitSymbol);
         traitSymbol.ImplementedBy.Add(interfaceSymbol);
-        var success = !interfaceSymbol.FullProperties
-            .Any(property => !DeclareVariable(implement, new InjectedPropertyVariableSymbol(implement, property.Name, interfaceSymbol, property.IsMutable)));
+        var success = interfaceSymbol.FullProperties
+            .All(property => DeclareVariable(implement, new InjectedPropertyVariableSymbol(implement, property.Name, interfaceSymbol, property.IsMutable)));
 
         // A bare call to a method from another trait already implemented on this interface resolves the
         // same way a bare call to one of THIS block's own methods already does (as an ordinary function
@@ -96,7 +96,7 @@ public sealed partial class Resolver
                 .Where(other => other != implement)
                 .SelectMany(other => other.Body.Implementations);
 
-            success = !otherMethods.Any(declaration => !DeclareVariable(declaration, new FunctionSymbol(declaration, declaration.Name.Text)));
+            success = otherMethods.All(declaration => DeclareVariable(declaration, new FunctionSymbol(declaration, declaration.Name.Text)));
         }
 
         if (success)

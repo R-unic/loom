@@ -184,12 +184,14 @@ public sealed partial class Resolver
         while (node?.Parent is Parenthesized)
             node = node.Parent;
 
-        return node?.Parent is Arguments arguments && arguments.Parent is Invocation;
+        return node?.Parent is Arguments { Parent: Invocation };
     }
 
     private static bool IsEventConnectionHandler(Parameter parameter) =>
-        parameter.Parent?.Parent is FunctionExpression functionExpression
-        && functionExpression.Parent is AssignmentOperator { Operator.Kind: SyntaxKind.PlusEquals or SyntaxKind.MinusEquals } assignment
+        parameter.Parent?.Parent is FunctionExpression
+        {
+            Parent: AssignmentOperator { Operator.Kind: SyntaxKind.PlusEquals or SyntaxKind.MinusEquals } assignment
+        } functionExpression
         && assignment.Right == functionExpression;
 
     public override bool VisitEnumDeclaration(EnumDeclaration enumDeclaration) =>

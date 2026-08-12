@@ -61,7 +61,7 @@ public sealed partial class TypeChecker
 
     private static bool TryGetResultTypeArguments(Type type, [MaybeNullWhen(false)] out Type value, [MaybeNullWhen(false)] out Type error)
     {
-        if (type is InstantiatedType { GenericType.Declaration: TypeAlias { Name.Text: "Result" } } instantiated && instantiated.Arguments.Count == 2)
+        if (type is InstantiatedType { GenericType.Declaration: TypeAlias { Name.Text: "Result" }, Arguments.Count: 2 } instantiated)
         {
             value = instantiated.Arguments[0];
             error = instantiated.Arguments[1];

@@ -193,7 +193,7 @@ public sealed partial class TypeChecker
         return BindType(typeName, Types.PrimitiveType.Never);
     }
 
-    private static bool IsTupleMarkerSymbol(Symbol symbol) => symbol is { IsIntrinsic: true, Name: "Tuple" } && symbol.File.Name == "loom.loom";
+    private static bool IsTupleMarkerSymbol(Symbol symbol) => symbol is { IsIntrinsic: true, Name: "Tuple", File.Name: "loom.loom" };
 
     public override Types.TypeParameter VisitTypeParameter(TypeParameter typeParameter)
     {

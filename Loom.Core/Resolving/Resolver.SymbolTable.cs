@@ -117,7 +117,7 @@ public sealed partial class Resolver
     private Symbol? LookupSymbolCurrentScope(string name, SymbolKind kind)
     {
         var lookup = GetLookup(kind, CurrentScope());
-        return !lookup.TryGetValue(name, out var symbols) ? null : symbols.First();
+        return !lookup.TryGetValue(name, out var symbols) ? null : symbols[0];
     }
 
     private static bool IsAlreadyHoisted(Node node, List<Symbol> symbolsForName) => IsAlreadyHoisted<Symbol>(node, symbolsForName, out _);
