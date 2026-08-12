@@ -246,13 +246,12 @@ public sealed partial class LuauGenerator
         return new IfStatement(condition, thenBranch, elseIfBranches, elseBranch);
     }
 
-    private List<LuauStatement> CollectIsPreludes(Expression condition) =>
-        condition switch
-        {
-            Is isExpression => _isPreludes.GetValueOrDefault(isExpression, []),
-            Parsing.AST.BinaryOperator { Operator.Kind: SyntaxKind.AmpersandAmpersand } and =>
-                [..CollectIsPreludes(and.Left), ..CollectIsPreludes(and.Right)],
-            Parsing.AST.Parenthesized parenthesized => CollectIsPreludes(parenthesized.Expression),
-            _ => []
-        };
+    private List<LuauStatement> CollectIsPreludes(Expression condition)
+    {
+        var preludes = new List<LuauStatement>();
+        foreach (var isExpression in TestedBy(condition))
+            preludes.AddRange(_isPreludes.GetValueOrDefault(isExpression, []));
+
+        return preludes;
+    }
 }

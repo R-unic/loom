@@ -432,23 +432,50 @@ public sealed partial class LuauGenerator
 
     private static bool HasHoistedStatements(LuauScope scope) => scope.PrereqStatements.Count > 0 || scope.PostreqStatements.Count > 0;
 
-    private Dictionary<string, LuauExpression> CollectIsSubstitutions(Expression expression) =>
-        expression switch
-        {
-            Is isExpression when _isSubjects.TryGetValue(isExpression, out var subject) =>
-                CollectPatternBindings(isExpression.Pattern, subject).ToDictionary(binding => binding.Name, binding => binding.Value),
-            BinaryOperator { Operator.Kind: SyntaxKind.AmpersandAmpersand } and =>
-                MergeSubstitutions(CollectIsSubstitutions(and.Left), CollectIsSubstitutions(and.Right)),
-            Parenthesized parenthesized => CollectIsSubstitutions(parenthesized.Expression),
-            _ => []
-        };
-
-    private static Dictionary<string, LuauExpression> MergeSubstitutions(Dictionary<string, LuauExpression> left, Dictionary<string, LuauExpression> right)
+    private Dictionary<string, LuauExpression> CollectIsSubstitutions(Expression expression)
     {
-        foreach (var (name, value) in right)
-            left[name] = value;
+        var substitutions = new Dictionary<string, LuauExpression>();
+        foreach (var isExpression in TestedBy(expression))
+        {
+            if (!_isSubjects.TryGetValue(isExpression, out var subject))
+                continue;
 
-        return left;
+            foreach (var (name, value) in CollectPatternBindings(isExpression.Pattern, subject))
+                substitutions[name] = value;
+        }
+
+        return substitutions;
+    }
+
+    /// <summary>
+    ///     Every <c>is</c> a condition tests, in the order it tests them. Only conjunction and parentheses
+    ///     are walked through: what an <c>is</c> binds holds exactly when the whole condition held, which
+    ///     <c>&amp;&amp;</c> preserves and <c>||</c> does not.
+    /// </summary>
+    /// <remarks>
+    ///     Both the bindings a branch opens with and the substitutions its body reads are keyed off these,
+    ///     and they used to walk the condition's shape separately - so teaching one about a new operator
+    ///     left the other quietly disagreeing about which patterns were in scope.
+    /// </remarks>
+    private static IEnumerable<Is> TestedBy(Expression condition)
+    {
+        switch (condition)
+        {
+            case Is isExpression:
+                yield return isExpression;
+                break;
+
+            case BinaryOperator { Operator.Kind: SyntaxKind.AmpersandAmpersand } and:
+                foreach (var nested in TestedBy(and.Left)) yield return nested;
+                foreach (var nested in TestedBy(and.Right)) yield return nested;
+
+                break;
+
+            case Parenthesized parenthesized:
+                foreach (var nested in TestedBy(parenthesized.Expression)) yield return nested;
+
+                break;
+        }
     }
 
     // Luau has no &&=/||=/??= (unlike +=/-=/etc.), so desugar to a plain `left = left <op> right`. A right
