@@ -43,8 +43,8 @@ public class FoldingRangeHandlerTest
         );
 
         Assert.Equal(2, folds.Length);
-        Assert.Contains(folds, fold => fold.StartLine == 0 && fold.EndLine == 3);
-        Assert.Contains(folds, fold => fold.StartLine == 1 && fold.EndLine == 2);
+        Assert.Contains(folds, fold => fold is { StartLine: 0, EndLine: 3 });
+        Assert.Contains(folds, fold => fold is { StartLine: 1, EndLine: 2 });
     }
 
     [Fact]
