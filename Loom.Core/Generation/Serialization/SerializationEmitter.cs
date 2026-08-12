@@ -106,8 +106,11 @@ internal sealed partial class SerializationEmitter(SerializationSchema schema, L
     private Call BufferCall(string member, List<LuauExpression> arguments) => new Call(Buffer(member), arguments);
 
     /// <summary>
-    ///     Unions whose tag the prologue already resolved. A union inside a collection has one tag per
-    ///     entry, so it cannot be hoisted there and is resolved in the loop instead.
+    ///     Unions whose tag is already resolved, by path, naming the local holding it. The prologue puts
+    ///     one there for every top-level union ahead of the allocation that depends on it, and a diff puts
+    ///     the current value's tag there for the length of the branch that resends the union - both leave a
+    ///     local a later write can simply read instead of running the same comparison chain again. A union
+    ///     inside a collection has one tag per entry, so it cannot be hoisted and is resolved in the loop.
     /// </summary>
-    private readonly HashSet<string> _prologueTags = [];
+    private readonly Dictionary<string, string> _resolvedTags = [];
 }

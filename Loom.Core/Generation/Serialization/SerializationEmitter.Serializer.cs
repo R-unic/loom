@@ -60,7 +60,7 @@ internal sealed partial class SerializationEmitter
             if (serializationField is UnionField unionField)
             {
                 EmitUnionTag(unionField, Access(new Identifier(ValueParameter), unionField.Path), body);
-                _prologueTags.Add(unionField.Path);
+                _resolvedTags[unionField.Path] = UnionTagLocal(unionField.Path);
                 continue;
             }
 
@@ -100,6 +100,20 @@ internal sealed partial class SerializationEmitter
     private static string SentinelValueLocal(string path) => LeafName(path) + "_value";
     private static string SentinelIndexLocal(string path) => LeafName(path) + "_sentinel";
     private static string UnionTagLocal(string path) => LeafName(path) + "_tag";
+
+    /// <summary>
+    ///     Names the local holding this union's tag, resolving it first when nothing has already. Every
+    ///     caller wants the same thing - a number saying which variant is live - so whoever needed it first
+    ///     is who pays for it, and the comparison chain runs once however many places read the answer.
+    /// </summary>
+    private Identifier UnionTag(UnionField unionField, LuauExpression value, List<LuauStatement> body)
+    {
+        if (_resolvedTags.TryGetValue(unionField.Path, out var resolved))
+            return new Identifier(resolved);
+
+        EmitUnionTag(unionField, value, body);
+        return new Identifier(UnionTagLocal(unionField.Path));
+    }
 
     /// <summary>
     ///     Resolves which variant a union value is, ahead of the allocation that depends on it. Index zero
@@ -273,10 +287,7 @@ internal sealed partial class SerializationEmitter
 
         if (serializationField is UnionField unionField)
         {
-            if (!_prologueTags.Contains(unionField.Path))
-                EmitUnionTag(unionField, value, statements);
-
-            var tag = new Identifier(UnionTagLocal(unionField.Path));
+            var tag = UnionTag(unionField, value, statements);
             var branches = new List<ElseIfBranch>();
             IfStatement? head = null;
             for (var index = 0; index < unionField.Variants.Count; index++)
@@ -662,10 +673,7 @@ internal sealed partial class SerializationEmitter
 
             case UnionField unionField:
             {
-                if (!_prologueTags.Contains(unionField.Path))
-                    EmitUnionTag(unionField, value, body);
-
-                var tag = new Identifier(UnionTagLocal(unionField.Path));
+                var tag = UnionTag(unionField, value, body);
                 body.Add(new ExpressionStatement(WriteBits(cursor, unionField.TagBits, tag)));
                 cursor.GoDynamic(body);
 

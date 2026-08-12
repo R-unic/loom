@@ -387,8 +387,14 @@ internal sealed partial class SerializationEmitter
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
 
+        // The resend writes the tag the comparison above already resolved, so it is handed that local
+        // rather than left to run the same chain a second time - inside an array's per-element diff that
+        // duplicate would have been paid per entry. Registered only for the resend: the tag names a local
+        // of this function, and nothing outside the branch it guards may reach for it.
         var resend = new List<LuauStatement>();
+        _resolvedTags[union.Path] = currentTag.Name;
         EmitValueWrite(union, currentValue, cursor, resend);
+        _resolvedTags.Remove(union.Path);
         widestBit = Math.Max(widestBit, cursor.BitOffset);
 
         var unchanged = new List<LuauStatement>();

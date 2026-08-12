@@ -212,13 +212,8 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
       const last_event_tag_changed = last_event_tag_b ~= last_event_tag_c
       buffer_writebits(b, 9, 1, if last_event_tag_changed then 1 else 0)
       if last_event_tag_changed then
-        const last_event_value = value.last_event
-        local last_event_tag = 0
-        if last_event_value.kind == "Miss" then
-          last_event_tag = 1
-        end
-        buffer_writebits(b, 10, 1, last_event_tag)
-        if last_event_tag == 0 then
+        buffer_writebits(b, 10, 1, last_event_tag_c)
+        if last_event_tag_c == 0 then
           buffer_writef32(b, offset, value.last_event.amount)
           offset += 4
         end
@@ -270,13 +265,8 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
       const recent_element_tag_changed = recent_element_tag_b ~= recent_element_tag_c
       buffer_writebits(b, recent_bits_2 + (i - 1) * 2, 1, if recent_element_tag_changed then 1 else 0)
       if recent_element_tag_changed then
-        const recent_element_value = value.recent[i]
-        local recent_element_tag = 0
-        if recent_element_value.kind == "Miss" then
-          recent_element_tag = 1
-        end
-        buffer_writebits(b, recent_bits_2 + (i - 1) * 2 + 1, 1, recent_element_tag)
-        if recent_element_tag == 0 then
+        buffer_writebits(b, recent_bits_2 + (i - 1) * 2 + 1, 1, recent_element_tag_c)
+        if recent_element_tag_c == 0 then
           buffer_writef32(b, offset, value.recent[i].amount)
           offset += 4
         end
