@@ -44,7 +44,10 @@ namespace Loom.Core.Generation.Macros;
 internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state, Func<Expression, LuauExpression> visit)
 {
     /// <summary>Stages that pass elements along, so anything may follow them.</summary>
-    private static readonly HashSet<string> _intermediates = ["select", "where"];
+    private static readonly HashSet<string> _intermediates = ["select", "where", "select_many", "flatten"];
+
+    /// <summary>Terminals that leave the loop early, which a stage nesting a loop inside it cannot do.</summary>
+    private static readonly HashSet<string> _shortCircuiting = ["any", "all"];
 
     /// <summary>Stages that consume the chain, so they may only ever be last.</summary>
     private static readonly HashSet<string> _terminals =
@@ -66,9 +69,18 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         /// <summary>Which of those arguments is the index - the one a filter has to renumber.</summary>
         public int IndexPosition => Name == "aggregate" ? 2 : 1;
 
+        /// <summary>Which of those arguments is the element, which <c>aggregate</c> takes second.</summary>
+        public int ElementPosition => Name == "aggregate" ? 1 : 0;
+
         /// <summary>Whether the stage writes its result at the position it was handed.</summary>
         /// <remarks><c>where</c> materializes too, but counts its own survivors rather than reading a position.</remarks>
         public bool WritesAtPosition => Name == "select";
+
+        /// <summary>Whether the stage turns one element into a run of them, which needs a loop of its own.</summary>
+        public bool Spreads => Name is "select_many" or "flatten";
+
+        /// <summary>Whether what follows the stage is positioned against a fresh count rather than the one above.</summary>
+        public bool Renumbers => Name == "where" || Spreads;
     }
 
     private sealed class BoundStage(Stage stage)
@@ -101,7 +113,7 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         var answer = OpenTerminal(terminal, source, reserved, out var result, out var count);
         BindCallbacks(bound, reserved);
 
-        var elementName = bound[0].Inlined is { ParameterNames: [var first, ..] } ? first : state.Scope.AddIdentifier(ElementName);
+        var elementName = ElementNameFor(bound, 0, bound[0].Stage.Name == "flatten" ? SegmentName : ElementName);
         var indexName = ChooseIndexName(bound);
         LuauExpression current = new Identifier(elementName);
         LuauExpression position = new Identifier(indexName);
@@ -110,23 +122,30 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         var statements = body;
         for (var i = 0; i < bound.Count - 1; i++)
         {
-            var value = ApplyCallback(bound[i], statements, ref current, position);
-            if (bound[i].Stage.Name == "select")
+            var stage = bound[i];
+            if (stage.Stage.Name == "select")
             {
-                current = value;
+                current = ApplyCallback(stage, statements, ref current, position);
                 continue;
             }
 
-            var kept = new List<LuauStatement>();
-            statements.Add(new IfStatement(value, new Chunk(kept), [], null));
-            statements = kept;
-            if (!NeedsPosition(bound, i))
+            if (stage.Stage.Spreads)
+            {
+                var segment = stage.Stage.CallbackIndex >= 0 ? ApplyCallback(stage, statements, ref current, position) : current;
+                var spreadName = ElementNameFor(bound, i + 1, ElementName);
+                var spread = new List<LuauStatement>();
+                statements.Add(new ForStatement([DiscardName, spreadName], segment, new Chunk(spread)));
+                statements = spread;
+                current = new Identifier(spreadName);
+                position = Renumber(bound, i, statements, position);
                 continue;
+            }
 
-            var compacted = new Identifier(state.Scope.AddIdentifier(CountName));
-            state.Prereq(new LocalVariable(compacted.Name, null, new NumberLiteral(0)));
-            statements.Add(new ExpressionStatement(new BinaryOperator(compacted, "+=", new NumberLiteral(1))));
-            position = compacted;
+            var condition = ApplyCallback(stage, statements, ref current, position);
+            var kept = new List<LuauStatement>();
+            statements.Add(new IfStatement(condition, new Chunk(kept), [], null));
+            statements = kept;
+            position = Renumber(bound, i, statements, position);
         }
 
         CloseTerminal(terminal, statements, ref current, position, result, count);
@@ -153,7 +172,17 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
                 break;
             }
 
-            stages.Add(new Stage(name, current.Arguments.ArgumentList));
+            var stage = new Stage(name, current.Arguments.ArgumentList);
+
+            // A spread nests a loop inside the body, and the break an 'any' or 'all' ends on would only
+            // leave that one. The chain stops here instead, so the spread keeps a loop of its own.
+            if (stages.Count > 0 && stage.Spreads && _shortCircuiting.Contains(stages[0].Name))
+            {
+                source = current;
+                break;
+            }
+
+            stages.Add(stage);
             if (receiver is Invocation inner)
             {
                 current = inner;
@@ -258,6 +287,21 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         }
     }
 
+    /// <summary>
+    ///     Names a loop variable after the parameter of the stage that reads it, so the stage needs no
+    ///     binding of its own. Only a loop header can do this - anywhere else the element is an
+    ///     expression that has to be named before it can be read twice.
+    /// </summary>
+    private string ElementNameFor(List<BoundStage> bound, int index, string fallback)
+    {
+        if (index < bound.Count
+            && bound[index].Inlined is { } inlined
+            && bound[index].Stage.ElementPosition < inlined.ParameterNames.Count)
+            return inlined.ParameterNames[bound[index].Stage.ElementPosition];
+
+        return state.Scope.AddIdentifier(fallback);
+    }
+
     /// <summary>Names the loop's index variable after whoever reads it, and discards it when nobody does.</summary>
     private string ChooseIndexName(List<BoundStage> bound)
     {
@@ -271,10 +315,30 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     private static bool NeedsPosition(List<BoundStage> bound, int index)
     {
         for (var i = index + 1; i < bound.Count; i++)
+        {
             if (bound[i].ReadsIndex || i == bound.Count - 1 && bound[i].Stage.WritesAtPosition)
                 return true;
 
+            // A stage that renumbers hands everything below it a position of its own, so what they read
+            // is that one and not this. Whether it renumbers is this same question asked one stage later.
+            if (i < bound.Count - 1 && bound[i].Stage.Renumbers)
+                return false;
+        }
+
         return false;
+    }
+
+    /// <summary>Starts counting positions afresh below a stage that filtered or spread what came in.</summary>
+    private LuauExpression Renumber(List<BoundStage> bound, int index, List<LuauStatement> statements, LuauExpression position)
+    {
+        if (!NeedsPosition(bound, index))
+            return position;
+
+        var counter = new Identifier(state.Scope.AddIdentifier(CountName));
+        state.Prereq(new LocalVariable(counter.Name, null, new NumberLiteral(0)));
+        statements.Add(new ExpressionStatement(new BinaryOperator(counter, "+=", new NumberLiteral(1))));
+
+        return counter;
     }
 
     /// <summary>Declares whatever the terminal accumulates into, and hands back what the chain evaluates to.</summary>

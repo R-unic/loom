@@ -43,6 +43,24 @@ public class ArrayCombinatorRuntimeTest
     public void Computes(string expression, string expected) => Assert.Equal(expected, Run($"{Numbers}let outcome = {expression};"));
 
     /// <summary>
+    ///     A stage that turns one element into several nests a loop inside the fused body, and everything
+    ///     below it is positioned against the flattened run rather than the row it came from.
+    /// </summary>
+    [Theory]
+    [InlineData("rows.flatten().where(fn(n) -> n > 1).join(\",\")", "2,3,4")]
+    [InlineData("rows.flatten().select(fn(n) -> n * 2).join(\",\")", "2,4,6,8")]
+    [InlineData("rows.flatten().select(fn(n, i) -> i).join(\",\")", "1,2,3,4")]
+    [InlineData("rows.flatten().aggregate(0, fn(a, n) -> a + n)", "10")]
+    [InlineData("rows.flatten().count(fn(n) -> n % 2 == 0)", "2")]
+    [InlineData("rows.select_many(fn(r) -> r).where(fn(n) -> n > 2).join(\",\")", "3,4")]
+    [InlineData("rows.where(fn(r) -> r.length > 1).flatten().join(\",\")", "1,2,3")]
+    // 'any' and 'all' leave the loop early, which a nested one cannot do - these stay unfused and correct.
+    [InlineData("rows.flatten().any(fn(n) -> n > 3)", "true")]
+    [InlineData("rows.flatten().all(fn(n) -> n > 3)", "false")]
+    public void ComputesAcrossASpread(string expression, string expected) =>
+        Assert.Equal(expected, Run($"let rows = [[1, 2, 3], [4]];\nlet outcome = {expression};"));
+
+    /// <summary>
     ///     The hazard fusing introduces: <c>total</c> is a variable from outside the loop, and the stage
     ///     above binds a parameter of the same name. Inlined naively, the predicate would compare against
     ///     the mapped element instead of the 100 it was written against.
