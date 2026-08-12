@@ -57,9 +57,11 @@ public class ArrayCombinatorTest
     {
         var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.select(fn(n) -> n * 2);", typeCheck: true).Render();
 
-        Assert.Contains("table.create(#a)", rendered);
-        Assert.Contains("_result[_index] = n * 2", rendered);
+        // The loop fills the binding's own array rather than a temporary it would then be copied from.
+        Assert.Contains("const b = table.create(#a)", rendered);
+        Assert.Contains("b[_index] = n * 2", rendered);
         Assert.DoesNotContain("table.insert", rendered);
+        Assert.DoesNotContain("_result", rendered);
     }
 
     [Fact]
@@ -67,10 +69,11 @@ public class ArrayCombinatorTest
     {
         var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.where(fn(n) -> n > 1);", typeCheck: true).Render();
 
-        Assert.Contains("table.create(#a)", rendered);
+        Assert.Contains("const b = table.create(#a)", rendered);
         Assert.Contains("_count += 1", rendered);
-        Assert.Contains("_result[_count] = n", rendered);
+        Assert.Contains("b[_count] = n", rendered);
         Assert.DoesNotContain("table.insert", rendered);
+        Assert.DoesNotContain("_result", rendered);
     }
 
     [Fact]
@@ -78,9 +81,10 @@ public class ArrayCombinatorTest
     {
         var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.aggregate(0, fn(sum, n) -> sum + n);", typeCheck: true).Render();
 
-        Assert.Contains("local _accumulator = 0", rendered);
-        Assert.Contains("_accumulator = sum + n", rendered);
-        Assert.Contains("const b = _accumulator", rendered);
+        // The accumulator is the binding, so there is no second variable to copy it into afterwards.
+        Assert.Contains("local b = 0", rendered);
+        Assert.Contains("b = sum + n", rendered);
+        Assert.DoesNotContain("_accumulator", rendered);
     }
 
     [Fact]
@@ -97,7 +101,7 @@ public class ArrayCombinatorTest
         var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.select(fn(n) { let d = n * 2; return d + 1; });", typeCheck: true).Render();
 
         Assert.Contains("const d = n * 2", rendered);
-        Assert.Contains("_result[_index] = d + 1", rendered);
+        Assert.Contains("b[_index] = d + 1", rendered);
         Assert.DoesNotContain("function", rendered);
     }
 
@@ -111,7 +115,7 @@ public class ArrayCombinatorTest
             .Render();
 
         Assert.Contains("const _callback = make()", rendered);
-        Assert.Contains("_result[_index] = _callback(_element, _index)", rendered);
+        Assert.Contains("b[_index] = _callback(_element, _index)", rendered);
     }
 
     [Fact]
@@ -131,10 +135,21 @@ public class ArrayCombinatorTest
     [Fact]
     public void DoesNotCaptureTheLoopVariablesWhenALambdaParameterShadowsThem()
     {
-        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.where(fn(_result) -> _result > 1);", typeCheck: true).Render();
+        // 'mut' keeps the generated names, so '_result' is one the loop would otherwise have bound.
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; mut b = a.where(fn(_result) -> _result > 1);", typeCheck: true).Render();
 
         Assert.Contains("function", rendered);
         Assert.DoesNotContain("for _, _result in", rendered);
+    }
+
+    /// <summary>A parameter only collides with a name the loop actually binds, which the binding's own is.</summary>
+    [Fact]
+    public void InlinesALambdaWhoseParameterOnlyShadowsANameNoLongerGenerated()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.where(fn(_result) -> _result > 1);", typeCheck: true).Render();
+
+        Assert.DoesNotContain("function", rendered);
+        Assert.Contains("for _, _result in a do", rendered);
     }
 
     [Theory]
@@ -201,8 +216,8 @@ public class ArrayCombinatorTest
     {
         var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.any(fn(n) -> n > 1);", typeCheck: true).Render();
 
-        Assert.Contains("local _found = false", rendered);
-        Assert.Contains("_found = true", rendered);
+        Assert.Contains("local b = false", rendered);
+        Assert.Contains("b = true", rendered);
         Assert.Contains("break", rendered);
     }
 
@@ -211,9 +226,9 @@ public class ArrayCombinatorTest
     {
         var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.all(fn(n) -> n > 1);", typeCheck: true).Render();
 
-        Assert.Contains("local _satisfied = true", rendered);
+        Assert.Contains("local b = true", rendered);
         Assert.Contains("if n > 1 then continue end", rendered);
-        Assert.Contains("_satisfied = false", rendered);
+        Assert.Contains("b = false", rendered);
         Assert.Contains("break", rendered);
     }
 
@@ -222,7 +237,8 @@ public class ArrayCombinatorTest
     {
         var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.count(fn(n) -> n > 1);", typeCheck: true).Render();
 
-        Assert.Contains("_count += 1", rendered);
+        Assert.Contains("local b = 0", rendered);
+        Assert.Contains("b += 1", rendered);
         Assert.DoesNotContain("table.create", rendered);
         Assert.DoesNotContain("table.insert", rendered);
     }
@@ -234,7 +250,7 @@ public class ArrayCombinatorTest
 
         Assert.Contains("const _segment = {n, n * 2}", rendered);
         Assert.Contains("const _length = #_segment", rendered);
-        Assert.Contains("table.move(_segment, 1, _length, _count + 1, _result)", rendered);
+        Assert.Contains("table.move(_segment, 1, _length, _count + 1, b)", rendered);
         Assert.DoesNotContain("table.insert", rendered);
     }
 
@@ -244,7 +260,7 @@ public class ArrayCombinatorTest
         var rendered = Utility.GetLuauAST("let a = [[1, 2], [3]]; let b = a.flatten();", typeCheck: true).Render();
 
         Assert.Contains("for _, _segment in a do", rendered);
-        Assert.Contains("table.move(_segment, 1, _length, _count + 1, _result)", rendered);
+        Assert.Contains("table.move(_segment, 1, _length, _count + 1, b)", rendered);
         Assert.DoesNotContain("table.insert", rendered);
     }
 

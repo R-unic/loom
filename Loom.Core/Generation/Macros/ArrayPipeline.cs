@@ -102,8 +102,13 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         public bool ReadsIndex => Stage.CallbackIndex >= 0 && (Inlined == null || Stage.IndexPosition < Inlined.ParameterNames.Count);
     }
 
+    /// <summary>
+    ///     Claims a chain of two or more stages, and a single stage where the name it is being bound to is
+    ///     one the loop could accumulate into - a lone <c>where</c> is already one loop, but writing into
+    ///     the caller's name rather than a temporary is a win on its own.
+    /// </summary>
     public bool TryGenerate(Invocation invocation, [MaybeNullWhen(false)] out LuauExpression expression) =>
-        TryGenerate(invocation, invocation, minimumStages: 2, measured: false, out expression);
+        TryGenerate(invocation, invocation, IsSoleBinding(invocation) ? 1 : 2, measured: false, out expression);
 
     /// <summary>
     ///     Rewrites <c>chain.length</c> so the chain counts rather than collects. A filter already visits
@@ -224,11 +229,10 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     /// </remarks>
     private static string? TargetName(Node bindingNode, List<BoundStage> bound, LuauExpression source)
     {
-        if (bindingNode.Parent is not EqualsValueClause { Parent: VariableDeclaration declaration }
-            || declaration.ColonTypeClause != null
-            || declaration.Keyword.Kind != SyntaxKind.LetKeyword)
+        if (!IsSoleBinding(bindingNode))
             return null;
 
+        var declaration = (VariableDeclaration)bindingNode.Parent!.Parent!;
         var mentioned = new HashSet<string>();
         if (!LuauIdentifiers.TryCollect(source, mentioned))
             return null;
@@ -241,6 +245,12 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         var name = declaration.Name.Text;
         return mentioned.Contains(name) ? null : name;
     }
+
+    /// <summary>Whether the chain is the whole of an immutable, unannotated binding's initializer.</summary>
+    private static bool IsSoleBinding(Node bindingNode) =>
+        bindingNode.Parent is EqualsValueClause { Parent: VariableDeclaration declaration }
+        && declaration.ColonTypeClause == null
+        && declaration.Keyword.Kind == SyntaxKind.LetKeyword;
 
     /// <summary>Marks the terminal as measured, or answers false where measuring it would drop work.</summary>
     private static bool TryMeasureTerminal(List<Stage> stages)
