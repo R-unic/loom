@@ -58,8 +58,12 @@ public class DocumentStoreTest
             var changed = store.Compile(uri);
             Assert.NotNull(changed);
             Utility.AssertNoErrors(changed);
+
+            // asserted against the semantic model rather than the emitted Luau: the server compiles with
+            // 'no_emit', so there is no Luau, and the model is what it answers every request from anyway
             var file = Assert.Single(changed.Files);
-            Assert.Contains("true", file.RenderedLuau);
+            Assert.Equal("let x = true;", file.SourceFile.SourceText);
+            Assert.Equal("true", file.SemanticModel.GetType(Assert.Single(file.Tree.Statements)).ToString());
         }
         finally
         {

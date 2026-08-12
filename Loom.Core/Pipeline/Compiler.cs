@@ -6,6 +6,7 @@ using Loom.Core.Parsing;
 using Loom.Core.Resolving;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking;
+using Loom.Luau.AST;
 
 namespace Loom.Core.Pipeline;
 
@@ -75,9 +76,8 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
                 TrackDiagnostics(flowAnalyzer.Analyze());
                 var typeChecker = new TypeChecker(semanticModel, flowAnalyzer);
                 var typeCheckerResult = TrackDiagnostics(typeChecker.Check());
-                var generator = new LuauGenerator(semanticModel, unit.RuntimeImport, unit.ModuleRequirePaths);
-                var generatorResult = TrackDiagnostics(generator.Generate());
-                var renderedLuau = generatorResult.LuauTree.Render();
+                var generatorResult = GenerateLuau(semanticModel);
+                var renderedLuau = generatorResult == null ? "" : generatorResult.LuauTree.Render();
 
                 return new CompiledFile(SourceFile)
                 {
@@ -85,7 +85,7 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
                     Path = unit.Roots.OutputPathOf(SourceFile),
                     Diagnostics = Reported(DiagnosticBag.Concat(_pipelineDiagnostics, Options)),
                     RenderedLuau = renderedLuau,
-                    LuauTree = generatorResult.LuauTree,
+                    LuauTree = generatorResult?.LuauTree ?? new LuauTree([]),
                     ReturnType = typeCheckerResult.ReturnType,
                     SemanticModel = semanticModel,
                     Tree = parsedFile.Tree,
@@ -93,6 +93,25 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
                 };
             }
         );
+
+    /// <summary>
+    ///     Lowers the file to Luau, or nothing when the unit was told not to emit any.
+    /// </summary>
+    /// <remarks>
+    ///     Generation is the one stage whose only product is the output file. A unit that will not write one
+    ///     walks every statement to build a tree, renders it to a string, and drops both. Three callers ask
+    ///     for exactly that: the intrinsic bootstrap, which compiles the whole generated Roblox API to learn
+    ///     its types; the language server, which recompiles on every keystroke and never writes anything; and
+    ///     a <c>no_emit</c> build, which is a type check by definition.
+    /// </remarks>
+    private LuauGeneratorResult? GenerateLuau(SemanticModel semanticModel)
+    {
+        if (unit.Config.NoEmit)
+            return null;
+
+        var generator = new LuauGenerator(semanticModel, unit.RuntimeImport, unit.ModuleRequirePaths);
+        return TrackDiagnostics(generator.Generate());
+    }
 
     /// <remarks>
     ///     The compiler error of a failed phase is tracked like any other stage's diagnostics rather than
