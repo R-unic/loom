@@ -1327,7 +1327,7 @@ Everywhere else `await` follows JS precedence - it takes the whole postfix chain
 | Member | Result |
 | --- | --- |
 | `status` | `"pending"`, `"resolved"` or `"rejected"` |
-| `value` | the settled value, or `none` while pending |
+| `value` | the settled value, or `none` while pending and after a failure; reading it never waits |
 | `Future.all(futures)` | every value, in the order the futures were given; the first failure fails the whole set |
 | `Future.race(futures)` | whichever settles first, however it settles |
 | `Future.resolved(value)` | an already-settled future, so a synchronous path can hand back the same type |
