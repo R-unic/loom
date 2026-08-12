@@ -7,9 +7,10 @@ const buffer_readu32 = buffer.readu32
 const buffer_readu8 = buffer.readu8
 const function Scores_serialize_binary(value: Scores): Loom.Serialized
   const b = buffer_create(4 + #value.values)
-  buffer_writeu32(b, 0, #value.values)
+  const values_count = #value.values
+  buffer_writeu32(b, 0, values_count)
   local offset = 4
-  for i = 1, #value.values do
+  for i = 1, values_count do
     const values_element = value.values[i]
     buffer_writeu8(b, offset, values_element)
     offset += 1

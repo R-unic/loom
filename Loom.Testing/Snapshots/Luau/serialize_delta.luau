@@ -42,8 +42,9 @@ const function PlayerState_serialize_binary(value: PlayerState): Loom.Serialized
     end
   end
   size += 4
-  size += (#value.recent + 7) // 8
-  for i = 1, #value.recent do
+  const recent_count = #value.recent
+  size += (recent_count + 7) // 8
+  for i = 1, recent_count do
     const recent_element = value.recent[i]
     local recent_element_tag = 0
     if recent_element.kind == "Miss" then
@@ -94,11 +95,11 @@ const function PlayerState_serialize_binary(value: PlayerState): Loom.Serialized
       offset += 4
     end
   end
-  buffer_writeu32(b, offset, #value.recent)
+  buffer_writeu32(b, offset, recent_count)
   offset += 4
   const recent_bits = offset * 8
-  offset += (#value.recent + 7) // 8
-  for i = 1, #value.recent do
+  offset += (recent_count + 7) // 8
+  for i = 1, recent_count do
     const recent_element = value.recent[i]
     local recent_element_tag = 0
     if recent_element.kind == "Miss" then
@@ -229,14 +230,16 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
       end
     end
   end
-  const recent_length_changed = #baseline.recent ~= #value.recent
+  const recent_count = #value.recent
+  const recent_length_changed = #baseline.recent ~= recent_count
   buffer_writebits(b, 11, 1, if recent_length_changed then 1 else 0)
   if recent_length_changed then
-    buffer_writeu32(b, offset, #value.recent)
+    const recent_count_2 = #value.recent
+    buffer_writeu32(b, offset, recent_count_2)
     offset += 4
     const recent_bits = offset * 8
-    offset += (#value.recent + 7) // 8
-    for i = 1, #value.recent do
+    offset += (recent_count_2 + 7) // 8
+    for i = 1, recent_count_2 do
       const recent_element = value.recent[i]
       local recent_element_tag = 0
       if recent_element.kind == "Miss" then
@@ -250,8 +253,8 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
     end
   else
     const recent_bits_2 = offset * 8
-    offset += (#value.recent * 2 + 7) // 8
-    for i = 1, #value.recent do
+    offset += (recent_count * 2 + 7) // 8
+    for i = 1, recent_count do
       const recent_element_baseline = baseline.recent[i]
       const recent_element = value.recent[i]
       local recent_element_tag_b = 0
@@ -300,9 +303,10 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
       table.insert(scores_removed, scores_baseline_key)
     end
   end
-  buffer_writeu32(b, offset, #scores_removed)
+  const scores_removed_count = #scores_removed
+  buffer_writeu32(b, offset, scores_removed_count)
   offset += 4
-  for i = 1, #scores_removed do
+  for i = 1, scores_removed_count do
     const scores_key = scores_removed[i]
     const scores_key_length = #scores_key
     buffer_writeu32(b, offset, scores_key_length)
@@ -310,9 +314,10 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
     buffer_writestring(b, offset, scores_key)
     offset += scores_key_length
   end
-  buffer_writeu32(b, offset, #scores_added)
+  const scores_added_count = #scores_added
+  buffer_writeu32(b, offset, scores_added_count)
   offset += 4
-  for i = 1, #scores_added do
+  for i = 1, scores_added_count do
     const scores_key = scores_added[i]
     const scores_key_length = #scores_key
     buffer_writeu32(b, offset, scores_key_length)
@@ -325,11 +330,12 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
     buffer_writeu8(b, offset, scores_entry.secondary)
     offset += 1
   end
-  buffer_writeu32(b, offset, #scores_changed)
+  const scores_changed_count = #scores_changed
+  buffer_writeu32(b, offset, scores_changed_count)
   offset += 4
   const scores_entry_bits = offset * 8
-  offset += (#scores_changed * 2 + 7) // 8
-  for i = 1, #scores_changed do
+  offset += (scores_changed_count * 2 + 7) // 8
+  for i = 1, scores_changed_count do
     const scores_key = scores_changed[i]
     const scores_key_length = #scores_key
     buffer_writeu32(b, offset, scores_key_length)

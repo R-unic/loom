@@ -8,22 +8,25 @@ const buffer_readstring = buffer.readstring
 const function Grid_serialize_binary(value: Grid): Loom.Serialized
   local size = 0
   size += 4
-  for i = 1, #value.rows do
+  const rows_count = #value.rows
+  for i = 1, rows_count do
     const rows_element = value.rows[i]
     size += 4
-    for i_2 = 1, #rows_element do
+    const rows_element_count = #rows_element
+    for i_2 = 1, rows_element_count do
       const rows_element_element = rows_element[i_2]
       size += 4 + #rows_element_element
     end
   end
   const b = buffer_create(size)
-  buffer_writeu32(b, 0, #value.rows)
+  buffer_writeu32(b, 0, rows_count)
   local offset = 4
-  for i = 1, #value.rows do
+  for i = 1, rows_count do
     const rows_element = value.rows[i]
-    buffer_writeu32(b, offset, #rows_element)
+    const rows_element_count = #rows_element
+    buffer_writeu32(b, offset, rows_element_count)
     offset += 4
-    for i_2 = 1, #rows_element do
+    for i_2 = 1, rows_element_count do
       const rows_element_element = rows_element[i_2]
       const rows_element_element_length = #rows_element_element
       buffer_writeu32(b, offset, rows_element_element_length)

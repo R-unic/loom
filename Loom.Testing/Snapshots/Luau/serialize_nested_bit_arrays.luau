@@ -10,13 +10,15 @@ const buffer_readstring = buffer.readstring
 const function Canvas_serialize_binary(value: Canvas): Loom.Serialized
   local size = 0
   size += 4
-  for i = 1, #value.masks do
+  const masks_count = #value.masks
+  for i = 1, masks_count do
     const masks_element = value.masks[i]
     size += 4 + (#masks_element + 7) // 8
   end
   size += 4
-  size += (#value.shapes + 7) // 8
-  for i = 1, #value.shapes do
+  const shapes_count = #value.shapes
+  size += (shapes_count + 7) // 8
+  for i = 1, shapes_count do
     const shapes_element = value.shapes[i]
     local shapes_element_tag = 0
     if shapes_element.kind == "Line" then
@@ -27,24 +29,25 @@ const function Canvas_serialize_binary(value: Canvas): Loom.Serialized
     end
   end
   const b = buffer_create(size)
-  buffer_writeu32(b, 0, #value.masks)
+  buffer_writeu32(b, 0, masks_count)
   local offset = 4
-  for i = 1, #value.masks do
+  for i = 1, masks_count do
     const masks_element = value.masks[i]
-    buffer_writeu32(b, offset, #masks_element)
+    const masks_element_count = #masks_element
+    buffer_writeu32(b, offset, masks_element_count)
     offset += 4
     const masks_element_bits = offset * 8
-    offset += (#masks_element + 7) // 8
-    for i_2 = 1, #masks_element do
+    offset += (masks_element_count + 7) // 8
+    for i_2 = 1, masks_element_count do
       const masks_element_element = masks_element[i_2]
       buffer_writebits(b, masks_element_bits + (i_2 - 1), 1, if masks_element_element then 1 else 0)
     end
   end
-  buffer_writeu32(b, offset, #value.shapes)
+  buffer_writeu32(b, offset, shapes_count)
   offset += 4
   const shapes_bits = offset * 8
-  offset += (#value.shapes + 7) // 8
-  for i = 1, #value.shapes do
+  offset += (shapes_count + 7) // 8
+  for i = 1, shapes_count do
     const shapes_element = value.shapes[i]
     local shapes_element_tag = 0
     if shapes_element.kind == "Line" then

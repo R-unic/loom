@@ -72,9 +72,10 @@ const function Registry_serialize_binary(value: Registry): Loom.Serialized
     offset += 4
     buffer_writestring(b, offset, lists_key)
     offset += lists_key_length
-    buffer_writeu32(b, offset, #lists_value)
+    const lists_value_count = #lists_value
+    buffer_writeu32(b, offset, lists_value_count)
     offset += 4
-    for i = 1, #lists_value do
+    for i = 1, lists_value_count do
       const lists_value_element = lists_value[i]
       buffer_writef32(b, offset, lists_value_element)
       offset += 4

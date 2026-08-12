@@ -35,7 +35,8 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
     end
   end
   size += 4
-  for i = 1, #value.map_list do
+  const map_list_count = #value.map_list
+  for i = 1, map_list_count do
     const map_list_element = value.map_list[i]
     size += 4
     local map_list_element_count = 0
@@ -57,7 +58,8 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
   size += (sparse_count + 7) // 8
   if value.maybe_names ~= nil then
     size += 4
-    for i = 1, #value.maybe_names do
+    const maybe_names_count = #value.maybe_names
+    for i = 1, maybe_names_count do
       const maybe_names_element = value.maybe_names[i]
       size += 4 + #maybe_names_element
     end
@@ -82,9 +84,9 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
       offset += 4
     end
   end
-  buffer_writeu32(b, offset, #value.map_list)
+  buffer_writeu32(b, offset, map_list_count)
   offset += 4
-  for i = 1, #value.map_list do
+  for i = 1, map_list_count do
     const map_list_element = value.map_list[i]
     local map_list_element_count = 0
     for map_list_element_key in map_list_element do
@@ -130,9 +132,10 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
   end
   buffer_writebits(b, 2, 1, if value.maybe_names ~= nil then 1 else 0)
   if value.maybe_names ~= nil then
-    buffer_writeu32(b, offset, #value.maybe_names)
+    const maybe_names_count_2 = #value.maybe_names
+    buffer_writeu32(b, offset, maybe_names_count_2)
     offset += 4
-    for i = 1, #value.maybe_names do
+    for i = 1, maybe_names_count_2 do
       const maybe_names_element = value.maybe_names[i]
       const maybe_names_element_length = #maybe_names_element
       buffer_writeu32(b, offset, maybe_names_element_length)

@@ -40,9 +40,10 @@ const function KitchenSink_serialize_binary(value: KitchenSink): Loom.Serialized
     buffer_writestring(b, offset, label_value)
     offset += label_length
   end
-  buffer_writeu32(b, offset, #value.points)
+  const points_count = #value.points
+  buffer_writeu32(b, offset, points_count)
   offset += 4
-  for i = 1, #value.points do
+  for i = 1, points_count do
     const points_element = value.points[i]
     buffer_writei16(b, offset, points_element.X)
     offset += 2

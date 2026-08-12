@@ -443,8 +443,11 @@ internal sealed partial class SerializationEmitter
     private void EmitArrayDiffWrite(ArrayField array, LuauExpression baselineValue, LuauExpression currentValue, Cursor cursor, List<LuauStatement> body)
     {
         var leaf = LeafName(array.Path);
+
+        // Read by the comparison below, then again to size the entries' bit block and to bound the loop.
+        var count = BindCount(currentValue, leaf, body);
         var changed = ReserveLocal(leaf + "_length_changed");
-        body.Add(new ConstVariable(changed, null, new BinaryOperator(Length(baselineValue), "~=", Length(currentValue))));
+        body.Add(new ConstVariable(changed, null, new BinaryOperator(Length(baselineValue), "~=", count)));
         body.Add(new ExpressionStatement(WriteBits(cursor, 1, new IfExpression(new Identifier(changed), _one, [], _zero))));
 
         var resend = new List<LuauStatement>();
@@ -453,7 +456,7 @@ internal sealed partial class SerializationEmitter
         var unchanged = new List<LuauStatement>();
 
         // Reserved ahead of the loop's own names: it is declared outside the loop and outlives it.
-        var bitBase = ReserveElementBits(array.Element.DiffHeaderBits, leaf, Length(currentValue), cursor, unchanged);
+        var bitBase = ReserveElementBits(array.Element.DiffHeaderBits, leaf, count, cursor, unchanged);
 
         using var elementScope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
@@ -473,7 +476,7 @@ internal sealed partial class SerializationEmitter
         var restore = EnterElement(cursor, bitBase, array.Element.DiffHeaderBits, loop);
         EmitFieldDiffWrite(array.Element, elementBaseline, elementCurrent, cursor, elementBody);
         restore();
-        unchanged.Add(new NumericForStatement(loop, _one, Length(currentValue), null, new Chunk(elementBody)));
+        unchanged.Add(new NumericForStatement(loop, _one, count, null, new Chunk(elementBody)));
 
         body.Add(new IfStatement(new Identifier(changed), new Chunk(resend), [], new Chunk(unchanged)));
     }
@@ -584,7 +587,7 @@ internal sealed partial class SerializationEmitter
         LuauExpression? currentValue = null)
     {
         var leaf = LeafName(map.Path);
-        var count = Length(new Identifier(keysLocal));
+        var count = BindCount(new Identifier(keysLocal), keysLocal, body);
         WriteNumber(cursor, map.LengthType, count, body);
 
         // Claimed before the loop's own names, since it is declared outside the loop and outlives it.

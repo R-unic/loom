@@ -44,8 +44,9 @@ const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Seri
   end
   local size = 6 + 4 + #value.display_name + (if velocity_sentinel == 0 then 6 else 0) + (if aim_sentinel == 0 then 16 else 0)
   size += 4
-  size += (#value.recent * 12 + 7) // 8
-  for i = 1, #value.recent do
+  const recent_count = #value.recent
+  size += (recent_count * 12 + 7) // 8
+  for i = 1, recent_count do
     const recent_element = value.recent[i]
     local recent_element_tag = 0
     if recent_element.kind == "Respawned" then
@@ -90,11 +91,11 @@ const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Seri
   offset += 1
   buffer_writeu8(b, offset, value.loadout.secondary)
   offset += 1
-  buffer_writeu32(b, offset, #value.recent)
+  buffer_writeu32(b, offset, recent_count)
   offset += 4
   const recent_bits = offset * 8
-  offset += (#value.recent * 12 + 7) // 8
-  for i = 1, #value.recent do
+  offset += (recent_count * 12 + 7) // 8
+  for i = 1, recent_count do
     const recent_element = value.recent[i]
     local recent_element_tag = 0
     if recent_element.kind == "Respawned" then

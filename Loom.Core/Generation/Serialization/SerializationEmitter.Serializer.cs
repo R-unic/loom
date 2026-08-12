@@ -10,11 +10,12 @@ internal sealed partial class SerializationEmitter
     private static readonly List<string> _cframeSentinels = ["CFrame.identity"];
 
     /// <summary>
-    ///     Maps counted during the size pass, by the statement list that pass wrote into. Luau has no
-    ///     length operator for a keyed table, so the count is a loop either way - but the writer's prefix
-    ///     needs the same number the sizing already walked for.
+    ///     Collections counted during the size pass, by the field counted. Luau has no length operator for
+    ///     a keyed table, so a map's count is a loop either way - but the writer's prefix needs the same
+    ///     number the sizing already walked for, and so does an array's, which reads its length three times
+    ///     over otherwise: once for the prefix, once to size its entries' bit block, once to bound the loop.
     /// </summary>
-    private readonly Dictionary<MapField, string> _measuredCounts = [];
+    private readonly Dictionary<SerializationField, string> _measuredCounts = [];
     private List<LuauStatement>? _measureRoot;
     private List<LuauStatement>? _writeRoot;
 
@@ -344,7 +345,14 @@ internal sealed partial class SerializationEmitter
             return;
 
         AddToSize(statements, new NumberLiteral(arrayField.LengthType.ByteCount()));
-        AddToSize(statements, ElementBitBlockSize(arrayField.Element.HeaderBits, Length(value)));
+
+        var arrayCount = BindCount(value, LeafName(arrayField.Path), statements);
+        AddToSize(statements, ElementBitBlockSize(arrayField.Element.HeaderBits, arrayCount));
+
+        // The write needs the same length for its prefix and its own loop. Same reasoning as a map's
+        // count: it is reusable only when the measure ran in the scope the write also lives in.
+        if (ReferenceEquals(statements, _measureRoot))
+            _measuredCounts[arrayField] = arrayCount.Name;
 
         // The element width varies per entry, so the only way to total it is to walk the value. A loop
         // per nesting level needs a counter of its own, or an inner one would clobber the outer's.
@@ -364,7 +372,7 @@ internal sealed partial class SerializationEmitter
             return;
 
         var bind = new ConstVariable(element.Name, null, new ElementAccess(value, new Identifier(loop)));
-        statements.Add(new NumericForStatement(loop, _one, Length(value), null, new Chunk([bind, ..elementStatements])));
+        statements.Add(new NumericForStatement(loop, _one, arrayCount, null, new Chunk([bind, ..elementStatements])));
     }
 
     /// <summary>
@@ -382,6 +390,25 @@ internal sealed partial class SerializationEmitter
         using var scope = LoopScope();
         var key = ReserveLocal(LeafName(mapField.Key.Path));
         body.Add(new ForStatement([key], value, new Chunk([new ExpressionStatement(new BinaryOperator(count, "+=", _one))])));
+
+        return count;
+    }
+
+    /// <summary>
+    ///     The entry count for an array, reusing the size pass's when that ran in the scope the caller
+    ///     lives in. Unlike a map an array can simply be measured, so the fallback is the length operator
+    ///     rather than a loop - but the answer is still worth a name, since every caller wants it twice.
+    /// </summary>
+    private Identifier ArrayCount(ArrayField arrayField, string leaf, LuauExpression value, List<LuauStatement> body) =>
+        ReferenceEquals(body, _writeRoot) && _measuredCounts.TryGetValue(arrayField, out var measured)
+            ? new Identifier(measured)
+            : BindCount(value, leaf, body);
+
+    /// <summary>Names a collection's length, so reaching for it again costs a register rather than a walk.</summary>
+    private Identifier BindCount(LuauExpression value, string leaf, List<LuauStatement> body)
+    {
+        var count = new Identifier(ReserveLocal(leaf + "_count"));
+        body.Add(new ConstVariable(count.Name, null, Length(value)));
 
         return count;
     }
@@ -599,7 +626,7 @@ internal sealed partial class SerializationEmitter
             case ArrayField arrayField:
             {
                 var leaf = LeafName(arrayField.Path);
-                var count = Length(value);
+                var count = ArrayCount(arrayField, leaf, value, body);
                 WriteNumber(cursor, arrayField.LengthType, count, body);
                 if (NeedsBufferSpace(arrayField.Element))
                     cursor.GoDynamic(body);

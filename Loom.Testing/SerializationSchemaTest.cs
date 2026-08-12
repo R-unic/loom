@@ -414,8 +414,10 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        Assert.Contains("buffer_writeu32(b, 0, #value.values)", luau);
-        Assert.Contains("for i = 1, #value.values do", luau);
+        // The length is named, since the prefix and the loop bound both want it.
+        Assert.Contains("const values_count = #value.values", luau);
+        Assert.Contains("buffer_writeu32(b, 0, values_count)", luau);
+        Assert.Contains("for i = 1, values_count do", luau);
         Assert.Contains("offset += 1", luau);
 
         // The count is bounds-checked before the loop rather than running off the end element by element.
@@ -646,8 +648,8 @@ public class SerializationSchemaTest
             .Render();
 
         // A counter per level, or an inner loop would clobber the outer's, and a length prefix per level.
-        Assert.Contains("for i = 1, #value.rows do", luau);
-        Assert.Contains("for i_2 = 1, #rows_element do", luau);
+        Assert.Contains("for i = 1, rows_count do", luau);
+        Assert.Contains("for i_2 = 1, rows_element_count do", luau);
         Assert.Contains("size += 4 + #rows_element_element", luau);
 
         // Each level measures off the element the level above bound, not off the parameter: measuring an
