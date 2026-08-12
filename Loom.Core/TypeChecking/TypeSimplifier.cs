@@ -10,6 +10,7 @@ namespace Loom.Core.TypeChecking;
 public static class TypeSimplifier
 {
     private static readonly ConditionalWeakTable<Type, Type> _simplifyCache = [];
+    private static readonly ConditionalWeakTable<Type, Type> _expandCache = [];
 
     public static Type? GetMemberPropertyType(Type member, string propertyName) =>
         GetMemberType(member, m => m is NativelyIndexableType indexableType ? indexableType.GetProperty(propertyName)?.ValueType : null);
@@ -17,23 +18,39 @@ public static class TypeSimplifier
     public static Type? GetMemberElementType(Type member, Type indexType) =>
         GetMemberType(member, m => m is NativelyIndexableType indexableType ? indexableType.GetTypeAtIndex(indexType).BodyType?.ValueType : null);
 
-    public static Type Simplify(Type type)
+    /// <summary>
+    ///     Normalises <paramref name="type" /> - flattening, deduplicating and absorbing unions and
+    ///     intersections - while leaving an instantiated generic standing as itself. This is the form a
+    ///     node's type is bound as, so that a stored 'Result&lt;T, E&gt;' is still recognisable as one
+    ///     (see <see cref="Expanded" /> for the counterpart, and issue #198 for what expanding here cost).
+    /// </summary>
+    public static Type Simplify(Type type) => Normalize(type, false);
+
+    /// <summary>
+    ///     <see cref="Simplify" />, with every instantiated generic it reaches replaced by its body. This
+    ///     is the form for asking what a type is made of - which members it has, which union arms it
+    ///     splits into, whether it is indexable - as opposed to what it is called.
+    /// </summary>
+    public static Type Expanded(Type type) => Normalize(type, true);
+
+    private static Type Normalize(Type type, bool expand)
     {
-        if (_simplifyCache.TryGetValue(type, out var cached))
+        var cache = expand ? _expandCache : _simplifyCache;
+        if (cache.TryGetValue(type, out var cached))
             return cached;
 
         var simplified = type switch
         {
             ObjectType objectType => SimplifyObject(objectType),
-            UnionType union => SimplifyUnion(union),
-            IntersectionType intersection => SimplifyIntersection(intersection),
-            InstantiatedType instantiated => Simplify(instantiated.Expand()),
-            GenericType generic => Simplify(generic.UnderlyingType),
+            UnionType union => SimplifyUnion(union, expand),
+            IntersectionType intersection => SimplifyIntersection(intersection, expand),
+            InstantiatedType instantiated => expand ? Normalize(instantiated.Expand(), true) : type,
+            GenericType generic => Normalize(generic.UnderlyingType, expand),
             IndexedType indexed => ResolveIndex(indexed.Target, indexed.Index) ?? type,
             _ => type
         };
 
-        _simplifyCache.Add(type, simplified);
+        cache.Add(type, simplified);
         return simplified;
     }
 
@@ -42,7 +59,7 @@ public static class TypeSimplifier
         if (index is TypeParameter)
             return null;
 
-        return Simplify(target) is NativelyIndexableType indexable ? indexable.GetTypeAtIndex(index).BodyType?.ValueType : null;
+        return Expanded(target) is NativelyIndexableType indexable ? indexable.GetTypeAtIndex(index).BodyType?.ValueType : null;
     }
 
     private static ObjectType SimplifyObject(ObjectType objectType) =>
@@ -50,10 +67,10 @@ public static class TypeSimplifier
             ? new ArrayType(objectType.Indexer.ValueType, objectType.Indexer.IsMutable)
             : objectType;
 
-    private static Type SimplifyUnion(UnionType union)
+    private static Type SimplifyUnion(UnionType union, bool expand)
     {
         var mergedInstantiations = CollapseGenericInstantiations(union.Types);
-        var flattened = FlattenNestedUnions(mergedInstantiations.ConvertAll(Simplify));
+        var flattened = FlattenNestedUnions(mergedInstantiations.ConvertAll(t => Normalize(t, expand)));
         var collapsed = CollapseBooleanLiterals(flattened);
         var distinct = RemoveDuplicates(collapsed, true);
         var absorbed = ApplyAbsorption(distinct, true);
@@ -70,7 +87,7 @@ public static class TypeSimplifier
         {
             0 => PrimitiveType.None,
             1 => new OptionalType(nonNullable.First()),
-            _ => new OptionalType(SimplifyUnion(new UnionType(nonNullable)))
+            _ => new OptionalType(SimplifyUnion(new UnionType(nonNullable), expand))
         };
     }
 
@@ -90,19 +107,19 @@ public static class TypeSimplifier
         return result;
     }
 
-    private static Type SimplifyIntersection(IntersectionType intersection)
+    private static Type SimplifyIntersection(IntersectionType intersection, bool expand)
     {
-        var flattened = FlattenNestedIntersections(intersection.Types.ConvertAll(Simplify));
+        var flattened = FlattenNestedIntersections(intersection.Types.ConvertAll(t => Normalize(t, expand)));
         var distinct = RemoveDuplicates(flattened, false);
 
         if (distinct.Count == 0 || distinct.Any(Type.IsNever))
             return PrimitiveType.Never;
 
         if (distinct.All(t => t is ObjectType or InterfaceType))
-            return Simplify(MergeObjectTypes(distinct.ToList()));
+            return Normalize(MergeObjectTypes(distinct.ToList(), expand), expand);
 
         if (distinct.Any(t => t is UnionType))
-            return Simplify(DistributeIntersection(distinct));
+            return Normalize(DistributeIntersection(distinct, expand), expand);
 
         var absorbed = ApplyAbsorption(distinct, false);
         if (absorbed.Count > 1 && absorbed.All(t => t is PrimitiveType))
@@ -111,7 +128,7 @@ public static class TypeSimplifier
         return absorbed.Count == 1 ? absorbed.First() : new IntersectionType(absorbed);
     }
 
-    private static Type MergeObjectTypes(List<Type> types)
+    private static Type MergeObjectTypes(List<Type> types, bool expand)
     {
         var propertyDictionary = new Dictionary<string, ObjectProperty>();
         ObjectIndexer? mergedIndexer = null;
@@ -122,7 +139,7 @@ public static class TypeSimplifier
             foreach (var property in objectType.Properties)
                 if (propertyDictionary.TryGetValue(property.Name, out var existing))
                 {
-                    var valueType = Simplify(new IntersectionType([existing.ValueType, property.ValueType]));
+                    var valueType = Normalize(new IntersectionType([existing.ValueType, property.ValueType]), expand);
                     var isMutable = existing.IsMutable && property.IsMutable;
                     propertyDictionary[property.Name] = new ObjectProperty(isMutable, property.Name, valueType);
                 }
@@ -138,8 +155,8 @@ public static class TypeSimplifier
             }
             else
             {
-                var newKeyType = Simplify(new IntersectionType([mergedIndexer.KeyType, objectType.Indexer.KeyType]));
-                var newValueType = Simplify(new IntersectionType([mergedIndexer.ValueType, objectType.Indexer.ValueType]));
+                var newKeyType = Normalize(new IntersectionType([mergedIndexer.KeyType, objectType.Indexer.KeyType]), expand);
+                var newValueType = Normalize(new IntersectionType([mergedIndexer.ValueType, objectType.Indexer.ValueType]), expand);
                 var newIsMutable = mergedIndexer.IsMutable && objectType.Indexer.IsMutable;
                 mergedIndexer = new ObjectIndexer(newIsMutable, newKeyType, newValueType);
             }
@@ -152,7 +169,7 @@ public static class TypeSimplifier
         return new ObjectType(mergedIndexer, properties);
     }
 
-    private static Type DistributeIntersection(List<Type> types)
+    private static Type DistributeIntersection(List<Type> types, bool expand)
     {
         for (var i = 0; i < types.Count; i++)
         {
@@ -164,7 +181,7 @@ public static class TypeSimplifier
 
             var distributed = union.Types
                 .Select(variant => new IntersectionType(new List<Type> { variant }.Concat(rest).ToList()))
-                .Select(Simplify)
+                .Select(t => Normalize(t, expand))
                 .Where(simplified => !Type.IsNever(simplified))
                 .ToList();
 
@@ -250,8 +267,8 @@ public static class TypeSimplifier
     ///     alias into a single instantiation, combining each type-argument position per that parameter's
     ///     variance (union for covariant, intersection for contravariant). Invariant positions block the
     ///     collapse for that group unless every member already agrees on the argument. Must run before
-    ///     each member is individually Simplify()'d, since that eagerly expands InstantiatedType into its
-    ///     structural form and loses the shared generic identity this relies on.
+    ///     each member is individually normalised, since <see cref="Expanded" /> replaces an
+    ///     InstantiatedType with its structural form and loses the shared generic identity this relies on.
     /// </summary>
     private static List<Type> CollapseGenericInstantiations(List<Type> types)
     {

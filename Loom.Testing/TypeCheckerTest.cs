@@ -96,7 +96,12 @@ public class TypeCheckerTest
     public void ThrowsFor_GenericTypeMismatch()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("type Id<T> = T; let x: Id<number> = 'hello'");
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"hello\"' is not assignable to type 'number'.");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "Type '\"hello\"' is not assignable to type 'Id<number>'.\n"
+            + "    Type '\"hello\"' is not assignable to type 'number'."
+        );
     }
 
     /// <remarks>
@@ -1453,7 +1458,7 @@ public class TypeCheckerTest
             """
         );
 
-        var literal = Assert.IsType<LiteralType>(TypeSimplifier.Simplify(type));
+        var literal = Assert.IsType<LiteralType>(TypeSimplifier.Expanded(type));
         Assert.Equal("69", literal.ToString());
     }
 
@@ -1468,7 +1473,7 @@ public class TypeCheckerTest
             """
         );
 
-        Assert.Equal(PrimitiveType.String, TypeSimplifier.Simplify(type));
+        Assert.Equal(PrimitiveType.String, TypeSimplifier.Expanded(type));
     }
 
     [Fact]
@@ -2930,9 +2935,9 @@ public class TypeCheckerTest
             """;
 
         var type = Utility.GetLastStatementType(source);
-        var iface = Assert.IsType<InterfaceType>(type);
+        var iface = Assert.IsType<InterfaceType>(TypeSimplifier.Expanded(type));
         var errorProp = iface.ObjectType.GetProperty("error")!;
-        var optional = Assert.IsType<OptionalType>(TypeSimplifier.Simplify(errorProp.ValueType));
+        var optional = Assert.IsType<OptionalType>(TypeSimplifier.Expanded(errorProp.ValueType));
         Assert.True(optional.NonNullableType.Equals(PrimitiveType.String), $"Expected default 'string', got '{optional.NonNullableType}'");
     }
 
@@ -3007,7 +3012,7 @@ public class TypeCheckerTest
             x
             """;
 
-        var type = Utility.GetLastStatementType(source);
+        var type = TypeSimplifier.Expanded(Utility.GetLastStatementType(source));
         Assert.True(type.Equals(PrimitiveType.Number), $"Expected 'number', got '{type}'");
     }
 
@@ -3142,7 +3147,7 @@ public class TypeCheckerTest
             x
             """;
 
-        var type = Utility.GetLastStatementType(source);
+        var type = TypeSimplifier.Expanded(Utility.GetLastStatementType(source));
         Assert.True(Type.IsUnknown(type), $"Expected 'unknown', got '{type}'");
     }
 
@@ -3155,7 +3160,7 @@ public class TypeCheckerTest
             x
             """;
 
-        var type = Utility.GetLastStatementType(source);
+        var type = TypeSimplifier.Expanded(Utility.GetLastStatementType(source));
         Assert.True(Type.IsNever(type), $"Expected 'never', got '{type}'");
     }
 
@@ -3198,7 +3203,8 @@ public class TypeCheckerTest
             """;
 
         var type = Utility.GetLastStatementType(source);
-        Assert.Equal(PrimitiveType.Number, type);
+        Assert.Equal("Container<number>", type.ToString());
+        Assert.Equal(PrimitiveType.Number, TypeSimplifier.Expanded(type));
     }
 
     [Fact]
@@ -3732,7 +3738,7 @@ public class TypeCheckerTest
             x
             """;
 
-        var type = Utility.GetLastStatementType(source);
+        var type = TypeSimplifier.Expanded(Utility.GetLastStatementType(source));
         var literal = Assert.IsType<LiteralType>(type);
         Assert.Equal(42L, literal.Value);
     }
@@ -4118,6 +4124,58 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_ErrorPropagation_OnResultHeldInVariable()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn get(): Result<number, string> { return Result.ok(1); }
+            fn use_it(): Result<number, string> {
+                let result = get();
+                let value: number = result?;
+                return Result.ok(value);
+            }
+            """
+        );
+
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void Checks_ErrorPropagation_OnAnnotatedResultVariable()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn get(): Result<number, string> { return Result.ok(1); }
+            fn use_it(): Result<number, string> {
+                let result: Result<number, string> = get();
+                let value: number = result?;
+                return Result.ok(value);
+            }
+            """
+        );
+
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    // Regression test for #198: a generic used to arrive at the checker as its body, so a mismatch on one
+    // read as the expansion ('ResultOk | ResultError') rather than as the name the user wrote.
+    [Fact]
+    public void Checks_StoredGeneric_KeepsItsNameInDiagnostics()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn get(): Result<number, string> { return Result.ok(1); }
+            let result = get();
+            let taken: number = result;
+            """
+        );
+
+        var diagnostic = diagnostics.Find(d => d.Code == InternalCodes.TypeMismatch);
+        Assert.NotNull(diagnostic);
+        Assert.Contains("Result<number, string>", diagnostic.Message);
+    }
+
+    [Fact]
     public void ThrowsFor_ErrorPropagation_OnNonResultOperand()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
@@ -4479,7 +4537,7 @@ public class TypeCheckerTest
             x
             """;
 
-        var type = Utility.GetLastStatementType(source);
+        var type = TypeSimplifier.Expanded(Utility.GetLastStatementType(source));
         Assert.True(type.Equals(PrimitiveType.String), $"Expected 'string', got '{type}'");
     }
 
@@ -4779,7 +4837,7 @@ public class TypeCheckerTest
             type EntryKind = Entry<"pi", 3.14> | Entry<"e", 2.71>;
             """;
 
-        var type = Utility.GetLastStatementType(source);
+        var type = TypeSimplifier.Expanded(Utility.GetLastStatementType(source));
         var interfaceType = Assert.IsType<InterfaceType>(type);
 
         var keyUnion = Assert.IsType<UnionType>(interfaceType.GetProperty("key")!.ValueType);
@@ -4797,7 +4855,7 @@ public class TypeCheckerTest
             type S = Sink<number> | Sink<string>;
             """;
 
-        var type = Utility.GetLastStatementType(source);
+        var type = TypeSimplifier.Expanded(Utility.GetLastStatementType(source));
         var interfaceType = Assert.IsType<InterfaceType>(type);
         var acceptType = Assert.IsType<FunctionType>(interfaceType.GetProperty("accept")!.ValueType);
         Assert.True(Type.IsNever(acceptType.ParameterTypes.Single()));
@@ -4811,7 +4869,7 @@ public class TypeCheckerTest
             type B = Box<number> | Box<string>;
             """;
 
-        var type = Utility.GetLastStatementType(source);
+        var type = TypeSimplifier.Expanded(Utility.GetLastStatementType(source));
         var union = Assert.IsType<UnionType>(type);
         Assert.Equal(2, union.Types.Count);
         Assert.All(union.Types, t => Assert.IsType<InterfaceType>(t));
@@ -6177,7 +6235,7 @@ public class TypeCheckerTest
             """;
 
         var result = Utility.AssertNoErrors(Utility.TypeCheck(source));
-        var literal = Assert.IsType<LiteralType>(result.ReturnType);
+        var literal = Assert.IsType<LiteralType>(TypeSimplifier.Expanded(result.ReturnType));
         Assert.Equal(42L, literal.Value);
     }
 
@@ -6292,7 +6350,7 @@ public class TypeCheckerTest
             id([69])
             """;
 
-        var type = Utility.GetLastStatementType(source);
+        var type = TypeSimplifier.Expanded(Utility.GetLastStatementType(source));
         var array = Assert.IsType<ArrayType>(type);
         var primitive = Assert.IsType<PrimitiveType>(array.ElementType);
         Assert.Equal(PrimitiveTypeKind.Number, primitive.Kind);
@@ -7304,7 +7362,8 @@ public class TypeCheckerTest
             """
         );
 
-        var interfaceType = Assert.IsType<InterfaceType>(type);
+        Assert.Equal("Box<number>", type.ToString());
+        var interfaceType = Assert.IsType<InterfaceType>(TypeSimplifier.Expanded(type));
         var property = interfaceType.GetProperty("value");
         Assert.NotNull(property);
         var array = Assert.IsType<ArrayType>(property.ValueType);

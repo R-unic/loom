@@ -351,11 +351,17 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         HashSet<(Type, Type)> visitedPairs) =>
         !parameterIntersection.Types.Where((t, index) => !TryInferTypes(t, argumentIntersection.Types[index], inferredTypes, visitedPairs)).Any();
 
+    // Inference matches shape against shape, so both sides come in expanded - including the type itself,
+    // which Transform only reaches the arguments of. TypeSimplifier.Expanded is what does that now;
+    // Simplify used to, and no longer does, so that a solved type keeps the generic it was written as.
     private static Type ExpandAliases(Type type) =>
-        TypeSolver.Transform(
-            type,
-            candidateType => candidateType is InstantiatedType { GenericType.Declaration: TypeAlias or InterfaceDeclaration } instantiated
-                ? instantiated.Expand()
-                : candidateType
+        TypeSimplifier.Expanded(
+            TypeSolver.Transform(
+                type,
+                candidateType => candidateType is InstantiatedType { GenericType.Declaration: TypeAlias or InterfaceDeclaration } instantiated
+                    ? instantiated.Expand()
+                    : candidateType,
+                simplify: false
+            )
         );
 }

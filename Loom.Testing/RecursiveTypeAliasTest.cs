@@ -97,7 +97,8 @@ public class RecursiveTypeAliasTest
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(prefix + "let c: Result<string, string> = start().and_then(step);"),
             InternalCodes.TypeMismatch,
-            "Type 'ResultOk | ResultError' is not assignable to type 'ResultOk | ResultError'."
+            "Type 'fn(number): Result<number, string>' is not assignable to type 'fn(number): Result<string, string>'.\n"
+            + "    Type 'ResultOk | ResultError' is not assignable to type 'ResultOk | ResultError'."
         );
     }
 }

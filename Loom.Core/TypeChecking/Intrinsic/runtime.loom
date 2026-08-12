@@ -54,9 +54,6 @@ enum FutureStatus: string {
     Rejected = "rejected",
 }
 
-## 'value' is declared in terms of T for a second reason beyond being useful: the solver expands a
-## fully-resolved generic into its body, so a Future held in a variable reaches the type checker as
-## this interface rather than as 'Future<T>', and this member is what carries T across that.
 declare sealed interface Future<T> {
     status: FutureStatus;
     ### The settled value, or 'none' while the future is still pending or if it failed. Reading it

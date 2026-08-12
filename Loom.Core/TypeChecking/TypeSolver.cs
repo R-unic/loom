@@ -154,9 +154,9 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             changed = false;
             foreach (var constraint in _constraints)
             {
-                var resolvedA = Substitute(constraint.Actual);
-                var resolvedB = Substitute(constraint.Expected);
-                var trace = TraceThroughExpansion(constraint.Actual, resolvedA, constraint.Expected, resolvedB, constraint.Trace);
+                var resolvedA = Substitute(constraint.Actual, true);
+                var resolvedB = Substitute(constraint.Expected, true);
+                var trace = TraceThroughExpansion(constraint, resolvedA, resolvedB);
                 if (!TryUnify(resolvedA, resolvedB, constraint.Span, out var updated, trace))
                     return false;
 
@@ -169,13 +169,21 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         return true;
     }
 
-    // Substitute() expands a fully-resolved InstantiatedType (e.g. Box<number>) into its underlying
-    // type before unification ever sees it, so UnifyInstantiatedPair's own trace frame never fires for
-    // that common case. Preserve the generic-level context here instead, before it's lost to expansion.
-    private static TypeMismatchTrace? TraceThroughExpansion(Type originalA, Type resolvedA, Type originalB, Type resolvedB, TypeMismatchTrace? trace) =>
-        originalA is InstantiatedType && originalB is InstantiatedType && resolvedA is not InstantiatedType && resolvedB is not InstantiatedType
-            ? new TypeMismatchTrace(originalA, originalB, trace)
-            : trace;
+    /// <summary>
+    ///     Unification runs on the expanded form (see <see cref="Substitute(Type,bool)" />), so by the time
+    ///     a mismatch is reported both sides read as somebody's structural body rather than as the name
+    ///     they were written under. Recovering the names costs a second substitution, so it is only done
+    ///     once the expansion actually changed something - and the frame it produces is dropped again by
+    ///     <see cref="ReportTypeMismatch" /> if the two sides still render the same.
+    /// </summary>
+    private TypeMismatchTrace? TraceThroughExpansion(TypeConstraint constraint, Type resolvedA, Type resolvedB)
+    {
+        var namedA = Substitute(constraint.Actual, false);
+        var namedB = Substitute(constraint.Expected, false);
+        return ReferenceEquals(namedA, resolvedA) && ReferenceEquals(namedB, resolvedB)
+            ? constraint.Trace
+            : new TypeMismatchTrace(namedA, namedB, constraint.Trace);
+    }
 
     private bool TryUnify(Type a, Type b, LocationSpan span, out bool updated, TypeMismatchTrace? trace = null)
     {
@@ -415,7 +423,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         if (_substitutions.Count == 0) return;
 
         foreach (var nodeId in _nodeTypes.Keys.ToList())
-            _nodeTypes[nodeId] = Substitute(_nodeTypes[nodeId]);
+            _nodeTypes[nodeId] = Substitute(_nodeTypes[nodeId], false);
     }
 
     private static Type SubstituteTypeParameters(Dictionary<TypeParameter, TypeVariable> mapping, Type type) =>
@@ -431,19 +439,27 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
         visited[type] = type;
         // simplify: false, like every other substituter (InstantiatedType.SubstituteTypeParameters,
-        // TypeInferrer.Substitute). Simplifying here rewrites every nested InstantiatedType into its
-        // expansion, which Transform then sees as a change and rebuilds the whole enclosing type around -
-        // so renaming nothing still handed back a structurally identical but freshly allocated graph. On a
-        // self-referential generic that is fatal: TryUnify's visiting set keys on reference identity, so it
-        // met an unseen pair on every level and never terminated.
+        // TypeInferrer.Substitute). Normalising here rewrites nested types Transform then sees as changed
+        // and rebuilds the whole enclosing type around - so renaming nothing still handed back a
+        // structurally identical but freshly allocated graph. On a self-referential generic that is fatal:
+        // TryUnify's visiting set keys on reference identity, so it met an unseen pair on every level and
+        // never terminated.
         var transformed = Transform(type, t => SubstituteTypeParameters(mapping, t, visited), simplify: false);
         visited[type] = transformed;
         return transformed;
     }
 
-    private Type Substitute(Type type) => Substitute(type, new Dictionary<Type, Type>(ReferenceEqualityComparer.Instance));
+    /// <summary>
+    ///     Resolves every type variable in <paramref name="type" /> to what it has been bound to.
+    ///     <paramref name="expand" /> picks which form comes back: the structural one, which unification
+    ///     reasons in, or the named one, which is what a node's solved type is and what every later check
+    ///     reads back. Expanding for both - as substituting through <see cref="TypeSimplifier.Simplify" />
+    ///     used to - is what left a stored generic unrecognisable to '?' and 'await' (#198).
+    /// </summary>
+    private Type Substitute(Type type, bool expand) =>
+        Substitute(type, expand, new Dictionary<Type, Type>(ReferenceEqualityComparer.Instance));
 
-    private Type Substitute(Type type, Dictionary<Type, Type> visitedSubstitutions)
+    private Type Substitute(Type type, bool expand, Dictionary<Type, Type> visitedSubstitutions)
     {
         if (visitedSubstitutions.TryGetValue(type, out var existing))
             return existing;
@@ -457,11 +473,8 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         }
 
         visitedSubstitutions[original] = type;
-        type = Transform(type, t => Substitute(t, visitedSubstitutions), null, false);
-        if (type is InstantiatedType instantiated && instantiated.Arguments.All(a => a is not TypeVariable))
-            type = instantiated.Expand();
-
-        type = TypeSimplifier.Simplify(type);
+        type = Transform(type, t => Substitute(t, expand, visitedSubstitutions), null, false);
+        type = expand ? TypeSimplifier.Expanded(type) : TypeSimplifier.Simplify(type);
         visitedSubstitutions[original] = type;
         return type;
     }
@@ -490,7 +503,13 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 lines.Add(line);
 
         var leaf = $"Type '{a}' is not assignable to type '{b}'.{(info != null ? " " + info : "")}";
-        if (lines.Count == 0 || lines[^1] != leaf)
+
+        // The innermost frame having the same expected type means the leaf only restates it with one side
+        // expanded - 'Future<number>' then 'Future' - and the frame is the more informative of the two.
+        // A frame whose expected type differs (a generic alias against its own body) is still explaining
+        // something, so its leaf stays.
+        var leafRestatesFrame = info == null && lines.Count > 0 && trace != null && trace.OuterExpected.ToString() == b.ToString();
+        if (!leafRestatesFrame && (lines.Count == 0 || lines[^1] != leaf))
             lines.Add(leaf);
 
         var message = string.Join('\n', lines.Select((line, depth) => new string(' ', depth * 4) + line));

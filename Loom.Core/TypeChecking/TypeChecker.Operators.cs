@@ -60,7 +60,9 @@ public sealed partial class TypeChecker
             _ => null!
         };
 
-        var expressionType = _semanticModel.GetType(expression);
+        // Expanded, since what is being asked is whether the member written through is mutable, and a
+        // target written as an instantiation ('ImmutRecord<string, bool>') only has members once expanded.
+        var expressionType = TypeSimplifier.Expanded(_semanticModel.GetType(expression));
         if (expressionType is Types.PrimitiveType { Kind: PrimitiveTypeKind.String })
             expressionType = Intrinsics.StringMembers;
 

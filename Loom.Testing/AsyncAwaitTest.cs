@@ -109,10 +109,8 @@ public class AsyncAwaitTest
         Utility.AssertNoErrors(Utility.GetAnalysisDiagnostics(source));
     }
 
-    // the message says 'Future' rather than 'Future<number>' because the solver has expanded the
-    // instantiation into its body by the time the mismatch is rendered - the same reason a Result-typed
-    // variable renders as 'ResultOk | ResultError'. What is being asserted here is that the call is not
-    // its declared return type; AwaitingAFutureUnwrapsIt covers what is inside.
+    // What is being asserted here is that the call is not its declared return type;
+    // AwaitingAFutureUnwrapsIt covers what is inside.
     [Fact]
     public void CallingAnAsyncFunctionEvaluatesToAFutureRatherThanItsReturnType()
     {
@@ -125,7 +123,7 @@ public class AsyncAwaitTest
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(source),
             InternalCodes.TypeMismatch,
-            "Type 'Future' is not assignable to type 'number'."
+            "Type 'Future<number>' is not assignable to type 'number'."
         );
     }
 
@@ -163,9 +161,8 @@ public class AsyncAwaitTest
         );
     }
 
-    // TypeSolver.Substitute expands a fully-resolved generic into its body, so a future read back out of
-    // a variable arrives as the interface rather than as the instantiation - 'Future.value' is what
-    // carries T across that, and this is the test that says so
+    // a future read back out of a variable used to arrive as the expanded interface rather than as the
+    // instantiation, with the T 'await' hands back already gone - see #198
     [Fact]
     public void AFutureHeldInAVariableCanStillBeAwaited()
     {
@@ -348,7 +345,7 @@ public class AsyncAwaitTest
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(source),
             InternalCodes.TypeMismatch,
-            "Type 'Future' is not assignable to type 'number'."
+            "Type 'Future<number>' is not assignable to type 'number'."
         );
     }
 
@@ -386,7 +383,7 @@ public class AsyncAwaitTest
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(source),
             InternalCodes.UnawaitedFutureAccess,
-            "Cannot access property 'name' on type 'Future' - it belongs to the awaited value, not to the future.",
+            "Cannot access property 'name' on type 'Future<Instance>' - it belongs to the awaited value, not to the future.",
             "write '(await ...).name', or await the call if 'name' is the next step of a chain"
         );
 
@@ -430,6 +427,22 @@ public class AsyncAwaitTest
         );
     }
 
+    // and writing the annotation out does not change the answer - the declared type went through the same
+    // expansion the inferred one did (#198)
+    [Fact]
+    public void AnAnnotatedFutureVariableCanStillBeAwaited()
+    {
+        const string source = """
+            async fn produce(): number { return 1; }
+            async fn consume(): number {
+                let pending: Future<number> = produce();
+                return await pending;
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+    }
+
     // a future that arrived some other way is not a call the fusion collapsed, so it has to actually be
     // waited for before the member exists on it
     [Fact]
@@ -463,7 +476,7 @@ public class AsyncAwaitTest
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(source),
             InternalCodes.UnawaitedFutureAccess,
-            "Cannot access property 'get_full_name' on type 'Future' - it belongs to the awaited value, not to the future.",
+            "Cannot access property 'get_full_name' on type 'Future<Instance>' - it belongs to the awaited value, not to the future.",
             "write '(await ...).get_full_name', or await the call if 'get_full_name' is the next step of a chain"
         );
     }
