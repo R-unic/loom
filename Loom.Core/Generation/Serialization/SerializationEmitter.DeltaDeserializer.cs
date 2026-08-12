@@ -195,8 +195,6 @@ internal sealed partial class SerializationEmitter
         var result = ReserveLocal(leaf);
         statements.Add(new LocalVariable(result, null, new NilLiteral()));
 
-        // Both branches start reading from the same bit - only one runs at a time - so the cursor has to
-        // be rewound between them and left at whichever consumed more, mirroring the write side exactly.
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
 
@@ -229,9 +227,6 @@ internal sealed partial class SerializationEmitter
         var result = ReserveLocal(leaf);
         statements.Add(new LocalVariable(result, null, new NilLiteral()));
 
-        // Every branch below - the full resend, and each variant's recursive read - starts from the same
-        // bit, since only one of them runs at a time; the cursor is rewound before each and left at
-        // whichever consumed the most, mirroring the write side exactly.
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
 
@@ -240,8 +235,6 @@ internal sealed partial class SerializationEmitter
         resend.Add(new ExpressionStatement(new BinaryOperator(new Identifier(result), "=", resendValue)));
         widestBit = Math.Max(widestBit, cursor.BitOffset);
 
-        // The tag itself never went on the wire when unchanged, so it is re-resolved from baseline to
-        // know which variant's fields to recurse into.
         cursor.BitOffset = startBit;
         var unchanged = new List<LuauStatement>();
         var baselineTag = ResolveUnionTag(union, baselineValue, leaf + "_tag_b", unchanged);

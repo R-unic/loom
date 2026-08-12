@@ -25,7 +25,6 @@ internal sealed partial class SerializationEmitter
         {
             body.Add(new ConstVariable(BlobsLocal, null, new PropertyAccess(new Identifier(SerializedParameter), ["blobs"])));
 
-            // A payload may omit the array entirely, and indexing nil would error rather than report.
             body.Add(
                 new IfStatement(
                     new BinaryOperator(new Identifier(BlobsLocal), "==", new NilLiteral()),
@@ -181,8 +180,6 @@ internal sealed partial class SerializationEmitter
         statements.Add(new ConstVariable(local, null, slot));
         statements.Add(new ExpressionStatement(new BinaryOperator(new Identifier(BlobIndexLocal), "+=", _one)));
 
-        // A truncated blobs array and a wrong-typed one are different failures, so they are reported
-        // separately rather than collapsed into a single guard.
         statements.Add(
             new IfStatement(
                 new BinaryOperator(new Identifier(local), "==", new NilLiteral()),
@@ -192,7 +189,6 @@ internal sealed partial class SerializationEmitter
             )
         );
 
-        // 'unknown' admits any value by definition, so there is nothing to check beyond presence.
         if (blobField.TypeofCheck == null)
             return new Identifier(local);
 
@@ -202,7 +198,6 @@ internal sealed partial class SerializationEmitter
             new StringLiteral(blobField.TypeofCheck)
         );
 
-        // typeof only proves it is an Instance; the declared class needs IsA on top.
         if (blobField.InstanceClass != null)
             condition = new BinaryOperator(
                 condition,
@@ -258,7 +253,6 @@ internal sealed partial class SerializationEmitter
         if (NeedsBufferSpace(arrayField.Element))
             cursor.GoDynamic(statements);
 
-        // Zero-width elements consume no buffer, so there is nothing for a bounds check to prove.
         if (arrayField.Element.BodyBytes is > 0 and { } elementBytes)
             statements.Add(
                 new IfStatement(
@@ -273,7 +267,6 @@ internal sealed partial class SerializationEmitter
                 )
             );
 
-        // Claimed before the bodies, exactly as the writer laid it out.
         var bitBase = ReserveElementBits(arrayField.Element.HeaderBits, leaf, count, cursor, statements);
 
         statements.Add(new ConstVariable(leaf, null, Table.Empty));
@@ -448,8 +441,6 @@ internal sealed partial class SerializationEmitter
         var present = new List<LuauStatement>();
         EmitBoundsGuard(present, optionalField.Inner.BodyBytes ?? 0, optionalField.Path);
 
-        // Read as one value, not as a list of initializers: a nested struct contributes one per
-        // property, and assigning them in turn would leave the accumulator holding only the last.
         var inner = EmitRead(optionalField.Inner, cursor, present);
         present.Add(new ExpressionStatement(new BinaryOperator(new Identifier(leaf), "=", inner)));
 

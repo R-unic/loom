@@ -222,8 +222,6 @@ internal sealed partial class SerializationEmitter
     /// </summary>
     private Identifier ResolveUnionTag(UnionField unionField, LuauExpression value, string preferredName, List<LuauStatement> body)
     {
-        // Only the conditions below read it, and a value already held in a local is one of them - an
-        // element the enclosing loop bound, say. Binding it again would name the same thing twice.
         var subject = value;
         if (subject is not Identifier)
         {
@@ -262,8 +260,6 @@ internal sealed partial class SerializationEmitter
             case ConstantField:
                 return;
 
-            // No bit of its own - every element of a flattened struct is always present, so each is
-            // diffed independently rather than gated behind a presence check.
             case TupleField tuple:
                 foreach (var element in tuple.Elements)
                 {
@@ -290,8 +286,6 @@ internal sealed partial class SerializationEmitter
                 EmitMapDiffWrite(map, baselineValue, currentValue, cursor, body);
                 return;
 
-            // Bool, Number, RangedNumber, String, Blob, Datatype, CFrame: a leaf costs one changed bit,
-            // plus a full re-encode through the ordinary writer when it fires.
             default:
                 EmitLeafDiffWrite(field, baselineValue, currentValue, cursor, body);
                 return;
@@ -394,10 +388,6 @@ internal sealed partial class SerializationEmitter
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
 
-        // The resend writes the tag the comparison above already resolved, so it is handed that local
-        // rather than left to run the same chain a second time - inside an array's per-element diff that
-        // duplicate would have been paid per entry. Registered only for the resend: the tag names a local
-        // of this function, and nothing outside the branch it guards may reach for it.
         var resend = new List<LuauStatement>();
         _resolvedTags[union.Path] = currentTag.Name;
         EmitValueWrite(union, currentValue, cursor, resend);
@@ -444,7 +434,6 @@ internal sealed partial class SerializationEmitter
     {
         var leaf = LeafName(array.Path);
 
-        // Read by the comparison below, then again to size the entries' bit block and to bound the loop.
         var count = BindCount(currentValue, leaf, body);
         var changed = ReserveLocal(leaf + "_length_changed");
         body.Add(new ConstVariable(changed, null, new BinaryOperator(Length(baselineValue), "~=", count)));
@@ -455,15 +444,11 @@ internal sealed partial class SerializationEmitter
 
         var unchanged = new List<LuauStatement>();
 
-        // Reserved ahead of the loop's own names: it is declared outside the loop and outlives it.
         var bitBase = ReserveElementBits(array.Element.DiffHeaderBits, leaf, count, cursor, unchanged);
 
         using var elementScope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
 
-        // Bound once per entry, as the ordinary array write already binds its element. A diff reaches for
-        // both sides several times over - a tag, a comparison, then whichever components changed - and
-        // indexing for each of them is a lookup per read on a path that runs per element.
         var elementLeaf = LeafName(array.Element.Path);
         var elementBaseline = new Identifier(ReserveLocal(elementLeaf + "_baseline"));
         var elementCurrent = new Identifier(ReserveLocal(elementLeaf));
@@ -590,7 +575,6 @@ internal sealed partial class SerializationEmitter
         var count = BindCount(new Identifier(keysLocal), keysLocal, body);
         WriteNumber(cursor, map.LengthType, count, body);
 
-        // Claimed before the loop's own names, since it is declared outside the loop and outlives it.
         var bitBase = includeValue && recurseValue
             ? ReserveElementBits(map.DiffEntryBits, leaf + "_entry", count, cursor, body)
             : null;
@@ -601,9 +585,6 @@ internal sealed partial class SerializationEmitter
         var loopBody = new List<LuauStatement> { new ConstVariable(boundKey, null, new ElementAccess(new Identifier(keysLocal), new Identifier(loop))) };
         EmitValueWrite(map.Key, new Identifier(boundKey), cursor, loopBody);
 
-        // The entry itself is bound rather than looked up per read. A key run walks a list of keys, so
-        // unlike the ordinary map write - which iterates pairs and is handed the value - nothing here has
-        // the entry in hand, and every field of it would otherwise re-index the map by a string key.
         if (includeValue && !recurseValue)
         {
             var addedEntry = new Identifier(ReserveLocal(leaf + "_entry"));

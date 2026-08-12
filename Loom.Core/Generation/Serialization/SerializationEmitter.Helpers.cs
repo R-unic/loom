@@ -129,8 +129,6 @@ internal sealed partial class SerializationEmitter
         if (!leaf.Contains('['))
             return leaf;
 
-        // Every bracket group becomes a suffix, not just the first - a nested collection's path carries
-        // one per level, and stopping after one leaves the rest in the name.
         var name = new StringBuilder();
         for (var index = 0; index < leaf.Length;)
         {
@@ -174,8 +172,6 @@ internal sealed partial class SerializationEmitter
             _ => new NilLiteral()
         };
 
-    // Folded here rather than at each site: a zero-width element makes 'count * 0' fall out of the
-    // generic size and bounds expressions, and adding it would cost a multiply on every payload.
     private static LuauExpression Add(LuauExpression left, LuauExpression right) =>
         IsNumber(left, 0) ? right : IsNumber(right, 0) ? left : new BinaryOperator(Operand(left), "+", Operand(right));
 
