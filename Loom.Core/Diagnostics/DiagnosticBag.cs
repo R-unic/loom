@@ -99,9 +99,7 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
     private void Report(Diagnostic diagnostic)
     {
         Set.Add(diagnostic);
-        if (!Options.FailFast || diagnostic.Severity < DiagnosticSeverity.Error) return;
-
-        Console.WriteLine(diagnostic.ToString());
-        Environment.Exit(1);
+        if (diagnostic.Severity >= DiagnosticSeverity.Error)
+            Options.OnFatalError?.Invoke(diagnostic);
     }
 }

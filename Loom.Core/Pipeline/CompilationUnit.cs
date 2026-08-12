@@ -60,7 +60,7 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     ///     process has to survive long enough to raise it.
     /// </summary>
     public DiagnosticOptions DiagnosticOptionsFor(SourceFile file) =>
-        PackageAttributionOf(file) == null ? DiagnosticOptions : DiagnosticOptions with { FailFast = false };
+        PackageAttributionOf(file) == null ? DiagnosticOptions : DiagnosticOptions with { OnFatalError = null };
 
     /// <summary>Every root's ambient declarations, each visible only to the files of the root that declared them.</summary>
     public GlobalSymbols Globals { get; } = new(roots);

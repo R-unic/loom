@@ -41,7 +41,13 @@ static int compile(BuildCommand options, bool watch)
 {
     Console.OutputEncoding = Encoding.UTF8;
 
-    var diagnosticOptions = new DiagnosticOptions { FailFast = !watch, ReportDependencyDiagnostics = options.DependencyDiagnostics };
+    // a one-shot build has nothing left to do once a file fails, so it stops at the first error; a watch
+    // has to stay up and report the next save, so it collects them like any other embedder does
+    var diagnosticOptions = new DiagnosticOptions
+    {
+        OnFatalError = watch ? null : printAndExit, ReportDependencyDiagnostics = options.DependencyDiagnostics
+    };
+
     if (!tryGetConfig(options.Directory, out var config))
         return 1;
 
@@ -55,6 +61,12 @@ static int compile(BuildCommand options, bool watch)
 
     var watcher = new Watcher(diagnosticOptions);
     return watcher.Start(config);
+}
+
+static void printAndExit(Diagnostic diagnostic)
+{
+    Console.WriteLine(diagnostic.ToString());
+    Environment.Exit(1);
 }
 
 static int handleParseError(IEnumerable<Error> errors)
