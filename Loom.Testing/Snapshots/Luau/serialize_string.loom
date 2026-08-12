@@ -4,5 +4,7 @@ interface Player {
     name: string;
 }
 
-let payload = serialize_binary(none as never as Player);
-let restored = deserialize_binary::<Player>(payload);
+fn _trigger_usage(): void {
+    let payload = serialize_binary(none as never as Player);
+    let restored = deserialize_binary::<Player>(payload);
+}
