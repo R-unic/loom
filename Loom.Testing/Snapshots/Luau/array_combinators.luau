@@ -127,3 +127,20 @@ for _, n in _result_8 do
   end
 end
 const flat_any = _found_1
+local _count_7 = 0
+for _, n in numbers do
+  if n > 2 then
+    _count_7 += 1
+  end
+end
+const kept_count = _count_7
+local _count_8 = 0
+for _, _segment_5 in rows do
+  _count_8 += #_segment_5
+end
+const flat_size = _count_8
+const _result_9 = table.create(#numbers)
+for _index_2, n in numbers do
+  _result_9[_index_2] = n * 2
+end
+const mapped_size = #_result_9

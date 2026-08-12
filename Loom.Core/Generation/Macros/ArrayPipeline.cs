@@ -53,7 +53,11 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     private static readonly HashSet<string> _terminals =
         ["select", "where", "aggregate", "any", "all", "count", "to_set", "select_many", "flatten"];
 
-    private readonly record struct Stage(string Name, List<Expression> Arguments)
+    /// <param name="MeasuresOnly">
+    ///     Set where the chain's array is only ever measured, so the terminal counts what it would have
+    ///     appended instead of building the array to ask it how long it is.
+    /// </param>
+    private readonly record struct Stage(string Name, List<Expression> Arguments, bool MeasuresOnly = false)
     {
         /// <summary>Where the callback sits in the argument list, or -1 when the stage takes none.</summary>
         public int CallbackIndex => Name switch
@@ -97,10 +101,38 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         public bool ReadsIndex => Stage.CallbackIndex >= 0 && (Inlined == null || Stage.IndexPosition < Inlined.ParameterNames.Count);
     }
 
-    public bool TryGenerate(Invocation invocation, [MaybeNullWhen(false)] out LuauExpression expression)
+    public bool TryGenerate(Invocation invocation, [MaybeNullWhen(false)] out LuauExpression expression) =>
+        TryGenerate(invocation, minimumStages: 2, measured: false, out expression);
+
+    /// <summary>
+    ///     Rewrites <c>chain.length</c> so the chain counts rather than collects. A filter already visits
+    ///     every element the count needs, and the array it fills is a fresh one nobody else holds, so
+    ///     building it to read <c>#</c> off it is the whole of the wasted work - one allocation and one
+    ///     write per surviving element. Worth claiming even for a single stage, which is why this does not
+    ///     wait for a chain to fuse.
+    /// </summary>
+    /// <remarks>
+    ///     <c>select</c> is deliberately not rewritten. Its length is its source's, but dropping it would
+    ///     drop whatever the transform does, and nothing here can yet say a transform does nothing.
+    /// </remarks>
+    public bool TryGenerateLength(PropertyAccess access, [MaybeNullWhen(false)] out LuauExpression expression)
     {
         expression = null;
-        if (!TryCollectChain(invocation, out var stages, out var sourceExpression))
+
+        return access.Names is [{ IsOptional: false } only]
+            && only.Name.Text.Trim() == "length"
+            && access.Expression is Invocation invocation
+            && semanticModel.GetType(invocation) is ArrayType
+            && TryGenerate(invocation, minimumStages: 1, measured: true, out expression);
+    }
+
+    private bool TryGenerate(Invocation invocation, int minimumStages, bool measured, [MaybeNullWhen(false)] out LuauExpression expression)
+    {
+        expression = null;
+        if (!TryCollectChain(invocation, minimumStages, out var stages, out var sourceExpression))
+            return false;
+
+        if (measured && !TryMeasureTerminal(stages))
             return false;
 
         // Arguments before the receiver, which is the order VisitInvocation evaluates them in. Only a
@@ -164,7 +196,17 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     ///     becomes the source the fused loop reads. A chain whose inner links are not fusable still fuses
     ///     the outer ones and treats the rest as its source, so a partial win is still taken.
     /// </summary>
-    private bool TryCollectChain(Invocation invocation, out List<Stage> stages, out Expression source)
+    /// <summary>Marks the terminal as measured, or answers false where measuring it would drop work.</summary>
+    private static bool TryMeasureTerminal(List<Stage> stages)
+    {
+        if (stages[^1].Name is not ("where" or "select_many" or "flatten"))
+            return false;
+
+        stages[^1] = stages[^1] with { MeasuresOnly = true };
+        return true;
+    }
+
+    private bool TryCollectChain(Invocation invocation, int minimumStages, out List<Stage> stages, out Expression source)
     {
         stages = [];
         var current = invocation;
@@ -198,7 +240,7 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         }
 
         stages.Reverse();
-        return stages.Count >= 2;
+        return stages.Count >= minimumStages;
     }
 
     private bool TryReadStage(
@@ -350,6 +392,12 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     {
         result = null;
         count = null;
+        if (terminal.Stage.MeasuresOnly)
+        {
+            count = Declare(CountName, reserved, name => new LocalVariable(name, null, new NumberLiteral(0)));
+            return count;
+        }
+
         switch (terminal.Stage.Name)
         {
             case "select" or "where":
@@ -410,6 +458,15 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
             case "where":
             {
                 var condition = ApplyCallback(terminal, statements, ref current, position);
+                if (terminal.Stage.MeasuresOnly)
+                {
+                    statements.Add(
+                        new IfStatement(condition, new Chunk([new ExpressionStatement(new BinaryOperator(count!, "+=", new NumberLiteral(1)))]), [], null)
+                    );
+
+                    return;
+                }
+
                 var kept = new List<LuauStatement>();
                 statements.Add(new IfStatement(condition, new Chunk(kept), [], null));
 
@@ -422,12 +479,20 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
             case "select_many":
             {
                 var segment = ApplyCallback(terminal, statements, ref current, position);
-                AppendSegment(state, statements, result!, count!, segment);
+                if (terminal.Stage.MeasuresOnly)
+                    statements.Add(new ExpressionStatement(new BinaryOperator(count!, "+=", new UnaryOperator("#", segment))));
+                else
+                    AppendSegment(state, statements, result!, count!, segment);
+
                 return;
             }
             case "flatten":
             {
-                AppendSegment(state, statements, result!, count!, current);
+                if (terminal.Stage.MeasuresOnly)
+                    statements.Add(new ExpressionStatement(new BinaryOperator(count!, "+=", new UnaryOperator("#", current))));
+                else
+                    AppendSegment(state, statements, result!, count!, current);
+
                 return;
             }
             case "to_set":

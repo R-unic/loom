@@ -158,6 +158,10 @@ public sealed partial class LuauGenerator
 
     public override LuauNode VisitPropertyAccess(PropertyAccess propertyAccess)
     {
+        // Ahead of the receiver being visited, so 'chain.length' can still count instead of collecting.
+        if (_arrayPipeline.TryGenerateLength(propertyAccess, out var measured))
+            return measured;
+
         if (propertyAccess.Names.Exists(n => n.IsOptional))
             return GenerateOptionalChain(
                 propertyAccess,

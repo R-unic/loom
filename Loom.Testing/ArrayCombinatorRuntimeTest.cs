@@ -113,6 +113,53 @@ public class ArrayCombinatorRuntimeTest
     }
 
     /// <summary>
+    ///     A chain that is only measured counts instead of collecting, so the answer has to survive never
+    ///     building the array it used to be read off.
+    /// </summary>
+    [Theory]
+    [InlineData("numbers.where(fn(n) -> n > 2).length", "3")]
+    [InlineData("numbers.where(fn(n) -> n > 9).length", "0")]
+    [InlineData("numbers.select(fn(n) -> n * 2).where(fn(n) -> n > 4).length", "3")]
+    [InlineData("numbers.where(fn(n) -> n > 1).where(fn(n, i) -> i <= 2).length", "2")]
+    [InlineData("numbers.select_many(fn(n) -> [n, n * 10]).length", "10")]
+    [InlineData("numbers.where(fn(n) -> n > 3).select_many(fn(n) -> [n, n * 10]).length", "4")]
+    // 'select' is length-preserving but still has to run, so it keeps collecting.
+    [InlineData("numbers.select(fn(n) -> n * 2).length", "5")]
+    [InlineData("numbers.length", "5")]
+    public void MeasuresWithoutCollecting(string expression, string expected) =>
+        Assert.Equal(expected, Run($"{Numbers}let outcome = {expression};"));
+
+    [Theory]
+    [InlineData("rows.flatten().length", "4")]
+    [InlineData("rows.select_many(fn(r) -> r).length", "4")]
+    [InlineData("rows.flatten().where(fn(n) -> n > 1).length", "3")]
+    [InlineData("rows.where(fn(r) -> r.length > 1).flatten().length", "3")]
+    public void MeasuresAcrossASpread(string expression, string expected) =>
+        Assert.Equal(expected, Run($"let rows = [[1, 2, 3], [4]];\nlet outcome = {expression};"));
+
+    /// <summary>
+    ///     Measuring drops the array, not the work that filled it: the predicate still sees every element.
+    /// </summary>
+    [Fact]
+    public void MeasuringStillRunsTheCallbacks()
+    {
+        const string source = """
+            mut tested = 0;
+
+            fn big(n: number): bool {
+                tested += 1;
+                return n > 2;
+            }
+
+            let numbers = [1, 2, 3, 4, 5];
+            let kept = numbers.where(big).length;
+            let outcome = tested * 10 + kept;
+            """;
+
+        Assert.Equal("53", Run(source));
+    }
+
+    /// <summary>
     ///     Fusing interleaves the stages rather than running each to completion, so a chain of callbacks
     ///     with side effects sees them in a different order than it used to. This pins that down: it is
     ///     the semantics a combinator chain is written against, not an accident of the lowering.
