@@ -20,7 +20,13 @@ public sealed partial class TypeChecker
         var returnType = GetReturnType(functionDeclaration);
         var functionType = BindType(
             functionDeclaration,
-            new Types.FunctionType(typeParameters, parameterTypes, returnType, HasRestParameter(functionDeclaration.Parameters))
+            new Types.FunctionType(
+                typeParameters,
+                parameterTypes,
+                returnType,
+                HasRestParameter(functionDeclaration.Parameters),
+                functionDeclaration.AsyncKeyword != null
+            )
         );
 
         if (functionDeclaration.Body is ExpressionBody body)
@@ -58,7 +64,13 @@ public sealed partial class TypeChecker
         var returnType = GetReturnType(functionExpression);
         var functionType = BindType(
             functionExpression,
-            new Types.FunctionType(typeParameters, parameterTypes, returnType, HasRestParameter(functionExpression.Parameters))
+            new Types.FunctionType(
+                typeParameters,
+                parameterTypes,
+                returnType,
+                HasRestParameter(functionExpression.Parameters),
+                functionExpression.AsyncKeyword != null
+            )
         );
 
         if (functionExpression.Body is ExpressionBody body)
@@ -260,7 +272,8 @@ public sealed partial class TypeChecker
             declareFunctionSignature.TypeParameters?.ParameterList.ConvertAll(VisitTypeParameter) ?? [],
             declareFunctionSignature.Parameters?.ParameterList.ConvertAll(Visit) ?? [],
             Visit(declareFunctionSignature.ReturnType),
-            HasRestParameter(declareFunctionSignature.Parameters)
+            HasRestParameter(declareFunctionSignature.Parameters),
+            declareFunctionSignature.AsyncKeyword != null
         );
     }
 

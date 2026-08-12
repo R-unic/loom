@@ -43,6 +43,7 @@ Declare(
       )
     )
     Attributes: null
+    AsyncKeyword: null
     TypeParameters: null
     Name: Token(Identifier, "foo")
   )
@@ -163,6 +164,7 @@ FunctionDeclaration(
   )
   Parameters: null
   Attributes: null
+  AsyncKeyword: null
   TypeParameters: null
   Name: Token(Identifier, "foo")
 )

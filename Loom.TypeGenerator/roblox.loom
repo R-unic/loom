@@ -12,8 +12,10 @@ declare interface ConsumerEvent<
     T7 = none, 
     T8 = none
 > {
+    ## RBXScriptSignal:Wait() parks the calling thread until the signal fires, so it is asynchronous
+    ## for the same reason a Yields-tagged method is - it just carries no tag to say so.
     [luau_name("Wait"), luau_method]
-    wait: fn: T1;
+    wait: async fn: T1;
 }
 
 declare sealed interface Event<
@@ -113,10 +115,13 @@ declare interface Instance: Object {
 	## timeOut and no second shape, so a single signature both forces the argument and promises a
 	## non-nil T. The docs are explicit that supplying a timeout makes the result nil-able - "this
 	## method will time out after the specified number of seconds and return nil".
+	## Hand-written, so the CanYield tag that makes every other yielding member 'async' does not reach
+	## it - it is spelled out here instead. This is the one member fallible.toml subtracts: it parks
+	## the thread but does not raise, which is exactly what 'async' without 'wraps_errors' says.
 	[luau_name("WaitForChild"), luau_method]
-	wait_for_child: fn<T: Instance>(childName: string): T;
+	wait_for_child: async fn<T: Instance>(childName: string): T;
 	[luau_name("WaitForChild"), luau_method]
-	wait_for_child: fn<T: Instance>(childName: string, timeOut: number): T?;
+	wait_for_child: async fn<T: Instance>(childName: string, timeOut: number): T?;
 }
 
 declare sealed interface buffer;

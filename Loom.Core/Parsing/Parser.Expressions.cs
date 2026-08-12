@@ -83,10 +83,24 @@ public sealed partial class Parser
         return new InterfaceInvocation(keyword, name, typeArguments, body);
     }
 
-    private Expression ParseUnary() =>
-        Match(out var op, SyntaxFacts.IsUnaryOperator)
+    private Expression ParseUnary()
+    {
+        if (Match(out var awaitKeyword, SyntaxKind.AwaitKeyword))
+            return BuildAwait(awaitKeyword, ParseUnary());
+
+        return Match(out var op, SyntaxFacts.IsUnaryOperator)
             ? new UnaryOperator(op, ParseUnary())
             : ParsePostfix();
+    }
+
+    // 'await' takes the whole postfix chain, as it does in JS and C#, so '(await x).y' still needs its
+    // parentheses. A trailing '?' is the one exception: 'await x?' is rebuilt as '(await x)?', because a
+    // Future is never a Result and so the other reading could only ever be an error - and a Roblox API
+    // member that yields usually raises too, which would leave the parenthesised form as the common one.
+    private static Expression BuildAwait(Token keyword, Expression operand) =>
+        operand is ErrorPropagation propagation
+            ? new ErrorPropagation(BuildAwait(keyword, propagation.Expression), propagation.Question)
+            : new Await(keyword, operand);
 
     private Expression ParsePostfix()
     {
@@ -308,6 +322,9 @@ public sealed partial class Parser
     {
         if (Match(out var fnKeyword, SyntaxKind.FnKeyword))
             return ParseFunctionExpression(fnKeyword);
+
+        if (Match(out var asyncKeyword, SyntaxKind.AsyncKeyword))
+            return ParseFunctionExpression(Expect(SyntaxKind.FnKeyword), asyncKeyword);
 
         if (Match(out var matchKeyword, SyntaxKind.MatchKeyword))
             return ParseMatchExpression(matchKeyword);

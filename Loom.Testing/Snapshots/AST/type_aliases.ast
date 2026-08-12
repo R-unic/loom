@@ -221,6 +221,7 @@ TypeAlias(
           Width: null
         )
       )
+      AsyncKeyword: null
     )
   )
   TypeParameters: null
@@ -346,6 +347,7 @@ TypeAlias(
           TypeArguments: null
         )
       )
+      AsyncKeyword: null
     )
   )
   TypeParameters(
@@ -426,6 +428,7 @@ TypeAlias(
           TypeArguments: null
         )
       )
+      AsyncKeyword: null
     )
   )
   TypeParameters: null

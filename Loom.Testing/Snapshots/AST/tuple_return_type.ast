@@ -54,6 +54,7 @@
   )
   Parameters: null
   Attributes: null
+  AsyncKeyword: null
   TypeParameters: null
   Name: Token(Identifier, "returns_tuple")
 )

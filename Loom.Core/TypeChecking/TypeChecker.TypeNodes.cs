@@ -33,7 +33,8 @@ public sealed partial class TypeChecker
                 functionType.TypeParameters?.ParameterList.ConvertAll(VisitTypeParameter) ?? [],
                 functionType.Parameters?.ParameterList.ConvertAll(Visit) ?? [],
                 Visit(functionType.ReturnType),
-                HasRestParameter(functionType.Parameters)
+                HasRestParameter(functionType.Parameters),
+                functionType.AsyncKeyword != null
             )
         );
 

@@ -106,7 +106,8 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 functionType.TypeParameters,
                 functionType.ParameterTypes.ConvertAll(Map),
                 Map(functionType.ReturnType),
-                functionType.HasRestParameter
+                functionType.HasRestParameter,
+                functionType.IsAsync
             ),
             TypePredicateType predicate => new TypePredicateType(predicate.ParameterIndex, Map(predicate.TargetType)),
             GenericType genericType => new GenericType(
@@ -356,9 +357,13 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
     private bool UnifyFunctionTypes(FunctionType a, FunctionType b, LocationSpan span, out bool updated, TypeMismatchTrace? trace)
     {
         updated = false;
+
+        // unification has to answer the same question IsAssignableTo does, or a call site would accept
+        // through inference what a declared type rejects
         if (a.TypeParameters.Count != b.TypeParameters.Count
             || a.RequiredParameterTypes.Count < b.RequiredParameterTypes.Count
-            || a.ParameterTypes.Count > b.ParameterTypes.Count)
+            || a.ParameterTypes.Count > b.ParameterTypes.Count
+            || a.IsAsync != b.IsAsync)
             return ReportTypeMismatch(a, b, span, trace: trace);
 
         var success = true;

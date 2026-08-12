@@ -168,7 +168,7 @@ internal sealed class ClassGenerator(
         var (snakeName, attributes) = GetMemberAttributes(name, attributeList);
 
         WriteMetadata(description, attributes);
-        Write($"{snakeName}: fn{parameterList}: {returnType};");
+        Write($"{snakeName}: {(Yields(function) ? "async " : "")}fn{parameterList}: {returnType};");
     }
 
     internal void GenerateCallback(Callback callback, Class rbxClass)
@@ -181,6 +181,18 @@ internal sealed class ClassGenerator(
         WriteMetadata(description, attributes);
         Write($"mut {snakeName}: fn{parameterList}: {returnType};");
     }
+
+    /// <summary>
+    ///     Whether calling this yields the caller's thread, which makes the member 'async fn' and its callers
+    ///     'await' it.
+    /// </summary>
+    /// <remarks>
+    ///     Read straight off the dump, with no override list of the kind <see cref="FallibilityClassifier" />
+    ///     needs. Roblox publishes nothing that says "throws", so fallibility has to be inferred from these
+    ///     same tags and corrected by hand - but the tags say exactly this, so here they are the answer
+    ///     rather than a proxy for one.
+    /// </remarks>
+    private static bool Yields(Function function) => ClassUtility.HasTag(function, "Yields") || ClassUtility.HasTag(function, "CanYield");
 
     private static List<string>? DeprecationAttributes(MemberBase member) =>
         ClassUtility.HasTag(member, "Deprecated") ? ["deprecated"] : null;

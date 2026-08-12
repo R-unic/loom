@@ -103,6 +103,7 @@ ExportDeclaration(
             )
           )
           Attributes: null
+          AsyncKeyword: null
           TypeParameters: null
           Name: Token(Identifier, "draw")
         )

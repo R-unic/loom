@@ -1,0 +1,16 @@
+async fn identity(n: number): number -> n;
+
+## Order of construction, not order of settlement: 'second' starts while 'first' is still in flight,
+## and the two results still come back in the order they are read.
+async fn sum_of(a: number, b: number): number {
+    let first = identity(a);
+    let second = identity(b);
+    return await first + await second;
+}
+
+async fn all_of(a: number, b: number, c: number): number[] -> await Future.all([identity(a), identity(b), identity(c)]);
+
+async fn first_of(a: number, b: number): number -> await Future.race([identity(a), identity(b)]);
+
+## Already settled, so awaiting it never parks the caller.
+async fn settled(n: number): number -> await Future.resolved(n);

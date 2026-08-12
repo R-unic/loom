@@ -159,7 +159,14 @@ public sealed partial class TypeChecker
             }
 
             var indexType = new Types.LiteralType(name.Name.Text);
-            type = IndexType(accessExpression, type, indexType, $"Cannot access property '{indexType.Value}' on type '{type}'.");
+
+            // reading a member off a call nobody awaited is the common shape of this mistake, and 'await'
+            // takes the whole postfix chain (as in JS), so the fix is parentheses rather than reordering
+            var notFound = IsFutureType(accessExpression, type)
+                ? $"Cannot access property '{indexType.Value}' on type '{type}' - it belongs to the awaited value, not to the future. Write '(await ...).{indexType.Value}'."
+                : $"Cannot access property '{indexType.Value}' on type '{type}'.";
+
+            type = IndexType(accessExpression, type, indexType, notFound);
             if (Type.IsNever(type))
                 return type;
         }

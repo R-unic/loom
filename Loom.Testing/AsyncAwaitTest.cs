@@ -1,0 +1,340 @@
+using Loom.Core.Diagnostics;
+using Loom.Core.Parsing.AST;
+using Loom.Core.TypeChecking.Types;
+using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
+using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
+
+namespace Loom.Testing;
+
+[Collection("Assembly")]
+public class AsyncAwaitTest
+{
+    [Fact]
+    public void AnAsyncFunctionDeclarationCarriesItsModifier()
+    {
+        var tree = Utility.GetAST("async fn f(): number -> 1;");
+
+        var declaration = Assert.IsType<FunctionDeclaration>(Assert.Single(tree.Statements));
+        Assert.NotNull(declaration.AsyncKeyword);
+        Assert.Equal("async", declaration.AsyncKeyword.Text);
+    }
+
+    [Fact]
+    public void AsyncIsAcceptedWhereverAFunctionCanBegin()
+    {
+        Utility.AssertNoErrors(Utility.GetParserDiagnostics("export async fn f(): number -> 1;"));
+        Utility.AssertNoErrors(Utility.GetParserDiagnostics("let f = async fn(): number -> 1;"));
+        Utility.AssertNoErrors(Utility.GetParserDiagnostics("let f: async fn(): number = async fn(): number -> 1;"));
+        Utility.AssertNoErrors(Utility.GetParserDiagnostics("declare async fn f(): number;"));
+        Utility.AssertNoErrors(Utility.GetParserDiagnostics("[fallible] async fn f(): number -> 1;"));
+    }
+
+    [Fact]
+    public void AsyncWithoutAFunctionIsReported()
+    {
+        var diagnostics = Utility.GetParserDiagnostics("async let x = 1;");
+        Assert.Contains(diagnostics.Set, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    // 'await x?' has to mean '(await x)?': a Future is never a Result, so the other reading could only
+    // ever be an error, and a Roblox member that yields usually raises too.
+    [Fact]
+    public void ErrorPropagationBindsOutsideAnAwait()
+    {
+        var tree = Utility.GetAST("async fn f(): number { let v = await g()?; }");
+        var body = Assert.IsType<Block>(Assert.IsType<FunctionDeclaration>(Assert.Single(tree.Statements)).Body);
+        var declaration = Assert.IsType<VariableDeclaration>(body.Statements[0]);
+
+        var propagation = Assert.IsType<ErrorPropagation>(declaration.EqualsValueClause?.Value);
+        Assert.IsType<Await>(propagation.Expression);
+    }
+
+    // everything other than '?' follows JS: the operand is the whole postfix chain, so reading a member
+    // off an awaited value still takes parentheses
+    [Fact]
+    public void AwaitTakesTheWholePostfixChain()
+    {
+        var tree = Utility.GetAST("async fn f(): number { let v = await g().h; }");
+        var body = Assert.IsType<Block>(Assert.IsType<FunctionDeclaration>(Assert.Single(tree.Statements)).Body);
+        var declaration = Assert.IsType<VariableDeclaration>(body.Statements[0]);
+
+        var await = Assert.IsType<Await>(declaration.EqualsValueClause?.Value);
+        Assert.IsType<PropertyAccess>(await.Expression);
+    }
+
+    [Fact]
+    public void AwaitingInsideANonAsyncFunctionIsReported()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            fn caller(): number {
+                return await load();
+            }
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetAnalysisDiagnostics(source),
+            InternalCodes.AwaitOutsideAsyncFunction,
+            "'await' can only be used inside an 'async' function, and 'caller' is not one."
+        );
+    }
+
+    [Fact]
+    public void AwaitingAtModuleScopeIsReported()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            let value = await load();
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetAnalysisDiagnostics(source),
+            InternalCodes.AwaitOutsideAsyncFunction,
+            "'await' can only be used inside an 'async' function."
+        );
+    }
+
+    // an anonymous function has no signature for 'async' to appear on and no caller to propagate to -
+    // an event handler runs on a thread Roblox owns and is free to yield
+    [Fact]
+    public void AwaitingInsideAFunctionExpressionIsAllowed()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            let handler = fn(): number -> await load();
+            """;
+
+        Utility.AssertNoErrors(Utility.GetAnalysisDiagnostics(source));
+    }
+
+    // the message says 'Future' rather than 'Future<number>' because the solver has expanded the
+    // instantiation into its body by the time the mismatch is rendered - the same reason a Result-typed
+    // variable renders as 'ResultOk | ResultError'. What is being asserted here is that the call is not
+    // its declared return type; AwaitingAFutureUnwrapsIt covers what is inside.
+    [Fact]
+    public void CallingAnAsyncFunctionEvaluatesToAFutureRatherThanItsReturnType()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            fn caller(): number -> load();
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(source),
+            InternalCodes.TypeMismatch,
+            "Type 'Future' is not assignable to type 'number'."
+        );
+    }
+
+    [Fact]
+    public void AwaitingAFutureUnwrapsIt()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            async fn caller(): string {
+                return await load();
+            }
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(source),
+            InternalCodes.TypeMismatch,
+            "Type 'number' is not assignable to type 'string'."
+        );
+    }
+
+    [Fact]
+    public void AwaitingSomethingThatIsNotAFutureIsReported()
+    {
+        const string source = """
+            async fn caller(): number {
+                return await 1;
+            }
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(source),
+            InternalCodes.AwaitRequiresFuture,
+            "'await' can only be used on a 'Future<T>', but got '1'."
+        );
+    }
+
+    // TypeSolver.Substitute expands a fully-resolved generic into its body, so a future read back out of
+    // a variable arrives as the interface rather than as the instantiation - 'Future.value' is what
+    // carries T across that, and this is the test that says so
+    [Fact]
+    public void AFutureHeldInAVariableCanStillBeAwaited()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            async fn caller(): string {
+                let pending = load();
+                return await pending;
+            }
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(source),
+            InternalCodes.TypeMismatch,
+            "Type 'number' is not assignable to type 'string'."
+        );
+    }
+
+    [Fact]
+    public void PropagatingThroughAnUnawaitedCallIsReported()
+    {
+        const string source = """
+            async fn load(): Result<number, string> -> Result.ok(1);
+
+            async fn caller(): Result<number, string> {
+                let value = load()?;
+                return Result.ok(value);
+            }
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(source),
+            InternalCodes.UnawaitedFutureAccess,
+            "The '?' operator cannot be used on 'Future<Result<number, string>>' - the Result is inside the future, not on it.",
+            "await the call first: 'await expression?' already means '(await expression)?'"
+        );
+    }
+
+    [Fact]
+    public void AnAsyncFunctionIsNotAssignableWhereASynchronousOneIsExpected()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            fn take(compute: fn(): number): number -> compute();
+
+            let n = take(load);
+            """;
+
+        Assert.Contains(
+            Utility.GetTypeCheckerDiagnostics(source).Set,
+            diagnostic => diagnostic.Code == InternalCodes.TypeMismatch
+        );
+    }
+
+    [Fact]
+    public void AsyncnessIsPartOfTheFunctionType()
+    {
+        var asynchronous = new FunctionType([], [], PrimitiveType.Number, false, true);
+        var synchronous = new FunctionType([], [], PrimitiveType.Number);
+
+        Assert.False(asynchronous.Equals(synchronous));
+        Assert.False(synchronous.Equals(asynchronous));
+        Assert.False(asynchronous.IsAssignableTo(synchronous));
+        Assert.False(synchronous.IsAssignableTo(asynchronous));
+        Assert.Equal("async fn(): number", asynchronous.ToString());
+        Assert.Equal("fn(): number", synchronous.ToString());
+    }
+
+    [Fact]
+    public void AnUnawaitedCallBuildsAFutureAndAnAwaitedOneDoesNot()
+    {
+        const string source = """
+            async fn load(key: string): number -> 1;
+
+            async fn caller(): number {
+                let pending = load("a");
+                return await load("b") + await pending;
+            }
+            """;
+
+        var luau = Utility.GetLuauAST(source, true).Render();
+
+        Assert.Contains("Loom.future(load, \"a\")", luau, StringComparison.Ordinal);
+        Assert.Contains("load(\"b\")", luau, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loom.future(load, \"b\")", luau, StringComparison.Ordinal);
+        Assert.Contains("Loom.await(pending)", luau, StringComparison.Ordinal);
+    }
+
+    // a yielding Roblox member is 'async fn' like any other, so an awaited call is the plain Luau call
+    // and an unawaited one is spawned with its receiver passed explicitly
+    [Fact]
+    public void AYieldingRobloxMemberLowersLikeAnyOtherAsyncCall()
+    {
+        const string source = """
+            async fn find(instance: Instance): Instance {
+                return await instance.wait_for_child("Torso");
+            }
+
+            fn later(instance: Instance): void {
+                let pending = instance.wait_for_child("Torso");
+            }
+            """;
+
+        var luau = Utility.GetLuauAST(source, true).Render();
+
+        Assert.Contains("instance:WaitForChild(\"Torso\")", luau, StringComparison.Ordinal);
+        Assert.Contains("Loom.future(", luau, StringComparison.Ordinal);
+    }
+
+    // 'await …?' on a member that both yields and raises should emit neither a future nor a Result: the
+    // await fuses into the call and the '?' fuses into the xpcall
+    [Fact]
+    public void AwaitingAndPropagatingAFallibleYieldingMemberAllocatesNeither()
+    {
+        const string source = """
+            let data_store_service = get_service::<DataStoreService>();
+
+            async fn load(key: string): Result<unknown, RobloxError> {
+                let store = data_store_service.get_data_store("players")?;
+                let value = await store.get_async(key)?;
+                return Result.ok(value);
+            }
+            """;
+
+        var luau = Utility.GetLuauAST(source, true).Render();
+
+        Assert.Contains("xpcall(store.GetAsync, Loom.roblox_error, store, key)", luau, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loom.future", luau, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loom.await", luau, StringComparison.Ordinal);
+    }
+
+    // a member that both yields and raises, started without being awaited: the xpcall has to happen on the
+    // future's own thread, so the raise becomes the Result its type already promises instead of rejecting
+    [Fact]
+    public void StartingAFallibleYieldingMemberWithoutAwaitingItWrapsOnItsOwnThread()
+    {
+        const string source = """
+            let data_store_service = get_service::<DataStoreService>();
+
+            [fallible]
+            fn start(key: string): void {
+                let store = data_store_service.get_data_store("players").unwrap();
+                let pending = store.get_async(key);
+            }
+            """;
+
+        var luau = Utility.GetLuauAST(source, true).Render();
+
+        Assert.Contains("Loom.future_wrapped(", luau, StringComparison.Ordinal);
+        Assert.Contains(".GetAsync", luau, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheFutureStaticsRouteToTheRuntime()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            async fn caller(): number[] {
+                return await Future.all([load(), load()]);
+            }
+            """;
+
+        var luau = Utility.GetLuauAST(source, true).Render();
+
+        Assert.Contains("Loom.future_all(", luau, StringComparison.Ordinal);
+        Assert.Contains("Loom.await(", luau, StringComparison.Ordinal);
+    }
+}

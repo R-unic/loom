@@ -91,6 +91,9 @@ public sealed partial class Parser
         if (Match(out var fnKeyword, SyntaxKind.FnKeyword))
             return ParseFunctionType(fnKeyword);
 
+        if (Match(out var asyncKeyword, SyntaxKind.AsyncKeyword))
+            return ParseFunctionType(Expect(SyntaxKind.FnKeyword), asyncKeyword);
+
         if (Match(out var leftParen, SyntaxKind.LParen))
             return ParseParenthesizedType(leftParen);
 
@@ -122,7 +125,7 @@ public sealed partial class Parser
         return new PrimitiveType(new Token(SyntaxKind.Identifier, typeName.LocationSpan, "unknown"));
     }
 
-    private TypeExpression ParseFunctionType(Token fnKeyword)
+    private TypeExpression ParseFunctionType(Token fnKeyword, Token? asyncKeyword = null)
     {
         var typeParameters = ParseTypeParameters();
         var parameters = ParseParameters();
@@ -135,7 +138,7 @@ public sealed partial class Parser
             ))
             return new NullTypeExpression(fnKeyword);
 
-        return new FunctionType(fnKeyword, typeParameters, parameters, returnType);
+        return new FunctionType(fnKeyword, typeParameters, parameters, returnType, asyncKeyword);
     }
 
     private TypeExpression ParseParenthesizedType(Token leftParen)

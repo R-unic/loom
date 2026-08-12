@@ -56,6 +56,7 @@ Implement(
           ParameterList: []
         )
         Attributes: null
+        AsyncKeyword: null
         TypeParameters: null
         Name: Token(Identifier, "next")
       )
@@ -89,6 +90,7 @@ Implement(
           ParameterList: []
         )
         Attributes: null
+        AsyncKeyword: null
         TypeParameters: null
         Name: Token(Identifier, "a")
       )
@@ -126,6 +128,7 @@ Implement(
           ]
         )
         Attributes: null
+        AsyncKeyword: null
         TypeParameters: null
         Name: Token(Identifier, "b")
       )

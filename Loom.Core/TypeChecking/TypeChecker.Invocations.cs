@@ -55,6 +55,12 @@ public sealed partial class TypeChecker
             return BindType(invocation, Types.PrimitiveType.Never);
         }
 
+        // calling an 'async fn' starts it and hands back the future it settles, so the call is typed as a
+        // Future over the declared return type rather than as the return type itself - 'await' is what
+        // takes the value back out
+        if (IsAsyncCallee(type) && !Type.IsNever(resultType))
+            resultType = BindType(invocation, InstantiateFutureType(invocation, resultType));
+
         return isOptionalChainCallee && !Type.IsNever(resultType)
             ? BindType(invocation, TypeSimplifier.Simplify(new Types.UnionType([resultType, Types.PrimitiveType.None])))
             : resultType;

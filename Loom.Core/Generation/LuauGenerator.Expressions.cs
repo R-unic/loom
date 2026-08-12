@@ -55,7 +55,11 @@ public sealed partial class LuauGenerator
         if (_semanticModel.GetType(invocation.Expression) is InstantiatedType { GenericType.UnderlyingType: InterfaceType { Name: "Event" } })
             return new Call(new Luau.AST.PropertyAccess(callee, ["Fire"]), arguments, true);
 
-        if (_semanticModel.TryGetIntrinsicAttribute(invocation.Expression, "wraps_errors", out _))
+        var wrapsErrors = _semanticModel.TryGetIntrinsicAttribute(invocation.Expression, "wraps_errors", out _);
+        if (IsAsyncInvocation(invocation) && !IsFusedAwaitedCall(invocation))
+            return GenerateFutureCall(invocation, callee, arguments, wrapsErrors);
+
+        if (wrapsErrors)
             return GenerateWrappedCall(callee, arguments);
 
         var call = new Call(callee, arguments, IsMethodReference(invocation.Expression));
@@ -89,6 +93,12 @@ public sealed partial class LuauGenerator
     private bool TryGeneratePropagatedWrappedCall(Expression expression, [MaybeNullWhen(false)] out LuauExpression value)
     {
         value = null;
+
+        // 'await call()?' is the shape every fallible yielding Roblox member is used in, and the await
+        // fuses away into the call, so this fusion has to look straight through it to find the call
+        if (expression is Await { Expression: Invocation awaited } && IsFusedAwaitedCall(awaited))
+            expression = awaited;
+
         if (expression is not Invocation invocation || !_semanticModel.TryGetIntrinsicAttribute(invocation.Expression, "wraps_errors", out _))
             return false;
 
