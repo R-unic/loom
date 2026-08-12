@@ -1,6 +1,7 @@
 using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Pipeline;
+using Loom.Core.Text;
 
 namespace Loom.Testing;
 
@@ -94,6 +95,24 @@ public class CompilerTest
         Assert.NotNull(compiledFile);
         Assert.Same(options, compiledFile.Diagnostics.Options);
         Assert.Same(options, compiledFile.SemanticModel.Diagnostics.Options);
+    }
+
+    /// <remarks>
+    ///     What a host with no source directory to read needs: the playground compiles a buffer it already
+    ///     holds, so handing the unit its files is the only way in.
+    /// </remarks>
+    [Fact]
+    public void Compiles_TheSourceFiles_ItWasHanded()
+    {
+        var config = new LoomConfig { ProjectDirectory = string.Empty, NoEmit = true };
+        var sourceFile = new SourceFile(Path.Combine("src", "playground.loom"), "let x = 1;");
+        var compilationUnit = new CompilationUnit(config, [sourceFile]);
+
+        Assert.Equal([sourceFile], compilationUnit.SourceFiles);
+
+        var result = compilationUnit.Compile();
+        Utility.AssertNoErrors(result.Diagnostics);
+        Assert.NotEmpty(result.Files);
     }
 
     /// <remarks>

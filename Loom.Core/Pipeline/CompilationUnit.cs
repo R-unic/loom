@@ -17,6 +17,17 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     {
     }
 
+    /// <summary>
+    ///     A unit spanning one project whose files <paramref name="sourceFiles" /> supplies rather than
+    ///     <paramref name="config" />'s source directory. For a host compiling text it already holds — the
+    ///     playground compiles a buffer, and has no directory to read. <see cref="SourceFiles" /> stays the
+    ///     read-only view of what the unit ended up spanning.
+    /// </summary>
+    public CompilationUnit(LoomConfig config, IEnumerable<SourceFile> sourceFiles, DiagnosticOptions? diagnosticOptions = null)
+        : this(new SourceRootSet(new SourceRoot(config, sourceFiles)), diagnosticOptions)
+    {
+    }
+
     /// <summary>Every project this unit compiles, the entry project first.</summary>
     public SourceRootSet Roots { get; } = roots;
 
