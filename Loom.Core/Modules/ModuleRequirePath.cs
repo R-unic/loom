@@ -25,8 +25,6 @@ public enum ModuleRequirePathStatus
 /// </remarks>
 public sealed record ModuleRequirePath(ModuleRequirePathStatus Status, string Path)
 {
-    public bool IsFallback => Status != ModuleRequirePathStatus.Resolved;
-
     /// <summary>
     ///     The package the require reaches into, set only on a fallback that crosses a project boundary. The
     ///     fallback stands in for nothing there — the two projects' output has no fixed position relative to

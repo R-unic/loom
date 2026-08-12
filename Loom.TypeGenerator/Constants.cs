@@ -188,20 +188,10 @@ internal static class Constants
         ["StarterGui"] = new Dictionary<string, Security> { ["ShowDevelopmentGui"] = new() { Read = "PluginSecurity", Write = "PluginSecurity" } }
     };
 
-    public static readonly Dictionary<string, List<string>> ExpectedExtraMembers = new()
-    {
-        { "Player", ["Name"] },
-        { "ValueBase", ["Value", "Changed"] },
-        { "DataStore", ["GetAsync", "IncrementAsync", "SetAsync", "UpdateAsync", "RemoveAsync"] },
-        { "OrderedDataStore", ["GetAsync", "IncrementAsync", "SetAsync", "UpdateAsync", "RemoveAsync"] }
-    };
-
     public static readonly Dictionary<string, string> RenamableAutoTypes = new()
     {
         { "Part", "BasePart" }, { "Script", "LuaSourceContainer" }, { "Character", "Model" }, { "Input", "InputObject" }
     };
-
-    // public static readonly Dictionary<string, string> PropertyTypeMap = new();
 
     public static readonly Dictionary<string, string> ValueTypeMap = new()
     {

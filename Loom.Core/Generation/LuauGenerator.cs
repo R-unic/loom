@@ -31,13 +31,13 @@ public sealed partial class LuauGenerator
     private readonly Dictionary<Is, LuauExpression> _isSubjects = [];
     private readonly Lazy<HashSet<(EventTarget Target, Symbol Function)>> _localSafeConnections;
 
-    /// <summary>Buffer library members the file's serializers touched, hoisted into constants in <see cref="Generate" />.</summary>
     private readonly MacroExpander _macroExpander;
     private readonly ModuleImportExportGenerator _moduleGenerator;
-    // private readonly ModuleRequirePathResolver? _moduleRequirePaths;
     private readonly RuntimeImport _runtimeImport;
     private readonly SemanticModel _semanticModel;
     private readonly LuauState _state = new();
+
+    /// <summary>Buffer library members the file's serializers touched, hoisted into constants in <see cref="Generate" />.</summary>
     private readonly List<string> _bufferMembers = [];
     private readonly List<LuauStatement> _serializerStatements = [];
 
@@ -47,7 +47,6 @@ public sealed partial class LuauGenerator
         _semanticModel = semanticModel;
         _diagnostics = new DiagnosticBag(options: semanticModel.Diagnostics.Options);
         _runtimeImport = runtimeImport ?? RuntimeImport.Default;
-        // _moduleRequirePaths = moduleRequirePaths;
         _macroExpander = new MacroExpander(semanticModel, _state, _diagnostics);
         _moduleGenerator = new ModuleImportExportGenerator(semanticModel, _diagnostics, moduleRequirePaths);
         _localSafeConnections = new Lazy<HashSet<(EventTarget Target, Symbol Function)>>(
@@ -212,5 +211,5 @@ public sealed partial class LuauGenerator
     private LuauExpression Visit(Expression node) => node.Accept(this) as LuauExpression ?? new NilLiteral();
     private LuauStatement Visit(Statement node) => node.Accept(this) as LuauStatement ?? new NoOpStatement();
 
-    private static LuauType UnknownType => new Luau.AST.TypeName("unknown");
+    private static LuauType UnknownType => Luau.AST.PrimitiveType.Unknown;
 }
