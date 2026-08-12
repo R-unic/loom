@@ -67,7 +67,7 @@ public sealed partial class Resolver
         }
 
         return firstScope == null
-            || firstScope.VariableLookup.Values.SelectMany(symbols => symbols).All(symbol => DeclareVariable(symbol.Declaration, symbol));
+            || firstScope.Lookup(SymbolNamespace.Value).Values.SelectMany(symbols => symbols).All(symbol => DeclareVariable(symbol.Declaration, symbol));
     }
 
     public override bool VisitAndPattern(AndPattern andPattern) => Visit(andPattern.Pattern) && Visit(andPattern.Guard);

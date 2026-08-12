@@ -9,14 +9,7 @@ public sealed partial class Resolver
 {
     public override bool VisitFunctionDeclaration(FunctionDeclaration functionDeclaration)
     {
-        var scope = CurrentScope();
         var name = functionDeclaration.Name.Text;
-        if (scope.VariableLookup.ContainsKey(name))
-        {
-            _diagnostics.Error(functionDeclaration, InternalCodes.DuplicateName, $"Variable '{name}' is already declared in this scope.");
-            return false;
-        }
-
         if (!DeclareVariable(functionDeclaration, new FunctionSymbol(functionDeclaration, name)))
             return false;
 

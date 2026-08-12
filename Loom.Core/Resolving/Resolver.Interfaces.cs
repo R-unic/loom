@@ -327,7 +327,7 @@ public sealed partial class Resolver
     {
         var scope = CurrentScope();
         var name = traitDeclaration.Name.Text;
-        if (scope.TypeLookup.TryGetValue(name, out var symbols))
+        if (scope.Lookup(SymbolNamespace.Type).TryGetValue(name, out var symbols))
         {
             if (IsAlreadyHoisted(traitDeclaration, symbols))
                 return true;
@@ -345,7 +345,7 @@ public sealed partial class Resolver
     {
         var scope = CurrentScope();
         var name = interfaceDeclaration.Name.Text;
-        if (scope.TypeLookup.TryGetValue(name, out var symbols))
+        if (scope.Lookup(SymbolNamespace.Type).TryGetValue(name, out var symbols))
         {
             if (IsAlreadyHoisted<InterfaceSymbol>(interfaceDeclaration, symbols, out var interfaceSymbol))
                 return interfaceSymbol;
