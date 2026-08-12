@@ -112,6 +112,59 @@ public class ArrayCombinatorRuntimeTest
         Assert.Equal("553", Run(source));
     }
 
+    /// <summary>
+    ///     Fusing interleaves the stages rather than running each to completion, so a chain of callbacks
+    ///     with side effects sees them in a different order than it used to. This pins that down: it is
+    ///     the semantics a combinator chain is written against, not an accident of the lowering.
+    /// </summary>
+    [Fact]
+    public void StagesInterleaveRatherThanRunningOneAtATime()
+    {
+        const string source = """
+            mut trace = "";
+
+            fn twice(n: number): number {
+                trace += "m";
+                return n * 2;
+            }
+
+            fn big(n: number): bool {
+                trace += "t";
+                return n > 2;
+            }
+
+            let numbers = [1, 2];
+            let kept = numbers.select(twice).where(big).length;
+            let outcome = trace;
+            """;
+
+        Assert.Equal("mtmt", Run(source));
+    }
+
+    /// <summary>
+    ///     And a terminal that stops early now stops the stages above it too, so a mapping callback runs
+    ///     only for the elements the answer actually depended on.
+    /// </summary>
+    [Fact]
+    public void AShortCircuitingTerminalStopsTheStagesAboveIt()
+    {
+        const string source = """
+            mut mapped = 0;
+
+            fn twice(n: number): number {
+                mapped += 1;
+                return n * 2;
+            }
+
+            let numbers = [1, 2, 3, 4, 5];
+            let found = numbers.select(twice).any(fn(n) -> n > 2);
+            let outcome = mapped;
+            """;
+
+        // Stops at the second element, rather than mapping all five and then looking.
+        Assert.Equal("2", Run(source));
+    }
+
     private static string Run(string source)
     {
         var luau = Utility.GetLuauAST(source, typeCheck: true).Render().Replace("const ", "local ");

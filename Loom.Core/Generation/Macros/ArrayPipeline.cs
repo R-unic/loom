@@ -103,10 +103,14 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         if (!TryCollectChain(invocation, out var stages, out var sourceExpression))
             return false;
 
+        // Arguments before the receiver, which is the order VisitInvocation evaluates them in. Only a
+        // callback expression that does something on the way to being a callback can tell, but the fused
+        // path should not be the one place that order differs.
         var bound = stages.ConvertAll(stage => new BoundStage(stage));
-        var source = state.PushToVariable(SourceName, visit(sourceExpression));
         foreach (var stage in bound)
             stage.Arguments = stage.Stage.Arguments.ConvertAll(argument => visit(argument));
+
+        var source = state.PushToVariable(SourceName, visit(sourceExpression));
 
         var reserved = new HashSet<string> { source.Name };
         var terminal = bound[^1];
