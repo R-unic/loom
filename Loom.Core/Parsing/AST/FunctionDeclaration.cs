@@ -9,7 +9,8 @@ public class FunctionDeclaration(
     Parameters? parameters,
     ColonTypeClause? returnType,
     Statement body,
-    Attributes? attributes = null
+    Attributes? attributes = null,
+    Token? asyncKeyword = null
 )
     : DeclareFunctionSignature(
         keyword,
@@ -18,6 +19,7 @@ public class FunctionDeclaration(
         parameters,
         returnType!,
         attributes,
+        asyncKeyword,
         body
     ),
       IFunctionLike

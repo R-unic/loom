@@ -318,7 +318,8 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
             [],
             argumentFunction.ParameterTypes.ConvertAll(t => Substitute(t, argumentSubstitution)),
             Substitute(argumentFunction.ReturnType, argumentSubstitution),
-            argumentFunction.HasRestParameter
+            argumentFunction.HasRestParameter,
+            argumentFunction.IsAsync
         );
 
         return !parameterFunction.ParameterTypes

@@ -152,6 +152,53 @@ public sealed partial class Resolver
     }
 
     /// <summary>
+    ///     Enforces that a yield only happens where the code around it says one can - the same guarantee
+    ///     <c>[fallible]</c> gives for raising, and for the same reason: a signature that hides it leaves
+    ///     the caller unable to see that it blocks.
+    /// </summary>
+    /// <remarks>
+    ///     Two places are exempt. A function <em>expression</em> is anonymous, so it has no signature for
+    ///     'async' to appear on and no caller to propagate to - an event handler runs on a thread Roblox
+    ///     owns and is free to yield, which is the same reason <see cref="TypeChecker" />'s
+    ///     EnclosingFallibleCandidate stops at one. An 'after'/'every' body is emitted as its own deferred
+    ///     callback, so it too yields on a thread of its own; unlike '?', which needs the enclosing
+    ///     function's return, awaiting inside one says nothing about that function.
+    /// </remarks>
+    public override bool VisitAwait(Await @await)
+    {
+        var enclosingFunction = @await.FirstAncestorImplementing<IFunctionLike>();
+        var schedulerAncestor = FirstSchedulerAncestor(@await);
+        if (schedulerAncestor != null && (enclosingFunction == null || FirstSchedulerAncestor(enclosingFunction) != schedulerAncestor))
+            return base.VisitAwait(@await);
+
+        switch (enclosingFunction)
+        {
+            case FunctionExpression or FunctionDeclaration { AsyncKeyword: not null }:
+                return base.VisitAwait(@await);
+
+            case FunctionDeclaration { Name.Text: var name }:
+                _diagnostics.Error(
+                    @await,
+                    InternalCodes.AwaitOutsideAsyncFunction,
+                    $"'await' can only be used inside an 'async' function, and '{name}' is not one.",
+                    $"write 'async fn {name}' - its callers then get a 'Future' and decide when to wait for it"
+                );
+
+                return false;
+
+            default:
+                _diagnostics.Error(
+                    @await,
+                    InternalCodes.AwaitOutsideAsyncFunction,
+                    "'await' can only be used inside an 'async' function.",
+                    "yielding here blocks every thread that requires this module - move it into an 'async fn'"
+                );
+
+                return false;
+        }
+    }
+
+    /// <summary>
     ///     The nearest deferred-execution body (an 'after' or 'every' statement) wrapping <paramref name="node" />,
     ///     if any - a bare 'return' inside one is ambiguous with returning from the enclosing function, so it's
     ///     forbidden entirely.

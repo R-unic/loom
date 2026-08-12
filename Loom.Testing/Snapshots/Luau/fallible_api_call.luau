@@ -13,5 +13,5 @@ const function load(key: string): Loom.Result<unknown, Loom.RobloxError>
   const value = _value_1
   return { ok = true, value = value }
 end
-const outcome = load("player_1")
-print(if outcome.ok then "loaded" else outcome.error.message)
+const outcome = Loom.future(load, "player_1")
+print(outcome.status)

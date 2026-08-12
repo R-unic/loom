@@ -53,6 +53,7 @@
             )
           ]
         )
+        AsyncKeyword: null
         TypeParameters: null
         Name: Token(Identifier, "add")
       )

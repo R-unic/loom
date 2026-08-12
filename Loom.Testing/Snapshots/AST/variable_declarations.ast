@@ -221,6 +221,7 @@ VariableDeclaration(
           Width: null
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "x")
@@ -267,6 +268,7 @@ VariableDeclaration(
           TypeArguments: null
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "x")
@@ -517,10 +519,12 @@ VariableDeclaration(
                   TypeArguments: null
                 )
               )
+              AsyncKeyword: null
             )
           ]
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "x")
@@ -731,10 +735,12 @@ VariableDeclaration(
                   Width: null
                 )
               )
+              AsyncKeyword: null
             )
           ]
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "x")
@@ -799,6 +805,7 @@ VariableDeclaration(
           Width: null
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "callback")
@@ -840,6 +847,7 @@ VariableDeclaration(
           )
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "callback")
@@ -883,6 +891,7 @@ VariableDeclaration(
           RightBracket: Token(RBracket, "]")
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "callback")
@@ -936,6 +945,7 @@ VariableDeclaration(
           ]
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "callback")
@@ -979,6 +989,7 @@ VariableDeclaration(
               Width: null
             )
           )
+          AsyncKeyword: null
         )
       )
     )
@@ -1023,6 +1034,7 @@ VariableDeclaration(
               Width: null
             )
           )
+          AsyncKeyword: null
         )
       )
       LeftBracket: Token(LBracket, "[")
@@ -1074,6 +1086,7 @@ VariableDeclaration(
           TypeArguments: null
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "identity")
@@ -1132,6 +1145,7 @@ VariableDeclaration(
           RightBracket: Token(RBracket, "]")
         )
       )
+      AsyncKeyword: null
     )
   )
   Name: Token(Identifier, "wrap")
@@ -1377,6 +1391,7 @@ VariableDeclaration(
               TypeArguments: null
             )
           )
+          AsyncKeyword: null
         )
       )
       IndexType: TypeName(

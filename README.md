@@ -99,6 +99,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Result Pattern](#result-pattern)
   - [Fallible Roblox API calls](#fallible-roblox-api-calls)
   - [Panics and `[fallible]`](#panics-and-fallible)
+  - [`async` and `await`](#async-and-await)
   - [Deprecation](#deprecation)
   - [Error Propagation](#error-propagation)
   - [Array.join()](#arrayjoin)
@@ -145,6 +146,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   `Result<T, RobloxError>`, so the failure is in the signature rather than waiting to kill the thread. See [example](#result-pattern).
 - **Error propagation** – The postfix `?` operator unwraps a `Result<T, E>`, returning early on failure - same idea as Rust's `?`. See
   [example](#error-propagation).
+- **`async`/`await`** – Luau yields invisibly; `async` puts it in the signature. Calling one starts it and gives a `Future<T>`, so two yielding
+  calls can be in flight at once, and every Roblox method the dump tags `Yields` is generated as `async fn`. See [example](#async-and-await).
 - **Sets** – `Set<T>`/`MutSet<T>` with the usual algebra, lowered to a plain table whose keys are its members. No
   runtime library, no wrapper object. See [example](#sets).
 - **Events** – Built-in user events with shorthand syntax. See [example](#events).
@@ -1148,10 +1151,13 @@ A Roblox API method that can raise returns `Result<T, RobloxError>` instead. The
 with a shared handler, so nothing is allocated per call site beyond the `Result`, and `?` propagates it like any
 other.
 
+A method that also *yields* is `async fn` on top of this, so it is awaited as well - see
+[`async` and `await`](#async-and-await). `get_data_store` does not yield; `get_async` does.
+
 ```rs
-fn load(key: string): Result<unknown, RobloxError> {
+async fn load(key: string): Result<unknown, RobloxError> {
     let store = data_store_service.get_data_store("players")?;
-    let value = store.get_async(key)?;
+    let value = await store.get_async(key)?;
     return Result.ok(value);
 }
 ```
@@ -1205,6 +1211,128 @@ owns, with no caller to propagate to and nothing above it to recover. Both must 
 
 Loom cannot catch every Luau fault. Integer division by zero, stack overflow and script timeouts are raised by the
 VM itself and are outside the `Result` discipline entirely.
+---
+## `async` and `await`
+
+Luau yields invisibly: a call that parks the calling thread looks exactly like one that returns straight away.
+`async` puts that in the signature, the way `[fallible]` puts raising in one. Calling an `async fn` **starts** it
+and evaluates to a `Future<T>`; `await` is what waits for the value.
+
+```rs
+async fn fetch(key: string): number -> 1;
+
+async fn total(a: string, b: string): number {
+    let first = fetch(a);   ## starts now
+    let second = fetch(b);  ## starts now, alongside the first
+    return await first + await second;
+}
+```
+
+```luau
+const function fetch(key: string): number
+  return 1
+end
+const function total(a: string, b: string): number
+  const first = Loom.future(fetch, a)
+  const second = Loom.future(fetch, b)
+  return Loom.await(first) + Loom.await(second)
+end
+```
+
+Where an `await` consumes a call directly, the future is never built - starting a function and immediately waiting
+for it is what a plain call already does:
+
+```rs
+async fn one_at_a_time(key: string): number -> await fetch(key);
+```
+
+```luau
+const function one_at_a_time(key: string): number
+  return fetch(key)
+end
+```
+
+### Where `await` may appear
+
+Inside an `async fn`, and inside a function expression - an event handler is anonymous and runs on a thread Roblox
+owns, so it has no signature for `async` to appear on and nobody to propagate to. At the top level of a module it
+is an error: yielding there blocks every thread that requires it.
+
+`async` is part of the function *type*, so an `async fn` cannot be passed where a plain `fn` is expected - `map`
+will not silently take a callback that yields.
+
+### Yielding Roblox API calls
+
+Every Roblox method the API dump tags `Yields` or `CanYield` is generated as `async fn`. Most of those also raise,
+so they are `Result`-returning as well, and the two compose - `await` binds tighter than `?`, so `await call()?`
+already means `(await call())?`:
+
+```rs
+async fn load(key: string): Result<unknown, RobloxError> {
+    let store = data_store_service.get_data_store("players")?;
+    let value = await store.get_async(key)?;
+    return Result.ok(value);
+}
+```
+
+Both fusions apply, so the success path allocates neither a future nor a `Result`:
+
+```luau
+const function load(key: string): Loom.Result<unknown, Loom.RobloxError>
+  ...
+  const _ok_1, _value_1 = xpcall(store.GetAsync, Loom.roblox_error, store, key)
+  if not _ok_1 then
+    return { ok = false, error = _value_1 }
+  end
+  const value = _value_1
+  return { ok = true, value = value }
+end
+```
+
+### Chains
+
+One `await` covers a whole chain of yielding calls. Each future is resolved on the way past, so a
+`wait_for_child` chain does not need a set of parentheses per link:
+
+```rs
+let torso = await character.wait_for_child("Humanoid").wait_for_child("Torso");
+```
+
+```luau
+const torso = character:WaitForChild("Humanoid"):WaitForChild("Torso")
+```
+
+Every link is fused, so the chain costs exactly what it would have written by hand. The `await` still says the
+expression parks the thread; what it stops saying is how many times.
+
+The read-through applies to **calls** only - another suspension point following. A field read off a future still
+takes the parenthesised form, which is also what keeps a future's own members reachable:
+
+```rs
+let name = await find().name;      ## error - 'name' belongs to the awaited value
+let name = (await find()).name;    ## ok
+let status = load().status;        ## ok - polling a future, no await involved
+```
+
+And only the awaited expression's own spine reads through, so a chain buried in an argument is not quietly
+awaited along with it.
+
+Everywhere else `await` follows JS precedence - it takes the whole postfix chain.
+
+### `Future`
+
+| Member | Result |
+| --- | --- |
+| `status` | `"pending"`, `"resolved"` or `"rejected"` |
+| `value` | the settled value, or `none` while pending |
+| `Future.all(futures)` | every value, in the order the futures were given; the first failure fails the whole set |
+| `Future.race(futures)` | whichever settles first, however it settles |
+| `Future.resolved(value)` | an already-settled future, so a synchronous path can hand back the same type |
+| `Future.rejected(error)` | an already-failed future; awaiting it re-raises |
+
+Awaiting a future that failed re-raises, so awaiting a `[fallible]` async function is itself a panicking operation.
+A future nobody awaits swallows its failure.
+
 ---
 ## Deprecation
 

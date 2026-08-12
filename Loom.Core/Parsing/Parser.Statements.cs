@@ -15,6 +15,7 @@ public sealed partial class Parser
             [SyntaxKind.LBrace] = ParseBlock,
             [SyntaxKind.ReturnKeyword] = ParseReturn,
             [SyntaxKind.FnKeyword] = ParseFunctionDeclaration,
+            [SyntaxKind.AsyncKeyword] = ParseAsyncFunctionDeclaration,
             [SyntaxKind.LetKeyword] = ParseVariableDeclaration,
             [SyntaxKind.MutKeyword] = ParseVariableDeclaration,
             [SyntaxKind.TypeKeyword] = ParseTypeAlias,
@@ -76,6 +77,14 @@ public sealed partial class Parser
             var attributes = ParseAttributes(leftBracket);
             var fnKeyword = Expect(SyntaxKind.FnKeyword);
             return ParseFunctionDeclaration(fnKeyword, attributes);
+        }
+
+        if (Current().Kind == SyntaxKind.LBracket && LooksLikeAttributesBefore(SyntaxKind.AsyncKeyword))
+        {
+            var leftBracket = Advance();
+            var attributes = ParseAttributes(leftBracket);
+            var asyncKeyword = Expect(SyntaxKind.AsyncKeyword);
+            return ParseAsyncFunctionDeclaration(asyncKeyword, attributes);
         }
 
         if (Current().Kind == SyntaxKind.LBracket
@@ -142,9 +151,10 @@ public sealed partial class Parser
     private List<FunctionDeclaration> ParseImplementMethods()
     {
         var members = new List<Statement>();
-        while (Match(out var fnKeyword, SyntaxKind.FnKeyword))
+        while (Current().Kind is SyntaxKind.FnKeyword or SyntaxKind.AsyncKeyword)
         {
-            members.Add(ParseFunctionDeclaration(fnKeyword));
+            var asyncKeyword = MatchAsyncKeyword();
+            members.Add(ParseFunctionDeclaration(Expect(SyntaxKind.FnKeyword), null, asyncKeyword));
             Match(SyntaxKind.Comma, SyntaxKind.Semicolon);
         }
 

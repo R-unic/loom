@@ -9114,16 +9114,16 @@ public class TypeCheckerTest
     public void Checks_WaitForChild_IsGuaranteedWithoutATimeoutAndOptionalWithOne()
     {
         const string guaranteed = """
-            fn f(instance: Instance): Part {
-                return instance.wait_for_child::<Part>("Torso");
+            async fn f(instance: Instance): Part {
+                return await instance.wait_for_child::<Part>("Torso");
             }
             """;
 
         Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(guaranteed));
 
         const string timedOut = """
-            fn f(instance: Instance): Part {
-                return instance.wait_for_child::<Part>("Torso", 5);
+            async fn f(instance: Instance): Part {
+                return await instance.wait_for_child::<Part>("Torso", 5);
             }
             """;
 

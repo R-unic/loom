@@ -61,6 +61,7 @@
           ]
         )
         Attributes: null
+        AsyncKeyword: null
         TypeParameters: null
         Name: Token(Identifier, "get_value")
       )
@@ -122,6 +123,7 @@ Implement(
           ParameterList: []
         )
         Attributes: null
+        AsyncKeyword: null
         TypeParameters: null
         Name: Token(Identifier, "display")
       )

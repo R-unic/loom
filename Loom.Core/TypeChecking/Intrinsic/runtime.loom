@@ -43,6 +43,42 @@ declare sealed interface ResultStatic {
 
 declare let Result: ResultStatic;
 
+## A value that is not ready yet. Calling an 'async fn' starts it and hands back one of these, so
+## two calls made one after the other are in flight together; 'await' is how the value comes back
+## out. Unlike Result's combinators, these are real runtime functions rather than macros the
+## generator inlines - settling a future has to release the threads parked on it, so there is
+## nothing to inline away.
+enum FutureStatus: string {
+    Pending = "pending",
+    Resolved = "resolved",
+    Rejected = "rejected",
+}
+
+## 'value' is declared in terms of T for a second reason beyond being useful: the solver expands a
+## fully-resolved generic into its body, so a Future held in a variable reaches the type checker as
+## this interface rather than as 'Future<T>', and this member is what carries T across that.
+declare sealed interface Future<T> {
+    status: FutureStatus;
+    ### The settled value, or 'none' while the future is still pending or if it failed. Reading it
+    ### never waits - 'await' is what waits.
+    value: T?;
+}
+
+declare sealed interface FutureStatic {
+    ### A future that is already settled with 'value', so a synchronous path can hand back the same
+    ### type an asynchronous one does. Awaiting it never yields.
+    resolved: fn<T>(value: T): Future<T>;
+    ### A future that has already failed. Awaiting it re-raises 'error'.
+    rejected: fn<T>(error: unknown): Future<T>;
+    ### Waits for every future, keeping the results in the order the futures were given rather than
+    ### the order they finished. The first rejection rejects the whole thing.
+    all: fn<T>(futures: Future<T>[]): Future<T[]>;
+    ### Settles with whichever future settles first, whether it resolved or rejected.
+    race: fn<T>(futures: Future<T>[]): Future<T>;
+}
+
+declare let Future: FutureStatic;
+
 ## The error half of every fallible Roblox API call. 'traceback' is captured by the xpcall
 ## handler the generator installs, so it costs nothing unless the call actually threw; it is
 ## optional so a traceback-free mode stays possible without changing the type. Luau permits

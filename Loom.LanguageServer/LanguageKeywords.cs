@@ -11,7 +11,7 @@ namespace Loom.LanguageServer;
 public static class LanguageKeywords
 {
     private static readonly HashSet<string> _typeOnlyKeywords = ["keyof"];
-    private static readonly string[] _typeBuildingKeywords = ["fn", "keyof", "typeof"];
+    private static readonly string[] _typeBuildingKeywords = ["async", "fn", "keyof", "typeof"];
 
     /// <summary>The words that may open or continue a statement or expression.</summary>
     public static readonly IReadOnlyList<VisibleSymbol> Values = SyntaxFacts.KeywordNames

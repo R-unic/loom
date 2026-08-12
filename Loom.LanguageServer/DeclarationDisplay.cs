@@ -148,7 +148,10 @@ public static class DeclarationDisplay
     private static SignatureDisplay Render(DeclaredParameters? declared, FunctionType function, string name)
     {
         var declaredParameters = declared?.Parameters ?? [];
-        var label = $"fn {name}{Render(declared?.TypeParameters, function)}(";
+
+        // 'async' belongs in the header for the same reason the return type does: it is what a caller has to
+        // know before writing the call, since what comes back is a Future rather than the return type
+        var label = $"{(function.IsAsync ? "async " : "")}fn {name}{Render(declared?.TypeParameters, function)}(";
         var parameters = new List<ParameterDisplay>();
 
         for (var index = 0; index < function.ParameterTypes.Count; index++)

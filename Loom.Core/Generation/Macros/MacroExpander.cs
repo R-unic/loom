@@ -29,6 +29,7 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         new ResultMacroProvider(),
         new SetStaticMacroProvider(),
         new SetMacroProvider(),
+        new FutureStaticMacroProvider(),
         new IntrinsicGlobalInvocationMacroProvider()
     ];
 

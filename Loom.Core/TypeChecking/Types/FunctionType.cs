@@ -1,12 +1,30 @@
 namespace Loom.Core.TypeChecking.Types;
 
-public sealed class FunctionType(List<TypeParameter> typeParameters, List<Type> parameterTypes, Type returnType, bool hasRestParameter = false) : Type
+public sealed class FunctionType(
+    List<TypeParameter> typeParameters,
+    List<Type> parameterTypes,
+    Type returnType,
+    bool hasRestParameter = false,
+    bool isAsync = false
+) : Type
 {
     public List<TypeParameter> TypeParameters { get; } = typeParameters;
     public List<Type> ParameterTypes { get; } = parameterTypes;
     public bool HasRestParameter { get; } = hasRestParameter;
     public List<Type> RequiredParameterTypes { get; } = GetRequiredParameterTypes(parameterTypes, hasRestParameter);
     public Type ReturnType { get; } = returnType;
+
+    /// <summary>
+    ///     Whether calling this yields a <c>Future&lt;ReturnType&gt;</c> rather than the return type itself.
+    ///     <para>
+    ///         Part of the type, not an annotation on the declaration, because it changes what a call
+    ///         evaluates to: handing a synchronous function to something expecting an asynchronous one would
+    ///         give the call site a plain value where it is about to <c>await</c>, and handing an
+    ///         asynchronous one the other way would give it a <c>Future</c> it never unwraps. So the two are
+    ///         assignable in neither direction - see <see cref="IsAssignableTo" />.
+    ///     </para>
+    /// </summary>
+    public bool IsAsync { get; } = isAsync;
 
     /// <summary>
     ///     The parameter type the argument at <paramref name="index" /> binds to, or null when there is none -
@@ -61,6 +79,7 @@ public sealed class FunctionType(List<TypeParameter> typeParameters, List<Type> 
         hash.Add(ParameterTypes.Count);
         hash.Add(GetTypeListHash(ParameterTypes));
         hash.Add(HasRestParameter);
+        hash.Add(IsAsync);
         hash.Add(ReturnType);
         return hash.ToHashCode();
     }
@@ -68,6 +87,7 @@ public sealed class FunctionType(List<TypeParameter> typeParameters, List<Type> 
     public override bool Equals(Type? other) =>
         other is FunctionType functionType
         && HasRestParameter == functionType.HasRestParameter
+        && IsAsync == functionType.IsAsync
         && ListEquals(TypeParameters, functionType.TypeParameters)
         && ListEquals(RequiredParameterTypes, functionType.RequiredParameterTypes)
         && ReturnType.Equals(functionType.ReturnType);
@@ -80,7 +100,8 @@ public sealed class FunctionType(List<TypeParameter> typeParameters, List<Type> 
         if (other is not FunctionType functionType
             || ParameterTypes.Count > functionType.ParameterTypes.Count
             || TypeParameters.Count != functionType.TypeParameters.Count
-            || HasRestParameter != functionType.HasRestParameter)
+            || HasRestParameter != functionType.HasRestParameter
+            || IsAsync != functionType.IsAsync)
             return false;
 
         if (TypeParameters
@@ -97,6 +118,6 @@ public sealed class FunctionType(List<TypeParameter> typeParameters, List<Type> 
     public override string ToString()
     {
         var parameters = ParameterTypes.Select((t, i) => HasRestParameter && i == ParameterTypes.Count - 1 ? $"..{t}" : t.ToString());
-        return $"fn{(TypeParameters.Count != 0 ? $"<{string.Join(", ", TypeParameters)}>" : "")}({string.Join(", ", parameters)}): {ReturnType}";
+        return $"{(IsAsync ? "async " : "")}fn{(TypeParameters.Count != 0 ? $"<{string.Join(", ", TypeParameters)}>" : "")}({string.Join(", ", parameters)}): {ReturnType}";
     }
 }

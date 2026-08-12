@@ -39,6 +39,8 @@ export type Serializer<T> = {
 export type Event<T... = ...any> = Event.Event<T...>
 export type UserEvent<T... = ...any> = Event.UserEvent<T...>
 export type EventConnection = Event.Connection
+export type FutureStatus = "pending" | "resolved" | "rejected"
+export type Future<T> = { status: FutureStatus, value: T?, error: any?, waiters: { thread } }
 
 Loom.Event = Event
 
@@ -137,6 +139,124 @@ function Loom.every<A...>(
 		...
 	})
 	start()
+end
+
+-- Future support. A call to an 'async fn' becomes Loom.future, and 'await' becomes Loom.await -
+-- except where the compiler can see the await consuming the call directly, which it lowers to the
+-- plain call instead, so awaiting straight away costs nothing.
+
+-- Settles a future and releases everything parked on it. Waiters are resumed through task.spawn
+-- rather than coroutine.resume so one of them raising cannot swallow the rest, and so the error
+-- surfaces on the waiter's own thread instead of inside whoever happened to settle the future.
+const function settle<T>(future: Future<T>, status: FutureStatus, result: any): ()
+	if future.status ~= "pending" then
+		return
+	end
+
+	future.status = status
+	if status == "resolved" then
+		future.value = result
+	else
+		future.error = result
+	end
+
+	const waiters = future.waiters
+	future.waiters = {}
+	for _, waiter in waiters do
+		task.spawn(waiter)
+	end
+end
+
+-- Starts 'fn' on a thread of its own and hands back the future it settles. Eager, like a promise:
+-- the body runs up to its first yield before this returns, so two calls made one after the other
+-- are genuinely in flight together.
+function Loom.future<T, A...>(fn: (A...) -> T, ...: A...): Future<T>
+	const future: Future<T> = { status = "pending", waiters = {} }
+	task.spawn(function(...)
+		const ok, result = pcall(fn, ...)
+		settle(future, if ok then "resolved" else "rejected", result)
+	end, ...)
+
+	return future
+end
+
+-- Blocks until the future settles, then gives back its value or re-raises its error. One that has
+-- already settled never yields, so awaiting a finished future is just a table read.
+function Loom.await<T>(future: Future<T>): T
+	if future.status == "pending" then
+		insert(future.waiters, coroutine.running())
+		coroutine.yield()
+	end
+
+	if future.status == "rejected" then
+		error(future.error, 0)
+	end
+
+	return future.value :: T
+end
+
+-- A yielding Roblox member that raises rather than returning: its type already promises a Result, so
+-- the raise has to become that Result rather than rejecting the future. The xpcall runs on the
+-- future's own thread, which is why this exists instead of the call site wrapping itself - awaiting
+-- one of these therefore never re-raises.
+function Loom.future_wrapped<T, A...>(fn: (A...) -> T, ...: A...): Future<Result<T, RobloxError>>
+	return Loom.future(function(...)
+		const ok, value = xpcall(fn, Loom.roblox_error, ...)
+		return if ok then { ok = true, value = value } else { ok = false, error = value }
+	end, ...)
+end
+
+function Loom.future_resolved<T>(value: T): Future<T>
+	return { status = "resolved", value = value, waiters = {} }
+end
+
+function Loom.future_rejected<T>(err: any): Future<T>
+	return { status = "rejected", error = err, waiters = {} }
+end
+
+-- Waits for every future and keeps the results in the order they were given, not the order they
+-- finished. The first rejection settles the whole thing: the rest are left running rather than
+-- cancelled, since a Luau thread has no cancellation a caller could rely on.
+function Loom.future_all<T>(futures: { Future<T> }): Future<{ T }>
+	const combined: Future<{ T }> = { status = "pending", waiters = {} }
+	const values: { T } = {}
+	const total = #futures
+	if total == 0 then
+		return Loom.future_resolved(values)
+	end
+
+	local remaining = total
+	for index, future in futures do
+		task.spawn(function()
+			const ok, result = pcall(Loom.await, future)
+			if not ok then
+				settle(combined, "rejected", result)
+				return
+			end
+
+			values[index] = result
+			remaining -= 1
+			if remaining == 0 then
+				settle(combined, "resolved", values)
+			end
+		end)
+	end
+
+	return combined
+end
+
+-- Settles with whichever future settles first, however it settles - a rejection wins a race the
+-- same way a value does.
+function Loom.future_race<T>(futures: { Future<T> }): Future<T>
+	const raced: Future<T> = { status = "pending", waiters = {} }
+	for _, future in futures do
+		task.spawn(function()
+			const ok, result = pcall(Loom.await, future)
+			settle(raced, if ok then "resolved" else "rejected", result)
+		end)
+	end
+
+	return raced
 end
 
 -- Serialization support. Emitted serializers inline everything they can; these are the pieces that

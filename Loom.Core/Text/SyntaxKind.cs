@@ -76,6 +76,8 @@ public enum SyntaxKind : ushort
     ExportKeyword,
     ImportKeyword,
     FnKeyword,
+    AsyncKeyword,
+    AwaitKeyword,
     ReturnKeyword,
     ContinueKeyword,
     BreakKeyword,

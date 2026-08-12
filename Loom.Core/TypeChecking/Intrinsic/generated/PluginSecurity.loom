@@ -13,8 +13,10 @@ declare interface ConsumerEvent<
     T7 = none, 
     T8 = none
 > {
+    ## RBXScriptSignal:Wait() parks the calling thread until the signal fires, so it is asynchronous
+    ## for the same reason a Yields-tagged method is - it just carries no tag to say so.
     [luau_name("Wait"), luau_method]
-    wait: fn: T1;
+    wait: async fn: T1;
 }
 
 declare sealed interface Event<
@@ -114,10 +116,16 @@ declare interface Instance: Object {
 	## timeOut and no second shape, so a single signature both forces the argument and promises a
 	## non-nil T. The docs are explicit that supplying a timeout makes the result nil-able - "this
 	## method will time out after the specified number of seconds and return nil".
+	## Hand-written, so the CanYield tag that makes every other yielding member 'async' does not reach
+	## it - it is spelled out here instead. This is the one member fallible.toml subtracts: it parks
+	## the thread but does not raise, which is exactly what 'async' without 'wraps_errors' says.
+	## 'T' defaults the way it does on find_first_child and every other name-based lookup here: the name
+	## says nothing about the class, so without a default a bare call has nothing to infer from and the
+	## caller is forced to annotate one even when Instance is all they wanted.
 	[luau_name("WaitForChild"), luau_method]
-	wait_for_child: fn<T: Instance>(childName: string): T;
+	wait_for_child: async fn<T: Instance = Instance>(childName: string): T;
 	[luau_name("WaitForChild"), luau_method]
-	wait_for_child: fn<T: Instance>(childName: string, timeOut: number): T?;
+	wait_for_child: async fn<T: Instance = Instance>(childName: string, timeOut: number): T?;
 }
 
 declare sealed interface buffer;
@@ -1305,6 +1313,11 @@ declare interface EnumAudioFilterType {
 	Bandpass: EnumItem<"AudioFilterType">;
 	Notch: EnumItem<"AudioFilterType">;
 	Lowpass6dB: EnumItem<"AudioFilterType">;
+}
+
+declare interface EnumAudioPositionType {
+	Parent: EnumItem<"AudioPositionType">;
+	Instance: EnumItem<"AudioPositionType">;
 }
 
 declare interface EnumAudioSimulationFidelity {
@@ -2821,6 +2834,13 @@ declare interface EnumFriendStatus {
 	FriendRequestReceived: EnumItem<"FriendStatus">;
 }
 
+declare interface EnumFrustumStreamingMode {
+	Default: EnumItem<"FrustumStreamingMode">;
+	Enabled: EnumItem<"FrustumStreamingMode">;
+	Disabled: EnumItem<"FrustumStreamingMode">;
+	Automatic: EnumItem<"FrustumStreamingMode">;
+}
+
 declare interface EnumFunctionalTestResult {
 	Passed: EnumItem<"FunctionalTestResult">;
 	Warning: EnumItem<"FunctionalTestResult">;
@@ -3107,6 +3127,7 @@ declare interface EnumImageCombineType {
 	Multiply: EnumItem<"ImageCombineType">;
 	AlphaBlend: EnumItem<"ImageCombineType">;
 	NormalMapBlend: EnumItem<"ImageCombineType">;
+	Subtract: EnumItem<"ImageCombineType">;
 }
 
 declare interface EnumInOut {
@@ -4943,7 +4964,10 @@ declare interface EnumSlimTintMode {
 	None: EnumItem<"SlimTintMode">;
 	LOD: EnumItem<"SlimTintMode">;
 	Meshes: EnumItem<"SlimTintMode">;
+	MeshResourcePtr: EnumItem<"SlimTintMode">;
+	ContentId: EnumItem<"SlimTintMode">;
 	Zone: EnumItem<"SlimTintMode">;
+	TranscoderStatus: EnumItem<"SlimTintMode">;
 }
 
 declare interface EnumSlimTranscoderStatus {
@@ -4954,6 +4978,12 @@ declare interface EnumSlimTranscoderStatus {
 	InProgress: EnumItem<"SlimTranscoderStatus">;
 	Succeeded: EnumItem<"SlimTranscoderStatus">;
 	Failed: EnumItem<"SlimTranscoderStatus">;
+}
+
+declare interface EnumSlimViewContext {
+	Player: EnumItem<"SlimViewContext">;
+	Editor: EnumItem<"SlimViewContext">;
+	ImGui: EnumItem<"SlimViewContext">;
 }
 
 declare interface EnumSolidPrimitiveType {
@@ -6140,6 +6170,12 @@ declare interface EnumWhisperChatPrivacyMode {
 	NoOne: EnumItem<"WhisperChatPrivacyMode">;
 }
 
+declare interface EnumWindSoundProfile {
+	Turbulence: EnumItem<"WindSoundProfile">;
+	Whistle: EnumItem<"WindSoundProfile">;
+	Foliage: EnumItem<"WindSoundProfile">;
+}
+
 declare interface EnumWindowState {
 	Normal: EnumItem<"WindowState">;
 	Minimized: EnumItem<"WindowState">;
@@ -6249,6 +6285,7 @@ declare interface EnumStatic {
 	AudioCaptureMode: EnumAudioCaptureMode;
 	AudioChannelLayout: EnumAudioChannelLayout;
 	AudioFilterType: EnumAudioFilterType;
+	AudioPositionType: EnumAudioPositionType;
 	AudioSimulationFidelity: EnumAudioSimulationFidelity;
 	AudioSubType: EnumAudioSubType;
 	AudioWindowSize: EnumAudioWindowSize;
@@ -6425,6 +6462,7 @@ declare interface EnumStatic {
 	FramerateManagerMode: EnumFramerateManagerMode;
 	FriendRequestEvent: EnumFriendRequestEvent;
 	FriendStatus: EnumFriendStatus;
+	FrustumStreamingMode: EnumFrustumStreamingMode;
 	FunctionalTestResult: EnumFunctionalTestResult;
 	GameAvatarType: EnumGameAvatarType;
 	GamepadType: EnumGamepadType;
@@ -6662,6 +6700,7 @@ declare interface EnumStatic {
 	SizeConstraint: EnumSizeConstraint;
 	SlimTintMode: EnumSlimTintMode;
 	SlimTranscoderStatus: EnumSlimTranscoderStatus;
+	SlimViewContext: EnumSlimViewContext;
 	SolidPrimitiveType: EnumSolidPrimitiveType;
 	SolverConvergenceMetricType: EnumSolverConvergenceMetricType;
 	SolverConvergenceVisualizationMode: EnumSolverConvergenceVisualizationMode;
@@ -6798,6 +6837,7 @@ declare interface EnumStatic {
 	WeldConstraintPreserve: EnumWeldConstraintPreserve;
 	WhenUserFirstPlayed: EnumWhenUserFirstPlayed;
 	WhisperChatPrivacyMode: EnumWhisperChatPrivacyMode;
+	WindSoundProfile: EnumWindSoundProfile;
 	WindowState: EnumWindowState;
 	WrapLayerAutoSkin: EnumWrapLayerAutoSkin;
 	WrapLayerDebugMode: EnumWrapLayerDebugMode;
@@ -6866,6 +6906,7 @@ declare interface Enum {
 	AudioCaptureMode: EnumItem<"AudioCaptureMode">;
 	AudioChannelLayout: EnumItem<"AudioChannelLayout">;
 	AudioFilterType: EnumItem<"AudioFilterType">;
+	AudioPositionType: EnumItem<"AudioPositionType">;
 	AudioSimulationFidelity: EnumItem<"AudioSimulationFidelity">;
 	AudioSubType: EnumItem<"AudioSubType">;
 	AudioWindowSize: EnumItem<"AudioWindowSize">;
@@ -7042,6 +7083,7 @@ declare interface Enum {
 	FramerateManagerMode: EnumItem<"FramerateManagerMode">;
 	FriendRequestEvent: EnumItem<"FriendRequestEvent">;
 	FriendStatus: EnumItem<"FriendStatus">;
+	FrustumStreamingMode: EnumItem<"FrustumStreamingMode">;
 	FunctionalTestResult: EnumItem<"FunctionalTestResult">;
 	GameAvatarType: EnumItem<"GameAvatarType">;
 	GamepadType: EnumItem<"GamepadType">;
@@ -7279,6 +7321,7 @@ declare interface Enum {
 	SizeConstraint: EnumItem<"SizeConstraint">;
 	SlimTintMode: EnumItem<"SlimTintMode">;
 	SlimTranscoderStatus: EnumItem<"SlimTranscoderStatus">;
+	SlimViewContext: EnumItem<"SlimViewContext">;
 	SolidPrimitiveType: EnumItem<"SolidPrimitiveType">;
 	SolverConvergenceMetricType: EnumItem<"SolverConvergenceMetricType">;
 	SolverConvergenceVisualizationMode: EnumItem<"SolverConvergenceVisualizationMode">;
@@ -7415,6 +7458,7 @@ declare interface Enum {
 	WeldConstraintPreserve: EnumItem<"WeldConstraintPreserve">;
 	WhenUserFirstPlayed: EnumItem<"WhenUserFirstPlayed">;
 	WhisperChatPrivacyMode: EnumItem<"WhisperChatPrivacyMode">;
+	WindSoundProfile: EnumItem<"WindSoundProfile">;
 	WindowState: EnumItem<"WindowState">;
 	WrapLayerAutoSkin: EnumItem<"WrapLayerAutoSkin">;
 	WrapLayerDebugMode: EnumItem<"WrapLayerDebugMode">;
@@ -7662,6 +7706,10 @@ declare interface AudioTextToSpeech: Instance {
 }
 
 declare interface AudioTremolo: Instance {
+	_is_creatable: true;
+}
+
+declare interface AudioWindSynthesizer: Instance {
 	_is_creatable: true;
 }
 
@@ -8646,9 +8694,9 @@ declare interface HapticService: Instance {
 declare interface HeapProfilerService: Instance {
 	_is_service: true;
 	[luau_name("ClientRequestDataAsync"), luau_method, wraps_errors]
-	client_request_data_async: fn(player: Player): Result<string, RobloxError>;
+	client_request_data_async: async fn(player: Player): Result<string, RobloxError>;
 	[luau_name("ServerRequestDataAsync"), luau_method, wraps_errors]
-	server_request_data_async: fn: Result<string, RobloxError>;
+	server_request_data_async: async fn: Result<string, RobloxError>;
 	[luau_name("OnNewData")]
 	event on_new_data(player: Player, jsonString: buffer, id: number, compressedLength: number, uncompressedLength: number);
 }
@@ -8813,6 +8861,10 @@ declare interface LocalizationTable: Instance {
 }
 
 declare interface LodDataEntity: Instance;
+declare interface LodDataService: Instance {
+	_is_service: true;
+}
+
 declare interface LogReporterService: Instance {
 	_is_service: true;
 }
@@ -9290,25 +9342,25 @@ declare interface Plugin: Instance {
 	[luau_name("Union"), luau_method]
 	union: fn(objects: Instance[]): Instance;
 	[luau_name("CreateDockWidgetPluginGui"), luau_method, deprecated, wraps_errors]
-	create_dock_widget_plugin_gui: fn(pluginGuiId: string, dockWidgetPluginGuiInfo: DockWidgetPluginGuiInfo): Result<DockWidgetPluginGui, RobloxError>;
+	create_dock_widget_plugin_gui: async fn(pluginGuiId: string, dockWidgetPluginGuiInfo: DockWidgetPluginGuiInfo): Result<DockWidgetPluginGui, RobloxError>;
 	[luau_name("CreateDockWidgetPluginGuiAsync"), luau_method, wraps_errors]
-	create_dock_widget_plugin_gui_async: fn(pluginGuiId: string, dockWidgetPluginGuiInfo: DockWidgetPluginGuiInfo): Result<DockWidgetPluginGui, RobloxError>;
+	create_dock_widget_plugin_gui_async: async fn(pluginGuiId: string, dockWidgetPluginGuiInfo: DockWidgetPluginGuiInfo): Result<DockWidgetPluginGui, RobloxError>;
 	[luau_name("ImportFbxAnimation"), luau_method, deprecated, wraps_errors]
-	import_fbx_animation: fn(rigModel: Instance, isR15: bool?): Result<Instance, RobloxError>;
+	import_fbx_animation: async fn(rigModel: Instance, isR15: bool?): Result<Instance, RobloxError>;
 	[luau_name("ImportFbxAnimationAsync"), luau_method, wraps_errors]
-	import_fbx_animation_async: fn(rigModel: Instance, isR15: bool?): Result<Instance, RobloxError>;
+	import_fbx_animation_async: async fn(rigModel: Instance, isR15: bool?): Result<Instance, RobloxError>;
 	[luau_name("ImportFbxRig"), luau_method, deprecated, wraps_errors]
-	import_fbx_rig: fn(isR15: bool?): Result<Instance, RobloxError>;
+	import_fbx_rig: async fn(isR15: bool?): Result<Instance, RobloxError>;
 	[luau_name("ImportFbxRigAsync"), luau_method, wraps_errors]
-	import_fbx_rig_async: fn(isR15: bool?): Result<Instance, RobloxError>;
+	import_fbx_rig_async: async fn(isR15: bool?): Result<Instance, RobloxError>;
 	[luau_name("PromptForExistingAssetId"), luau_method, wraps_errors]
-	prompt_for_existing_asset_id: fn(assetType: string): Result<number, RobloxError>;
+	prompt_for_existing_asset_id: async fn(assetType: string): Result<number, RobloxError>;
 	[luau_name("PromptForExistingAssetIdAsync"), luau_method, wraps_errors]
-	prompt_for_existing_asset_id_async: fn(assetType: string): Result<number, RobloxError>;
+	prompt_for_existing_asset_id_async: async fn(assetType: string): Result<number, RobloxError>;
 	[luau_name("PromptSaveSelection"), luau_method, deprecated, wraps_errors]
-	prompt_save_selection: fn(suggestedFileName: string): Result<bool, RobloxError>;
+	prompt_save_selection: async fn(suggestedFileName: string): Result<bool, RobloxError>;
 	[luau_name("PromptSaveSelectionAsync"), luau_method, wraps_errors]
-	prompt_save_selection_async: fn(suggestedFileName: string): Result<bool, RobloxError>;
+	prompt_save_selection_async: async fn(suggestedFileName: string): Result<bool, RobloxError>;
 	[luau_name("Deactivation")]
 	event deactivation;
 	[luau_name("Unloading")]
@@ -9391,7 +9443,7 @@ declare interface PluginMenu: Instance {
 	[luau_name("Clear"), luau_method]
 	clear: fn: void;
 	[luau_name("ShowAsync"), luau_method, wraps_errors]
-	show_async: fn: Result<Instance, RobloxError>;
+	show_async: async fn: Result<Instance, RobloxError>;
 }
 
 declare interface PluginPolicyService: Instance {
@@ -9731,17 +9783,17 @@ declare interface ScriptDocument: Instance {
 	[luau_name("IsCommandBar"), luau_method]
 	is_command_bar: fn: bool;
 	[luau_name("CloseAsync"), luau_method, wraps_errors]
-	close_async: fn: Result<unknown, RobloxError>;
+	close_async: async fn: Result<unknown, RobloxError>;
 	[luau_name("EditTextAsync"), luau_method, wraps_errors]
-	edit_text_async: fn(newText: string, startLine: number, startCharacter: number, endLine: number, endCharacter: number): Result<unknown, RobloxError>;
+	edit_text_async: async fn(newText: string, startLine: number, startCharacter: number, endLine: number, endCharacter: number): Result<unknown, RobloxError>;
 	[luau_name("ForceSetSelectionAsync"), luau_method, wraps_errors]
-	force_set_selection_async: fn(cursorLine: number, cursorCharacter: number, anchorLine: number?, anchorCharacter: number?): Result<unknown, RobloxError>;
+	force_set_selection_async: async fn(cursorLine: number, cursorCharacter: number, anchorLine: number?, anchorCharacter: number?): Result<unknown, RobloxError>;
 	[luau_name("MultiEditTextAsync"), luau_method, wraps_errors]
-	multi_edit_text_async: fn(edits: unknown[]): Result<unknown, RobloxError>;
+	multi_edit_text_async: async fn(edits: unknown[]): Result<unknown, RobloxError>;
 	[luau_name("RequestSetSelectionAsync"), luau_method, wraps_errors]
-	request_set_selection_async: fn(cursorLine: number, cursorCharacter: number, anchorLine: number?, anchorCharacter: number?): Result<unknown, RobloxError>;
+	request_set_selection_async: async fn(cursorLine: number, cursorCharacter: number, anchorLine: number?, anchorCharacter: number?): Result<unknown, RobloxError>;
 	[luau_name("ReviewableTextEditsAsync"), luau_method, wraps_errors]
-	reviewable_text_edits_async: fn(changes: unknown[]): Result<unknown, RobloxError>;
+	reviewable_text_edits_async: async fn(changes: unknown[]): Result<unknown, RobloxError>;
 	[luau_name("SelectionChanged")]
 	event selection_changed(positionLine: number, positionCharacter: number, anchorLine: number, anchorCharacter: number);
 	[luau_name("ViewportChanged")]
@@ -9765,9 +9817,9 @@ declare interface ScriptEditorService: Instance {
 	[luau_name("RegisterScriptAnalysisCallback"), luau_method]
 	register_script_analysis_callback: fn(name: string, priority: number, callbackFunction: fn: void): void;
 	[luau_name("OpenScriptDocumentAsync"), luau_method, wraps_errors]
-	open_script_document_async: fn(script: LuaSourceContainer, options: UnknownRecord?): Result<unknown, RobloxError>;
+	open_script_document_async: async fn(script: LuaSourceContainer, options: UnknownRecord?): Result<unknown, RobloxError>;
 	[luau_name("UpdateSourceAsync"), luau_method, wraps_errors]
-	update_source_async: fn(script: LuaSourceContainer, callback: fn: void): Result<void, RobloxError>;
+	update_source_async: async fn(script: LuaSourceContainer, callback: fn: void): Result<void, RobloxError>;
 	[luau_name("TextDocumentDidChange")]
 	event text_document_did_change(document: ScriptDocument, changesArray: unknown);
 	[luau_name("TextDocumentDidClose")]
@@ -10009,7 +10061,7 @@ declare interface StudioCaptureService: Instance {
 	[luau_name("CaptureScreenshot"), luau_method]
 	capture_screenshot: fn(screenshotOptions: UnknownRecord): StudioScreenshotCapture;
 	[luau_name("RequestScreenshotPermissionAsync"), luau_method, wraps_errors]
-	request_screenshot_permission_async: fn: Result<bool, RobloxError>;
+	request_screenshot_permission_async: async fn: Result<bool, RobloxError>;
 }
 
 declare interface StudioData: Instance {
@@ -10023,37 +10075,37 @@ declare interface StudioDeviceEmulatorService: Instance {
 declare interface StudioDeviceSimulatorService: Instance {
 	_is_service: true;
 	[luau_name("CreateDeviceAsync"), luau_method, wraps_errors]
-	create_device_async: fn(config: UnknownRecord): Result<string, RobloxError>;
+	create_device_async: async fn(config: UnknownRecord): Result<string, RobloxError>;
 	[luau_name("GetDeviceAsync"), luau_method, wraps_errors]
-	get_device_async: fn: Result<string, RobloxError>;
+	get_device_async: async fn: Result<string, RobloxError>;
 	[luau_name("GetDeviceInfoAsync"), luau_method, wraps_errors]
-	get_device_info_async: fn(deviceId: string): Result<UnknownRecord, RobloxError>;
+	get_device_info_async: async fn(deviceId: string): Result<UnknownRecord, RobloxError>;
 	[luau_name("GetDeviceListAsync"), luau_method, wraps_errors]
-	get_device_list_async: fn: Result<unknown[], RobloxError>;
+	get_device_list_async: async fn: Result<unknown[], RobloxError>;
 	[luau_name("GetOrientationAsync"), luau_method, wraps_errors]
-	get_orientation_async: fn: Result<Enum["ScreenOrientation"], RobloxError>;
+	get_orientation_async: async fn: Result<Enum["ScreenOrientation"], RobloxError>;
 	[luau_name("GetPixelDensityAsync"), luau_method, wraps_errors]
-	get_pixel_density_async: fn: Result<number, RobloxError>;
+	get_pixel_density_async: async fn: Result<number, RobloxError>;
 	[luau_name("GetResolutionAsync"), luau_method, wraps_errors]
-	get_resolution_async: fn: Result<Vector2, RobloxError>;
+	get_resolution_async: async fn: Result<Vector2, RobloxError>;
 	[luau_name("GetScalingModeAsync"), luau_method, wraps_errors]
-	get_scaling_mode_async: fn: Result<Enum["DeviceSimulatorScalingMode"], RobloxError>;
+	get_scaling_mode_async: async fn: Result<Enum["DeviceSimulatorScalingMode"], RobloxError>;
 	[luau_name("RemoveDeviceAsync"), luau_method, wraps_errors]
-	remove_device_async: fn(deviceId: string): Result<void, RobloxError>;
+	remove_device_async: async fn(deviceId: string): Result<void, RobloxError>;
 	[luau_name("SetDeviceAsync"), luau_method, wraps_errors]
-	set_device_async: fn(deviceId: string): Result<void, RobloxError>;
+	set_device_async: async fn(deviceId: string): Result<void, RobloxError>;
 	[luau_name("SetOrientationAsync"), luau_method, wraps_errors]
-	set_orientation_async: fn(orientation: Enum["ScreenOrientation"]): Result<void, RobloxError>;
+	set_orientation_async: async fn(orientation: Enum["ScreenOrientation"]): Result<void, RobloxError>;
 	[luau_name("SetPixelDensityAsync"), luau_method, wraps_errors]
-	set_pixel_density_async: fn(density: number): Result<void, RobloxError>;
+	set_pixel_density_async: async fn(density: number): Result<void, RobloxError>;
 	[luau_name("SetResolutionAsync"), luau_method, wraps_errors]
-	set_resolution_async: fn(width: number, height: number): Result<void, RobloxError>;
+	set_resolution_async: async fn(width: number, height: number): Result<void, RobloxError>;
 	[luau_name("SetScalingModeAsync"), luau_method, wraps_errors]
-	set_scaling_mode_async: fn(mode: Enum["DeviceSimulatorScalingMode"]): Result<void, RobloxError>;
+	set_scaling_mode_async: async fn(mode: Enum["DeviceSimulatorScalingMode"]): Result<void, RobloxError>;
 	[luau_name("StopSimulationAsync"), luau_method, wraps_errors]
-	stop_simulation_async: fn: Result<void, RobloxError>;
+	stop_simulation_async: async fn: Result<void, RobloxError>;
 	[luau_name("UpdateDeviceAsync"), luau_method, wraps_errors]
-	update_device_async: fn(deviceId: string, config: UnknownRecord): Result<void, RobloxError>;
+	update_device_async: async fn(deviceId: string, config: UnknownRecord): Result<void, RobloxError>;
 	[luau_name("ConfigurationChanged")]
 	event configuration_changed;
 }
@@ -10081,7 +10133,7 @@ declare interface StudioScreenshotCapture: Instance {
 	[luau_name("GetErrors"), luau_method]
 	get_errors: fn: unknown[];
 	[luau_name("ScaleAsync"), luau_method, wraps_errors]
-	scale_async: fn(strategy: Enum["ResamplerMode"], newSize: Vector2): Result<StudioScreenshotCapture, RobloxError>;
+	scale_async: async fn(strategy: Enum["ResamplerMode"], newSize: Vector2): Result<StudioScreenshotCapture, RobloxError>;
 }
 
 declare interface StudioSdkService: Instance {
@@ -10113,13 +10165,13 @@ declare interface StudioService: Instance {
 	[luau_name("GizmoRaycast"), luau_method]
 	gizmo_raycast: fn(origin: Vector3, direction: Vector3, raycastParams: RaycastParams?): RaycastResult?;
 	[luau_name("PromptImportFile"), luau_method, deprecated, wraps_errors]
-	prompt_import_file: fn(fileTypeFilter: unknown[]?): Result<Instance, RobloxError>;
+	prompt_import_file: async fn(fileTypeFilter: unknown[]?): Result<Instance, RobloxError>;
 	[luau_name("PromptImportFileAsync"), luau_method, wraps_errors]
-	prompt_import_file_async: fn(fileTypeFilter: unknown[]?): Result<Instance, RobloxError>;
+	prompt_import_file_async: async fn(fileTypeFilter: unknown[]?): Result<Instance, RobloxError>;
 	[luau_name("PromptImportFiles"), luau_method, deprecated, wraps_errors]
-	prompt_import_files: fn(fileTypeFilter: unknown[]?): Result<Instance[], RobloxError>;
+	prompt_import_files: async fn(fileTypeFilter: unknown[]?): Result<Instance[], RobloxError>;
 	[luau_name("PromptImportFilesAsync"), luau_method, wraps_errors]
-	prompt_import_files_async: fn(fileTypeFilter: unknown[]?): Result<Instance[], RobloxError>;
+	prompt_import_files_async: async fn(fileTypeFilter: unknown[]?): Result<Instance[], RobloxError>;
 }
 
 declare interface StudioTestService: Instance {
@@ -10127,11 +10179,11 @@ declare interface StudioTestService: Instance {
 	[luau_name("EditModeActive")]
 	mut edit_mode_active: bool;
 	[luau_name("ExecuteMultiplayerTestAsync"), luau_method, wraps_errors]
-	execute_multiplayer_test_async: fn(numPlayers: number, args: unknown): Result<unknown, RobloxError>;
+	execute_multiplayer_test_async: async fn(numPlayers: number, args: unknown): Result<unknown, RobloxError>;
 	[luau_name("ExecutePlayModeAsync"), luau_method, wraps_errors]
-	execute_play_mode_async: fn(args: unknown): Result<unknown, RobloxError>;
+	execute_play_mode_async: async fn(args: unknown): Result<unknown, RobloxError>;
 	[luau_name("ExecuteRunModeAsync"), luau_method, wraps_errors]
-	execute_run_mode_async: fn(args: unknown): Result<unknown, RobloxError>;
+	execute_run_mode_async: async fn(args: unknown): Result<unknown, RobloxError>;
 }
 
 declare interface StudioTheme: Instance {
@@ -10331,19 +10383,19 @@ declare interface TestService: Instance {
 	[luau_name("isFeatureEnabled"), luau_method]
 	is_feature_enabled: fn(name: string): bool;
 	[luau_name("CaptureScreenshotAsync"), luau_method, wraps_errors]
-	capture_screenshot_async: fn(artifactName: string, options: UnknownRecord?): Result<unknown, RobloxError>;
+	capture_screenshot_async: async fn(artifactName: string, options: UnknownRecord?): Result<unknown, RobloxError>;
 	[luau_name("FetchTestControlsAsync"), luau_method, wraps_errors]
-	fetch_test_controls_async: fn(category: string): Result<unknown, RobloxError>;
+	fetch_test_controls_async: async fn(category: string): Result<unknown, RobloxError>;
 	[luau_name("RequestValidationAsync"), luau_method, wraps_errors]
-	request_validation_async: fn(artifactType: string, artifactName: string, timeoutSeconds: number?): Result<unknown, RobloxError>;
+	request_validation_async: async fn(artifactType: string, artifactName: string, timeoutSeconds: number?): Result<unknown, RobloxError>;
 	[luau_name("Run"), luau_method, deprecated, wraps_errors]
-	run: fn: Result<void, RobloxError>;
+	run: async fn: Result<void, RobloxError>;
 	[luau_name("RunAsync"), luau_method, wraps_errors]
-	run_async: fn: Result<void, RobloxError>;
+	run_async: async fn: Result<void, RobloxError>;
 	[luau_name("StartVideoCaptureAsync"), luau_method, wraps_errors]
-	start_video_capture_async: fn(artifactName: string, options: UnknownRecord?): Result<unknown, RobloxError>;
+	start_video_capture_async: async fn(artifactName: string, options: UnknownRecord?): Result<unknown, RobloxError>;
 	[luau_name("StopVideoCaptureAsync"), luau_method, wraps_errors]
-	stop_video_capture_async: fn: Result<unknown, RobloxError>;
+	stop_video_capture_async: async fn: Result<unknown, RobloxError>;
 	[luau_name("ServerCollectConditionalResult")]
 	event server_collect_conditional_result(condition: bool, text: string, script: LuaSourceContainer, line: number);
 	[luau_name("ServerCollectResult")]
@@ -10623,6 +10675,7 @@ declare interface WrapTextureTransfer: Instance {
 	_is_creatable: true;
 }
 
+declare interface Logger: Object;
 declare interface LuauExpression: Object;
 declare interface MLSession: Object;
 declare interface OutputLink: Object;

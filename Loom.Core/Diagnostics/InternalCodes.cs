@@ -139,6 +139,9 @@ public static class InternalCodes
     public const string DeprecatedMember = "L415";
     public const string UncalledWrappedMember = "L416";
     public const string AmbiguousStarExport = "L417";
+    public const string AwaitOutsideAsyncFunction = "L418";
+    public const string AwaitRequiresFuture = "L419";
+    public const string UnawaitedFutureAccess = "L420";
 
     public const string SimplifiableCode = "L500";
 }

@@ -14,11 +14,21 @@ public sealed partial class TypeChecker
         var operandType = Visit(errorPropagation.Expression);
         if (!TryGetResultTypeArguments(operandType, out var valueType, out var errorType))
         {
-            _diagnostics.Error(
-                errorPropagation,
-                InternalCodes.ErrorPropagationRequiresResultType,
-                $"The '?' operator can only be used on a value of type 'Result<T, E>', but got '{operandType}'."
-            );
+            // '?' written straight onto an un-awaited call is the common shape of this mistake, and the
+            // Result it is reaching for is one 'await' away
+            if (IsFutureType(errorPropagation, operandType))
+                _diagnostics.Error(
+                    errorPropagation,
+                    InternalCodes.UnawaitedFutureAccess,
+                    $"The '?' operator cannot be used on '{operandType}' - the Result is inside the future, not on it.",
+                    "await the call first: 'await expression?' already means '(await expression)?'"
+                );
+            else
+                _diagnostics.Error(
+                    errorPropagation,
+                    InternalCodes.ErrorPropagationRequiresResultType,
+                    $"The '?' operator can only be used on a value of type 'Result<T, E>', but got '{operandType}'."
+                );
 
             return BindType(errorPropagation, Types.PrimitiveType.Never);
         }

@@ -30,10 +30,11 @@ public sealed partial class Parser
         while (!IsEof() && Current() is not { Kind: SyntaxKind.RBrace })
         {
             var attributes = Match(out var leftBracket, SyntaxKind.LBracket) ? ParseAttributes(leftBracket) : null;
+            var asyncKeyword = MatchAsyncKeyword();
             if (!Match(out var fnKeyword, SyntaxKind.FnKeyword))
                 break;
 
-            members.Add(ParseDeclareFunctionSignature(fnKeyword, attributes));
+            members.Add(ParseDeclareFunctionSignature(fnKeyword, attributes, asyncKeyword));
             Match(SyntaxKind.Comma, SyntaxKind.Semicolon);
         }
 
@@ -165,8 +166,12 @@ public sealed partial class Parser
 
     private Statement ParseDeclareSignature(Token declareKeyword, Attributes? attributes)
     {
+        var asyncKeyword = MatchAsyncKeyword();
         if (Match(out var fnKeyword, SyntaxKind.FnKeyword))
-            return ParseDeclareFunctionSignature(fnKeyword, attributes);
+            return ParseDeclareFunctionSignature(fnKeyword, attributes, asyncKeyword);
+
+        if (asyncKeyword != null)
+            return ParseDeclareFunctionSignature(Expect(SyntaxKind.FnKeyword), attributes, asyncKeyword);
 
         if (Match(out var eventKeyword, SyntaxKind.EventKeyword))
             return ParseEventDeclaration(eventKeyword, attributes);
@@ -204,7 +209,7 @@ public sealed partial class Parser
         return new DeclareVariableSignature(variableKeyword, name, colonTypeClause!);
     }
 
-    private Statement ParseDeclareFunctionSignature(Token fnKeyword, Attributes? attributes = null)
+    private Statement ParseDeclareFunctionSignature(Token fnKeyword, Attributes? attributes = null, Token? asyncKeyword = null)
     {
         var name = ExpectIdentifier("function name");
         var typeParameters = ParseTypeParameters();
@@ -218,12 +223,21 @@ public sealed partial class Parser
             ))
             return new NullStatement(fnKeyword);
 
-        return new DeclareFunctionSignature(fnKeyword, name, typeParameters, parameters, returnType, attributes);
+        return new DeclareFunctionSignature(fnKeyword, name, typeParameters, parameters, returnType, attributes, asyncKeyword);
     }
 
     private Statement ParseFunctionDeclaration(Token keyword) => ParseFunctionDeclaration(keyword, null);
 
-    private Statement ParseFunctionDeclaration(Token keyword, Attributes? attributes)
+    /// <summary>
+    ///     Entered with the <c>async</c> already consumed, since the statement dispatch table is keyed on a
+    ///     declaration's first token and <c>async</c> is the first token of an asynchronous one.
+    /// </summary>
+    private Statement ParseAsyncFunctionDeclaration(Token asyncKeyword) => ParseAsyncFunctionDeclaration(asyncKeyword, null);
+
+    private Statement ParseAsyncFunctionDeclaration(Token asyncKeyword, Attributes? attributes) =>
+        ParseFunctionDeclaration(Expect(SyntaxKind.FnKeyword), attributes, asyncKeyword);
+
+    private Statement ParseFunctionDeclaration(Token keyword, Attributes? attributes, Token? asyncKeyword = null)
     {
         var name = ExpectIdentifier("function name");
         var typeParameters = ParseTypeParameters();
@@ -239,7 +253,8 @@ public sealed partial class Parser
                 parameters,
                 returnType,
                 body,
-                attributes
+                attributes,
+                asyncKeyword
             );
 
         _diagnostics.Error(
@@ -251,7 +266,7 @@ public sealed partial class Parser
         return new NullStatement(nullStatement.Token);
     }
 
-    private Expression ParseFunctionExpression(Token keyword)
+    private Expression ParseFunctionExpression(Token keyword, Token? asyncKeyword = null)
     {
         var typeParameters = ParseTypeParameters();
         var parameters = ParseParameters();
@@ -259,7 +274,7 @@ public sealed partial class Parser
         var body = ParseFunctionBody();
 
         if (body is not NullStatement nullStatement)
-            return new FunctionExpression(keyword, typeParameters, parameters, returnType, body);
+            return new FunctionExpression(keyword, typeParameters, parameters, returnType, body, asyncKeyword);
 
         _diagnostics.Error(
             nullStatement.Token ?? Current(),

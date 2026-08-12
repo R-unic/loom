@@ -77,7 +77,13 @@ public sealed partial class TypeChecker
         var returnType = GetReturnType(functionExpression);
         var functionType = BindType(
             functionExpression,
-            new Types.FunctionType(typeParameters, parameterTypes, returnType, HasRestParameter(functionExpression.Parameters))
+            new Types.FunctionType(
+                typeParameters,
+                parameterTypes,
+                returnType,
+                HasRestParameter(functionExpression.Parameters),
+                functionExpression.AsyncKeyword != null
+            )
         );
 
         if (functionExpression.Body is ExpressionBody body)

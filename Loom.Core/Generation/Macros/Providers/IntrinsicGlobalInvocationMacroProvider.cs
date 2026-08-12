@@ -22,7 +22,7 @@ internal sealed class IntrinsicGlobalInvocationMacroProvider : IMacroProvider
         expression is Parsing.AST.Identifier && semanticModel.GetSymbol(expression) is { IsIntrinsic: true };
 
     public bool IsInvocationOnlyMember(string memberName) =>
-        memberName is "string" or "number" or "new_instance" or "get_service" or "type_is" or "get_metadata" or "has_attribute"
+        memberName is "string" or "number" or "new_instance" or "get_service" or "type_is" or "get_metadata" or "has_attribute" or "wait"
             or "serialize_binary" or "deserialize_binary" or "serializer" or "serializer_of" or "diff_binary" or "apply_diff_binary";
 
     public bool TryInvocation(
@@ -55,6 +55,11 @@ internal sealed class IntrinsicGlobalInvocationMacroProvider : IMacroProvider
                     ? LuauNumberFormat.TryParse(numberSource.Value, out var parsed) ? new NumberLiteral(parsed) : new NilLiteral()
                     : new Call(new Identifier("tonumber"), call.Arguments);
 
+                return true;
+            // the deprecated global 'wait' still exists in Roblox and is not this one, so the name is
+            // resolved to task.wait rather than left to bind to whichever the runtime happens to have
+            case "wait":
+                expression = LuauFactory.TaskCall("wait", call.Arguments);
                 return true;
             case "type_is":
                 expression = new BinaryOperator(new Call(new Identifier("typeof"), [call.Arguments[0]]), "==", call.Arguments[1]);

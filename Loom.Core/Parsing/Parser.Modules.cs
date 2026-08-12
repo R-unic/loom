@@ -74,6 +74,8 @@ public sealed partial class Parser
         {
             case SyntaxKind.FnKeyword:
                 return ParseFunctionDeclaration(keyword, attributes);
+            case SyntaxKind.AsyncKeyword:
+                return ParseAsyncFunctionDeclaration(keyword, attributes);
             case SyntaxKind.InterfaceKeyword or SyntaxKind.SealedKeyword:
                 return ParseInterfaceDeclaration(keyword, attributes);
             case SyntaxKind.EventKeyword:

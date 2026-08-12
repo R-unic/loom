@@ -30,6 +30,8 @@ public sealed partial class LuauGenerator
         "Range",
         "Event",
         "ConsumerEvent",
+        "Future",
+        "FutureStatus",
         "CreatableInstance",
         "ServiceInstance",
         "Serialized",

@@ -97,6 +97,14 @@ public sealed partial class Parser(LexerResult lexerResult)
         return true;
     }
 
+    /// <summary>
+    ///     Consumes the <c>async</c> in front of an <c>fn</c>, if one is written. A function can begin in six
+    ///     places - statement, expression, trait member, implement member, declared signature, and type
+    ///     position - and every one of them accepts the modifier, so they share this rather than each
+    ///     spelling out the match.
+    /// </summary>
+    private Token? MatchAsyncKeyword() => Match(out var asyncKeyword, SyntaxKind.AsyncKeyword) ? asyncKeyword : null;
+
     private Token ExpectIdentifier() => ExpectIdentifier("identifier");
     private Token ExpectIdentifier(string expected) => Expect(SyntaxKind.Identifier, expected);
     private Token Expect(SyntaxKind kind, string expected) => Expect(kind, token => $"Expected {expected}, got {SafeTokenText(token)}.");

@@ -14,6 +14,8 @@ public static class SyntaxFacts
             new KeyValuePair<string, SyntaxKind>("export", SyntaxKind.ExportKeyword),
             new KeyValuePair<string, SyntaxKind>("import", SyntaxKind.ImportKeyword),
             new KeyValuePair<string, SyntaxKind>("fn", SyntaxKind.FnKeyword),
+            new KeyValuePair<string, SyntaxKind>("async", SyntaxKind.AsyncKeyword),
+            new KeyValuePair<string, SyntaxKind>("await", SyntaxKind.AwaitKeyword),
             new KeyValuePair<string, SyntaxKind>("return", SyntaxKind.ReturnKeyword),
             new KeyValuePair<string, SyntaxKind>("continue", SyntaxKind.ContinueKeyword),
             new KeyValuePair<string, SyntaxKind>("break", SyntaxKind.BreakKeyword),
@@ -129,6 +131,7 @@ public static class SyntaxFacts
     private static readonly HashSet<SyntaxKind> _exportableKeywords =
     [
         SyntaxKind.FnKeyword,
+        SyntaxKind.AsyncKeyword,
         SyntaxKind.LetKeyword,
         SyntaxKind.MutKeyword,
         SyntaxKind.TypeKeyword,
