@@ -31,6 +31,7 @@ public sealed partial class LuauGenerator
     private readonly Dictionary<Is, LuauExpression> _isSubjects = [];
     private readonly Lazy<HashSet<(EventTarget Target, Symbol Function)>> _localSafeConnections;
 
+    private readonly ArrayPipeline _arrayPipeline;
     private readonly MacroExpander _macroExpander;
     private readonly ModuleImportExportGenerator _moduleGenerator;
     private readonly RuntimeImport _runtimeImport;
@@ -48,6 +49,7 @@ public sealed partial class LuauGenerator
         _diagnostics = new DiagnosticBag(options: semanticModel.Diagnostics.Options);
         _runtimeImport = runtimeImport ?? RuntimeImport.Default;
         _macroExpander = new MacroExpander(semanticModel, _state, _diagnostics);
+        _arrayPipeline = new ArrayPipeline(semanticModel, _state, expression => Visit(expression));
         _moduleGenerator = new ModuleImportExportGenerator(semanticModel, _diagnostics, moduleRequirePaths);
         _localSafeConnections = new Lazy<HashSet<(EventTarget Target, Symbol Function)>>(
             () => EventConnectionScopeAnalyzer.ComputeLocallySafeConnections(semanticModel)
@@ -161,14 +163,41 @@ public sealed partial class LuauGenerator
     }
 
     /// <summary>
-    ///     Detects a placeholder '_' binding whose value is nothing more than the identifier
-    ///     a prereq statement in the same scope just declared. Emitting both would be redundant, so the
-    ///     placeholder is elided in favor of the prereq statement that already exists.
+    ///     Detects a binding whose value is nothing more than the identifier a prereq statement in the
+    ///     same scope already declared. Emitting both would be redundant, so the binding is elided in
+    ///     favour of the prereq that exists.
     /// </summary>
+    /// <remarks>
+    ///     Two shapes reach here. A placeholder '_' binding, where the value was only ever wrapped to be
+    ///     a statement; and a binding of a name to itself, which is what a macro leaves behind when it
+    ///     accumulated straight into the name it was being bound to rather than into a temporary.
+    /// </remarks>
     private static bool IsRedundantOrphanBinding(LuauStatement statement, LuauScope scope) =>
+        IsRedundantPlaceholder(statement, scope) || IsSelfBinding(statement, scope);
+
+    private static bool IsRedundantPlaceholder(LuauStatement statement, LuauScope scope) =>
         statement is ConstVariable { Name: "_", Initializer: Identifier identifier }
         && scope.PrereqStatements is [.., Variable lastPrereq]
         && lastPrereq.Name == identifier.Name;
+
+    /// <summary>
+    ///     'const kept = kept', where a prereq already declared 'kept'. Only a macro that accumulated
+    ///     into the binding's own name produces this - the name is in scope before the initializer is
+    ///     generated, so nothing else can bind a name to the one it is declaring.
+    /// </summary>
+    private static bool IsSelfBinding(LuauStatement statement, LuauScope scope) =>
+        statement is Variable { Name: var name } variable
+        && InitializerOf(variable) is Identifier { Name: var initialized }
+        && name == initialized
+        && scope.PrereqStatements.Exists(prereq => prereq is Variable declared && declared.Name == name);
+
+    private static LuauExpression? InitializerOf(Variable variable) =>
+        variable switch
+        {
+            ConstVariable constant => constant.Initializer,
+            LocalVariable local => local.Initializer,
+            _ => null
+        };
 
     private static void ApplyPrereqAndPostreq(List<LuauStatement> result, LuauScope scope, LuauStatement luauStatement)
     {

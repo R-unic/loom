@@ -136,8 +136,6 @@ public class SerializationSchemaTest
     [Fact]
     public void ThrowsFor_LengthType_NoLongerExists()
     {
-        // Same treatment as number_type: string<u8>/Array<T, u8> replace every use it had, so it isn't
-        // declared at all anymore rather than kept around as an always-invalid stub.
         var diagnostics = Utility.GetSemanticModel(
             """
             [serializable] interface MyData {
@@ -172,10 +170,6 @@ public class SerializationSchemaTest
     [Fact]
     public void ThrowsFor_NumberType_NoLongerExists()
     {
-        // number_type isn't merely invalid on any particular target anymore - it isn't declared at all,
-        // now that every property it used to configure has a type-level replacement (a sized type,
-        // Vector3/Vector2/CFrame's own <T>) or, for the other 7 Roblox datatypes and an all-numeric
-        // tuple, no replacement, just a fixed f32 default.
         var diagnostics = Utility.GetSemanticModel(
             """
             [serializable] interface MyData {
@@ -234,8 +228,6 @@ public class SerializationSchemaTest
     [InlineData("Vector3int16", "Vector3")]
     public void ThrowsFor_Int16Datatype_PointingAtItsGenericReplacement(string datatype, string replacement)
     {
-        // Vector2int16/Vector3int16 are permanently unserializable now - Vector2<i16>/Vector3<i16> already
-        // say the same thing with a configurable width, so there is no reason to keep both around.
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             $$"""
             [serializable] interface MyData {
@@ -313,8 +305,6 @@ public class SerializationSchemaTest
                 var declaring = result.Files.Single(f => f.SourceFile.Name.Contains("packets")).RenderedLuau;
                 var consumer = result.Files.Single(f => f.SourceFile.Name.Contains("main")).RenderedLuau;
 
-                // The codec is emitted and exported once, and the consumer reaches it through the import
-                // rather than through function names local to the declaring file.
                 Assert.Contains("MyData_serializer = MyData_serializer", declaring);
                 Assert.Contains("const MyData_serializer = packets.MyData_serializer", consumer);
                 Assert.Contains("MyData_serializer.serialize(", consumer);
@@ -326,9 +316,6 @@ public class SerializationSchemaTest
     [Fact]
     public void SerializerOf_MergesEveryConstraintsIndexer_NotJustTheFirst()
     {
-        // A dispatch table is typically built by merging several single-key interfaces through
-        // inheritance, each contributing its own '[Message["..."]]: ...Packet' indexer - the map has to
-        // read every constraint's indexer, not just whichever one is reached first.
         var luau = Utility.GetLuauAST(
                 """
                 enum Message { ShootGun, Reload }
@@ -364,13 +351,11 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // A variable-width element cannot state its width as an expression, so the total is accumulated
-        // by walking the value before the buffer is allocated.
         Assert.Contains("local size = 0", luau);
-        Assert.Contains("size += 4 + #value.values[i]", luau);
+        Assert.Contains("const values_element = value.values[i]", luau);
+        Assert.Contains("size += 4 + #values_element", luau);
         Assert.Contains("buffer_create(size)", luau);
 
-        // Element locals must not collide with the collection's own, nor carry brackets into a name.
         Assert.Contains("values_element", luau);
         Assert.DoesNotContain("values[]_", luau);
     }
@@ -391,8 +376,6 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // Entries share a block reserved after the length prefix, so the bodies stay byte-aligned and
-        // eight bools cost one byte rather than eight.
         Assert.Contains("_bits = offset * 8", luau);
         Assert.Contains("+ 7) // 8", luau);
     }
@@ -413,13 +396,12 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        Assert.Contains("buffer_writeu32(b, 0, #value.values)", luau);
-        Assert.Contains("for i = 1, #value.values do", luau);
+        Assert.Contains("const values_count = #value.values", luau);
+        Assert.Contains("buffer_writeu32(b, 0, values_count)", luau);
+        Assert.Contains("for i = 1, values_count do", luau);
         Assert.Contains("offset += 1", luau);
 
-        // The count is bounds-checked before the loop rather than running off the end element by element.
-        // A one-byte element folds away the scale, so the bound is just the count.
-        Assert.Contains("if buffer_len(b) < offset + values_count then", luau);
+        Assert.Contains("if b_len < offset + values_count then", luau);
     }
     [Fact]
     public void PackedSentinel_SkipsComponentsOnMatch()
@@ -437,12 +419,10 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // The sentinel resolves before the allocation, because a match writes no components at all.
         Assert.Contains("if position_value == Vector3.zero then", luau);
         Assert.Contains("buffer_create(1 + (if position_sentinel == 0 then 6 else 0))", luau);
         Assert.Contains("if position_sentinel == 0 then", luau);
 
-        // Reserved tags decode to nothing the type allows, so they report instead.
         Assert.Contains("kind = \"invalid_tag\"", luau);
     }
 
@@ -462,10 +442,10 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // Header bits are paid for unconditionally, so a sentinelled rotation moves to the body where it
-        // rides behind the same conditional as the position - identity costs one byte, not five.
         Assert.Contains("buffer_create(1 + (if frame_sentinel == 0 then 16 else 0))", luau);
-        Assert.Contains("buffer_writeu32(b, offset, Loom.pack_quaternion(", luau);
+
+        // The rotation goes out as one u32, past the three position components the addressing folded in.
+        Assert.Contains("buffer_writeu32(b, offset + 12, Loom.pack_quaternion(", luau);
     }
 
     [Fact]
@@ -484,9 +464,7 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // The up-front minimum only covers what every payload carries, so a branch the sender chose to
-        // take has to prove its bytes are present rather than throwing out of the read.
-        Assert.Contains("if buffer_len(b) < offset + 2 then", luau);
+        Assert.Contains("if b_len < offset + 2 then", luau);
     }
     #region Unions
     private const string ActionUnion =
@@ -511,7 +489,6 @@ public class SerializationSchemaTest
         Assert.Contains("if action_value.kind == \"Click\" then", luau);
         Assert.Contains("buffer_writebits(b, 0, 1, action_tag)", luau);
 
-        // The tag carries 'kind', so it costs nothing on the wire and is rebuilt on the way back.
         Assert.Contains("action = { kind = \"LogOut\" }", luau);
         Assert.Contains("action = { kind = \"Click\", x = ", luau);
         Assert.DoesNotContain("value.action.kind)", luau);
@@ -522,7 +499,6 @@ public class SerializationSchemaTest
     {
         var luau = Utility.GetLuauAST(ActionUnion, true).Render();
 
-        // The empty variant adds nothing, so only the one with a payload gets a branch.
         Assert.Contains("if action_tag == 1 then", luau);
         Assert.Contains("size += 1", luau);
         Assert.DoesNotContain("size += 0", luau);
@@ -542,7 +518,6 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // Three variants fit in two bits and the value is the tag, so nothing follows it.
         Assert.Contains("buffer_writebits(b, 0, 2, color_tag)", luau);
         Assert.Contains("color = \"red\"", luau);
         Assert.Contains("buffer_create(1)", luau);
@@ -564,8 +539,6 @@ public class SerializationSchemaTest
 
         Assert.Contains("if typeof(content_value) == \"string\" then", luau);
 
-        // A variant carrying a string has to be measured, not just its fixed part, or the allocation
-        // would be short before the variant's own writes began.
         Assert.Contains("size += 4 + #value.content", luau);
     }
 
@@ -581,15 +554,12 @@ public class SerializationSchemaTest
     {
         var luau = Utility.GetLuauAST(ActionUnion, true).Render();
 
-        // The minimum only covers the tag, so a variant the sender chose has to prove its bytes exist.
-        Assert.Contains("if buffer_len(b) < offset + 1 then", luau);
+        Assert.Contains("if b_len < offset + 1 then", luau);
     }
 
     [Fact]
     public void Union_ResolvesVariantsThatShadowIntrinsicNames()
     {
-        // 'Path' is also a Roblox class, and resolving the intrinsic instead would leave a perfectly
-        // serializable variant looking unserializable.
         var diagnostics = Utility.GetGeneratorDiagnostics(
             """
             interface IShape<Kind: string> { kind: Kind }
@@ -611,12 +581,10 @@ public class SerializationSchemaTest
     #region Measurability
     [Theory]
     [InlineData("name: string?", "size += 4 + #value.name")]
-    [InlineData("values: string[]", "size += 4 + #value.values[i]")]
+    [InlineData("values: string[]", "size += 4 + #values_element")]
     [InlineData("values: number[]", "#value.values * 4")]
     public void VariableWidthField_IsMeasuredBeforeAllocating(string property, string expected)
     {
-        // Everything is allocated before a byte is written, so a width left out of the measure leaves
-        // the buffer short and the writes running off the end.
         var luau = Utility.GetLuauAST(
                 $$"""
                 [serializable] interface Probe {{{property}}}
@@ -644,13 +612,14 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // A counter per level, or an inner loop would clobber the outer's, and a length prefix per level.
-        Assert.Contains("for i = 1, #value.rows do", luau);
-        Assert.Contains("for i_2 = 1, #value.rows[i] do", luau);
-        Assert.Contains("size += 4 + #value.rows[i][i_2]", luau);
+        Assert.Contains("for i = 1, rows_count do", luau);
+        Assert.Contains("for i_2 = 1, rows_element_count do", luau);
+        Assert.Contains("size += 4 + #rows_element_element", luau);
 
-        // Nested paths carry a bracket group per level; stopping after the first leaves the rest in the
-        // name and produces something that is not an identifier at all.
+        Assert.Contains("const rows_element = value.rows[i]", luau);
+        Assert.Contains("const rows_element_element = rows_element[i_2]", luau);
+        Assert.DoesNotContain("#value.rows[i][i_2]", luau);
+
         Assert.Contains("rows_element_element_length", luau);
         Assert.DoesNotContain("rows_][", luau);
     }
@@ -689,13 +658,10 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // Bits from the nested struct, the optional's presence, the union tag, and the selected
-        // variant's ranged number all share one header; every variable part is measured separately.
         Assert.Contains("size += 4 + #value.label", luau);
         Assert.Contains("size += 4 + #value.payload.message", luau);
         Assert.Contains("#value.points * 6", luau);
 
-        // The literal-typed tag and the blob both stay off the wire.
         Assert.Contains("tag = \"sink\"", luau);
         Assert.Contains("table.insert(blobs, value.owner)", luau);
     }
@@ -718,9 +684,6 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // Flattening puts the nested properties under dotted paths; reading them back into a flat table
-        // would hand the caller the wrong shape entirely. Inner's own serializer is still flat, so the
-        // nesting has to be asserted on Outer's return specifically.
         Assert.Contains("value = { inner = { flag = ", luau);
     }
 
@@ -738,8 +701,6 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // The optional's accumulator and the string read filling it both want the leaf name; if the
-        // inner binding shadows the outer, the assignment writes to itself and the value stays nil.
         Assert.Contains("local nickname = nil", luau);
         Assert.Contains("nickname_2 = buffer_readstring", luau);
         Assert.Contains("nickname = nickname_2", luau);
@@ -765,7 +726,6 @@ public class SerializationSchemaTest
     [Fact]
     public void ThrowsFor_RangeWiderThanWritebitsCarries()
     {
-        // Anything past 32 bits would clamp, silently dropping the top of every value.
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             [serializable] interface Counter {
@@ -806,8 +766,6 @@ public class SerializationSchemaTest
     [Fact]
     public void ThrowsFor_InterfaceThatIsItselfAnIndexer()
     {
-        // The map encoding lives on a property; an interface that is only an indexer has nothing for the
-        // schema to name, and used to serialize to nothing at all.
         var diagnostics = Utility.GetTypeCheckerDiagnostics("[serializable] interface Lookup { [string]: number }");
 
         Utility.AssertDiagnostic(
@@ -832,13 +790,10 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // A map has no length operator, so the size pass counts by walking. The write reuses that count
-        // for its length prefix rather than walking a second time.
         Assert.Contains("local entries_count = 0", luau);
         Assert.Contains("buffer_writeu32(b, 0, entries_count)", luau);
         Assert.DoesNotContain("entries_written", luau);
 
-        // Pairs go out and come back keyed, not positional.
         Assert.Contains("for entries_key, entries_value in value.entries do", luau);
         Assert.Contains("entries[entries_key] = ", luau);
     }
@@ -861,8 +816,6 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // Luau binds an if-expression loosely enough that its else branch swallows whatever follows, so
-        // a sum of several would nest rather than add up and the buffer would come out short.
         Assert.Contains("+ (if velocity_sentinel == 0 then 6 else 0)", luau);
         Assert.Contains("+ (if aim_sentinel == 0 then 16 else 0)", luau);
     }
@@ -883,8 +836,6 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        // The optional's payload has to come from the loop entry; through the value parameter it would
-        // index a property literally named 'events[]'.
         Assert.Contains("table.insert(blobs, events_element.attacker)", luau);
         Assert.DoesNotContain("value[\"events[]\"]", luau);
     }
@@ -923,8 +874,6 @@ public class SerializationSchemaTest
             """
         );
 
-        // Five Vector3 sentinels plus the reserved "components follow" state need three bits, and the
-        // components become conditional - so the type stops being fixed-size.
         Assert.Equal(3, schema.HeaderBits);
         Assert.False(schema.IsFixedSize);
     }
@@ -1000,7 +949,6 @@ public class SerializationSchemaTest
             """
         );
 
-        // 101 states fit in 7 bits, versus the 32 an unannotated f32 would spend.
         Assert.Equal(7, schema.HeaderBits);
         Assert.Equal(1, schema.FixedByteCount);
     }
@@ -1072,7 +1020,6 @@ public class SerializationSchemaTest
             """
         );
 
-        // One shared header rather than a partial byte per nesting level.
         Assert.Equal(3, schema.HeaderBits);
         Assert.Equal(1, schema.FixedByteCount);
     }
@@ -1108,7 +1055,6 @@ public class SerializationSchemaTest
         Assert.Equal("kind", union.DiscriminantName);
         Assert.Equal(1, union.TagBits);
 
-        // The tag carries 'kind', so no variant re-encodes it.
         Assert.Empty(union.Variants[0].Fields);
         Assert.Equal("action.x", Assert.Single(union.Variants[1].Fields).Path);
     }
@@ -1131,8 +1077,6 @@ public class SerializationSchemaTest
     [Fact]
     public void MixedSizedTupleElement_DefaultsUnsizedSiblingToF32()
     {
-        // A sized element picks its own width; an unsized sibling has no shared attribute to fall back
-        // to anymore, so it always takes the f32 default.
         var schema = GetSchema(
             """
             [serializable] interface MyData {
@@ -1164,8 +1108,6 @@ public class SerializationSchemaTest
     [Fact]
     public void ArrayAlias_ResolvesElementAndLengthArgumentsByName()
     {
-        // T and L are looked up by parameter name, not position - this guards against a positional
-        // read silently swapping which argument means "element type" and which means "length width".
         var schema = GetSchema(
             """
             [serializable] interface MyData {
@@ -1193,7 +1135,6 @@ public class SerializationSchemaTest
         var frame = Assert.IsType<CFrameField>(Assert.Single(schema.Fields));
         Assert.Equal(CFrameEncoding.Compressed, frame.Encoding);
 
-        // 32 bits of rotation plus a 12-byte position.
         Assert.Equal(32, schema.HeaderBits);
         Assert.Equal(16, schema.FixedByteCount);
     }
@@ -1234,8 +1175,6 @@ public class SerializationSchemaTest
             """
         );
 
-        // Unlike Compressed, Precise writes four ordinary components next to the position rather than
-        // packing the rotation into header bits - bit-writing a float would truncate it to an integer.
         Assert.Equal(0, schema.HeaderBits);
         Assert.Equal(28, schema.FixedByteCount);
     }

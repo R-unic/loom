@@ -6,13 +6,13 @@ const buffer_writeu32 = buffer.writeu32
 const buffer_writestring = buffer.writestring
 const buffer_writei16 = buffer.writei16
 const buffer_writef32 = buffer.writef32
-const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
 const buffer_readu8 = buffer.readu8
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
 const buffer_readi16 = buffer.readi16
 const buffer_readf32 = buffer.readf32
+const buffer_len = buffer.len
 const function KitchenSink_serialize_binary(value: KitchenSink): Loom.Serialized
   const blobs = {}
   const payload_value = value.payload
@@ -36,52 +36,43 @@ const function KitchenSink_serialize_binary(value: KitchenSink): Loom.Serialized
     const label_value = value.label
     const label_length = #label_value
     buffer_writeu32(b, offset, label_length)
-    offset += 4
-    buffer_writestring(b, offset, label_value)
-    offset += label_length
+    buffer_writestring(b, offset + 4, label_value)
+    offset += 4 + label_length
   end
-  buffer_writeu32(b, offset, #value.points)
+  const points_count = #value.points
+  buffer_writeu32(b, offset, points_count)
   offset += 4
-  for i = 1, #value.points do
+  for i = 1, points_count do
     const points_element = value.points[i]
     buffer_writei16(b, offset, points_element.X)
-    offset += 2
-    buffer_writei16(b, offset, points_element.Y)
-    offset += 2
-    buffer_writei16(b, offset, points_element.Z)
-    offset += 2
+    buffer_writei16(b, offset + 2, points_element.Y)
+    buffer_writei16(b, offset + 4, points_element.Z)
+    offset += 6
   end
   buffer_writebits(b, 2, 1, payload_tag)
   if payload_tag == 1 then
     const message_value = value.payload.message
     const message_length = #message_value
     buffer_writeu32(b, offset, message_length)
-    offset += 4
-    buffer_writestring(b, offset, message_value)
-    offset += message_length
+    buffer_writestring(b, offset + 4, message_value)
+    offset += 4 + message_length
     buffer_writebits(b, 3, 7, math.round(value.payload.volume))
   end
   table.insert(blobs, value.owner)
   buffer_writef32(b, offset, value.frame.X)
-  offset += 4
-  buffer_writef32(b, offset, value.frame.Y)
-  offset += 4
-  buffer_writef32(b, offset, value.frame.Z)
-  offset += 4
+  buffer_writef32(b, offset + 4, value.frame.Y)
+  buffer_writef32(b, offset + 8, value.frame.Z)
   const qx, qy, qz, qw = Loom.cframe_to_quaternion(value.frame)
-  buffer_writef32(b, offset, qx)
-  offset += 4
-  buffer_writef32(b, offset, qy)
-  offset += 4
-  buffer_writef32(b, offset, qz)
-  offset += 4
-  buffer_writef32(b, offset, qw)
-  offset += 4
+  buffer_writef32(b, offset + 12, qx)
+  buffer_writef32(b, offset + 16, qy)
+  buffer_writef32(b, offset + 20, qz)
+  buffer_writef32(b, offset + 24, qw)
   return { buffer = b, blobs = blobs }
 end
 const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom.Result<KitchenSink, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 35 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 35 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const blobs = serialized.blobs
@@ -94,27 +85,24 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
   local offset = 3
   if label_present then
     const label_2_length = buffer_readu32(b, offset)
-    offset += 4
-    if buffer_len(b) < offset + label_2_length then
+    if b_len < offset + 4 + label_2_length then
       return { ok = false, error = { kind = "invalid_length", field = "label" } }
     end
-    const label_2 = buffer_readstring(b, offset, label_2_length)
-    offset += label_2_length
+    const label_2 = buffer_readstring(b, offset + 4, label_2_length)
+    offset += 4 + label_2_length
     label = label_2
   end
   const points_count = buffer_readu32(b, offset)
-  offset += 4
-  if buffer_len(b) < offset + points_count * 6 then
+  if b_len < offset + 4 + points_count * 6 then
     return { ok = false, error = { kind = "invalid_length", field = "points" } }
   end
   const points = {}
+  offset += 4
   for i = 1, points_count do
     const points_element_x = buffer_readi16(b, offset)
-    offset += 2
-    const points_element_y = buffer_readi16(b, offset)
-    offset += 2
-    const points_element_z = buffer_readi16(b, offset)
-    offset += 2
+    const points_element_y = buffer_readi16(b, offset + 2)
+    const points_element_z = buffer_readi16(b, offset + 4)
+    offset += 6
     points[i] = Vector3.new(points_element_x, points_element_y, points_element_z)
   end
   const payload_tag = buffer_readbits(b, 2, 1)
@@ -123,12 +111,11 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
     payload = { kind = "Ping" }
   elseif payload_tag == 1 then
     const message_length = buffer_readu32(b, offset)
-    offset += 4
-    if buffer_len(b) < offset + message_length then
+    if b_len < offset + 4 + message_length then
       return { ok = false, error = { kind = "invalid_length", field = "payload.message" } }
     end
-    const message = buffer_readstring(b, offset, message_length)
-    offset += message_length
+    const message = buffer_readstring(b, offset + 4, message_length)
+    offset += 4 + message_length
     payload = { kind = "Chat", message = message, volume = buffer_readbits(b, 3, 7) }
   else
     return { ok = false, error = { kind = "invalid_tag", field = "payload" } }
@@ -142,19 +129,12 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
     return { ok = false, error = { kind = "invalid_blob", field = "owner" } }
   end
   const frame_x = buffer_readf32(b, offset)
-  offset += 4
-  const frame_y = buffer_readf32(b, offset)
-  offset += 4
-  const frame_z = buffer_readf32(b, offset)
-  offset += 4
-  const frame_qx = buffer_readf32(b, offset)
-  offset += 4
-  const frame_qy = buffer_readf32(b, offset)
-  offset += 4
-  const frame_qz = buffer_readf32(b, offset)
-  offset += 4
-  const frame_qw = buffer_readf32(b, offset)
-  offset += 4
+  const frame_y = buffer_readf32(b, offset + 4)
+  const frame_z = buffer_readf32(b, offset + 8)
+  const frame_qx = buffer_readf32(b, offset + 12)
+  const frame_qy = buffer_readf32(b, offset + 16)
+  const frame_qz = buffer_readf32(b, offset + 20)
+  const frame_qw = buffer_readf32(b, offset + 24)
   return { ok = true, value = {
     tag = "sink",
     inner = { flag = buffer_readbits(b, 0, 1) == 1, code = buffer_readu8(b, 2) },

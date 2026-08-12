@@ -2,9 +2,9 @@ const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
 const buffer_create = buffer.create
 const buffer_writebits = buffer.writebits
 const buffer_writeu8 = buffer.writeu8
-const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
 const buffer_readu8 = buffer.readu8
+const buffer_len = buffer.len
 const function Envelope_serialize_binary(value: Envelope): Loom.Serialized
   const action_value = value.action
   local action_tag = 0
@@ -34,7 +34,8 @@ const function Envelope_serialize_binary(value: Envelope): Loom.Serialized
 end
 const function Envelope_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Envelope, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 1 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 1 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const action_tag = buffer_readbits(b, 0, 1)
@@ -43,12 +44,12 @@ const function Envelope_deserialize_binary(serialized: Loom.Serialized): Loom.Re
   if action_tag == 0 then
     action = { kind = "LogOut" }
   elseif action_tag == 1 then
-    if buffer_len(b) < offset + 1 then
+    if b_len < offset + 1 then
       return { ok = false, error = { kind = "truncated", field = "action" } }
     end
     const x = buffer_readu8(b, offset)
-    offset += 1
     action = { kind = "Click", x = x }
+    offset += 1
   else
     return { ok = false, error = { kind = "invalid_tag", field = "action" } }
   end

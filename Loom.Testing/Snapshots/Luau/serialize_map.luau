@@ -1,8 +1,8 @@
 const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
 const buffer_create = buffer.create
 const buffer_writeu8 = buffer.writeu8
-const buffer_len = buffer.len
 const buffer_readu8 = buffer.readu8
+const buffer_len = buffer.len
 const buffer_writebits = buffer.writebits
 const buffer_copy = buffer.copy
 const buffer_readbits = buffer.readbits
@@ -55,8 +55,8 @@ const function ShootGunPacket_apply_diff_binary_read(baseline: ShootGunPacket, d
   local velocity = nil
   if velocity_changed then
     const velocity_2 = buffer_readu8(b, offset)
-    offset += 1
     velocity = velocity_2
+    offset += 1
   else
     velocity = baseline.velocity
   end

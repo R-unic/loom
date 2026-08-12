@@ -24,13 +24,29 @@ internal sealed partial class SerializationEmitter
     public Function EmitDeltaReadHelper()
     {
         _locals.Clear();
+        _readsBufferLength = false;
         var diffFields = DiffableFields();
         var controlBytes = BitWidth.ToByteCount(diffFields.Sum(f => f.DiffHeaderBits));
 
-        var body = new List<LuauStatement>
+        var reads = new List<LuauStatement>();
+        var cursor = new Cursor(controlBytes);
+        cursor.GoDynamic(reads);
+
+        var initializers = new List<TableInitializer>();
+        foreach (var field in schema.Fields)
         {
-            new ConstVariable(BufferLocal, null, new PropertyAccess(new Identifier(DiffParameter), ["buffer"])), EmitDeltaTruncationGuard(controlBytes)
-        };
+            if (field is ConstantField constant)
+            {
+                initializers.Add(new PropertyTableInitializer(LeafName(field.Path), ToLiteral(constant.Value)));
+                continue;
+            }
+
+            var baselineValue = Access(new Identifier(BaselineParameter), field.Path);
+            initializers.Add(new PropertyTableInitializer(LeafName(field.Path), EmitFieldDiffRead(field, baselineValue, cursor, reads)));
+        }
+
+        var body = new List<LuauStatement> { new ConstVariable(BufferLocal, null, new PropertyAccess(new Identifier(DiffParameter), ["buffer"])) };
+        body.AddRange(EmitTruncationGuard(controlBytes));
 
         if (schema.HasBlobs)
         {
@@ -47,22 +63,7 @@ internal sealed partial class SerializationEmitter
             body.Add(new LocalVariable(BlobIndexLocal, null, _one));
         }
 
-        var cursor = new Cursor(controlBytes);
-        cursor.GoDynamic(body);
-
-        var initializers = new List<TableInitializer>();
-        foreach (var field in schema.Fields)
-        {
-            if (field is ConstantField constant)
-            {
-                initializers.Add(new PropertyTableInitializer(LeafName(field.Path), ToLiteral(constant.Value)));
-                continue;
-            }
-
-            var baselineValue = Access(new Identifier(BaselineParameter), field.Path);
-            initializers.Add(new PropertyTableInitializer(LeafName(field.Path), EmitFieldDiffRead(field, baselineValue, cursor, body)));
-        }
-
+        body.AddRange(reads);
         body.Add(
             new Return(new Table([new PropertyTableInitializer("ok", new BooleanLiteral(true)), new PropertyTableInitializer("value", new Table(initializers))]))
         );
@@ -132,18 +133,6 @@ internal sealed partial class SerializationEmitter
             new TypeName("Result", [new TypeName(schema.Interface.Name), LuauFactory.QualifyRuntimeType(new TypeName("DeserializeError"))])
         );
 
-    private IfStatement EmitDeltaTruncationGuard(int controlBytes)
-    {
-        var missing = new BinaryOperator(new Identifier(BufferLocal), "==", new NilLiteral());
-        var tooShort = new BinaryOperator(BufferCall("len", [new Identifier(BufferLocal)]), "<", new NumberLiteral(controlBytes));
-        return new IfStatement(
-            new BinaryOperator(missing, "or", tooShort),
-            new Chunk([new Return(BuildErrorTable("truncated", null, 0))]),
-            [],
-            null
-        );
-    }
-
     /// <summary>Reads one field's diff, mirroring <see cref="EmitFieldDiffWrite" /> case for case.</summary>
     private LuauExpression EmitFieldDiffRead(SerializationField field, LuauExpression baselineValue, Cursor cursor, List<LuauStatement> statements) =>
         field switch
@@ -177,9 +166,12 @@ internal sealed partial class SerializationEmitter
         var result = ReserveLocal(leaf);
         statements.Add(new LocalVariable(result, null, new NilLiteral()));
 
+        cursor.Flush(statements);
+
         var resend = new List<LuauStatement>();
         var resendValue = EmitRead(field, cursor, resend);
         resend.Add(new ExpressionStatement(new BinaryOperator(new Identifier(result), "=", resendValue)));
+        cursor.Flush(resend);
 
         var unchanged = new List<LuauStatement> { new ExpressionStatement(new BinaryOperator(new Identifier(result), "=", baselineValue)) };
 
@@ -195,8 +187,7 @@ internal sealed partial class SerializationEmitter
         var result = ReserveLocal(leaf);
         statements.Add(new LocalVariable(result, null, new NilLiteral()));
 
-        // Both branches start reading from the same bit - only one runs at a time - so the cursor has to
-        // be rewound between them and left at whichever consumed more, mirroring the write side exactly.
+        cursor.Flush(statements);
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
 
@@ -204,6 +195,7 @@ internal sealed partial class SerializationEmitter
         var resendValue = EmitRead(optional, cursor, resend);
         resend.Add(new ExpressionStatement(new BinaryOperator(new Identifier(result), "=", resendValue)));
         widestBit = Math.Max(widestBit, cursor.BitOffset);
+        cursor.Flush(resend);
 
         cursor.BitOffset = startBit;
         var innerStatements = new List<LuauStatement>();
@@ -211,6 +203,7 @@ internal sealed partial class SerializationEmitter
         var innerRead = EmitFieldDiffRead(optional.Inner, innerBaseline, cursor, innerStatements);
         innerStatements.Add(new ExpressionStatement(new BinaryOperator(new Identifier(result), "=", innerRead)));
         widestBit = Math.Max(widestBit, cursor.BitOffset);
+        cursor.Flush(innerStatements);
 
         var unchanged = new List<LuauStatement>();
         if (innerStatements.Count > 0)
@@ -229,9 +222,7 @@ internal sealed partial class SerializationEmitter
         var result = ReserveLocal(leaf);
         statements.Add(new LocalVariable(result, null, new NilLiteral()));
 
-        // Every branch below - the full resend, and each variant's recursive read - starts from the same
-        // bit, since only one of them runs at a time; the cursor is rewound before each and left at
-        // whichever consumed the most, mirroring the write side exactly.
+        cursor.Flush(statements);
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
 
@@ -239,9 +230,8 @@ internal sealed partial class SerializationEmitter
         var resendValue = EmitRead(union, cursor, resend);
         resend.Add(new ExpressionStatement(new BinaryOperator(new Identifier(result), "=", resendValue)));
         widestBit = Math.Max(widestBit, cursor.BitOffset);
+        cursor.Flush(resend);
 
-        // The tag itself never went on the wire when unchanged, so it is re-resolved from baseline to
-        // know which variant's fields to recurse into.
         cursor.BitOffset = startBit;
         var unchanged = new List<LuauStatement>();
         var baselineTag = ResolveUnionTag(union, baselineValue, leaf + "_tag_b", unchanged);
@@ -255,6 +245,7 @@ internal sealed partial class SerializationEmitter
             var rebuilt = RebuildVariantDiff(union, variant, baselineValue, cursor, variantStatements);
             variantStatements.Add(new ExpressionStatement(new BinaryOperator(new Identifier(result), "=", rebuilt)));
             widestBit = Math.Max(widestBit, cursor.BitOffset);
+            cursor.Flush(variantStatements);
 
             var condition = new BinaryOperator(baselineTag, "==", new NumberLiteral(index));
             if (head == null)
@@ -312,15 +303,19 @@ internal sealed partial class SerializationEmitter
         var result = ReserveLocal(leaf);
         statements.Add(new LocalVariable(result, null, new NilLiteral()));
 
+        cursor.Flush(statements);
+
         var resend = new List<LuauStatement>();
         var resendValue = EmitRead(array, cursor, resend);
         resend.Add(new ExpressionStatement(new BinaryOperator(new Identifier(result), "=", resendValue)));
+        cursor.Flush(resend);
 
         var unchanged = new List<LuauStatement>();
         var countLocal = ReserveLocal(leaf + "_count");
         unchanged.Add(new ConstVariable(countLocal, null, Length(baselineValue)));
         var bitBase = ReserveElementBits(array.Element.DiffHeaderBits, leaf, new Identifier(countLocal), cursor, unchanged);
         unchanged.Add(new ExpressionStatement(new BinaryOperator(new Identifier(result), "=", Table.Empty)));
+        cursor.Flush(unchanged);
 
         var loop = ReserveLocal(LoopLocal);
         var elementBaseline = new ElementAccess(baselineValue, new Identifier(loop));
@@ -328,6 +323,7 @@ internal sealed partial class SerializationEmitter
         var restore = EnterElement(cursor, bitBase, array.Element.DiffHeaderBits, loop);
         var elementRead = EmitFieldDiffRead(array.Element, elementBaseline, cursor, elementStatements);
         restore();
+        cursor.Flush(elementStatements);
 
         elementStatements.Add(new ExpressionStatement(new BinaryOperator(new ElementAccess(new Identifier(result), new Identifier(loop)), "=", elementRead)));
 
@@ -392,6 +388,14 @@ internal sealed partial class SerializationEmitter
         var countName = $"{leaf}_{kind}_count".ToLowerInvariant();
         var count = BindRead(ReadNumber(cursor, map.LengthType, statements, countName), countName, statements);
 
+        // Claimed before the entries are read, exactly as the writer laid it out: the block's origin is
+        // the position the loop starts from, not one an entry's own reads have already moved past.
+        var entryBits = kind == MapRunKind.Changed
+            ? ReserveElementBits(map.DiffEntryBits, leaf + "_entry", count, cursor, statements)
+            : null;
+
+        cursor.Flush(statements);
+
         var loop = ReserveLocal(LoopLocal);
         var loopBody = new List<LuauStatement>();
         var key = EmitRead(map.Key, cursor, loopBody);
@@ -414,8 +418,7 @@ internal sealed partial class SerializationEmitter
 
             case MapRunKind.Changed:
             {
-                var bitBase = ReserveElementBits(map.DiffEntryBits, leaf + "_entry", count, cursor, statements);
-                var restore = EnterElement(cursor, bitBase, map.DiffEntryBits, loop);
+                var restore = EnterElement(cursor, entryBits, map.DiffEntryBits, loop);
                 var entryBaseline = new ElementAccess(baselineValue, new Identifier(keyLocal));
                 var value = EmitFieldDiffRead(map.Value, entryBaseline, cursor, loopBody);
                 restore();
@@ -424,6 +427,7 @@ internal sealed partial class SerializationEmitter
             }
         }
 
+        cursor.Flush(loopBody);
         statements.Add(new NumericForStatement(loop, _one, count, null, new Chunk(loopBody)));
     }
 }

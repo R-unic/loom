@@ -7,7 +7,6 @@ const buffer_writebits = buffer.writebits
 const buffer_writei16 = buffer.writei16
 const buffer_writef32 = buffer.writef32
 const buffer_writeu8 = buffer.writeu8
-const buffer_len = buffer.len
 const buffer_readu16 = buffer.readu16
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
@@ -15,6 +14,7 @@ const buffer_readbits = buffer.readbits
 const buffer_readi16 = buffer.readi16
 const buffer_readf32 = buffer.readf32
 const buffer_readu8 = buffer.readu8
+const buffer_len = buffer.len
 const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Serialized
   const blobs = {}
   const team_value = value.team
@@ -44,11 +44,12 @@ const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Seri
   end
   local size = 6 + 4 + #value.display_name + (if velocity_sentinel == 0 then 6 else 0) + (if aim_sentinel == 0 then 16 else 0)
   size += 4
-  size += (#value.recent * 12 + 7) // 8
-  for i = 1, #value.recent do
-    const recent_element_value = value.recent[i]
+  const recent_count = #value.recent
+  size += (recent_count * 12 + 7) // 8
+  for i = 1, recent_count do
+    const recent_element = value.recent[i]
     local recent_element_tag = 0
-    if recent_element_value.kind == "Respawned" then
+    if recent_element.kind == "Respawned" then
       recent_element_tag = 1
     end
     if recent_element_tag == 1 then
@@ -69,32 +70,25 @@ const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Seri
   buffer_writebits(b, 10, 3, velocity_sentinel)
   if velocity_sentinel == 0 then
     buffer_writei16(b, offset, velocity_value.X)
-    offset += 2
-    buffer_writei16(b, offset, velocity_value.Y)
-    offset += 2
-    buffer_writei16(b, offset, velocity_value.Z)
-    offset += 2
+    buffer_writei16(b, offset + 2, velocity_value.Y)
+    buffer_writei16(b, offset + 4, velocity_value.Z)
+    offset += 6
   end
   buffer_writebits(b, 13, 1, aim_sentinel)
   if aim_sentinel == 0 then
     buffer_writef32(b, offset, aim_value.X)
-    offset += 4
-    buffer_writef32(b, offset, aim_value.Y)
-    offset += 4
-    buffer_writef32(b, offset, aim_value.Z)
-    offset += 4
-    buffer_writeu32(b, offset, Loom.pack_quaternion(Loom.cframe_to_quaternion(aim_value)))
-    offset += 4
+    buffer_writef32(b, offset + 4, aim_value.Y)
+    buffer_writef32(b, offset + 8, aim_value.Z)
+    buffer_writeu32(b, offset + 12, Loom.pack_quaternion(Loom.cframe_to_quaternion(aim_value)))
+    offset += 16
   end
   buffer_writeu8(b, offset, value.loadout.primary)
-  offset += 1
-  buffer_writeu8(b, offset, value.loadout.secondary)
-  offset += 1
-  buffer_writeu32(b, offset, #value.recent)
-  offset += 4
+  buffer_writeu8(b, offset + 1, value.loadout.secondary)
+  buffer_writeu32(b, offset + 2, recent_count)
+  offset += 6
   const recent_bits = offset * 8
-  offset += (#value.recent * 12 + 7) // 8
-  for i = 1, #value.recent do
+  offset += (recent_count * 12 + 7) // 8
+  for i = 1, recent_count do
     const recent_element = value.recent[i]
     local recent_element_tag = 0
     if recent_element.kind == "Respawned" then
@@ -110,11 +104,9 @@ const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Seri
     elseif recent_element_tag == 1 then
       const at_value = recent_element.at
       buffer_writei16(b, offset, at_value.X)
-      offset += 2
-      buffer_writei16(b, offset, at_value.Y)
-      offset += 2
-      buffer_writei16(b, offset, at_value.Z)
-      offset += 2
+      buffer_writei16(b, offset + 2, at_value.Y)
+      buffer_writei16(b, offset + 4, at_value.Z)
+      offset += 6
     end
   end
   buffer_writebits(b, 14, 1, if value.character ~= nil then 1 else 0)
@@ -125,7 +117,8 @@ const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Seri
 end
 const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): Loom.Result<PlayerSnapshot, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 14 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 14 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const blobs = serialized.blobs
@@ -135,7 +128,7 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
   local blob_index = 1
   const display_name_length = buffer_readu32(b, 4)
   local offset = 8
-  if buffer_len(b) < offset + display_name_length then
+  if b_len < offset + display_name_length then
     return { ok = false, error = { kind = "invalid_length", field = "display_name" } }
   end
   const display_name = buffer_readstring(b, offset, display_name_length)
@@ -154,16 +147,14 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
   const velocity_sentinel = buffer_readbits(b, 10, 3)
   local velocity = nil
   if velocity_sentinel == 0 then
-    if buffer_len(b) < offset + 6 then
+    if b_len < offset + 6 then
       return { ok = false, error = { kind = "truncated", field = "velocity" } }
     end
     const velocity_x = buffer_readi16(b, offset)
-    offset += 2
-    const velocity_y = buffer_readi16(b, offset)
-    offset += 2
-    const velocity_z = buffer_readi16(b, offset)
-    offset += 2
+    const velocity_y = buffer_readi16(b, offset + 2)
+    const velocity_z = buffer_readi16(b, offset + 4)
     velocity = Vector3.new(velocity_x, velocity_y, velocity_z)
+    offset += 6
   elseif velocity_sentinel == 1 then
     velocity = Vector3.zero
   elseif velocity_sentinel == 2 then
@@ -180,29 +171,24 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
   const aim_sentinel = buffer_readbits(b, 13, 1)
   local aim = nil
   if aim_sentinel == 0 then
-    if buffer_len(b) < offset + 16 then
+    if b_len < offset + 16 then
       return { ok = false, error = { kind = "truncated", field = "aim" } }
     end
     const aim_x = buffer_readf32(b, offset)
-    offset += 4
-    const aim_y = buffer_readf32(b, offset)
-    offset += 4
-    const aim_z = buffer_readf32(b, offset)
-    offset += 4
-    const aim_rotation = buffer_readu32(b, offset)
-    offset += 4
+    const aim_y = buffer_readf32(b, offset + 4)
+    const aim_z = buffer_readf32(b, offset + 8)
+    const aim_rotation = buffer_readu32(b, offset + 12)
     aim = CFrame.new(aim_x, aim_y, aim_z, Loom.unpack_quaternion(aim_rotation))
+    offset += 16
   elseif aim_sentinel == 1 then
     aim = CFrame.identity
   else
     return { ok = false, error = { kind = "invalid_tag", field = "aim" } }
   end
   const primary = buffer_readu8(b, offset)
-  offset += 1
-  const secondary = buffer_readu8(b, offset)
-  offset += 1
-  const recent_count = buffer_readu32(b, offset)
-  offset += 4
+  const secondary = buffer_readu8(b, offset + 1)
+  const recent_count = buffer_readu32(b, offset + 2)
+  offset += 6
   const recent_bits = offset * 8
   offset += (recent_count * 12 + 7) // 8
   const recent = {}
@@ -225,16 +211,14 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
       end
       recent_element = { kind = "Damaged", amount = buffer_readbits(b, recent_bits + (i - 1) * 12 + 1, 10), attacker = attacker }
     elseif recent_element_tag == 1 then
-      if buffer_len(b) < offset + 6 then
+      if b_len < offset + 6 then
         return { ok = false, error = { kind = "truncated", field = "recent[]" } }
       end
       const at_x = buffer_readi16(b, offset)
-      offset += 2
-      const at_y = buffer_readi16(b, offset)
-      offset += 2
-      const at_z = buffer_readi16(b, offset)
-      offset += 2
+      const at_y = buffer_readi16(b, offset + 2)
+      const at_z = buffer_readi16(b, offset + 4)
       recent_element = { kind = "Respawned", at = Vector3.new(at_x, at_y, at_z) }
+      offset += 6
     else
       return { ok = false, error = { kind = "invalid_tag", field = "recent[]" } }
     end

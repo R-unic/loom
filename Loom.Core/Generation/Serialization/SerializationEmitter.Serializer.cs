@@ -10,20 +10,25 @@ internal sealed partial class SerializationEmitter
     private static readonly List<string> _cframeSentinels = ["CFrame.identity"];
 
     /// <summary>
-    ///     Maps counted during the size pass, by the statement list that pass wrote into. Luau has no
-    ///     length operator for a keyed table, so the count is a loop either way - but the writer's prefix
-    ///     needs the same number the sizing already walked for.
+    ///     Collections whose count is already in a local, by the field counted. Luau has no length operator
+    ///     for a keyed table, so a map's count is a loop either way - but the writer's prefix needs the same
+    ///     number the sizing already walked for, and so does an array's, which reads its length three times
+    ///     over otherwise: once for the prefix, once to size its entries' bit block, once to bound the loop.
     /// </summary>
-    private readonly Dictionary<MapField, string> _measuredCounts = [];
+    /// <remarks>
+    ///     An entry means the local is reachable from wherever the emitter currently is, which is what makes
+    ///     reading it back safe. Whoever put it there is who knows that: the size pass registers only what it
+    ///     declared at the function's root, which every block below can see, and a caller that bound a count
+    ///     itself registers it for exactly as long as the statements it encloses are being emitted.
+    /// </remarks>
+    private readonly Dictionary<SerializationField, string> _boundCounts = [];
     private List<LuauStatement>? _measureRoot;
-    private List<LuauStatement>? _writeRoot;
 
     public Function EmitSerializer()
     {
         _locals.Clear();
-        _measuredCounts.Clear();
+        _boundCounts.Clear();
         var body = new List<LuauStatement>();
-        _writeRoot = body;
         if (schema.HasBlobs)
             body.Add(new ConstVariable(BlobsLocal, null, Table.Empty));
 
@@ -32,8 +37,6 @@ internal sealed partial class SerializationEmitter
         if (!schema.IsEmpty)
             body.Add(new ConstVariable(BufferLocal, null, BufferCall("create", [EmitSizeComputation(body)])));
 
-        // Walked even for a zero-byte schema: blob fields still have to be appended, and a schema is
-        // only empty when nothing writes bytes or bits, so the absent buffer local is never referenced.
         var cursor = new Cursor(schema.HeaderBytes);
         foreach (var serializationField in schema.Fields)
             EmitWrite(serializationField, new Identifier(ValueParameter), cursor, body);
@@ -60,7 +63,7 @@ internal sealed partial class SerializationEmitter
             if (serializationField is UnionField unionField)
             {
                 EmitUnionTag(unionField, Access(new Identifier(ValueParameter), unionField.Path), body);
-                _prologueTags.Add(unionField.Path);
+                _resolvedTags[unionField.Path] = UnionTagLocal(unionField.Path);
                 continue;
             }
 
@@ -71,7 +74,6 @@ internal sealed partial class SerializationEmitter
             body.Add(new ConstVariable(valueLocal, null, Access(new Identifier(ValueParameter), serializationField.Path)));
             body.Add(new LocalVariable(SentinelIndexLocal(serializationField.Path), null, _zero));
 
-            // Index zero stays reserved for "no match, components follow".
             var branches = new List<ElseIfBranch>();
             for (var index = 0; index < sentinels.Count; index++)
             {
@@ -102,6 +104,20 @@ internal sealed partial class SerializationEmitter
     private static string UnionTagLocal(string path) => LeafName(path) + "_tag";
 
     /// <summary>
+    ///     Names the local holding this union's tag, resolving it first when nothing has already. Every
+    ///     caller wants the same thing - a number saying which variant is live - so whoever needed it first
+    ///     is who pays for it, and the comparison chain runs once however many places read the answer.
+    /// </summary>
+    private Identifier UnionTag(UnionField unionField, LuauExpression value, List<LuauStatement> body)
+    {
+        if (_resolvedTags.TryGetValue(unionField.Path, out var resolved))
+            return new Identifier(resolved);
+
+        EmitUnionTag(unionField, value, body);
+        return new Identifier(UnionTagLocal(unionField.Path));
+    }
+
+    /// <summary>
     ///     Resolves which variant a union value is, ahead of the allocation that depends on it. Index zero
     ///     is the fallback rather than a reserved escape - the type guarantees some variant matches, so
     ///     the first needs no test of its own.
@@ -110,8 +126,6 @@ internal sealed partial class SerializationEmitter
     {
         var tagLocal = UnionTagLocal(unionField.Path);
 
-        // Only the conditions below read it, and a local already holding the value is one of them - an
-        // element bound by the enclosing loop, say. Binding it again would name the same thing twice.
         var subject = value;
         if (subject is not Identifier)
         {
@@ -204,7 +218,6 @@ internal sealed partial class SerializationEmitter
                 continue;
             }
 
-            // Anything with a known width is already folded into the constant above.
             if (serializationField.BodyBytes != null)
                 continue;
 
@@ -249,7 +262,6 @@ internal sealed partial class SerializationEmitter
     /// <summary>Accumulates a field's width into the size local, for shapes that need control flow.</summary>
     private void EmitMeasure(SerializationField serializationField, LuauExpression value, List<LuauStatement> statements)
     {
-        // A flattened nested struct contributes each of its parts.
         if (serializationField is TupleField tupleField)
         {
             foreach (var (part, partValue) in ChildrenOf(tupleField, value))
@@ -258,7 +270,6 @@ internal sealed partial class SerializationEmitter
             return;
         }
 
-        // A payload that is only sometimes written is only sometimes counted.
         if (serializationField is OptionalField optionalField)
         {
             var innerStatements = new List<LuauStatement>();
@@ -273,10 +284,7 @@ internal sealed partial class SerializationEmitter
 
         if (serializationField is UnionField unionField)
         {
-            if (!_prologueTags.Contains(unionField.Path))
-                EmitUnionTag(unionField, value, statements);
-
-            var tag = new Identifier(UnionTagLocal(unionField.Path));
+            var tag = UnionTag(unionField, value, statements);
             var branches = new List<ElseIfBranch>();
             IfStatement? head = null;
             for (var index = 0; index < unionField.Variants.Count; index++)
@@ -301,8 +309,6 @@ internal sealed partial class SerializationEmitter
         {
             AddToSize(statements, new NumberLiteral(mapField.LengthType.ByteCount()));
 
-            // Counted here rather than by a pass of its own: a map has no length operator, and the write
-            // needs the count for its prefix before the pairs go out.
             var countLocal = ReserveLocal(LeafName(mapField.Path) + "_count");
             statements.Add(new LocalVariable(countLocal, null, _zero));
 
@@ -320,11 +326,8 @@ internal sealed partial class SerializationEmitter
 
             AddToSize(statements, ElementBitBlockSize(mapField.EntryBits, new Identifier(countLocal)));
 
-            // The write needs the same count for its length prefix. Reusing it costs nothing when the
-            // measure ran in the scope the write also lives in; a map counted inside a branch or a loop
-            // has one count per occurrence, so that case still counts for itself.
             if (ReferenceEquals(statements, _measureRoot))
-                _measuredCounts[mapField] = countLocal;
+                _boundCounts[mapField] = countLocal;
 
             return;
         }
@@ -333,18 +336,25 @@ internal sealed partial class SerializationEmitter
             return;
 
         AddToSize(statements, new NumberLiteral(arrayField.LengthType.ByteCount()));
-        AddToSize(statements, ElementBitBlockSize(arrayField.Element.HeaderBits, Length(value)));
 
-        // The element width varies per entry, so the only way to total it is to walk the value. A loop
-        // per nesting level needs a counter of its own, or an inner one would clobber the outer's.
+        var arrayCount = BindCount(value, LeafName(arrayField.Path), statements);
+        AddToSize(statements, ElementBitBlockSize(arrayField.Element.HeaderBits, arrayCount));
+
+        if (ReferenceEquals(statements, _measureRoot))
+            _boundCounts[arrayField] = arrayCount.Name;
+
         using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
-        var elementValue = new ElementAccess(value, new Identifier(loop));
-        var elementStatements = new List<LuauStatement>();
-        MeasureField(arrayField.Element, elementValue, elementStatements);
 
-        if (elementStatements.Count > 0)
-            statements.Add(new NumericForStatement(loop, _one, Length(value), null, new Chunk(elementStatements)));
+        var element = new Identifier(ReserveLocal(LeafName(arrayField.Element.Path)));
+        var elementStatements = new List<LuauStatement>();
+        MeasureField(arrayField.Element, element, elementStatements);
+
+        if (elementStatements.Count == 0)
+            return;
+
+        var bind = new ConstVariable(element.Name, null, new ElementAccess(value, new Identifier(loop)));
+        statements.Add(new NumericForStatement(loop, _one, arrayCount, null, new Chunk([bind, ..elementStatements])));
     }
 
     /// <summary>
@@ -353,7 +363,7 @@ internal sealed partial class SerializationEmitter
     /// </summary>
     private Identifier MapCount(MapField mapField, string leaf, LuauExpression value, List<LuauStatement> body)
     {
-        if (ReferenceEquals(body, _writeRoot) && _measuredCounts.TryGetValue(mapField, out var measured))
+        if (_boundCounts.TryGetValue(mapField, out var measured))
             return new Identifier(measured);
 
         var count = new Identifier(ReserveLocal(leaf + "_count"));
@@ -362,6 +372,25 @@ internal sealed partial class SerializationEmitter
         using var scope = LoopScope();
         var key = ReserveLocal(LeafName(mapField.Key.Path));
         body.Add(new ForStatement([key], value, new Chunk([new ExpressionStatement(new BinaryOperator(count, "+=", _one))])));
+
+        return count;
+    }
+
+    /// <summary>
+    ///     The entry count for an array, reusing the size pass's when that ran in the scope the caller
+    ///     lives in. Unlike a map an array can simply be measured, so the fallback is the length operator
+    ///     rather than a loop - but the answer is still worth a name, since every caller wants it twice.
+    /// </summary>
+    private Identifier ArrayCount(ArrayField arrayField, string leaf, LuauExpression value, List<LuauStatement> body) =>
+        _boundCounts.TryGetValue(arrayField, out var measured)
+            ? new Identifier(measured)
+            : BindCount(value, leaf, body);
+
+    /// <summary>Names a collection's length, so reaching for it again costs a register rather than a walk.</summary>
+    private Identifier BindCount(LuauExpression value, string leaf, List<LuauStatement> body)
+    {
+        var count = new Identifier(ReserveLocal(leaf + "_count"));
+        body.Add(new ConstVariable(count.Name, null, Length(value)));
 
         return count;
     }
@@ -401,7 +430,6 @@ internal sealed partial class SerializationEmitter
         {
             DatatypeField datatypeField => datatypeField.Datatype.Components.Count * datatypeField.NumberType.ByteCount(),
 
-            // Position components plus, for Compressed, the packed rotation now living in the body.
             CFrameField cframeField => cframeField.ComponentCount * cframeField.NumberType.ByteCount()
                 + (cframeField.Encoding == CFrameEncoding.Compressed ? sizeof(uint) : 0),
             _ => 0
@@ -412,15 +440,19 @@ internal sealed partial class SerializationEmitter
     ///     the entries need no bits at all. The block is claimed before any body so the bodies keep their
     ///     byte alignment.
     /// </summary>
+    /// <remarks>
+    ///     The origin scales the position rather than indexing at it, so the cursor is settled first: a
+    ///     folded position is a sum, and multiplying it whole is not what writing it out would mean.
+    /// </remarks>
     private Identifier? ReserveElementBits(int bitsPerElement, string leaf, LuauExpression count, Cursor cursor, List<LuauStatement> body)
     {
         if (bitsPerElement == 0)
             return null;
 
+        cursor.Flush(body);
         var origin = ReserveLocal(leaf + "_bits");
         body.Add(new ConstVariable(origin, null, Multiply(cursor.Position, new NumberLiteral(8))));
 
-        // Rounded up to whole bytes, since the bodies that follow are byte-addressed.
         var blockBytes = FloorDivide(
             new Parenthesized(Add(Multiply(count, new NumberLiteral(bitsPerElement)), new NumberLiteral(7))),
             new NumberLiteral(8)
@@ -496,7 +528,6 @@ internal sealed partial class SerializationEmitter
     {
         switch (serializationField)
         {
-            // Pinned by its type - the reader rebuilds it as a constant, so nothing goes on the wire.
             case ConstantField: return;
 
             case BoolField:
@@ -509,8 +540,6 @@ internal sealed partial class SerializationEmitter
 
             case RangedNumberField ranged:
             {
-                // The common grid starts at zero and steps by one, where the shift and scale are both
-                // identities - emitting them would cost a subtract and a divide on every write.
                 var scaled = value;
                 if (!ranged.Minimum.Equals(0d))
                     scaled = new Parenthesized(Subtract(scaled, new NumberLiteral(ranged.Minimum)));
@@ -522,8 +551,6 @@ internal sealed partial class SerializationEmitter
                 return;
             }
 
-            // Blobs cost zero buffer bytes: they are appended in schema order and consumed in the same
-            // order, so position alone identifies them.
             case BlobField:
                 body.Add(new ExpressionStatement(LuauFactory.TableCall("insert", [new Identifier(BlobsLocal), value])));
                 return;
@@ -532,14 +559,14 @@ internal sealed partial class SerializationEmitter
             {
                 body.Add(new ExpressionStatement(WriteBits(cursor, 1, new IfExpression(IsPresent(value), _one, [], _zero))));
 
-                // Offsets diverge here, so the cursor commits to a runtime position before the branch and
-                // both paths advance the same local.
                 cursor.GoDynamic(body);
+                cursor.Flush(body);
 
                 var present = new List<LuauStatement>();
                 foreach (var (inner, innerValue) in ChildrenOf(optionalField, value))
                     EmitValueWrite(inner, innerValue, cursor, present);
 
+                cursor.Flush(present);
                 body.Add(new IfStatement(IsPresent(value), new Chunk(present), [], null));
 
                 return;
@@ -559,6 +586,8 @@ internal sealed partial class SerializationEmitter
                 if (pairBits != null)
                     body.Add(new LocalVariable(index, null, _one));
 
+                cursor.Flush(body);
+
                 using var pairScope = LoopScope();
                 var keyLocal = ReserveLocal(LeafName(mapField.Key.Path));
                 var valueLocal = ReserveLocal(LeafName(mapField.Value.Path));
@@ -568,6 +597,7 @@ internal sealed partial class SerializationEmitter
                 EmitValueWrite(mapField.Key, new Identifier(keyLocal), cursor, pairBody);
                 EmitValueWrite(mapField.Value, new Identifier(valueLocal), cursor, pairBody);
                 restorePair();
+                cursor.Flush(pairBody);
 
                 if (pairBits != null)
                     pairBody.Add(new ExpressionStatement(new BinaryOperator(new Identifier(index), "+=", _one)));
@@ -579,15 +609,13 @@ internal sealed partial class SerializationEmitter
             case ArrayField arrayField:
             {
                 var leaf = LeafName(arrayField.Path);
-                var count = Length(value);
+                var count = ArrayCount(arrayField, leaf, value, body);
                 WriteNumber(cursor, arrayField.LengthType, count, body);
                 if (NeedsBufferSpace(arrayField.Element))
                     cursor.GoDynamic(body);
 
-                // Entries needing header bits share a block reserved ahead of the bodies, so the bodies
-                // stay byte-aligned and each entry gets a slice of its own rather than overwriting the
-                // schema-wide header.
                 var bitBase = ReserveElementBits(arrayField.Element.HeaderBits, leaf, count, cursor, body);
+                cursor.Flush(body);
 
                 using var elementScope = LoopScope();
                 var loop = ReserveLocal(LoopLocal);
@@ -598,6 +626,7 @@ internal sealed partial class SerializationEmitter
                 var restore = EnterElement(cursor, bitBase, arrayField.Element.HeaderBits, loop);
                 EmitValueWrite(arrayField.Element, element, cursor, elementBody);
                 restore();
+                cursor.Flush(elementBody);
 
                 body.Add(new NumericForStatement(loop, _one, count, null, new Chunk(elementBody)));
                 return;
@@ -605,8 +634,6 @@ internal sealed partial class SerializationEmitter
 
             case StringField stringField:
             {
-                // Bound once: the source would otherwise be indexed three times and measured twice, and
-                // inside an array loop that cost is per element.
                 var text = BindIfReused(value, 2, LeafName(stringField.Path), body);
                 var length = new Identifier(ReserveLocal(LeafName(stringField.Path) + "_length"));
                 body.Add(new ConstVariable(length.Name, null, Length(text)));
@@ -638,8 +665,8 @@ internal sealed partial class SerializationEmitter
                 var bound = new Identifier(SentinelValueLocal(serializationField.Path));
                 body.Add(new ExpressionStatement(WriteBits(cursor, BitWidth.ForStateCount(sentinels.Count + 1), indexLocal)));
 
-                // Components are written only when nothing matched, so offsets past this point diverge.
                 cursor.GoDynamic(body);
+                cursor.Flush(body);
 
                 var components = new List<LuauStatement>();
                 if (serializationField is DatatypeField datatype)
@@ -648,12 +675,11 @@ internal sealed partial class SerializationEmitter
                 else
                     EmitCFrameWrite((CFrameField)serializationField, bound, cursor, components);
 
+                cursor.Flush(components);
                 body.Add(new IfStatement(new BinaryOperator(indexLocal, "==", _zero), new Chunk(components), [], null));
                 return;
             }
 
-            // Resolved against the value handed in, not the parameter: inside an array the base is the
-            // bound element, whose path segment ('leaves[]') is not a property that could be indexed.
             case TupleField tupleField:
                 foreach (var (element, elementValue) in ChildrenOf(tupleField, value))
                     EmitValueWrite(element, elementValue, cursor, body);
@@ -662,15 +688,11 @@ internal sealed partial class SerializationEmitter
 
             case UnionField unionField:
             {
-                if (!_prologueTags.Contains(unionField.Path))
-                    EmitUnionTag(unionField, value, body);
-
-                var tag = new Identifier(UnionTagLocal(unionField.Path));
+                var tag = UnionTag(unionField, value, body);
                 body.Add(new ExpressionStatement(WriteBits(cursor, unionField.TagBits, tag)));
                 cursor.GoDynamic(body);
+                cursor.Flush(body);
 
-                // Only one variant is live, so their header bits deliberately overlap - each branch
-                // restarts from the same bit position and the widest one sizes the region.
                 var startBit = cursor.BitOffset;
                 var widestBit = startBit;
                 var branches = new List<ElseIfBranch>();
@@ -683,8 +705,8 @@ internal sealed partial class SerializationEmitter
                         EmitValueWrite(variantField, variantValue, cursor, variantBody);
 
                     widestBit = Math.Max(widestBit, cursor.BitOffset);
+                    cursor.Flush(variantBody);
 
-                    // A literal union carries its whole value in the tag, so every variant writes nothing.
                     if (variantBody.Count == 0)
                         continue;
 
@@ -709,7 +731,6 @@ internal sealed partial class SerializationEmitter
         var quaternion = LuauFactory.RuntimeLibraryCall(["cframe_to_quaternion"], [value]);
         if (cframeField.Encoding == CFrameEncoding.Compressed)
         {
-            // Exactly 32 bits either way; in the body it is a u32 so it can be skipped on a sentinel hit.
             if (cframeField.UseSentinels)
                 WriteNumber(cursor, NumberType.U32, PackQuaternion(quaternion), body);
             else

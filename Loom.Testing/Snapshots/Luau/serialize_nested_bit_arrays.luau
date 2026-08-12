@@ -3,47 +3,51 @@ const buffer_create = buffer.create
 const buffer_writeu32 = buffer.writeu32
 const buffer_writebits = buffer.writebits
 const buffer_writestring = buffer.writestring
-const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readbits = buffer.readbits
 const buffer_readstring = buffer.readstring
+const buffer_len = buffer.len
 const function Canvas_serialize_binary(value: Canvas): Loom.Serialized
   local size = 0
   size += 4
-  for i = 1, #value.masks do
-    size += 4 + (#value.masks[i] + 7) // 8
+  const masks_count = #value.masks
+  for i = 1, masks_count do
+    const masks_element = value.masks[i]
+    size += 4 + (#masks_element + 7) // 8
   end
   size += 4
-  size += (#value.shapes + 7) // 8
-  for i = 1, #value.shapes do
-    const shapes_element_value = value.shapes[i]
+  const shapes_count = #value.shapes
+  size += (shapes_count + 7) // 8
+  for i = 1, shapes_count do
+    const shapes_element = value.shapes[i]
     local shapes_element_tag = 0
-    if shapes_element_value.kind == "Line" then
+    if shapes_element.kind == "Line" then
       shapes_element_tag = 1
     end
     if shapes_element_tag == 1 then
-      size += 4 + #value.shapes[i].label
+      size += 4 + #shapes_element.label
     end
   end
   const b = buffer_create(size)
-  buffer_writeu32(b, 0, #value.masks)
+  buffer_writeu32(b, 0, masks_count)
   local offset = 4
-  for i = 1, #value.masks do
+  for i = 1, masks_count do
     const masks_element = value.masks[i]
-    buffer_writeu32(b, offset, #masks_element)
+    const masks_element_count = #masks_element
+    buffer_writeu32(b, offset, masks_element_count)
     offset += 4
     const masks_element_bits = offset * 8
-    offset += (#masks_element + 7) // 8
-    for i_2 = 1, #masks_element do
+    offset += (masks_element_count + 7) // 8
+    for i_2 = 1, masks_element_count do
       const masks_element_element = masks_element[i_2]
       buffer_writebits(b, masks_element_bits + (i_2 - 1), 1, if masks_element_element then 1 else 0)
     end
   end
-  buffer_writeu32(b, offset, #value.shapes)
+  buffer_writeu32(b, offset, shapes_count)
   offset += 4
   const shapes_bits = offset * 8
-  offset += (#value.shapes + 7) // 8
-  for i = 1, #value.shapes do
+  offset += (shapes_count + 7) // 8
+  for i = 1, shapes_count do
     const shapes_element = value.shapes[i]
     local shapes_element_tag = 0
     if shapes_element.kind == "Line" then
@@ -54,16 +58,16 @@ const function Canvas_serialize_binary(value: Canvas): Loom.Serialized
       const label_value = shapes_element.label
       const label_length = #label_value
       buffer_writeu32(b, offset, label_length)
-      offset += 4
-      buffer_writestring(b, offset, label_value)
-      offset += label_length
+      buffer_writestring(b, offset + 4, label_value)
+      offset += 4 + label_length
     end
   end
   return { buffer = b }
 end
 const function Canvas_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Canvas, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 8 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 8 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const masks_count = buffer_readu32(b, 0)
@@ -92,12 +96,11 @@ const function Canvas_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
       shapes_element = { kind = "Dot" }
     elseif shapes_element_tag == 1 then
       const label_length = buffer_readu32(b, offset)
-      offset += 4
-      if buffer_len(b) < offset + label_length then
+      if b_len < offset + 4 + label_length then
         return { ok = false, error = { kind = "invalid_length", field = "shapes[].label" } }
       end
-      const label = buffer_readstring(b, offset, label_length)
-      offset += label_length
+      const label = buffer_readstring(b, offset + 4, label_length)
+      offset += 4 + label_length
       shapes_element = { kind = "Line", label = label }
     else
       return { ok = false, error = { kind = "invalid_tag", field = "shapes[]" } }

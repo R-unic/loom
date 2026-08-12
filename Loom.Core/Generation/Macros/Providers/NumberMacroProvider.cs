@@ -20,10 +20,10 @@ internal sealed class NumberMacroProvider : IMacroProvider
     {
         if (targetType.IsAssignableTo(PrimitiveType.String))
         {
-            expression = LuauFactory.StringCall(
-                "sub",
-                [access.Target, access.Index, access.Index]
-            );
+            // 'sub' takes the same position twice, so an index that does something - 's[next()]' - has
+            // to be named first or it would do it once per argument, and with two different answers.
+            var index = context.State.PushIfRepeated("_index", access.Index);
+            expression = LuauFactory.StringCall("sub", [access.Target, index, index]);
 
             return true;
         }

@@ -3,6 +3,7 @@ using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Luau;
 using Loom.Luau.AST;
+using static Loom.Core.Generation.Macros.ArrayLowering;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
 using BinaryOperator = Loom.Luau.AST.BinaryOperator;
 using Break = Loom.Luau.AST.Break;
@@ -17,19 +18,6 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 internal sealed class ArrayMacroProvider : IMacroProvider
 {
-    private const string SourceName = "_source";
-    private const string ResultName = "_result";
-    private const string CountName = "_count";
-    private const string AccumulatorName = "_accumulator";
-    private const string CallbackName = "_callback";
-    private const string ElementName = "_element";
-    private const string IndexName = "_index";
-    private const string SegmentName = "_segment";
-    private const string LengthName = "_length";
-    private const string FoundName = "_found";
-    private const string SatisfiedName = "_satisfied";
-    private const string DiscardName = "_";
-
     public bool Supports(SemanticModel _, Type type) => type is ArrayType;
     public bool Supports(SemanticModel _, Expression __) => false;
 
@@ -310,27 +298,6 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         );
 
         return result;
-    }
-
-    private static void AppendSegment(LuauState state, List<LuauStatement> body, Identifier result, Identifier count, LuauExpression segment)
-    {
-        if (segment is not Identifier)
-        {
-            var segmentName = state.Scope.AddIdentifier(SegmentName);
-            body.Add(new ConstVariable(segmentName, null, segment));
-            segment = new Identifier(segmentName);
-        }
-
-        var lengthName = state.Scope.AddIdentifier(LengthName);
-        var length = new Identifier(lengthName);
-        body.Add(new ConstVariable(lengthName, null, new UnaryOperator("#", segment)));
-        body.Add(
-            new ExpressionStatement(
-                LuauFactory.TableCall("move", [segment, new NumberLiteral(1), length, new BinaryOperator(count, "+", new NumberLiteral(1)), result])
-            )
-        );
-
-        body.Add(new ExpressionStatement(new BinaryOperator(count, "+=", length)));
     }
 
     private static LuauExpression GenerateQuantifier(LuauState state, LuauExpression array, LuauExpression predicate, string stateName, bool matched)

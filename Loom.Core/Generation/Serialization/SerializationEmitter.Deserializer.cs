@@ -10,22 +10,25 @@ internal sealed partial class SerializationEmitter
     public Function EmitDeserializer()
     {
         _locals.Clear();
+        _readsBufferLength = false;
         var body = new List<LuauStatement>();
         var readCursor = new Cursor(schema.HeaderBytes);
         var reads = new List<LuauStatement>();
         var initializers = new List<TableInitializer>();
 
+        foreach (var serializationField in schema.Fields)
+            initializers.Add(new PropertyTableInitializer(LeafName(serializationField.Path), EmitRead(serializationField, readCursor, reads)));
+
         if (!schema.IsEmpty)
         {
             body.Add(new ConstVariable(BufferLocal, null, new PropertyAccess(new Identifier(SerializedParameter), ["buffer"])));
-            body.Add(EmitTruncationGuard());
+            body.AddRange(EmitTruncationGuard(MinimumByteCount()));
         }
 
         if (schema.HasBlobs)
         {
             body.Add(new ConstVariable(BlobsLocal, null, new PropertyAccess(new Identifier(SerializedParameter), ["blobs"])));
 
-            // A payload may omit the array entirely, and indexing nil would error rather than report.
             body.Add(
                 new IfStatement(
                     new BinaryOperator(new Identifier(BlobsLocal), "==", new NilLiteral()),
@@ -37,9 +40,6 @@ internal sealed partial class SerializationEmitter
 
             body.Add(new LocalVariable(BlobIndexLocal, null, _one));
         }
-
-        foreach (var serializationField in schema.Fields)
-            initializers.Add(new PropertyTableInitializer(LeafName(serializationField.Path), EmitRead(serializationField, readCursor, reads)));
 
         body.AddRange(reads);
         body.Add(
@@ -65,19 +65,56 @@ internal sealed partial class SerializationEmitter
     }
 
     /// <summary>
-    ///     The minimum width is known, so one up-front check covers every fixed read that follows - no
-    ///     pcall, and a specific error rather than "buffer access out of bounds".
+    ///     The buffer's length, named by the guard that already had to measure it. A buffer cannot change
+    ///     size, so every bounds check past that point is a comparison against a local rather than another
+    ///     call into the library - one per variable-width field, and one per element of an array of them.
     /// </summary>
-    private IfStatement EmitTruncationGuard()
+    private Identifier BufferLength()
+    {
+        _readsBufferLength = true;
+        return new Identifier(BufferLengthLocal);
+    }
+
+    private bool _readsBufferLength;
+
+    /// <summary>
+    ///     The minimum width is known, so one up-front check covers every fixed read that follows - no
+    ///     pcall, and a specific error rather than "buffer access out of bounds". The length is bound only
+    ///     when something downstream went on to ask for it, so a schema whose reads are all fixed-width is
+    ///     not left carrying a local nobody reads.
+    /// </summary>
+    /// <remarks>
+    ///     Emitted after the reads it guards, since only they can say whether the length is wanted again.
+    /// </remarks>
+    private List<LuauStatement> EmitTruncationGuard(int minimumBytes)
     {
         var missing = new BinaryOperator(new Identifier(BufferLocal), "==", new NilLiteral());
-        var tooShort = new BinaryOperator(BufferCall("len", [new Identifier(BufferLocal)]), "<", new NumberLiteral(MinimumByteCount()));
-        return new IfStatement(
-            new BinaryOperator(missing, "or", tooShort),
-            new Chunk([new Return(BuildErrorTable("truncated", null, 0))]),
-            [],
-            null
-        );
+        var truncated = new Chunk([new Return(BuildErrorTable("truncated", null, 0))]);
+        if (!_readsBufferLength)
+            return
+            [
+                new IfStatement(
+                    new BinaryOperator(missing, "or", new BinaryOperator(BufferCall("len", [new Identifier(BufferLocal)]), "<", new NumberLiteral(minimumBytes))),
+                    truncated,
+                    [],
+                    null
+                )
+            ];
+
+        return
+        [
+            new ConstVariable(
+                BufferLengthLocal,
+                null,
+                new IfExpression(IsPresent(new Identifier(BufferLocal)), BufferCall("len", [new Identifier(BufferLocal)]), [], _zero)
+            ),
+            new IfStatement(
+                new BinaryOperator(missing, "or", new BinaryOperator(new Identifier(BufferLengthLocal), "<", new NumberLiteral(minimumBytes))),
+                truncated,
+                [],
+                null
+            )
+        ];
     }
 
     /// <summary>
@@ -181,8 +218,6 @@ internal sealed partial class SerializationEmitter
         statements.Add(new ConstVariable(local, null, slot));
         statements.Add(new ExpressionStatement(new BinaryOperator(new Identifier(BlobIndexLocal), "+=", _one)));
 
-        // A truncated blobs array and a wrong-typed one are different failures, so they are reported
-        // separately rather than collapsed into a single guard.
         statements.Add(
             new IfStatement(
                 new BinaryOperator(new Identifier(local), "==", new NilLiteral()),
@@ -192,7 +227,6 @@ internal sealed partial class SerializationEmitter
             )
         );
 
-        // 'unknown' admits any value by definition, so there is nothing to check beyond presence.
         if (blobField.TypeofCheck == null)
             return new Identifier(local);
 
@@ -202,7 +236,6 @@ internal sealed partial class SerializationEmitter
             new StringLiteral(blobField.TypeofCheck)
         );
 
-        // typeof only proves it is an Instance; the declared class needs IsA on top.
         if (blobField.InstanceClass != null)
             condition = new BinaryOperator(
                 condition,
@@ -236,6 +269,7 @@ internal sealed partial class SerializationEmitter
 
         var pairBits = ReserveElementBits(mapField.EntryBits, leaf, count, cursor, statements);
         statements.Add(new ConstVariable(leaf, null, Table.Empty));
+        cursor.Flush(statements);
 
         using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
@@ -244,6 +278,7 @@ internal sealed partial class SerializationEmitter
         var key = EmitRead(mapField.Key, cursor, pairBody);
         var value = EmitRead(mapField.Value, cursor, pairBody);
         restorePair();
+        cursor.Flush(pairBody);
 
         pairBody.Add(new ExpressionStatement(new BinaryOperator(new ElementAccess(new Identifier(leaf), key), "=", value)));
         statements.Add(new NumericForStatement(loop, _one, count, null, new Chunk(pairBody)));
@@ -258,14 +293,13 @@ internal sealed partial class SerializationEmitter
         if (NeedsBufferSpace(arrayField.Element))
             cursor.GoDynamic(statements);
 
-        // Zero-width elements consume no buffer, so there is nothing for a bounds check to prove.
         if (arrayField.Element.BodyBytes is > 0 and { } elementBytes)
             statements.Add(
                 new IfStatement(
                     new BinaryOperator(
-                        BufferCall("len", [new Identifier(BufferLocal)]),
+                        BufferLength(),
                         "<",
-                        Add(new Identifier(OffsetLocal), Multiply(count, new NumberLiteral(elementBytes)))
+                        Add(cursor.Position, Multiply(count, new NumberLiteral(elementBytes)))
                     ),
                     new Chunk([new Return(BuildErrorTable("invalid_length", arrayField.Path, null))]),
                     [],
@@ -273,10 +307,10 @@ internal sealed partial class SerializationEmitter
                 )
             );
 
-        // Claimed before the bodies, exactly as the writer laid it out.
         var bitBase = ReserveElementBits(arrayField.Element.HeaderBits, leaf, count, cursor, statements);
 
         statements.Add(new ConstVariable(leaf, null, Table.Empty));
+        cursor.Flush(statements);
 
         using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
@@ -284,6 +318,7 @@ internal sealed partial class SerializationEmitter
         var restore = EnterElement(cursor, bitBase, arrayField.Element.HeaderBits, loop);
         var element = EmitRead(arrayField.Element, cursor, elementBody);
         restore();
+        cursor.Flush(elementBody);
 
         elementBody.Add(
             new ExpressionStatement(new BinaryOperator(new ElementAccess(new Identifier(leaf), new Identifier(loop)), "=", element))
@@ -298,7 +333,7 @@ internal sealed partial class SerializationEmitter
     ///     carries, so a branch the sender chose to take has to prove the bytes are actually there -
     ///     otherwise a truncated buffer throws out of the read instead of reporting.
     /// </summary>
-    private void EmitBoundsGuard(List<LuauStatement> statements, int byteCount, string path)
+    private void EmitBoundsGuard(List<LuauStatement> statements, int byteCount, string path, Cursor cursor)
     {
         if (byteCount <= 0)
             return;
@@ -306,9 +341,9 @@ internal sealed partial class SerializationEmitter
         statements.Add(
             new IfStatement(
                 new BinaryOperator(
-                    BufferCall("len", [new Identifier(BufferLocal)]),
+                    BufferLength(),
                     "<",
-                    Add(new Identifier(OffsetLocal), new NumberLiteral(byteCount))
+                    Add(cursor.Position, new NumberLiteral(byteCount))
                 ),
                 new Chunk([new Return(BuildErrorTable("truncated", path, null))]),
                 [],
@@ -328,6 +363,7 @@ internal sealed partial class SerializationEmitter
         statements.Add(new ConstVariable(tagLocal, null, ReadBits(cursor, unionField.TagBits)));
         statements.Add(new LocalVariable(leaf, null, new NilLiteral()));
         cursor.GoDynamic(statements);
+        cursor.Flush(statements);
 
         var startBit = cursor.BitOffset;
         var widestBit = startBit;
@@ -337,11 +373,12 @@ internal sealed partial class SerializationEmitter
             cursor.BitOffset = startBit;
             var variant = unionField.Variants[index];
             var variantBody = new List<LuauStatement>();
-            EmitBoundsGuard(variantBody, VariantBytes(variant), unionField.Path);
+            EmitBoundsGuard(variantBody, VariantBytes(variant), unionField.Path, cursor);
 
             var rebuilt = RebuildVariant(unionField, variant, cursor, variantBody);
             variantBody.Add(new ExpressionStatement(new BinaryOperator(new Identifier(leaf), "=", rebuilt)));
             widestBit = Math.Max(widestBit, cursor.BitOffset);
+            cursor.Flush(variantBody);
 
             var condition = new BinaryOperator(new Identifier(tagLocal), "==", new NumberLiteral(index));
             if (index == 0)
@@ -397,9 +434,10 @@ internal sealed partial class SerializationEmitter
         statements.Add(new ConstVariable(indexLocal, null, ReadBits(cursor, BitWidth.ForStateCount(sentinels.Count + 1))));
         statements.Add(new LocalVariable(leaf, null, new NilLiteral()));
         cursor.GoDynamic(statements);
+        cursor.Flush(statements);
 
         var componentBody = new List<LuauStatement>();
-        EmitBoundsGuard(componentBody, SentinelComponentBytes(serializationField), serializationField.Path);
+        EmitBoundsGuard(componentBody, SentinelComponentBytes(serializationField), serializationField.Path, cursor);
 
         var rebuilt = serializationField is DatatypeField datatypeField
             ? new Call(
@@ -411,6 +449,7 @@ internal sealed partial class SerializationEmitter
             : EmitCFrameRead((CFrameField)serializationField, cursor, componentBody);
 
         componentBody.Add(new ExpressionStatement(new BinaryOperator(new Identifier(leaf), "=", rebuilt)));
+        cursor.Flush(componentBody);
 
         var branches = new List<ElseIfBranch>();
         for (var index = 0; index < sentinels.Count; index++)
@@ -444,14 +483,14 @@ internal sealed partial class SerializationEmitter
         statements.Add(new ConstVariable(presentLocal, null, new BinaryOperator(ReadBits(cursor, 1), "==", _one)));
         statements.Add(new LocalVariable(leaf, null, new NilLiteral()));
         cursor.GoDynamic(statements);
+        cursor.Flush(statements);
 
         var present = new List<LuauStatement>();
-        EmitBoundsGuard(present, optionalField.Inner.BodyBytes ?? 0, optionalField.Path);
+        EmitBoundsGuard(present, optionalField.Inner.BodyBytes ?? 0, optionalField.Path, cursor);
 
-        // Read as one value, not as a list of initializers: a nested struct contributes one per
-        // property, and assigning them in turn would leave the accumulator holding only the last.
         var inner = EmitRead(optionalField.Inner, cursor, present);
         present.Add(new ExpressionStatement(new BinaryOperator(new Identifier(leaf), "=", inner)));
+        cursor.Flush(present);
 
         statements.Add(new IfStatement(new Identifier(presentLocal), new Chunk(present), [], null));
         return new Identifier(leaf);
@@ -469,7 +508,7 @@ internal sealed partial class SerializationEmitter
 
         statements.Add(
             new IfStatement(
-                new BinaryOperator(BufferCall("len", [new Identifier(BufferLocal)]), "<", Add(new Identifier(OffsetLocal), length)),
+                new BinaryOperator(BufferLength(), "<", Add(cursor.Position, length)),
                 new Chunk([new Return(BuildErrorTable("invalid_length", stringField.Path, null))]),
                 [],
                 null

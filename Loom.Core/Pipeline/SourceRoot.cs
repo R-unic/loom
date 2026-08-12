@@ -9,16 +9,17 @@ namespace Loom.Core.Pipeline;
 ///     project, plus one for every dependency distributed as source — and each root keeps its own project
 ///     directory, output directory and package identity rather than borrowing the entry project's.
 /// </summary>
-public sealed class SourceRoot(LoomConfig config)
+public sealed class SourceRoot(LoomConfig config, IEnumerable<SourceFile>? files = null)
 {
     public LoomConfig Config { get; } = config;
 
     /// <summary>
-    ///     Every <c>.loom</c> file under <see cref="SourceDirectory" />. Mutable because hosts without a real
-    ///     file system — the intrinsic bootstrap, the playground — hand the root its files instead of having
-    ///     them loaded from disk.
+    ///     Every <c>.loom</c> file under <see cref="SourceDirectory" />, or the files <paramref name="files" />
+    ///     supplied. Mutable because hosts without a real file system — the intrinsic bootstrap, the playground
+    ///     — hand the root its files instead of having them loaded from disk; passing them here means the
+    ///     directory is never read at all, which is what a host that has no such directory needs.
     /// </summary>
-    public List<SourceFile> Files { get; } = FileManager.LoadDirectory(config.Files.SourceDirectory);
+    public List<SourceFile> Files { get; } = files?.ToList() ?? FileManager.LoadDirectory(config.Files.SourceDirectory);
 
     /// <summary>The identity this root is published under; <see langword="null" /> for a project that is never published, such as a game.</summary>
     public PackageConfig? Package => Config.Package;

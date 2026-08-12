@@ -25,6 +25,11 @@ public sealed partial class LuauGenerator
 
     public override LuauNode VisitInvocation(Invocation invocation)
     {
+        // Ahead of the receiver being visited, so a chain of array combinators is still a chain rather
+        // than a loop that has already been emitted - see ArrayPipeline.
+        if (_arrayPipeline.TryGenerate(invocation, out var fused))
+            return fused;
+
         var arguments = invocation.Arguments.ArgumentList.ConvertAll(Visit);
         return invocation.Expression switch
         {
@@ -153,6 +158,10 @@ public sealed partial class LuauGenerator
 
     public override LuauNode VisitPropertyAccess(PropertyAccess propertyAccess)
     {
+        // Ahead of the receiver being visited, so 'chain.length' can still count instead of collecting.
+        if (_arrayPipeline.TryGenerateLength(propertyAccess, out var measured))
+            return measured;
+
         if (propertyAccess.Names.Exists(n => n.IsOptional))
             return GenerateOptionalChain(
                 propertyAccess,

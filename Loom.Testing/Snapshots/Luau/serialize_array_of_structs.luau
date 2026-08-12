@@ -1,15 +1,16 @@
 const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
 const buffer_create = buffer.create
 const buffer_writeu32 = buffer.writeu32
-const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
+const buffer_len = buffer.len
 const buffer_writeu8 = buffer.writeu8
 const buffer_readu8 = buffer.readu8
 const function Bag_serialize_binary(value: Bag): Loom.Serialized
   const blobs = {}
   const b = buffer_create(4)
-  buffer_writeu32(b, 0, #value.owners)
-  for i = 1, #value.owners do
+  const owners_count = #value.owners
+  buffer_writeu32(b, 0, owners_count)
+  for i = 1, owners_count do
     const owners_element = value.owners[i]
     table.insert(blobs, owners_element)
   end
@@ -54,9 +55,10 @@ const function Leaf_deserialize_binary(serialized: Loom.Serialized): Loom.Result
 end
 const function Branch_serialize_binary(value: Branch): Loom.Serialized
   const b = buffer_create(4 + #value.leaves)
-  buffer_writeu32(b, 0, #value.leaves)
+  const leaves_count = #value.leaves
+  buffer_writeu32(b, 0, leaves_count)
   local offset = 4
-  for i = 1, #value.leaves do
+  for i = 1, leaves_count do
     const leaves_element = value.leaves[i]
     buffer_writeu8(b, offset, leaves_element.v)
     offset += 1
@@ -65,12 +67,13 @@ const function Branch_serialize_binary(value: Branch): Loom.Serialized
 end
 const function Branch_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Branch, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 4 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 4 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const leaves_count = buffer_readu32(b, 0)
   local offset = 4
-  if buffer_len(b) < offset + leaves_count then
+  if b_len < offset + leaves_count then
     return { ok = false, error = { kind = "invalid_length", field = "leaves" } }
   end
   const leaves = {}

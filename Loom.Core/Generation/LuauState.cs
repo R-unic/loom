@@ -1,3 +1,4 @@
+using Loom.Core.Generation.Macros;
 using Loom.Luau.AST;
 
 namespace Loom.Core.Generation;
@@ -5,6 +6,14 @@ namespace Loom.Core.Generation;
 internal sealed class LuauState
 {
     public LuauScope Scope = new();
+
+    /// <summary>
+    ///     Names an expression only where repeating it would repeat whatever it does. Use this instead of
+    ///     <see cref="PushToVariable" /> where the caller reads the operand more than once, so an operand
+    ///     that is already a name or a literal is read as-is rather than copied into a second name.
+    /// </summary>
+    public LuauExpression PushIfRepeated(string name, LuauExpression expression, LuauType? type = null, bool isConst = true) =>
+        LuauEffects.IsRepeatable(expression) ? expression : PushToVariable(name, expression, type, isConst);
 
     public Identifier PushToVariable(string name, LuauExpression expression, LuauType? type = null, bool isConst = true)
     {
