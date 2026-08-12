@@ -70,7 +70,7 @@ for _, _segment_1 in rows do
   table.move(_segment_1, 1, _length_1, _count_2 + 1, flat)
   _count_2 += _length_1
 end
-const flat_big = table.create(#rows)
+const flat_big = {}
 local _count_3 = 0
 for _, _segment_2 in rows do
   for _, n in _segment_2 do
@@ -80,7 +80,7 @@ for _, _segment_2 in rows do
     end
   end
 end
-const flat_indexed = table.create(#rows)
+const flat_indexed = {}
 local _count_4 = 0
 for _, _segment_3 in rows do
   for _, n in _segment_3 do

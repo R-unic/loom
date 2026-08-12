@@ -159,7 +159,7 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
 
         var reserved = new HashSet<string> { source.Name };
         var terminal = bound[^1];
-        var answer = OpenTerminal(terminal, source, target, reserved, out var result, out var count);
+        var answer = OpenTerminal(bound, source, target, reserved, out var result, out var count);
         BindCallbacks(bound, reserved);
 
         var elementName = ElementNameFor(bound, 0, bound[0].Stage.Name == "flatten" ? SegmentName : ElementName);
@@ -449,13 +449,14 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     ///     declares a running count alongside its result, and that one is nobody's binding.
     /// </remarks>
     private LuauExpression OpenTerminal(
-        BoundStage terminal,
+        List<BoundStage> bound,
         Identifier source,
         string? target,
         HashSet<string> reserved,
         out Identifier? result,
         out Identifier? count)
     {
+        var terminal = bound[^1];
         result = null;
         count = null;
         if (terminal.Stage.MeasuresOnly)
@@ -471,7 +472,7 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
                     target,
                     ResultName,
                     reserved,
-                    name => new ConstVariable(name, null, LuauFactory.TableCall("create", [new UnaryOperator("#", source)]))
+                    name => new ConstVariable(name, null, PreSized(bound, source))
                 );
 
                 return result;
@@ -500,6 +501,23 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
                 return result;
             }
         }
+    }
+
+    /// <summary>
+    ///     The empty result a terminal accumulates into, preallocated where the chain can say how many
+    ///     elements will reach it. One element in is at most one element out for every stage that passes
+    ///     elements along one at a time, so the source's length bounds it - but a stage that spreads turns
+    ///     one element into a run of them, and then the source's length is not a bound at all. Sizing
+    ///     against it there is worse than not sizing: the table is preallocated too small and then grown
+    ///     repeatedly, which is the cost <c>table.create</c> is here to avoid.
+    /// </summary>
+    private static LuauExpression PreSized(List<BoundStage> bound, Identifier source)
+    {
+        for (var i = 0; i < bound.Count - 1; i++)
+            if (bound[i].Stage.Spreads)
+                return new Table([]);
+
+        return LuauFactory.TableCall("create", [new UnaryOperator("#", source)]);
     }
 
     private Identifier Declare(string? target, string fallback, HashSet<string> reserved, Func<string, LuauStatement> declaration)
