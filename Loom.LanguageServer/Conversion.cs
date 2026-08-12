@@ -59,7 +59,7 @@ public static class Conversion
             return [];
 
         var path = Path.GetFullPath(rawPath);
-        return result.Diagnostics.Set.Where(diagnostic => FilePaths.Same(diagnostic.Span.File.AbsolutePath, path)).Select(ToDiagnostic).ToArray();
+        return result.Diagnostics.InSourceOrder().Where(diagnostic => FilePaths.Same(diagnostic.Span.File.AbsolutePath, path)).Select(ToDiagnostic).ToArray();
     }
 
     /// <summary>
@@ -72,7 +72,7 @@ public static class Conversion
     ///     is no document to attach its diagnostics to.
     /// </remarks>
     public static IReadOnlyDictionary<DocumentUri, LspDiagnostic[]> DiagnosticsByFile(CompilationResult result) =>
-        result.Diagnostics.Set
+        result.Diagnostics.InSourceOrder()
             .Where(diagnostic => Path.IsPathRooted(diagnostic.Span.File.AbsolutePath))
             .GroupBy(diagnostic => diagnostic.Span.File.AbsolutePath, FilePaths.Comparer)
             .ToDictionary(group => DocumentUri.FromFileSystemPath(group.Key), group => group.Select(ToDiagnostic).ToArray());

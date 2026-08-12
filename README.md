@@ -72,6 +72,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - [Features](#features)
 - [Upcoming Features](#upcoming-features)
 - [Examples](#working-examples)
+  - [Comments & Documentation](#comments--documentation)
   - [Variables & Mutability](#variables--mutability)
   - [Operators](#operators)
   - [Generic Types](#generic-types)
@@ -103,6 +104,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Deprecation](#deprecation)
   - [Error Propagation](#error-propagation)
   - [Array.join()](#arrayjoin)
+  - [Range.length](#rangelength)
   - [Range.clamp()](#rangeclamp)
   - [String Methods](#string-methods)
   - [Pattern Matching](#pattern-matching)
@@ -153,7 +155,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - **Events** – Built-in user events with shorthand syntax. See [example](#events).
 - **Traits** – Define reusable behavior that interfaces can implement, enabling shared APIs and generic constraints that reflect behavior, including an
   explicit `@` self receiver inside implementations. See [example](#traits--implementations).
-- **Named imports/exports** - See [example](#exports)
+- **Named imports/exports** – Including `export * from "./module"` to forward everything another module publishes, and `export type *` to forward only its
+  types. See [example](#exports).
 - **Modules & packages** – Relative imports resolve inside a project, bare specifiers (`math`, `scope/math`) name a package declared in `[dependencies]`, and a
   dependency's Luau is written into the consuming project's output. See [example](#imports--modules).
 - **Binary serialization** – `[serializable]` interfaces get generated `buffer`-backed codecs, with `[packed]` bit-packing and delta encoding for sending only
@@ -161,7 +164,9 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - **Operator overloading** – Traits carrying `[luau_metamethod]` methods make `+`, `==`, `<` and friends work on your own types. See
   [example](#operator-overloading).
 - **Type indexing** – `Foo["bar"]`, enum member types, and indexing through a generic parameter, all resolved at compile time. See [example](#type-indexing).
-- **Language server** – Diagnostics, hover, go-to-definition, and completion over `.loom` files.
+- **Language server** – Diagnostics, hover, go-to-definition and go-to-type/implementation, context-aware completion (members, attributes, module
+  specifiers, and type-vs-value position) with auto-import, signature help, inlay hints, find-references, rename, document highlight, outline, folding,
+  and quick fixes over `.loom` files.
 - **Watch mode** – `loom watch` rebuilds on change.
 - **Indices starting at one** – Same as Luau for familiarity
 - **Zero-cost abstractions** – Transpiles to idiomatic Luau with minimal overhead
@@ -180,9 +185,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - Pipe operators (#64)
 - Generic `event` declarations (#132)
 - Mapped object types (#75)
-- `export * from "./module"` (#169)
 - Package management & installation pipeline (#111 & #112 respectively)
-- Context-aware and property auto-completion in the language server (#174 & #172)
 - Linter AST visitor (#18)
 
 ---
@@ -1324,7 +1327,7 @@ Everywhere else `await` follows JS precedence - it takes the whole postfix chain
 | Member | Result |
 | --- | --- |
 | `status` | `"pending"`, `"resolved"` or `"rejected"` |
-| `value` | the settled value, or `none` while pending |
+| `value` | the settled value, or `none` while pending and after a failure; reading it never waits |
 | `Future.all(futures)` | every value, in the order the futures were given; the first failure fails the whole set |
 | `Future.race(futures)` | whichever settles first, however it settles |
 | `Future.resolved(value)` | an already-settled future, so a synchronous path can hand back the same type |
@@ -1952,6 +1955,33 @@ return { pi = pi, square = square }
 ```
 
 `double` is still emitted, but only the exported members (`pi`, `square`) appear in the returned table, so only they are visible to other modules.
+
+---
+
+`export *` forwards everything another module publishes, under the name that module publishes it with, so a package can have one entry point that
+re-exports its parts.
+
+```rs
+// geometry.loom
+export let pi = 3.14159;
+export fn area(r: number): number -> pi * r * r;
+```
+
+```rs
+// shapes.loom
+export * from "./geometry";
+export let unit = 1;
+```
+
+```luau
+-- shapes.luau
+const geometry = require("./geometry")
+const unit = 1
+return { unit = unit, pi = geometry.pi, area = geometry.area }
+```
+
+An export the file makes itself wins over one a star would forward, wherever the two sit relative to each other in source; two stars offering the same
+name is an error instead, since nothing at the use site would say which one it meant. `export type * from "./module"` forwards only that module's types.
 
 ---
 

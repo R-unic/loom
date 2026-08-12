@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class ArrayType(TypeExpression elementType, Token leftBracket, Token? mutKeyword, Token rightBracket)
-    : TypeExpression([mutKeyword, ..elementType.Tokens, leftBracket, mutKeyword, rightBracket], [elementType])
+    : TypeExpression([mutKeyword, leftBracket, mutKeyword, rightBracket], [elementType])
 {
     public TypeExpression ElementType { get; } = elementType;
     public Token LeftBracket { get; } = leftBracket;

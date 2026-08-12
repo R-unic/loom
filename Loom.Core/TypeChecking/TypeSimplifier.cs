@@ -180,7 +180,7 @@ public static class TypeSimplifier
             rest.RemoveAt(i);
 
             var distributed = union.Types
-                .Select(variant => new IntersectionType(new List<Type> { variant }.Concat(rest).ToList()))
+                .Select(variant => new IntersectionType([variant, ..rest]))
                 .Select(t => Normalize(t, expand))
                 .Where(simplified => !Type.IsNever(simplified))
                 .ToList();

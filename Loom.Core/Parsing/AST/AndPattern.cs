@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class AndPattern(Pattern pattern, Token ampersand, Expression guard)
-    : Pattern([..pattern.Tokens, ampersand, ..guard.Tokens], [pattern, guard])
+    : Pattern([ampersand], [pattern, guard])
 {
     public Pattern Pattern { get; } = pattern;
     public Token Ampersand { get; } = ampersand;

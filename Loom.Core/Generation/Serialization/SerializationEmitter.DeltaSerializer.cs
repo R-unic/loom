@@ -114,7 +114,7 @@ internal sealed partial class SerializationEmitter
             [
                 new Parameter(BaselineParameter, new TypeName(schema.Interface.Name)),
                 new Parameter(ValueParameter, new TypeName(schema.Interface.Name)),
-                new Parameter(sizeParameter, new TypeName("number"))
+                new Parameter(sizeParameter, PrimitiveType.Number)
             ],
             null,
             new Chunk(body)

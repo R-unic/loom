@@ -17,9 +17,7 @@ public sealed class ExportList(
             typeKeyword,
             leftBrace,
             rightBrace,
-            fromKeyword,
-            ..specifiers.SelectMany(specifier => specifier.Tokens),
-            ..moduleSpecifier?.Tokens ?? []
+            fromKeyword
         ],
         [..specifiers, moduleSpecifier]
     ), IReExport

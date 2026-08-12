@@ -35,6 +35,7 @@
           AttributeList: [
             Attribute(
               IsInvoked: True
+              Name: "luau_metamethod"
               Expression: Identifier(
                 Name: Token(Identifier, "luau_metamethod")
                 Token(Identifier, "luau_metamethod")

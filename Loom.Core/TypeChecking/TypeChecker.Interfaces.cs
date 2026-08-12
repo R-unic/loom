@@ -188,7 +188,7 @@ public sealed partial class TypeChecker
     private Type CheckOrVisitInterfaceInvocation(InterfaceInvocation interfaceInvocation, Type? expected)
     {
         var type = Visit(interfaceInvocation.Name);
-        if (type.Equals(Intrinsics.Range))
+        if (type.Equals(IntrinsicTypes.Range))
             _diagnostics.Warn(interfaceInvocation, InternalCodes.SimplifiableCode, "Use a range literal.");
 
         var traitProperties = new List<ObjectProperty>();

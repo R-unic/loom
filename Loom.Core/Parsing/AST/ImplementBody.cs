@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public sealed class ImplementBody(Token leftBrace, Token rightBrace, List<FunctionDeclaration> implementations)
-    : Statement([leftBrace, rightBrace, ..implementations.SelectMany(m => m.Tokens)], implementations)
+    : Statement([leftBrace, rightBrace], implementations)
 {
     public Token LeftBrace { get; } = leftBrace;
     public Token RightBrace { get; } = rightBrace;

@@ -17,28 +17,28 @@ using Type = Types.Type;
 /// </remarks>
 public sealed partial class TypeChecker
 {
-    public override Type VisitAwait(Await @await)
+    public override Type VisitAwait(Await await)
     {
-        var operandType = Visit(@await.Expression);
+        var operandType = Visit(await.Expression);
 
         // an operand that already failed to type has reported once; a second error naming 'never' would
         // only bury the first
         if (Type.IsNever(operandType))
-            return BindType(@await, Types.PrimitiveType.Never);
+            return BindType(await, Types.PrimitiveType.Never);
 
-        if (!TryGetFutureValueType(@await, operandType, out var valueType))
+        if (!TryGetFutureValueType(await, operandType, out var valueType))
         {
             _diagnostics.Error(
-                @await,
+                await,
                 InternalCodes.AwaitRequiresFuture,
                 $"'await' can only be used on a 'Future<T>', but got '{operandType}'.",
                 "a Future comes from calling an 'async fn' - this value is already here, so there is nothing to wait for"
             );
 
-            return BindType(@await, Types.PrimitiveType.Never);
+            return BindType(await, Types.PrimitiveType.Never);
         }
 
-        return BindType(@await, valueType);
+        return BindType(await, valueType);
     }
 
     /// <summary>

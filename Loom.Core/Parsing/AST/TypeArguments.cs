@@ -6,7 +6,7 @@ public class TypeArguments(Token leftArrow, Token rightArrow, List<TypeExpressio
     : TypeArguments<TypeExpression>(leftArrow, rightArrow, argumentsList);
 
 public class TypeArguments<TType>(Token leftArrow, Token rightArrow, List<TType> argumentsList)
-    : Node([leftArrow, ..argumentsList.SelectMany(p => p.Tokens), rightArrow], argumentsList)
+    : Node([leftArrow, rightArrow], argumentsList)
     where TType : TypeExpression
 {
     public Token LeftArrow { get; } = leftArrow;

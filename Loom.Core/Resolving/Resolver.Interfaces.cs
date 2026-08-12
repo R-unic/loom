@@ -78,12 +78,12 @@ public sealed partial class Resolver
             return false;
         }
 
-        PushScope();
+        using var _ = InScope();
         interfaceSymbol.Implementations.Add(implement);
         interfaceSymbol.Implements.Add(traitSymbol);
         traitSymbol.ImplementedBy.Add(interfaceSymbol);
-        var success = !interfaceSymbol.FullProperties
-            .Any(property => !DeclareVariable(implement, new InjectedPropertyVariableSymbol(implement, property.Name, interfaceSymbol, property.IsMutable)));
+        var success = interfaceSymbol.FullProperties
+            .All(property => DeclareVariable(implement, new InjectedPropertyVariableSymbol(implement, property.Name, interfaceSymbol, property.IsMutable)));
 
         // A bare call to a method from another trait already implemented on this interface resolves the
         // same way a bare call to one of THIS block's own methods already does (as an ordinary function
@@ -96,13 +96,12 @@ public sealed partial class Resolver
                 .Where(other => other != implement)
                 .SelectMany(other => other.Body.Implementations);
 
-            success = !otherMethods.Any(declaration => !DeclareVariable(declaration, new FunctionSymbol(declaration, declaration.Name.Text)));
+            success = otherMethods.All(declaration => DeclareVariable(declaration, new FunctionSymbol(declaration, declaration.Name.Text)));
         }
 
         if (success)
             Visit(implement.Body);
 
-        PopScope();
         return success;
     }
 
@@ -153,9 +152,8 @@ public sealed partial class Resolver
         if (!DeclareTrait(traitDeclaration) || !ResolveTraitBody(traitDeclaration.Body, traitDeclaration.Name.Text))
             return false;
 
-        PushScope();
+        using var _ = InScope();
         base.VisitTraitDeclaration(traitDeclaration);
-        PopScope();
 
         return true;
     }
@@ -168,17 +166,17 @@ public sealed partial class Resolver
             || !ResolveInterfaceConstraints(interfaceDeclaration.ColonTypeListClause, symbol))
             return false;
 
-        PushScope();
-        base.VisitInterfaceDeclaration(interfaceDeclaration);
-        PopScope();
+        // the body is resolved outside this scope, against the interface's own members rather than its
+        // type parameters
+        using (var _ = InScope())
+            base.VisitInterfaceDeclaration(interfaceDeclaration);
 
         return ResolveInterfaceBody(interfaceDeclaration.Body, symbol);
     }
 
     public override bool VisitDeclare(Declare declare)
     {
-        var lastContext = _context;
-        _context = ResolverContext.Ambient;
+        using var ambient = InContext(ResolverContext.Ambient);
 
         bool result;
         if (declare.Signature is InterfaceDeclaration interfaceDeclaration)
@@ -191,9 +189,9 @@ public sealed partial class Resolver
             if (result)
             {
                 interfaceSymbol!.IsAmbient = true;
-                PushScope();
-                result &= base.VisitInterfaceDeclaration(interfaceDeclaration);
-                PopScope();
+                using (var _ = InScope())
+                    result &= base.VisitInterfaceDeclaration(interfaceDeclaration);
+
                 result &= ResolveInterfaceBody(interfaceDeclaration.Body, interfaceSymbol);
             }
         }
@@ -202,7 +200,6 @@ public sealed partial class Resolver
             result = Visit(declare.Signature);
         }
 
-        _context = lastContext;
         return result;
     }
 
@@ -327,7 +324,7 @@ public sealed partial class Resolver
     {
         var scope = CurrentScope();
         var name = traitDeclaration.Name.Text;
-        if (scope.TypeLookup.TryGetValue(name, out var symbols))
+        if (scope.Lookup(SymbolNamespace.Type).TryGetValue(name, out var symbols))
         {
             if (IsAlreadyHoisted(traitDeclaration, symbols))
                 return true;
@@ -345,7 +342,7 @@ public sealed partial class Resolver
     {
         var scope = CurrentScope();
         var name = interfaceDeclaration.Name.Text;
-        if (scope.TypeLookup.TryGetValue(name, out var symbols))
+        if (scope.Lookup(SymbolNamespace.Type).TryGetValue(name, out var symbols))
         {
             if (IsAlreadyHoisted<InterfaceSymbol>(interfaceDeclaration, symbols, out var interfaceSymbol))
                 return interfaceSymbol;
@@ -367,7 +364,7 @@ public sealed partial class Resolver
 
     private AttributeSymbol DeclareAttribute(Attribute attribute)
     {
-        var name = attribute.Expression.Tokens.Last(t => t.Kind == SyntaxKind.Identifier).Text;
+        var name = attribute.Name!;
         var declarationSymbol = LookupSymbol(name, SymbolKind.Function);
         return new AttributeSymbol(attribute, name) { IsIntrinsic = declarationSymbol?.IsIntrinsic ?? false };
     }

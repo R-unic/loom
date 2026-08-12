@@ -180,7 +180,7 @@ public sealed partial class TypeChecker
     }
 
     private static string? AttributeName(Attribute attribute) =>
-        attribute.Expression.Tokens.LastOrDefault(token => token.Kind == SyntaxKind.Identifier)?.Text;
+        attribute.Name;
 
     private static bool IsResultType(Type type) => IsResultType(type, 0);
 

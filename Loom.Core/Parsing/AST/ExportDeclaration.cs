@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class ExportDeclaration(Token exportKeyword, NamedDeclaration declaration)
-    : Statement([exportKeyword, ..declaration.Tokens], [declaration])
+    : Statement([exportKeyword], [declaration])
 {
     public Token ExportKeyword { get; } = exportKeyword;
     public NamedDeclaration Declaration { get; } = declaration;

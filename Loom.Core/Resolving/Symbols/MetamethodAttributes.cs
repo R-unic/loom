@@ -24,7 +24,7 @@ internal static class MetamethodAttributes
     }
 
     private static bool IsMetamethodAttribute(Attribute attribute) =>
-        attribute.Expression.Tokens.LastOrDefault(t => t.Kind == SyntaxKind.Identifier)?.Text == "luau_metamethod";
+        attribute.Name == "luau_metamethod";
 
     private static bool TryGetMetamethodName(Attribute attribute, out string metamethodName)
     {

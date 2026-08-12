@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class EnumMember(Token name, EqualsValueClause? equalsValueClause)
-    : Statement([name, ..equalsValueClause?.Tokens ?? []], [equalsValueClause])
+    : Statement([name], [equalsValueClause])
 {
     public Token Name { get; } = name;
     public EqualsValueClause? EqualsValueClause { get; } = equalsValueClause;

@@ -27,7 +27,7 @@ public sealed partial class TypeChecker
             collectionType = i.Expand();
 
         _semanticModel.TypeSolver.AddConstraint(collectionType, ObjectType.Empty, @for.CollectionExpression);
-        var isRange = collectionType.Equals(Intrinsics.Range);
+        var isRange = collectionType.Equals(IntrinsicTypes.Range);
         var elementType = isRange ? Types.PrimitiveType.Number : GetObjectValueType(collectionType);
         var maxNames = isRange ? 1 : 2;
         if (@for.Names.Count > maxNames)
@@ -44,7 +44,7 @@ public sealed partial class TypeChecker
 
         switch (collectionType)
         {
-            case var _ when collectionType.Equals(Intrinsics.Range):
+            case var _ when collectionType.Equals(IntrinsicTypes.Range):
                 BindType(@for.Names[0], elementType);
                 break;
             case Types.ArrayType:

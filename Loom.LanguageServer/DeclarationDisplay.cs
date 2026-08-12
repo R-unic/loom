@@ -200,7 +200,7 @@ public static class DeclarationDisplay
         return function is { TypeParameters.Count: > 0 } ? $"<{string.Join(", ", function.TypeParameters)}>" : "";
     }
 
-    private static string? NameOf(Attribute attribute) => attribute.Expression.Tokens.LastOrDefault(token => token.Kind == SyntaxKind.Identifier)?.Text;
+    private static string? NameOf(Attribute attribute) => attribute.Name;
     private static string AnnotationText(Parameter parameter) => parameter.ColonTypeClause?.Type.ToString() ?? "unknown";
     private static string TypeText(Type? type) => type?.ToString() ?? "unknown";
 }

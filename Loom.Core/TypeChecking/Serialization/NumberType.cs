@@ -28,9 +28,6 @@ public static class NumberTypeExtensions
     public static bool IsUnsigned(this NumberType numberType) =>
         numberType is NumberType.U8 or NumberType.U16 or NumberType.U32;
 
-    public static bool IsInteger(this NumberType numberType) =>
-        numberType is not (NumberType.F32 or NumberType.F64);
-
     /// <summary>Name of the <c>buffer</c> library suffix, e.g. <c>u8</c> for <c>buffer.writeu8</c>.</summary>
     public static string BufferSuffix(this NumberType numberType) => numberType.ToString().ToLowerInvariant();
 

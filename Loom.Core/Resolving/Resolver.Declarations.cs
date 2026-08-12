@@ -9,43 +9,35 @@ public sealed partial class Resolver
 {
     public override bool VisitFunctionDeclaration(FunctionDeclaration functionDeclaration)
     {
-        var scope = CurrentScope();
         var name = functionDeclaration.Name.Text;
-        if (scope.VariableLookup.ContainsKey(name))
-        {
-            _diagnostics.Error(functionDeclaration, InternalCodes.DuplicateName, $"Variable '{name}' is already declared in this scope.");
-            return false;
-        }
-
         if (!DeclareVariable(functionDeclaration, new FunctionSymbol(functionDeclaration, name)))
             return false;
 
-        PushScope();
-        var lastContext = _context;
-        _context = ResolverContext.Function;
-        if (functionDeclaration.Body is Block { Statements: [Return] })
-            _diagnostics.Warn(functionDeclaration, InternalCodes.RedundantCode, "Use expression body.");
-
-        base.VisitFunctionDeclaration(functionDeclaration);
-        _context = lastContext;
-        PopScope();
-
+        ResolveFunctionBody(functionDeclaration, () => base.VisitFunctionDeclaration(functionDeclaration));
         return true;
     }
 
     public override bool VisitFunctionExpression(FunctionExpression functionExpression)
     {
-        PushScope();
-        var lastContext = _context;
-        _context = ResolverContext.Function;
-        if (functionExpression.Body is Block { Statements: [Return] })
-            _diagnostics.Warn(functionExpression, InternalCodes.RedundantCode, "Use expression body.");
-
-        base.VisitFunctionExpression(functionExpression);
-        _context = lastContext;
-        PopScope();
-
+        ResolveFunctionBody(functionExpression, () => base.VisitFunctionExpression(functionExpression));
         return true;
+    }
+
+    /// <summary>
+    ///     Resolves a function's parameters and body in a scope of their own, inside
+    ///     <see cref="ResolverContext.Function" />. A declaration and an expression differ only in whether
+    ///     the name was declared first, so everything after that is shared.
+    /// </summary>
+    private void ResolveFunctionBody<T>(T functionLike, Action resolveChildren)
+        where T : Node, IFunctionLike
+    {
+        using var _ = InScope();
+        using var __ = InContext(ResolverContext.Function);
+
+        if (functionLike.Body is Block { Statements: [Return] })
+            _diagnostics.Warn(functionLike, InternalCodes.RedundantCode, "Use expression body.");
+
+        resolveChildren();
     }
 
     public override bool VisitTypeAlias(TypeAlias typeAlias)
@@ -53,9 +45,8 @@ public sealed partial class Resolver
         if (!DeclareType(typeAlias))
             return false;
 
-        PushScope();
+        using var _ = InScope();
         base.VisitTypeAlias(typeAlias);
-        PopScope();
 
         return true;
     }
@@ -111,9 +102,8 @@ public sealed partial class Resolver
         if (!DeclareVariable(declareFunctionSignature, new FunctionSymbol(declareFunctionSignature, declareFunctionSignature.Name.Text, attributes)))
             return false;
 
-        PushScope();
+        using var _ = InScope();
         base.VisitDeclareFunctionSignature(declareFunctionSignature);
-        PopScope();
 
         return true;
     }
@@ -137,9 +127,8 @@ public sealed partial class Resolver
 
     public override bool VisitFunctionType(FunctionType functionType)
     {
-        PushScope();
+        using var _ = InScope();
         base.VisitFunctionType(functionType);
-        PopScope();
 
         return true;
     }
@@ -184,12 +173,14 @@ public sealed partial class Resolver
         while (node?.Parent is Parenthesized)
             node = node.Parent;
 
-        return node?.Parent is Arguments arguments && arguments.Parent is Invocation;
+        return node?.Parent is Arguments { Parent: Invocation };
     }
 
     private static bool IsEventConnectionHandler(Parameter parameter) =>
-        parameter.Parent?.Parent is FunctionExpression functionExpression
-        && functionExpression.Parent is AssignmentOperator { Operator.Kind: SyntaxKind.PlusEquals or SyntaxKind.MinusEquals } assignment
+        parameter.Parent?.Parent is FunctionExpression
+        {
+            Parent: AssignmentOperator { Operator.Kind: SyntaxKind.PlusEquals or SyntaxKind.MinusEquals } assignment
+        } functionExpression
         && assignment.Right == functionExpression;
 
     public override bool VisitEnumDeclaration(EnumDeclaration enumDeclaration) =>
@@ -204,9 +195,8 @@ public sealed partial class Resolver
         if (!DeclareVariable(eventDeclaration, new EventSymbol(eventDeclaration)))
             return false;
 
-        PushScope();
+        using var _ = InScope();
         base.VisitEventDeclaration(eventDeclaration);
-        PopScope();
 
         return true;
     }

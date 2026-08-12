@@ -20,12 +20,6 @@ public enum CFrameEncoding : byte
 
 public static class CFrameEncodingExtensions
 {
-    /// <summary>Rotation bits, excluding the position components which are sized by the field's number type.</summary>
-    public static int RotationBits(this CFrameEncoding encoding, NumberType numberType) =>
-        encoding == CFrameEncoding.Compressed
-            ? CompressedRotationBits
-            : numberType.ByteCount() * 8 * 4;
-
     /// <summary>2 bits for the dropped component index plus 10 bits for each of the three kept components.</summary>
     public const int CompressedRotationBits = 2 + CompressedComponentBits * 3;
 

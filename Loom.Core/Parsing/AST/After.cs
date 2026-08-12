@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class After(Token keyword, Expression duration, Statement body)
-    : Statement([keyword, ..duration.Tokens, ..body.Tokens], [duration, body])
+    : Statement([keyword], [duration, body])
 {
     public Token Keyword { get; } = keyword;
     public Expression Duration { get; } = duration;

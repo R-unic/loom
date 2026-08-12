@@ -63,11 +63,7 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
     /// </param>
     public DiagnosticBag AttributedTo(string package, DiagnosticOptions? reportingOptions = null)
     {
-        var errors = Set.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
-            .OrderBy(diagnostic => diagnostic.Span.Start.Line)
-            .ThenBy(diagnostic => diagnostic.Span.Start.Character)
-            .ToList();
-
+        var errors = InSourceOrder().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToList();
         var options = reportingOptions ?? Options;
         if (errors.Count == 0)
             return new DiagnosticBag(options: options);
@@ -86,12 +82,33 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
         return attributed;
     }
 
+    /// <summary>
+    ///     Everything in the bag, ordered by where it was raised: by file, then by position within it, then
+    ///     by what was said there.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="Set" /> is a set because a diagnostic must not be reported twice, and the order a set
+    ///     enumerates in is its own business - it follows the order the pipeline happened to visit things,
+    ///     which is neither the order a reader scans a file in nor stable across runs. Every compiler that
+    ///     prints diagnostics sorts them by position for the same two reasons, so reading a build's output
+    ///     top to bottom is reading the file top to bottom, and so two builds of one tree print the same
+    ///     bytes.
+    /// </remarks>
+    public IReadOnlyList<Diagnostic> InSourceOrder() =>
+        Set.OrderBy(diagnostic => diagnostic.Span.File.AbsolutePath, PathComparison.Comparer)
+            .ThenBy(diagnostic => diagnostic.Span.Start.Position)
+            .ThenBy(diagnostic => diagnostic.Span.End.Position)
+            .ThenBy(diagnostic => diagnostic.Severity)
+            .ThenBy(diagnostic => diagnostic.Code, StringComparer.Ordinal)
+            .ThenBy(diagnostic => diagnostic.Message, StringComparer.Ordinal)
+            .ToList();
+
     public Diagnostic? Find(Func<Diagnostic, bool> predicate) => Set.FirstOrDefault(predicate);
     public DiagnosticBag WithoutInfo() => new(Set.Where(d => d.Severity > DiagnosticSeverity.Info).ToHashSet(), Options);
     public DiagnosticBag Errors() => new(Set.Where(d => d.Severity == DiagnosticSeverity.Error).ToHashSet(), Options);
     public bool ContainsErrors() => Set.Any(d => d.Severity == DiagnosticSeverity.Error);
 
-    public override string ToString() => string.Join('\n', Set);
+    public override string ToString() => string.Join('\n', InSourceOrder());
 
     internal void Report(LocationSpan span, DiagnosticSeverity severity, string? code, string message, string? hint) =>
         Report(new Diagnostic(span, severity, code, message, hint));
@@ -99,9 +116,7 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
     private void Report(Diagnostic diagnostic)
     {
         Set.Add(diagnostic);
-        if (!Options.FailFast || diagnostic.Severity < DiagnosticSeverity.Error) return;
-
-        Console.WriteLine(diagnostic.ToString());
-        Environment.Exit(1);
+        if (diagnostic.Severity >= DiagnosticSeverity.Error)
+            Options.OnFatalError?.Invoke(diagnostic);
     }
 }

@@ -9,10 +9,8 @@ public sealed partial class Resolver
     {
         Visit(after.Duration);
 
-        var lastContext = _context;
-        _context = ResolverContext.Scheduler;
+        using var _ = InContext(ResolverContext.Scheduler);
         Visit(after.Body);
-        _context = lastContext;
 
         return true;
     }
@@ -23,10 +21,8 @@ public sealed partial class Resolver
         if (every.Condition != null)
             Visit(every.Condition);
 
-        var lastContext = _context;
-        _context = ResolverContext.Scheduler;
+        using var _ = InContext(ResolverContext.Scheduler);
         Visit(every.Body);
-        _context = lastContext;
 
         return true;
     }
@@ -34,18 +30,16 @@ public sealed partial class Resolver
     public override bool VisitFor(For @for)
     {
         Visit(@for.CollectionExpression);
-        PushScope();
-        var namesDeclared = !@for.Names.Any(name => !DeclareVariable(name, name.Token.Text));
-        if (namesDeclared)
-        {
-            var lastContext = _context;
-            _context = ResolverContext.Loop;
-            Visit(@for.Body);
-            _context = lastContext;
-        }
 
-        PopScope();
-        return namesDeclared;
+        using var _ = InScope();
+        var namesDeclared = @for.Names.All(name => DeclareVariable(name, name.Token.Text));
+        if (!namesDeclared)
+            return false;
+
+        using var __ = InContext(ResolverContext.Loop);
+        Visit(@for.Body);
+
+        return true;
     }
 
     public override bool VisitMatchExpression(MatchExpression matchExpression)
@@ -62,22 +56,23 @@ public sealed partial class Resolver
 
     public override bool VisitMatchArm(MatchArm matchArm)
     {
-        PushScope();
-
-        var success = Visit(matchArm.Pattern)
+        using var _ = InScope();
+        return Visit(matchArm.Pattern)
             && (matchArm.Guard == null || Visit(matchArm.Guard))
             && Visit(matchArm.Body);
-
-        PopScope();
-        return success;
     }
 
     public override bool VisitIf(If @if)
     {
-        PushScope();
-        var conditionSuccess = Visit(@if.Condition);
-        var thenSuccess = Visit(@if.ThenBranch);
-        PopScope();
+        bool conditionSuccess, thenSuccess;
+
+        // the else branch is resolved outside this scope: a name bound in the condition or the then
+        // branch is not in scope for it
+        using (var _ = InScope())
+        {
+            conditionSuccess = Visit(@if.Condition);
+            thenSuccess = Visit(@if.ThenBranch);
+        }
 
         var elseSuccess = @if.ElseBranch == null || Visit(@if.ElseBranch);
         return conditionSuccess && thenSuccess && elseSuccess;
@@ -87,10 +82,8 @@ public sealed partial class Resolver
     {
         Visit(@while.Condition);
 
-        var lastContext = _context;
-        _context = ResolverContext.Loop;
+        using var _ = InContext(ResolverContext.Loop);
         Visit(@while.Body);
-        _context = lastContext;
 
         return true;
     }
@@ -159,26 +152,26 @@ public sealed partial class Resolver
     /// <remarks>
     ///     Two places are exempt. A function <em>expression</em> is anonymous, so it has no signature for
     ///     'async' to appear on and no caller to propagate to - an event handler runs on a thread Roblox
-    ///     owns and is free to yield, which is the same reason <see cref="TypeChecker" />'s
+    ///     owns and is free to yield, which is the same reason <see cref="TypeChecking.TypeChecker" />'s
     ///     EnclosingFallibleCandidate stops at one. An 'after'/'every' body is emitted as its own deferred
     ///     callback, so it too yields on a thread of its own; unlike '?', which needs the enclosing
     ///     function's return, awaiting inside one says nothing about that function.
     /// </remarks>
-    public override bool VisitAwait(Await @await)
+    public override bool VisitAwait(Await await)
     {
-        var enclosingFunction = @await.FirstAncestorImplementing<IFunctionLike>();
-        var schedulerAncestor = FirstSchedulerAncestor(@await);
+        var enclosingFunction = await.FirstAncestorImplementing<IFunctionLike>();
+        var schedulerAncestor = FirstSchedulerAncestor(await);
         if (schedulerAncestor != null && (enclosingFunction == null || FirstSchedulerAncestor(enclosingFunction) != schedulerAncestor))
-            return base.VisitAwait(@await);
+            return base.VisitAwait(await);
 
         switch (enclosingFunction)
         {
             case FunctionExpression or FunctionDeclaration { AsyncKeyword: not null }:
-                return base.VisitAwait(@await);
+                return base.VisitAwait(await);
 
             case FunctionDeclaration { Name.Text: var name }:
                 _diagnostics.Error(
-                    @await,
+                    await,
                     InternalCodes.AwaitOutsideAsyncFunction,
                     $"'await' can only be used inside an 'async' function, and '{name}' is not one.",
                     $"write 'async fn {name}' - its callers then get a 'Future' and decide when to wait for it"
@@ -188,7 +181,7 @@ public sealed partial class Resolver
 
             default:
                 _diagnostics.Error(
-                    @await,
+                    await,
                     InternalCodes.AwaitOutsideAsyncFunction,
                     "'await' can only be used inside an 'async' function.",
                     "yielding here blocks every thread that requires this module - move it into an 'async fn'"

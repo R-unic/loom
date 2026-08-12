@@ -14,8 +14,6 @@ namespace Loom.Core.TypeChecking;
 
 public static class Intrinsics
 {
-    public static readonly TupleMarkerType TupleMarker = new();
-    
     private const string CoreFileName = "loom.loom";
     private const string RuntimeFileName = "runtime.loom";
     private const string PluginSecurityFileName = "PluginSecurity.loom";
@@ -23,80 +21,43 @@ public static class Intrinsics
     private const string IntrinsicResourcePrefix = "Intrinsic/";
 
     [ThreadStatic] private static bool _isBootstrapping;
-    private static readonly ConcurrentDictionary<ProjectType, HashSet<(Symbol, Type)>> _cache = new();
+    private static readonly ConcurrentDictionary<ProjectType, Lazy<HashSet<(Symbol, Type)>>> _cache = new();
     private static readonly Assembly _resourceAssembly = typeof(Intrinsics).Assembly;
 
-    public static readonly InterfaceType Range = new(
-        "Range",
-        [],
-        new ObjectType(
-            null,
-            [
-                new ObjectProperty(false, "minimum", PrimitiveType.Number),
-                new ObjectProperty(false, "maximum", PrimitiveType.Number),
-                new ObjectProperty(false, "length", PrimitiveType.Number),
-                new ObjectProperty(false, "clamp", new FunctionType([], [PrimitiveType.Number], PrimitiveType.Number))
-            ]
-        )
-    );
-
-    public static readonly InterfaceType StringMembers = new(
-        "string",
-        [],
-        new ObjectType(
-            null,
-            [
-                new ObjectProperty(false, "length", PrimitiveType.Number),
-                new ObjectProperty(false, "upper", new FunctionType([], [], PrimitiveType.String)),
-                new ObjectProperty(false, "lower", new FunctionType([], [], PrimitiveType.String)),
-                new ObjectProperty(false, "trim", new FunctionType([], [], PrimitiveType.String)),
-                new ObjectProperty(false, "replace", new FunctionType([], [PrimitiveType.String, PrimitiveType.String], PrimitiveType.String)),
-                new ObjectProperty(false, "reverse", new FunctionType([], [], PrimitiveType.String)),
-                new ObjectProperty(false, "repeat", new FunctionType([], [PrimitiveType.Number], PrimitiveType.String)),
-                new ObjectProperty(false, "split", new FunctionType([], [new OptionalType(PrimitiveType.String)], new ArrayType(PrimitiveType.String, true))),
-                new ObjectProperty(false, "has", new FunctionType([], [PrimitiveType.String], PrimitiveType.Bool)),
-                new ObjectProperty(false, "starts_with", new FunctionType([], [PrimitiveType.String], PrimitiveType.Bool)),
-                new ObjectProperty(false, "ends_with", new FunctionType([], [PrimitiveType.String], PrimitiveType.Bool)),
-                new ObjectProperty(false, "byte", new FunctionType([], [new OptionalType(PrimitiveType.Number)], new OptionalType(PrimitiveType.Number)))
-            ]
-        )
-    );
-
-    /// <summary>
-    ///     The <c>Set&lt;T&gt;</c> definition from <c>loom.loom</c>, published once the intrinsics have
-    ///     compiled so <see cref="ArrayType" /> can name it in <c>to_set</c>'s return type.
+    /// <remarks>
+    ///     Nothing is injected while the intrinsics are themselves being compiled. An intrinsic file reaches
+    ///     the others through <see cref="CompilationUnit.Globals" /> during that bootstrap, and injecting
+    ///     here as well would put a previous compilation's symbols into the scope of the file that declares
+    ///     those very names - one name in one scope standing for two declarations, of which only the first
+    ///     is ever reachable. The guard has to be here rather than only in <see cref="CompileIntrinsics" />:
+    ///     a cached project type skips compiling but was still being injected.
+    /// </remarks>
+    /// <remarks>
     ///     <para>
-    ///         An array's members are built in C# rather than declared, so unlike every other reference to an
-    ///         intrinsic type there is no semantic model in reach to look this up through. It is null until
-    ///         the intrinsics finish compiling - an array built during that bootstrap simply has no
-    ///         <c>to_set</c>, which is fine because no intrinsic source calls it. First writer wins: every
-    ///         project type includes <c>loom.loom</c>, so the definitions are interchangeable.
+    ///         Returns the symbols rather than putting them anywhere. Binding them into a file's scope and
+    ///         type map is <see cref="AmbientIntrinsics" />'s job, and it does it once for the whole project.
     ///     </para>
-    /// </summary>
-    internal static GenericType? SetDefinition;
+    /// </remarks>
+    public static HashSet<(Symbol, Type)> Register(CompilationUnit injectInto) =>
+        _isBootstrapping ? [] : _cache.GetOrAdd(injectInto.Config.ProjectType, CompileLazily).Value;
 
-    public static HashSet<(Symbol, Type)> Register(SemanticModel model, CompilationUnit injectInto)
-    {
-        var projectType = injectInto.Config.ProjectType;
+    /// <remarks>
+    ///     The <see cref="Lazy{T}" /> is what makes a project type compile exactly once, and it has to be
+    ///     exactly once rather than merely eventually: two callers that both miss the cache would each get a
+    ///     full set of symbols, only one of which is kept. The other caller's files would then be resolved
+    ///     against symbols no later file shares, so one name would stand for two <see cref="Symbol" />
+    ///     instances within a unit — which every identity comparison downstream, from import binding to
+    ///     rename, assumes cannot happen. <see cref="ConcurrentDictionary{TKey,TValue}.GetOrAdd(TKey,Func{TKey,TValue})" />
+    ///     alone does not promise the factory runs once; a lazy whose value is published under a lock does.
+    ///     The bootstrap cannot deadlock on it, since <see cref="Register" /> returns above before ever
+    ///     reaching the cache.
+    /// </remarks>
+    private static Lazy<HashSet<(Symbol, Type)>> CompileLazily(ProjectType projectType) =>
+        new(() => CompileIntrinsics(projectType), LazyThreadSafetyMode.ExecutionAndPublication);
 
-        if (!_cache.TryGetValue(projectType, out var intrinsics))
-        {
-            intrinsics = CompileIntrinsics(projectType);
-            if (intrinsics.Count > 0)
-                _cache.TryAdd(projectType, intrinsics);
-        }
-
-        foreach (var (symbol, type) in intrinsics)
-            model.TypeSolver.SetType(symbol.Declaration, type);
-
-        return intrinsics;
-    }
-
+    /// <remarks>Only ever reached with <see cref="_isBootstrapping" /> clear - <see cref="Register" /> is the gate.</remarks>
     private static HashSet<(Symbol, Type)> CompileIntrinsics(ProjectType projectType)
     {
-        if (_isBootstrapping)
-            return [];
-
         _isBootstrapping = true;
         try
         {
@@ -203,7 +164,7 @@ public static class Intrinsics
                 intrinsicSymbols.Add((symbol, type));
 
                 if (symbol is { Name: "Set", IsTypeSymbol: true } && type is GenericType setDefinition)
-                    Interlocked.CompareExchange(ref SetDefinition, setDefinition, null);
+                    Interlocked.CompareExchange(ref IntrinsicTypes.SetDefinition, setDefinition, null);
             }
 
         return intrinsicSymbols;
@@ -215,7 +176,7 @@ public static class Intrinsics
             return null;
 
         var usageAttribute = declaredAttributes.AttributeList.Find(
-            a => a.Expression.Tokens.LastOrDefault(t => t.Kind == SyntaxKind.Identifier)?.Text == "attribute_usage"
+            a => a.Name == "attribute_usage"
         );
 
         if (usageAttribute?.Arguments.ArgumentList is not [var flagsExpression] || semanticModel.GetConstantValue(flagsExpression) is not double flagsValue)

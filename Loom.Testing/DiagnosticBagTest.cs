@@ -216,7 +216,7 @@ public class DiagnosticBagTest
     [Fact]
     public void Report_WithFailFastDisabled_StillRecordsErrorWithoutExiting()
     {
-        var bag = new DiagnosticBag(options: new DiagnosticOptions { FailFast = false });
+        var bag = new DiagnosticBag(options: new DiagnosticOptions());
         bag.Error(_span, "e", "fail");
         Assert.Single(bag.Set);
     }
@@ -230,9 +230,42 @@ public class DiagnosticBagTest
     }
 
     [Fact]
+    public void InSourceOrder_SortsByFileThenPosition()
+    {
+        var first = new SourceFile("a.loom", "let x = 1;\nlet y = 2;\n");
+        var second = new SourceFile("b.loom", "let z = 3;\n");
+        var bag = new DiagnosticBag();
+
+        // reported back to front, so a set enumerating in insertion order cannot pass by accident
+        bag.Error(new LocationSpan(new Location(second, 4), 1), "c", "second file");
+        bag.Error(new LocationSpan(new Location(first, 15), 1), "b", "later in the first");
+        bag.Error(new LocationSpan(new Location(first, 4), 1), "a", "earlier in the first");
+
+        Assert.Equal(
+            ["earlier in the first", "later in the first", "second file"],
+            bag.InSourceOrder().Select(diagnostic => diagnostic.Message)
+        );
+    }
+
+    [Fact]
+    public void Report_WithFailFastEnabled_HandsTheErrorToTheHost()
+    {
+        var fatal = new List<Diagnostic>();
+        var bag = new DiagnosticBag(options: new DiagnosticOptions { OnFatalError = fatal.Add });
+
+        bag.Info(_span, "i", "noted");
+        bag.Warn(_span, "w", "careful");
+        Assert.Empty(fatal);
+
+        bag.Error(_span, "e", "fail");
+        Assert.Equal("fail", Assert.Single(fatal).Message);
+        Assert.Equal(3, bag.Set.Count);
+    }
+
+    [Fact]
     public void Concat_DefaultsToOptionsOfFirstBag()
     {
-        var options = new DiagnosticOptions { FailFast = true };
+        var options = new DiagnosticOptions { OnFatalError = _ => { } };
         var combined = DiagnosticBag.Concat([new DiagnosticBag(options: options), new DiagnosticBag()]);
         Assert.Same(options, combined.Options);
     }
@@ -243,7 +276,7 @@ public class DiagnosticBagTest
     [Fact]
     public void Concat_GivenOptions_OverridesTheOptionsOfTheBags()
     {
-        var options = new DiagnosticOptions { FailFast = true };
+        var options = new DiagnosticOptions { OnFatalError = _ => { } };
         var combined = DiagnosticBag.Concat([new DiagnosticBag()], options);
         Assert.Same(options, combined.Options);
     }
@@ -251,7 +284,7 @@ public class DiagnosticBagTest
     [Fact]
     public void FilteringBags_KeepsOptions()
     {
-        var options = new DiagnosticOptions { FailFast = true };
+        var options = new DiagnosticOptions { OnFatalError = _ => { } };
         var bag = new DiagnosticBag(options: options);
         Assert.Same(options, bag.Errors().Options);
         Assert.Same(options, bag.WithoutInfo().Options);

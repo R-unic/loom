@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class Block(Token leftBrace, Token rightBrace, List<Statement> statements)
-    : Statement([leftBrace, ..statements.SelectMany(s => s.Tokens), rightBrace], statements)
+    : Statement([leftBrace, rightBrace], statements)
 {
     public Token LeftBrace { get; } = leftBrace;
     public Token RightBrace { get; } = rightBrace;

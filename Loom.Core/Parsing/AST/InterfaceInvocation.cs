@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class InterfaceInvocation(Token keyword, Name name, TypeArguments? typeArguments, InterfaceInvocationBody body)
-    : Expression([keyword, ..name.Tokens, ..typeArguments?.Tokens ?? [], ..body.Tokens], [name, typeArguments, body])
+    : Expression([keyword], [name, typeArguments, body])
 {
     public Token Keyword { get; } = keyword;
     public Name Name { get; } = name;

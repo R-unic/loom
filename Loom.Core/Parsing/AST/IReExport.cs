@@ -7,10 +7,10 @@ namespace Loom.Core.Parsing.AST;
 /// </summary>
 public interface IReExport
 {
-    Literal? ModuleSpecifier { get; }
-    string? ModulePath { get; }
-    bool IsTypeOnly { get; }
+    public Literal? ModuleSpecifier { get; }
+    public string? ModulePath { get; }
+    public bool IsTypeOnly { get; }
 
     /// <summary>False for an <see cref="ExportList" /> that names no module, which exports local names instead.</summary>
-    bool IsReExport { get; }
+    public bool IsReExport { get; }
 }

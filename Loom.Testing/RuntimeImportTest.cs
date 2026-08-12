@@ -68,9 +68,9 @@ public sealed class RuntimeImportTest : IDisposable
         Write(dir, "loom-config.toml", "project_type = \"game\"\n");
         Write(dir, Path.Combine("src", "main.loom"), RuntimeSource);
 
+        // these cases are about the require path that reaches the output, so the output has to be generated
         var config = ConfigReader.LocateFromDirectory(dir);
         Assert.NotNull(config);
-        config.NoEmit = true;
 
         return new CompilationUnit(config).Compile();
     }

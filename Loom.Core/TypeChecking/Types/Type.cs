@@ -11,8 +11,12 @@ internal sealed class ReferencePairComparer : IEqualityComparer<(Type, Type)>
 
 public abstract class Type : IEquatable<Type>
 {
-    private static readonly HashSet<(Type, Type)> _equalsVisiting = new(ReferencePairComparer.Instance);
-    private static readonly HashSet<(Type, Type)> _assignableToVisiting = new(ReferencePairComparer.Instance);
+    // A cycle guard is state of the walk that is running, not of the type graph being walked, so each
+    // thread gets its own. Shared, one compilation's in-flight pair would answer another's question:
+    // re-entering a pair means "already being compared" only for the comparison that entered it, and
+    // the language server compiles more than one document at a time.
+    [ThreadStatic] private static HashSet<(Type, Type)>? _equalsVisiting;
+    [ThreadStatic] private static HashSet<(Type, Type)>? _assignableToVisiting;
 
     public abstract bool Equals(Type? other);
 
@@ -21,8 +25,9 @@ public abstract class Type : IEquatable<Type>
         if (ReferenceEquals(a, b)) return true;
         if (b == null) return false;
 
+        var visiting = _equalsVisiting ??= new HashSet<(Type, Type)>(ReferencePairComparer.Instance);
         var pair = (a, b);
-        if (!_equalsVisiting.Add(pair))
+        if (!visiting.Add(pair))
             return true;
 
         try
@@ -31,7 +36,7 @@ public abstract class Type : IEquatable<Type>
         }
         finally
         {
-            _equalsVisiting.Remove(pair);
+            visiting.Remove(pair);
         }
     }
 
@@ -46,8 +51,9 @@ public abstract class Type : IEquatable<Type>
     {
         if (ReferenceEquals(a, b)) return true;
 
+        var visiting = _assignableToVisiting ??= new HashSet<(Type, Type)>(ReferencePairComparer.Instance);
         var pair = (a, b);
-        if (!_assignableToVisiting.Add(pair))
+        if (!visiting.Add(pair))
             return true;
 
         try
@@ -56,7 +62,7 @@ public abstract class Type : IEquatable<Type>
         }
         finally
         {
-            _assignableToVisiting.Remove(pair);
+            visiting.Remove(pair);
         }
     }
 

@@ -222,9 +222,10 @@ internal static class Utility
                 File.WriteAllText(filePath, source);
             }
 
+            // emits for real: the output goes into the throwaway directory this deletes on the way out, and
+            // 'no_emit' now also skips generating the Luau these cases assert on
             var config = ConfigReader.LocateFromDirectory(directory);
             Assert.NotNull(config);
-            config.NoEmit = true;
 
             var compilationUnit = new CompilationUnit(config, diagnosticOptions);
             assert(compilationUnit, compilationUnit.Compile());

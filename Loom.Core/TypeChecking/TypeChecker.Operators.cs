@@ -64,25 +64,26 @@ public sealed partial class TypeChecker
         // target written as an instantiation ('ImmutRecord<string, bool>') only has members once expanded.
         var expressionType = TypeSimplifier.Expanded(_semanticModel.GetType(expression));
         if (expressionType is Types.PrimitiveType { Kind: PrimitiveTypeKind.String })
-            expressionType = Intrinsics.StringMembers;
+            expressionType = IntrinsicTypes.StringMembers;
 
         var indexType = assignmentOperator.Left switch
         {
             ElementAccess access => _semanticModel.GetType(access.IndexExpression),
-            PropertyAccess propertyAccess => new Types.LiteralType(propertyAccess.Names.First().Name.Text),
-            QualifiedName name => new Types.LiteralType(name.Names.First().Name.Text),
+            PropertyAccess propertyAccess => new Types.LiteralType(propertyAccess.Names[0].Name.Text),
+            QualifiedName name => new Types.LiteralType(name.Names[0].Name.Text),
             _ => null!
         };
 
         if (expressionType is not NativelyIndexableType indexableType)
             return BindType(assignmentOperator, valueType);
 
-        var names = (assignmentOperator.Left switch
+        // read only, so the node's own list is walked rather than copied
+        IReadOnlyList<DotName> names = assignmentOperator.Left switch
         {
             PropertyAccess propertyAccess => propertyAccess.Names,
             QualifiedName name => name.Names,
             _ => []
-        }).ToList();
+        };
 
         if (names.Count > 1)
         {
@@ -95,7 +96,7 @@ public sealed partial class TypeChecker
                 indexableType = nestedIndexable;
             }
 
-            indexType = new Types.LiteralType(names.Last().Name.Text);
+            indexType = new Types.LiteralType(names[^1].Name.Text);
         }
 
         var (bodyType, _) = indexableType.GetTypeAtIndex(indexType);

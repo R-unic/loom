@@ -13,7 +13,7 @@ namespace Loom.Core.Generation.Serialization;
 /// <remarks>
 ///     Buffer library members are reached through file-level constants rather than the <c>buffer</c>
 ///     global, since a serializer touches them once per field on paths that run per frame. Which members
-///     a file needs falls out of <see cref="SerializationEmitter.bufferMembers" /> once every schema in it has been emitted.
+///     a file needs falls out of <paramref name="bufferMembers" /> once every schema in it has been emitted.
 /// </remarks>
 internal sealed partial class SerializationEmitter(SerializationSchema schema, List<string> bufferMembers)
 {

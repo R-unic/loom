@@ -4,7 +4,7 @@ namespace Loom.Core.Parsing.AST;
 
 public class ArrayPattern(Token leftBracket, Token rightBracket, List<Pattern> elements, RestPattern? rest)
     : Pattern(
-        [leftBracket, rightBracket, ..elements.SelectMany(e => e.Tokens), ..rest?.Tokens ?? []],
+        [leftBracket, rightBracket],
         [..elements, rest]
     )
 {

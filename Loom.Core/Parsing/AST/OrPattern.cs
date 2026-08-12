@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class OrPattern(List<Token> pipes, List<Pattern> patterns)
-    : Pattern([..pipes, ..patterns.SelectMany(p => p.Tokens)], patterns)
+    : Pattern([..pipes], patterns)
 {
     public List<Token> Pipes { get; } = pipes;
     public List<Pattern> Patterns { get; } = patterns;

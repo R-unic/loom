@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class PropertyDeclaration(Token? mutKeyword, Token name, ColonTypeClause colonTypeClause, Attributes? attributes)
-    : NamedDeclaration([mutKeyword, ..colonTypeClause.Tokens, ..attributes?.Tokens ?? []], name, colonTypeClause, attributes),
+    : NamedDeclaration([mutKeyword], name, colonTypeClause, attributes),
       IWithAttributes
 {
     public Token? MutKeyword { get; } = mutKeyword;

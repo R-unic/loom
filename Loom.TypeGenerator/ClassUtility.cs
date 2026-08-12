@@ -101,7 +101,6 @@ internal static class ClassUtility
 
     public static bool HasTag(MemberBase container, string tag) => container.Tags != null && container.Tags.Any(t => t.ToString() == tag);
     public static bool HasTag(Class container, string tag) => container.Tags != null && container.Tags.Any(t => t.ToString() == tag);
-    public static string FormatComment(string s) => "#:\n" + string.Join('\n', s.Trim().Split('\n')) + "\n:#";
 
     public static string SafeName(string? name) =>
         name == null

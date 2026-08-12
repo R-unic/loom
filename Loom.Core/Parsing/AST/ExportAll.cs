@@ -13,7 +13,7 @@ public sealed class ExportAll(
     Token fromKeyword,
     Literal moduleSpecifier
 )
-    : Statement([exportKeyword, typeKeyword, star, fromKeyword, ..moduleSpecifier.Tokens], [moduleSpecifier]), IReExport
+    : Statement([exportKeyword, typeKeyword, star, fromKeyword], [moduleSpecifier]), IReExport
 {
     public Token ExportKeyword { get; } = exportKeyword;
     public Token? TypeKeyword { get; } = typeKeyword;

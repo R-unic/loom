@@ -10,9 +10,9 @@ public sealed class InterfaceSymbol(InterfaceDeclaration declaration, string nam
     public IReadOnlyList<InterfaceSymbol>? Constraints { get; } = constraints;
     public List<PropertySymbol> Properties { get; } = [];
     /// <summary> Current interface properties + all constraint properties </summary>
-    public IReadOnlyList<PropertySymbol> FullProperties => field ??= Properties.Concat(GetFieldAndConstraintFields(i => i.Properties)).ToArray();
+    public IReadOnlyList<PropertySymbol> FullProperties => field ??= [..Properties, ..GetFieldAndConstraintFields(i => i.Properties)];
     public List<TraitSymbol> Implements { get; } = [];
-    public IReadOnlyList<Implement> FullImplementations => field ??= Implementations.Concat(GetFieldAndConstraintFields(i => i.Implementations)).ToArray();
+    public IReadOnlyList<Implement> FullImplementations => field ??= [..Implementations, ..GetFieldAndConstraintFields(i => i.Implementations)];
     public List<Implement> Implementations { get; } = [];
 
     /// <summary>Metamethod name (e.g. "__add") to property name, for own properties tagged with [luau_metamethod(...)].</summary>

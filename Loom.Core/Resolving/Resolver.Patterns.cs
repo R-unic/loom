@@ -57,9 +57,14 @@ public sealed partial class Resolver
         ResolverScope? firstScope = null;
         foreach (var pattern in orPattern.Patterns)
         {
-            var scope = PushScope();
-            var success = Visit(pattern);
-            PopScope();
+            bool success;
+            ResolverScope scope;
+            using (var alternative = InScope())
+            {
+                scope = alternative.Scope;
+                success = Visit(pattern);
+            }
+
             if (!success)
                 return false;
 
@@ -67,7 +72,7 @@ public sealed partial class Resolver
         }
 
         return firstScope == null
-            || firstScope.VariableLookup.Values.SelectMany(symbols => symbols).All(symbol => DeclareVariable(symbol.Declaration, symbol));
+            || firstScope.Lookup(SymbolNamespace.Value).Values.SelectMany(symbols => symbols).All(symbol => DeclareVariable(symbol.Declaration, symbol));
     }
 
     public override bool VisitAndPattern(AndPattern andPattern) => Visit(andPattern.Pattern) && Visit(andPattern.Guard);

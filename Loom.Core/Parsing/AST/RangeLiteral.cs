@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class RangeLiteral(Token dotDot, Expression minimum, Expression maximum)
-    : Expression([..minimum.Tokens, dotDot, ..maximum.Tokens], [minimum, maximum])
+    : Expression([dotDot], [minimum, maximum])
 {
     public Token DotDot { get; } = dotDot;
     public Expression Minimum { get; } = minimum;

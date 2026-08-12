@@ -4,7 +4,7 @@ namespace Loom.Core.Parsing.AST;
 
 public class FunctionType(Token fnKeyword, TypeParameters? typeParameters, Parameters? parameters, ColonTypeClause returnType, Token? asyncKeyword = null)
     : TypeExpression(
-        [fnKeyword, asyncKeyword, ..typeParameters?.Tokens ?? [], ..parameters?.Tokens ?? [], ..returnType.Tokens],
+        [fnKeyword, asyncKeyword],
         [typeParameters, parameters, returnType]
     )
 {

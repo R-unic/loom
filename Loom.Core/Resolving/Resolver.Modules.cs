@@ -185,7 +185,7 @@ public sealed partial class Resolver
         if (!TryGetModule(import, out var module, out var moduleModel))
             return DeclareUnresolvedSymbols(import, name, false);
 
-        if (HasDuplicateSymbol(import, name, true, $"Variable '{name}' is already declared in this scope."))
+        if (HasDuplicateSymbol(import, name, SymbolNamespace.Value, $"Variable '{name}' is already declared in this scope."))
             return true;
 
         // the symbol stands for the required table, so unlike a named import it is declared on this node
@@ -430,8 +430,9 @@ public sealed partial class Resolver
         SemanticModel moduleModel)
     {
         var localName = specifier.LocalName.Text;
-        var duplicateKind = export.IsTypeSymbol ? "Type" : "Variable";
-        if (HasDuplicateSymbol(specifier, localName, !export.IsTypeSymbol, $"{duplicateKind} '{localName}' is already declared in this scope."))
+        var importedNamespace = NamespaceOf(export);
+        var duplicateKind = importedNamespace == SymbolNamespace.Type ? "Type" : "Variable";
+        if (HasDuplicateSymbol(specifier, localName, importedNamespace, $"{duplicateKind} '{localName}' is already declared in this scope."))
             return false;
 
         if (LuauFactory.Keywords.Contains(localName))

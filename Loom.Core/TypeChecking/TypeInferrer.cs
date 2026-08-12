@@ -306,10 +306,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
 
         var shared = argumentFunction.ParameterTypes.Count;
         if (argumentFunction.TypeParameters.Count <= 0 || argumentFunction.TypeParameters.Count == parameterFunction.TypeParameters.Count)
-            return !parameterFunction.ParameterTypes
-                    .Take(shared)
-                    .Where((t, index) => !TryInferTypes(t, argumentFunction.ParameterTypes[index], inferredTypes, visitedPairs))
-                    .Any()
+            return InferEachPosition(parameterFunction.ParameterTypes, argumentFunction.ParameterTypes, shared, inferredTypes, visitedPairs)
                 && TryInferTypes(parameterFunction.ReturnType, argumentFunction.ReturnType, inferredTypes, visitedPairs);
 
         var resolvedParameterTypes = parameterFunction.ParameterTypes.ConvertAll(t => Substitute(t, inferredTypes));
@@ -322,11 +319,27 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
             argumentFunction.IsAsync
         );
 
-        return !parameterFunction.ParameterTypes
-                .Take(shared)
-                .Where((t, index) => !TryInferTypes(t, substitutedFunction.ParameterTypes[index], inferredTypes, visitedPairs))
-                .Any()
+        return InferEachPosition(parameterFunction.ParameterTypes, substitutedFunction.ParameterTypes, shared, inferredTypes, visitedPairs)
             && TryInferTypes(parameterFunction.ReturnType, substitutedFunction.ReturnType, inferredTypes, visitedPairs);
+    }
+
+    /// <summary>
+    ///     Whether the first <paramref name="count" /> positions all infer, argument against parameter.
+    ///     Stops at the first that does not, which is what makes the inferences recorded along the way the
+    ///     ones belonging to a match rather than to a partial one.
+    /// </summary>
+    private static bool InferEachPosition(
+        List<Type> parameterTypes,
+        List<Type> argumentTypes,
+        int count,
+        TypeParameterSubstitution inferredTypes,
+        HashSet<(Type, Type)> visitedPairs)
+    {
+        for (var index = 0; index < count; index++)
+            if (!TryInferTypes(parameterTypes[index], argumentTypes[index], inferredTypes, visitedPairs))
+                return false;
+
+        return true;
     }
 
     private static Type Substitute(Type type, TypeParameterSubstitution substitution) =>
@@ -342,14 +355,14 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         UnionType argumentUnion,
         TypeParameterSubstitution inferredTypes,
         HashSet<(Type, Type)> visitedPairs) =>
-        !parameterUnion.Types.Where((t, index) => !TryInferTypes(t, argumentUnion.Types[index], inferredTypes, visitedPairs)).Any();
+        InferEachPosition(parameterUnion.Types, argumentUnion.Types, parameterUnion.Types.Count, inferredTypes, visitedPairs);
 
     private static bool MatchIntersectionTypes(
         IntersectionType parameterIntersection,
         IntersectionType argumentIntersection,
         TypeParameterSubstitution inferredTypes,
         HashSet<(Type, Type)> visitedPairs) =>
-        !parameterIntersection.Types.Where((t, index) => !TryInferTypes(t, argumentIntersection.Types[index], inferredTypes, visitedPairs)).Any();
+        InferEachPosition(parameterIntersection.Types, argumentIntersection.Types, parameterIntersection.Types.Count, inferredTypes, visitedPairs);
 
     // Inference matches shape against shape, so both sides come in expanded - including the type itself,
     // which Transform only reaches the arguments of. TypeSimplifier.Expanded is what does that now;

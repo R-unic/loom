@@ -104,15 +104,17 @@ public sealed class FunctionType(
             || IsAsync != functionType.IsAsync)
             return false;
 
-        if (TypeParameters
-            .Where((t, i) => functionType.TypeParameters[i].Constraint is { } constraint
-                && !(t.Constraint ?? PrimitiveType.Never).IsAssignableTo(constraint)
-            )
-            .Any())
-            return false;
+        for (var i = 0; i < TypeParameters.Count; i++)
+            if (functionType.TypeParameters[i].Constraint is { } constraint
+                && !(TypeParameters[i].Constraint ?? PrimitiveType.Never).IsAssignableTo(constraint))
+                return false;
 
-        return !ParameterTypes.Where((t, i) => !functionType.ParameterTypes[i].IsAssignableTo(t)).Any()
-            && ReturnType.IsAssignableTo(functionType.ReturnType);
+        // parameters are contravariant: what the target may be called with has to be something this one accepts
+        for (var i = 0; i < ParameterTypes.Count; i++)
+            if (!functionType.ParameterTypes[i].IsAssignableTo(ParameterTypes[i]))
+                return false;
+
+        return ReturnType.IsAssignableTo(functionType.ReturnType);
     }
 
     public override string ToString()

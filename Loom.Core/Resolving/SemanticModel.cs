@@ -15,6 +15,19 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
     : DiagnosedResult(Diagnostics)
 {
     internal int RuntimeReferences = 0;
+
+    /// <summary>
+    ///     The intrinsics this file resolved against, shared with every other file of the project. The
+    ///     declaration and type tables below fall back to it rather than each holding a copy.
+    /// </summary>
+    internal AmbientIntrinsics Ambient { get; set; } = AmbientIntrinsics.None;
+
+    /// <summary>
+    ///     Every symbol declared for this file: the ones it declares itself, then the intrinsics every file
+    ///     of the project shares. Anything asking "what names exist here" wants this rather than
+    ///     <see cref="Declarations" />, which holds only the file's own.
+    /// </summary>
+    public IEnumerable<Symbol> DeclaredSymbols => Declarations.Values.SelectMany(symbols => symbols).Concat(Ambient.Symbols);
     public List<ExportBinding> Exports { get; } = [];
 
     /// <summary>
@@ -88,7 +101,11 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
     /// <summary>Whether the resolver already reported this name as one it could not bind.</summary>
     public bool IsUnresolved(Node node) => UnresolvedNames.Contains(node.Id);
     internal TypeSolver TypeSolver { get; } = new(new DiagnosticBag(options: Diagnostics.Options));
-    private SymbolLookup DeclarationsByName => field ??= Declarations.Values.SelectMany(s => s).GroupBy(s => s.Name).ToDictionary(g => g.Key, g => g.ToList());
+    private SymbolLookup DeclarationsByName =>
+        field ??= Declarations.Values.SelectMany(symbols => symbols)
+            .Concat(Ambient.Symbols)
+            .GroupBy(symbol => symbol.Name)
+            .ToDictionary(group => group.Key, group => group.ToList());
 
     public List<NamespaceImportBinding> NamespaceImports { get; } = [];
 
@@ -169,7 +186,7 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         expression switch
         {
             QualifiedName qn when GetType(qn.Identifier) is ObjectType objectType
-                && objectType.GetProperty(qn.Names.First().Name.Text) is { ValueType: LiteralType literalType } =>
+                && objectType.GetProperty(qn.Names[0].Name.Text) is { ValueType: LiteralType literalType } =>
                 literalType.Value,
             UnaryOperator { Operator.Text: "-" } unary when ToDouble(GetConstantValue(unary.Operand)) is { } d => -d,
             BinaryOperator { Operator.Text: var op } binary
@@ -203,7 +220,7 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
             "~" => (double)((long)l ^ (long)r),
             "<<" => (double)((long)l << (int)r),
             ">>" => (double)((long)l >> (int)r),
-            ">>>" => (double)(long)((ulong)(long)l >> (int)r),
+            ">>>" => (double)((long)l >>> (int)r),
             _ => null
         };
 
@@ -212,7 +229,7 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         while (true)
         {
             if (node is not Declare declare)
-                return Declarations.GetValueOrDefault(node.Id, []);
+                return Declarations.TryGetValue(node.Id, out var declared) ? declared : Ambient.Declarations.GetValueOrDefault(node.Id, []);
 
             node = declare.Signature;
         }
@@ -225,7 +242,7 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         while (true)
         {
             if (node is not Declare declare)
-                return FindSymbol(node, kind, Declarations);
+                return FindDeclaration(node, kind);
 
             node = declare.Signature;
         }
@@ -300,9 +317,14 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
             ? symbols.OfType<T>().Where(predicate).OrderBy(symbol => symbol.IsIntrinsic).FirstOrDefault()
             : null;
 
-    private static Symbol? FindSymbol(Node node, SymbolKind? kind, SymbolTable table)
-    {
-        var symbols = table.GetValueOrDefault(node.Id, []);
-        return kind != null ? symbols.Find(s => s.Kind == kind) : symbols.FirstOrDefault();
-    }
+    private Symbol? FindDeclaration(Node node, SymbolKind? kind) =>
+        Declarations.TryGetValue(node.Id, out var symbols) || Ambient.Declarations.TryGetValue(node.Id, out symbols)
+            ? Pick(symbols, kind)
+            : null;
+
+    private static Symbol? FindSymbol(Node node, SymbolKind? kind, SymbolTable table) =>
+        table.TryGetValue(node.Id, out var symbols) ? Pick(symbols, kind) : null;
+
+    private static Symbol? Pick(List<Symbol> symbols, SymbolKind? kind) =>
+        kind != null ? symbols.Find(s => s.Kind == kind) : symbols.FirstOrDefault();
 }

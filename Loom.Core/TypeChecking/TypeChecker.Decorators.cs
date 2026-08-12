@@ -22,7 +22,7 @@ public sealed partial class TypeChecker
 
     private bool IsMetadataOnlyDecorator(Attribute attribute) =>
         _semanticModel.GetSymbol(attribute.Expression)?.Declaration is IWithAttributes { Attributes: { } declaredAttributes }
-        && declaredAttributes.AttributeList.Exists(a => a.Expression.Tokens.LastOrDefault(t => t.Kind == SyntaxKind.Identifier)?.Text == "metadata_only");
+        && declaredAttributes.AttributeList.Exists(a => a.Name == "metadata_only");
 
     private void CheckDecoratorAttribute(Attribute attribute, string valueName, Type valueType)
     {
@@ -122,7 +122,7 @@ public sealed partial class TypeChecker
                 return;
 
             var usageAttribute = declaredAttributes.AttributeList.Find(
-                a => a.Expression.Tokens.LastOrDefault(t => t.Kind == SyntaxKind.Identifier)?.Text == "attribute_usage"
+                a => a.Name == "attribute_usage"
             );
 
             allowedFlagsValue = usageAttribute?.Arguments.ArgumentList is [var flagsExpression] && _semanticModel.GetConstantValue(flagsExpression) is double flagsValue

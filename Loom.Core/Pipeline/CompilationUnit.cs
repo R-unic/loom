@@ -60,7 +60,7 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     ///     process has to survive long enough to raise it.
     /// </summary>
     public DiagnosticOptions DiagnosticOptionsFor(SourceFile file) =>
-        PackageAttributionOf(file) == null ? DiagnosticOptions : DiagnosticOptions with { FailFast = false };
+        PackageAttributionOf(file) == null ? DiagnosticOptions : DiagnosticOptions with { OnFatalError = null };
 
     /// <summary>Every root's ambient declarations, each visible only to the files of the root that declared them.</summary>
     public GlobalSymbols Globals { get; } = new(roots);
@@ -220,7 +220,10 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
                 Failures = failures, Elapsed = stopwatch.Elapsed
             };
 
-        var dirty = new HashSet<string>(changedAbsolutePaths);
+        // the comparer has to be carried over rather than left to default: what goes in here is compared
+        // against a parsed file's own spelling of its path, and an ordinal compare answers "not changed"
+        // for a file whose drive letter reached us in the other case
+        var dirty = new HashSet<string>(changedAbsolutePaths, _pathComparer);
         var reanalyzed = new List<SourceFile>();
         var timeSaved = TimeSpan.Zero;
 

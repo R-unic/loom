@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class Attributes(Token leftBracket, Token rightBracket, List<Attribute> attributeList)
-    : Statement([leftBracket, rightBracket, ..attributeList.SelectMany(a => a.Tokens)], attributeList)
+    : Statement([leftBracket, rightBracket], attributeList)
 {
     public Token LeftBracket { get; } = leftBracket;
     public Token RightBracket { get; } = rightBracket;

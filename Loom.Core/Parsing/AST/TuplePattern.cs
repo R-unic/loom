@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class TuplePattern(Token leftParen, Token rightParen, List<Pattern> patterns)
-    : Pattern([leftParen, rightParen, ..patterns.SelectMany(p => p.Tokens)], patterns)
+    : Pattern([leftParen, rightParen], patterns)
 {
     public Token LeftParen { get; } = leftParen;
     public Token RightParen { get; } = rightParen;

@@ -41,12 +41,12 @@ public sealed class GenericType(GenericNamedDeclaration declaration, List<TypePa
     ///         cache terminates the walk, and the reference-identity guards start working as designed.
     ///     </para>
     ///     <para>
-    ///         Arguments are matched by <em>reference</em>, not by <see cref="Type.Equals" />, for two reasons.
+    ///         Arguments are matched by <em>reference</em>, not by <see cref="Type.Equals(Type)" />, for two reasons.
     ///         Structural matching would fuse two interfaces that merely look alike into one instantiation, and
     ///         since intrinsic definitions are cached for the process (see <see cref="Intrinsics" />) that fusion
     ///         would reach across compilations and hand one project's type to another. It also keeps the table
     ///         from outliving what it describes: bucketing on the first argument in a
-    ///         <see cref="ConditionalWeakTable" /> lets a compilation's entries die with the types they name,
+    ///         <see cref="ConditionalWeakTable{TKey,TValue}" /> lets a compilation's entries die with the types they name,
     ///         which a strong dictionary hanging off a process-lifetime definition would not.
     ///     </para>
     /// </summary>

@@ -171,7 +171,7 @@ public sealed partial class TypeChecker
         if (symbol != null)
         {
             if (IsTupleMarkerSymbol(symbol))
-                return BindType(typeName, Intrinsics.TupleMarker);
+                return BindType(typeName, IntrinsicTypes.TupleMarker);
 
             var declaredType = ResolveHoistedType(symbol);
             if (symbol is { Kind: SymbolKind.EnumType } && declaredType is ObjectType objectType)
@@ -193,7 +193,7 @@ public sealed partial class TypeChecker
         return BindType(typeName, Types.PrimitiveType.Never);
     }
 
-    private static bool IsTupleMarkerSymbol(Symbol symbol) => symbol is { IsIntrinsic: true, Name: "Tuple" } && symbol.File.Name == "loom.loom";
+    private static bool IsTupleMarkerSymbol(Symbol symbol) => symbol is { IsIntrinsic: true, Name: "Tuple", File.Name: "loom.loom" };
 
     public override Types.TypeParameter VisitTypeParameter(TypeParameter typeParameter)
     {

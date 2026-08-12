@@ -10,7 +10,7 @@ public sealed class NamespaceImport(
     Token fromKeyword,
     Literal moduleSpecifier
 )
-    : Statement([importKeyword, star, asKeyword, name, fromKeyword, ..moduleSpecifier.Tokens], [moduleSpecifier])
+    : Statement([importKeyword, star, asKeyword, name, fromKeyword], [moduleSpecifier])
 {
     public Token ImportKeyword { get; } = importKeyword;
     public Token Star { get; } = star;

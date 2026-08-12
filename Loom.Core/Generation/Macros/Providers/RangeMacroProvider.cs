@@ -16,7 +16,7 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 internal sealed class RangeMacroProvider : IMacroProvider
 {
-    public bool Supports(SemanticModel _, Type type) => type.Equals(Intrinsics.Range);
+    public bool Supports(SemanticModel _, Type type) => type.Equals(IntrinsicTypes.Range);
     public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) => memberName is "clamp";

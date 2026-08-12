@@ -8,41 +8,83 @@ namespace Loom.Core.Resolving;
 
 public sealed partial class Resolver
 {
+    /// <summary>What declaring a name in the current scope would do.</summary>
+    private enum DeclarationOutcome
+    {
+        /// <summary>Nothing holds the name here yet.</summary>
+        Fresh,
+
+        /// <summary>
+        ///     This very declaration already has a symbol in this scope, put there by the hoisting pass. The
+        ///     symbol standing for it exists and everything referring to the name is already bound to it.
+        /// </summary>
+        AlreadyHoisted,
+
+        /// <summary>Something else holds the name here.</summary>
+        Duplicate
+    }
+
     private bool DeclareVariable(NamedDeclaration node, bool isMutable = false) => DeclareVariable(node, node.Name.Text, isMutable);
 
     private bool DeclareVariable(Node node, string name, bool isMutable = false) => DeclareVariable(node, new VariableSymbol(node, name, isMutable));
 
-    private bool DeclareVariable(Node node, Symbol symbol)
-    {
-        if (HasDuplicateSymbol(node, symbol.Name, true, $"Variable '{symbol.Name}' is already declared in this scope."))
-            return false;
-
-        DeclareSymbol(symbol);
-        return true;
-    }
+    private bool DeclareVariable(Node node, Symbol symbol) =>
+        DeclareOnce(node, symbol, SymbolNamespace.Value, $"Variable '{symbol.Name}' is already declared in this scope.");
 
     private bool DeclareType(NamedDeclaration node) => DeclareType(node, new TypeAliasSymbol(node, node.Name.Text));
 
-    private bool DeclareType(NamedDeclaration node, TypeSymbol symbol)
-    {
-        if (HasDuplicateSymbol(node, false, $"Type '{node.Name.Text}' is already declared in this scope."))
-            return false;
+    private bool DeclareType(NamedDeclaration node, TypeSymbol symbol) =>
+        DeclareOnce(node, symbol, SymbolNamespace.Type, $"Type '{node.Name.Text}' is already declared in this scope.");
 
-        DeclareSymbol(symbol);
-        return true;
+    /// <summary>
+    ///     Puts <paramref name="symbol" /> in the current scope, or reports <paramref name="duplicateError" />
+    ///     and declares nothing when the name is taken.
+    /// </summary>
+    /// <remarks>
+    ///     A declaration the hoisting pass already handled succeeds without declaring anything a second time:
+    ///     the symbol it made is the one every reference resolved against, and adding another for the same
+    ///     node would leave two symbols standing for one declaration — equal in nothing but name, with only
+    ///     the first reachable through a lookup and any state written to the other simply lost.
+    ///     <see cref="DeclareInterface" /> has always worked this way; this is the same rule for the rest.
+    /// </remarks>
+    private bool DeclareOnce(Node node, Symbol symbol, SymbolNamespace symbolNamespace, string duplicateError)
+    {
+        switch (Classify(node, symbol.Name, symbolNamespace))
+        {
+            case DeclarationOutcome.AlreadyHoisted:
+                return true;
+
+            case DeclarationOutcome.Duplicate:
+                _diagnostics.Error(node, InternalCodes.DuplicateName, duplicateError);
+                return false;
+
+            default:
+                DeclareSymbol(symbol);
+                return true;
+        }
     }
 
-    private bool HasDuplicateSymbol(NamedDeclaration node, bool isVariable, string error) => HasDuplicateSymbol(node, node.Name.Text, isVariable, error);
-
-    private bool HasDuplicateSymbol(Node node, string name, bool isVariable, string error)
+    /// <summary>
+    ///     Reports <paramref name="error" /> when <paramref name="name" /> is already taken in the current
+    ///     scope. For callers that put the symbol in the table themselves — an import binds the exporting
+    ///     module's own symbol, under whatever local name the specifier chose — so the check has to be
+    ///     separable from the declaring.
+    /// </summary>
+    private bool HasDuplicateSymbol(Node node, string name, SymbolNamespace symbolNamespace, string error)
     {
-        var scope = CurrentScope();
-        var lookup = isVariable ? scope.VariableLookup : scope.TypeLookup;
-        if (!lookup.TryGetValue(name, out var existing) || IsAlreadyHoisted(node, existing))
+        if (Classify(node, name, symbolNamespace) != DeclarationOutcome.Duplicate)
             return false;
 
         _diagnostics.Error(node, InternalCodes.DuplicateName, error);
         return true;
+    }
+
+    private DeclarationOutcome Classify(Node node, string name, SymbolNamespace symbolNamespace)
+    {
+        if (!CurrentScope().Lookup(symbolNamespace).TryGetValue(name, out var existing))
+            return DeclarationOutcome.Fresh;
+
+        return IsAlreadyHoisted(node, existing) ? DeclarationOutcome.AlreadyHoisted : DeclarationOutcome.Duplicate;
     }
 
     private void DeclareSymbol(Symbol symbol)
@@ -70,55 +112,55 @@ public sealed partial class Resolver
 
     private void AddToLookup(string name, Symbol symbol)
     {
-        var scope = CurrentScope();
-        var lookup = symbol.IsTypeSymbol ? scope.TypeLookup : scope.VariableLookup;
-        if (!lookup.ContainsKey(name))
-            lookup[name] = [];
+        var lookup = CurrentScope().Lookup(NamespaceOf(symbol));
+        if (!lookup.TryGetValue(name, out var symbols))
+            lookup[name] = symbols = [];
 
-        lookup[name].Add(symbol);
+        symbols.Add(symbol);
     }
 
     private void AddDeclaration(Symbol symbol)
     {
         var id = symbol.Declaration.Id;
-        if (!_allDeclarations.ContainsKey(id))
-            _allDeclarations[id] = [];
+        if (!_allDeclarations.TryGetValue(id, out var symbols))
+            _allDeclarations[id] = symbols = [];
 
-        _allDeclarations[id].Add(symbol);
+        symbols.Add(symbol);
     }
 
     private void AddReference(Node node, Symbol symbol)
     {
-        if (!_allReferences.ContainsKey(node.Id))
-            _allReferences[node.Id] = [];
+        if (!_allReferences.TryGetValue(node.Id, out var symbols))
+            _allReferences[node.Id] = symbols = [];
 
-        _allReferences[node.Id].Add(symbol);
+        symbols.Add(symbol);
         _semanticModel.MarkImportUsed(symbol);
         if (!node.File.IsIntrinsic)
             _semanticModel.NonIntrinsicReferenceNodes.Add(node.Id);
     }
 
-    private Symbol? LookupTypeSymbol(string name) => LookupSymbol(name, true);
-    private Symbol? LookupValueSymbol(string name) => LookupSymbol(name, false);
-    private Symbol? LookupSymbol(string name, SymbolKind kind) => LookupSymbol(name, Symbol.IsTypeKind(kind));
+    private Symbol? LookupTypeSymbol(string name) => LookupSymbol(name, SymbolNamespace.Type);
+    private Symbol? LookupValueSymbol(string name) => LookupSymbol(name, SymbolNamespace.Value);
+    private Symbol? LookupSymbol(string name, SymbolKind kind) => LookupSymbol(name, NamespaceOf(kind));
 
-    private Symbol? LookupSymbol(string name, bool isType)
+    /// <remarks>
+    ///     Innermost scope first, so a local shadows an outer name rather than colliding with it. The first
+    ///     symbol under a name is the answer: a scope holds at most one per name, since declaring a second
+    ///     is the duplicate-name error. Overloads are not an exception - an overload set is a property of an
+    ///     interface, merged into one intersection-typed member and picked apart at the call site, so it
+    ///     never reaches a scope.
+    /// </remarks>
+    private Symbol? LookupSymbol(string name, SymbolNamespace symbolNamespace)
     {
         foreach (var scope in _scopes)
-        {
-            var lookup = isType ? scope.TypeLookup : scope.VariableLookup;
-            if (lookup.TryGetValue(name, out var symbols))
+            if (scope.Lookup(symbolNamespace).TryGetValue(name, out var symbols))
                 return symbols[0];
-        }
 
         return null;
     }
 
-    private Symbol? LookupSymbolCurrentScope(string name, SymbolKind kind)
-    {
-        var lookup = GetLookup(kind, CurrentScope());
-        return !lookup.TryGetValue(name, out var symbols) ? null : symbols.First();
-    }
+    private Symbol? LookupSymbolCurrentScope(string name, SymbolKind kind) =>
+        CurrentScope().Lookup(NamespaceOf(kind)).TryGetValue(name, out var symbols) ? symbols[0] : null;
 
     private static bool IsAlreadyHoisted(Node node, List<Symbol> symbolsForName) => IsAlreadyHoisted<Symbol>(node, symbolsForName, out _);
 
@@ -129,5 +171,6 @@ public sealed partial class Resolver
         return hoistedSymbol != null;
     }
 
-    private static SymbolLookup GetLookup(SymbolKind kind, ResolverScope scope) => Symbol.IsTypeKind(kind) ? scope.TypeLookup : scope.VariableLookup;
+    private static SymbolNamespace NamespaceOf(Symbol symbol) => symbol.IsTypeSymbol ? SymbolNamespace.Type : SymbolNamespace.Value;
+    private static SymbolNamespace NamespaceOf(SymbolKind kind) => Symbol.IsTypeKind(kind) ? SymbolNamespace.Type : SymbolNamespace.Value;
 }

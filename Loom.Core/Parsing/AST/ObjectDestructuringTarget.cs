@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class ObjectDestructuringTarget(Token leftBrace, Token rightBrace, List<ObjectDestructuringField> fields)
-    : DestructuringTarget([leftBrace, rightBrace, ..fields.SelectMany(f => f.Tokens)], fields)
+    : DestructuringTarget([leftBrace, rightBrace], fields)
 {
     public Token LeftBrace { get; } = leftBrace;
     public Token RightBrace { get; } = rightBrace;
