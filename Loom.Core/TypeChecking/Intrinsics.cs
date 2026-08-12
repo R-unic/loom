@@ -75,10 +75,20 @@ public static class Intrinsics
     /// </summary>
     internal static GenericType? SetDefinition;
 
+    /// <remarks>
+    ///     Nothing is injected while the intrinsics are themselves being compiled. An intrinsic file reaches
+    ///     the others through <see cref="CompilationUnit.Globals" /> during that bootstrap, and injecting
+    ///     here as well would put a previous compilation's symbols into the scope of the file that declares
+    ///     those very names - one name in one scope standing for two declarations, of which only the first
+    ///     is ever reachable. The guard has to be here rather than only in <see cref="CompileIntrinsics" />:
+    ///     a cached project type skips compiling but was still being injected.
+    /// </remarks>
     public static HashSet<(Symbol, Type)> Register(SemanticModel model, CompilationUnit injectInto)
     {
-        var projectType = injectInto.Config.ProjectType;
+        if (_isBootstrapping)
+            return [];
 
+        var projectType = injectInto.Config.ProjectType;
         if (!_cache.TryGetValue(projectType, out var intrinsics))
         {
             intrinsics = CompileIntrinsics(projectType);
@@ -92,11 +102,9 @@ public static class Intrinsics
         return intrinsics;
     }
 
+    /// <remarks>Only ever reached with <see cref="_isBootstrapping" /> clear - <see cref="Register" /> is the gate.</remarks>
     private static HashSet<(Symbol, Type)> CompileIntrinsics(ProjectType projectType)
     {
-        if (_isBootstrapping)
-            return [];
-
         _isBootstrapping = true;
         try
         {
