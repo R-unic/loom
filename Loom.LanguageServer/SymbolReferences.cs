@@ -156,7 +156,7 @@ public static class SymbolReferences
     }
 
     private static bool Declares(SemanticModel semanticModel, Node node, Symbol symbol) =>
-        semanticModel.Declarations.GetValueOrDefault(node.Id, []).Contains(symbol);
+        semanticModel.GetDeclarationSymbols(node).Contains(symbol);
 
     private static bool Refers(SemanticModel semanticModel, Node node, Symbol symbol) =>
         semanticModel.References.GetValueOrDefault(node.Id, []).Contains(symbol);

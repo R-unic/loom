@@ -127,9 +127,16 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
     public void SetType(Node node, Type type) => _nodeTypes[node.Id] = type;
 
+    /// <summary>
+    ///     Types shared with every other file of the project - the intrinsics'. Consulted after this file's
+    ///     own so a file can still bind its own type to one of their nodes, and so the ~1,600 entries are
+    ///     stored once rather than copied into every file's map.
+    /// </summary>
+    internal IReadOnlyDictionary<NodeId, Type> AmbientTypes { get; set; } = new Dictionary<NodeId, Type>();
+
     public Type GetType(Node node)
     {
-        if (_nodeTypes.TryGetValue(node.Id, out var type))
+        if (_nodeTypes.TryGetValue(node.Id, out var type) || AmbientTypes.TryGetValue(node.Id, out type))
             return type;
 
         var variable = CreateTypeVariable();

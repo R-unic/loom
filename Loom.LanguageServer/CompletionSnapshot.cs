@@ -101,8 +101,7 @@ public static class CompletionSnapshotBuilder
         var wholeFile = new TextSpan(0, sourceFile.SourceText.Length);
         var descendants = file.Tree.GetDescendants();
 
-        var declared = file.SemanticModel.Declarations.Values
-            .SelectMany(symbols => symbols)
+        var declared = file.SemanticModel.DeclaredSymbols
             .Concat(unit.Globals.Of(sourceFile).Keys)
             .GroupBy(symbol => (symbol.Name, symbol.IsTypeSymbol))
             .Select(group => group.OrderByDescending(symbol => IsLocalTo(symbol, sourceFile)).First())

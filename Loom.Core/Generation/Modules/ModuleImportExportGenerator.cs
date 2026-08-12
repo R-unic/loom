@@ -30,7 +30,7 @@ internal sealed class ModuleImportExportGenerator(SemanticModel semanticModel, D
     private HashSet<string> TakenModuleLocalNames =>
         field ??=
         [
-            ..semanticModel.Declarations.Values.SelectMany(symbols => symbols).Select(symbol => symbol.Name),
+            ..semanticModel.DeclaredSymbols.Select(symbol => symbol.Name),
             ..semanticModel.ImportBindings.Select(binding => binding.LocalName), // aliases live only in the lookup
             LuauFactory.RuntimeImportName
         ];

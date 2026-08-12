@@ -548,8 +548,7 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
     /// </summary>
     private InterfaceSymbol? FindInterfaceSymbol(Types.InterfaceType interfaceType)
     {
-        var matches = semanticModel.Declarations
-            .SelectMany(pair => pair.Value)
+        var matches = semanticModel.DeclaredSymbols
             .OfType<InterfaceSymbol>()
             .Where(s => s.Name == interfaceType.Name)
             .ToList();

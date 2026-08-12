@@ -32,19 +32,14 @@ public static class Intrinsics
     ///     is ever reachable. The guard has to be here rather than only in <see cref="CompileIntrinsics" />:
     ///     a cached project type skips compiling but was still being injected.
     /// </remarks>
-    public static HashSet<(Symbol, Type)> Register(SemanticModel model, CompilationUnit injectInto)
-    {
-        if (_isBootstrapping)
-            return [];
-
-        var projectType = injectInto.Config.ProjectType;
-        var intrinsics = _cache.GetOrAdd(projectType, CompileLazily).Value;
-
-        foreach (var (symbol, type) in intrinsics)
-            model.TypeSolver.SetType(symbol.Declaration, type);
-
-        return intrinsics;
-    }
+    /// <remarks>
+    ///     <para>
+    ///         Returns the symbols rather than putting them anywhere. Binding them into a file's scope and
+    ///         type map is <see cref="AmbientIntrinsics" />'s job, and it does it once for the whole project.
+    ///     </para>
+    /// </remarks>
+    public static HashSet<(Symbol, Type)> Register(CompilationUnit injectInto) =>
+        _isBootstrapping ? [] : _cache.GetOrAdd(injectInto.Config.ProjectType, CompileLazily).Value;
 
     /// <remarks>
     ///     The <see cref="Lazy{T}" /> is what makes a project type compile exactly once, and it has to be

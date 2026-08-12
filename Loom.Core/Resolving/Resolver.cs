@@ -27,9 +27,15 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
         _semanticModel = new SemanticModel(parserResult.Tree, _diagnostics, _allDeclarations, _allReferences);
 
         // ambient names live in a scope of their own so that a module declaring 'Vector3' shadows the
-        // intrinsic rather than colliding with it — the file's own declarations are the ones it can see
-        using var ambientScope = InScope();
-        DeclareIntrinsicSymbols();
+        // intrinsic rather than colliding with it — the file's own declarations are the ones it can see.
+        // The intrinsics are a scope the whole project shares; the root's own '.d.loom' globals sit in one
+        // above it, since those differ per root and may shadow an intrinsic name.
+        var intrinsics = AmbientIntrinsics.For(compilationUnit);
+        _semanticModel.Ambient = intrinsics;
+        _semanticModel.TypeSolver.AmbientTypes = intrinsics.Types;
+
+        using var intrinsicScope = InScope(intrinsics.Scope);
+        using var globalScope = InScope();
         DeclareGlobalSymbols();
 
         using var moduleScope = InScope();
@@ -132,12 +138,6 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
         }
     }
 
-    private void DeclareIntrinsicSymbols()
-    {
-        foreach (var (symbol, _) in Intrinsics.Register(_semanticModel, compilationUnit))
-            DeclareSymbol(symbol);
-    }
-
     private bool IsDeclarationFile() => parserResult.Tree.File.IsDeclaration;
     private ResolverScope CurrentScope() => _scopes.Peek();
 
@@ -147,11 +147,15 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
     ///     adds a <c>return</c> between them, and a scope left on the stack silently changes what every later
     ///     name in the file resolves to.
     /// </summary>
-    private ScopeHandle InScope()
-    {
-        var scope = new ResolverScope();
-        _scopes.Push(scope);
+    private ScopeHandle InScope() => InScope(new ResolverScope());
 
+    /// <summary>
+    ///     Enters a scope that already exists, for one shared with other files - see
+    ///     <see cref="AmbientIntrinsics" />. Nothing is declared into it here; it is only made visible.
+    /// </summary>
+    private ScopeHandle InScope(ResolverScope scope)
+    {
+        _scopes.Push(scope);
         return new ScopeHandle(this, scope);
     }
 
