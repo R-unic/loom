@@ -230,6 +230,24 @@ public class DiagnosticBagTest
     }
 
     [Fact]
+    public void InSourceOrder_SortsByFileThenPosition()
+    {
+        var first = new SourceFile("a.loom", "let x = 1;\nlet y = 2;\n");
+        var second = new SourceFile("b.loom", "let z = 3;\n");
+        var bag = new DiagnosticBag();
+
+        // reported back to front, so a set enumerating in insertion order cannot pass by accident
+        bag.Error(new LocationSpan(new Location(second, 4), 1), "c", "second file");
+        bag.Error(new LocationSpan(new Location(first, 15), 1), "b", "later in the first");
+        bag.Error(new LocationSpan(new Location(first, 4), 1), "a", "earlier in the first");
+
+        Assert.Equal(
+            ["earlier in the first", "later in the first", "second file"],
+            bag.InSourceOrder().Select(diagnostic => diagnostic.Message)
+        );
+    }
+
+    [Fact]
     public void Report_WithFailFastEnabled_HandsTheErrorToTheHost()
     {
         var fatal = new List<Diagnostic>();
