@@ -220,7 +220,10 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
                 Failures = failures, Elapsed = stopwatch.Elapsed
             };
 
-        var dirty = new HashSet<string>(changedAbsolutePaths);
+        // the comparer has to be carried over rather than left to default: what goes in here is compared
+        // against a parsed file's own spelling of its path, and an ordinal compare answers "not changed"
+        // for a file whose drive letter reached us in the other case
+        var dirty = new HashSet<string>(changedAbsolutePaths, _pathComparer);
         var reanalyzed = new List<SourceFile>();
         var timeSaved = TimeSpan.Zero;
 
