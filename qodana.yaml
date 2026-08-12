@@ -20,11 +20,36 @@ profile:
 #include:
 #  - name: <SomeEnabledInspectionId>
 
-#Disable inspections
-#exclude:
-#  - name: <SomeDisabledInspectionId>
-#    paths:
-#      - <path/where/not/run/inspection>
+# Disable inspections
+#
+# Every entry here is a place where "nobody reads this" is a fact about the analyzer rather than about the
+# code: something outside C# does the reading. Without them the unused-member inspections report ~140 hits
+# that must all be ignored, which is the same as reporting none - the real ones are not findable in the pile.
+exclude:
+  # A syntax node owns every token it was parsed from, named, whether or not a stage happens to read it
+  # today. That is what makes the tree the source of truth about the text - the language server reads spans
+  # off them, and a formatter or a rewriter would read the rest. Roslyn's syntax nodes expose their tokens
+  # for the same reason; deleting the ones with no reader yet would make the tree lossy to save nothing.
+  #
+  # Bound by name at runtime, never constructed or assigned in code: CommandLineParser builds the verb
+  # classes from argv, Tomlyn writes the config properties, and System.Text.Json writes the API dump ones.
+  - name: UnusedMember.Global
+    paths:
+      - Loom.Core/Parsing/AST
+      - Loom.TypeGenerator/ApiTypes
+  - name: UnusedAutoPropertyAccessor.Global
+    paths:
+      - Loom.Core/Parsing/AST
+      - Loom.CLI/Commands.cs
+      - Loom.Config
+      - Loom.TypeGenerator/ApiTypes
+  - name: ClassNeverInstantiated.Global
+    paths:
+      - Loom.CLI/Commands.cs
+      - Loom.TypeGenerator/ApiTypes
+  - name: PropertyCanBeMadeInitOnly.Global
+    paths:
+      - Loom.TypeGenerator/ApiTypes
 
 #Execute shell command before Qodana execution (Applied in CI/CD pipeline)
 #bootstrap: sh ./prepare-qodana.sh
