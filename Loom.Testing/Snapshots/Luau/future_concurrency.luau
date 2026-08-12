@@ -16,3 +16,6 @@ end
 const function settled(n: number): number
   return Loom.await(Loom.future_resolved(n))
 end
+const function descendant(root: Instance): Instance
+  return root:WaitForChild("a"):WaitForChild("b")
+end

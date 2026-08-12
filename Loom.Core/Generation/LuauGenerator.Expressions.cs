@@ -142,7 +142,7 @@ public sealed partial class LuauGenerator
                 target => FinalizeOptionalAccess(qualifiedName, qualifiedName.Identifier, qualifiedName.Names, target)
             );
 
-        var luauAccess = new Luau.AST.PropertyAccess(Visit(qualifiedName.Identifier), qualifiedName.Names.ConvertAll(dotName => dotName.Name.Text));
+        var luauAccess = new Luau.AST.PropertyAccess(AccessTarget(qualifiedName, qualifiedName.Identifier), qualifiedName.Names.ConvertAll(dotName => dotName.Name.Text));
         if (_macroExpander.TryGetQualifiedNameMacro(qualifiedName, luauAccess, out var propertyReplacement))
             return propertyReplacement;
 
@@ -161,7 +161,7 @@ public sealed partial class LuauGenerator
                 target => FinalizeOptionalAccess(propertyAccess, propertyAccess.Expression, propertyAccess.Names, target)
             );
 
-        var luauAccess = new Luau.AST.PropertyAccess(Visit(propertyAccess.Expression), propertyAccess.Names.ConvertAll(dotName => dotName.Name.Text));
+        var luauAccess = new Luau.AST.PropertyAccess(AccessTarget(propertyAccess, propertyAccess.Expression), propertyAccess.Names.ConvertAll(dotName => dotName.Name.Text));
         if (_macroExpander.TryGetPropertyAccessMacro(propertyAccess, luauAccess, out var propertyReplacement))
             return propertyReplacement;
 

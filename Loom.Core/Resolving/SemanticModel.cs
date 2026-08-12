@@ -37,6 +37,20 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
     /// </summary>
     public Dictionary<InterfaceSymbol, SerializationUsage> SerializationUsages { get; } = [];
 
+    /// <summary>
+    ///     Member accesses whose receiver is a <c>Future</c> the enclosing <c>await</c> resolves on the way
+    ///     past, mapped to the type it settles to - so a chain of yielding calls needs one <c>await</c>
+    ///     rather than one set of parentheses per step. Recorded by the type checker where it reads through
+    ///     (see <c>TypeChecker.Await</c>).
+    /// </summary>
+    /// <remarks>
+    ///     The settled type is kept rather than a bare flag because <see cref="GetPropertySymbols(Expression)" />
+    ///     needs it: it resolves a member against the receiver's recorded type, which is still the
+    ///     <c>Future</c>, and would otherwise find no declaration - taking <c>[luau_name]</c> and
+    ///     <c>[luau_method]</c> with it, so every link past the first would emit unrenamed.
+    /// </remarks>
+    public Dictionary<NodeId, Type> ChainAwaitedReceiverTypes { get; } = [];
+
     private Dictionary<string, List<ExportBinding>> ExportsByName { get; } = [];
 
     public List<ImportBinding> ImportBindings { get; } = [];
@@ -243,7 +257,11 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
             _ => (expression, [])
         };
 
-        return names.Length == 0 ? [] : GetPropertySymbols(GetType(objectExpression), names);
+        if (names.Length == 0)
+            return [];
+
+        var receiverType = ChainAwaitedReceiverTypes.TryGetValue(expression.Id, out var settled) ? settled : GetType(objectExpression);
+        return GetPropertySymbols(receiverType, names);
     }
 
     /// <summary> Looks up a property by path directly off a type, for callers with no access-expression node to read it from (e.g. a match object pattern field). </summary>

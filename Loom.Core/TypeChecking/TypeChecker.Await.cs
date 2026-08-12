@@ -42,6 +42,60 @@ public sealed partial class TypeChecker
     }
 
     /// <summary>
+    ///     Reads a <c>Future</c> receiver through to its value when the enclosing <c>await</c> covers it, so
+    ///     one <c>await</c> serves a whole chain of yielding calls instead of one set of parentheses per step.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two conditions, and both matter. The access has to be the callee of an invocation - reading a
+    ///         <em>field</em> off a future still takes the parenthesised form, which keeps the read-through
+    ///         tied to "another suspension point follows" rather than to member access in general, and leaves
+    ///         <c>future.status</c> meaning what it says. And it has to sit on the awaited expression's own
+    ///         spine, reached from the <c>await</c> through callees and receivers only, so an argument buried
+    ///         inside the chain is not quietly awaited along with it.
+    ///     </para>
+    ///     <para>
+    ///         What the <c>await</c> keeps promising is that the expression parks the thread; what it stops
+    ///         saying is how many times. That is the trade - the failure this exists to prevent is not
+    ///         knowing a call blocks at all.
+    ///     </para>
+    /// </remarks>
+    private bool TryReadThroughFuture(Expression accessExpression, Type receiverType, int nameCount, [MaybeNullWhen(false)] out Type value)
+    {
+        value = null;
+        if (nameCount != 1 || !IsCalleeOfAwaitedChain(accessExpression) || !TryGetFutureValueType(accessExpression, receiverType, out var settled))
+            return false;
+
+        _semanticModel.ChainAwaitedReceiverTypes[accessExpression.Id] = settled;
+        value = settled;
+
+        return true;
+    }
+
+    private static bool IsCalleeOfAwaitedChain(Expression accessExpression)
+    {
+        if (accessExpression.Parent is not Invocation invocation || invocation.Expression != accessExpression)
+            return false;
+
+        for (Node current = invocation; current.Parent is { } parent; current = parent)
+            switch (parent)
+            {
+                case Await:
+                    return true;
+
+                // the spine, and only the spine: a callee's own expression and a member access's receiver
+                case Invocation { Expression: var callee } when callee == current:
+                case PropertyAccess { Expression: var receiver } when receiver == current:
+                    continue;
+
+                default:
+                    return false;
+            }
+
+        return false;
+    }
+
+    /// <summary>
     ///     Whether calling something of this type hands back a <c>Future</c> rather than the return type
     ///     itself. An overload set answers yes only when every candidate does: which one a call picks is not
     ///     known here, and the Roblox surface never mixes the two on one member anyway.

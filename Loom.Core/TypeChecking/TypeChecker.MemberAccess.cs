@@ -160,13 +160,12 @@ public sealed partial class TypeChecker
 
             var indexType = new Types.LiteralType(name.Name.Text);
 
-            // reading a member off a call nobody awaited is the common shape of this mistake, and 'await'
-            // takes the whole postfix chain (as in JS), so the fix is parentheses rather than reordering
-            var notFound = IsFutureType(accessExpression, type)
-                ? $"Cannot access property '{indexType.Value}' on type '{type}' - it belongs to the awaited value, not to the future. Write '(await ...).{indexType.Value}'."
-                : $"Cannot access property '{indexType.Value}' on type '{type}'.";
+            // an awaited chain of yielding calls resolves each future on the way past, so one 'await' covers
+            // the chain; anything else reading a member off a future still takes the parenthesised form
+            if (!name.IsOptional && TryReadThroughFuture(accessExpression, type, names.Count, out var settled))
+                type = settled;
 
-            type = IndexType(accessExpression, type, indexType, notFound);
+            type = IndexType(accessExpression, type, indexType, $"Cannot access property '{indexType.Value}' on type '{type}'.");
             if (Type.IsNever(type))
                 return type;
         }
@@ -248,6 +247,21 @@ public sealed partial class TypeChecker
 
     private Types.PrimitiveType ReportCannotUseToIndex(Node node, Type objectType, Type indexType, string? cannotFindReason = "")
     {
+        // reading a member off a future nobody awaited is the common shape of this failure. An awaited chain
+        // of yielding *calls* reads through (TryReadThroughFuture), so what is left here is a field read,
+        // which takes the parenthesised form - 'await' takes the whole postfix chain, as it does in JS.
+        if (indexType is Types.LiteralType { Value: string member } && IsFutureType(node, objectType))
+        {
+            _diagnostics.Error(
+                node,
+                InternalCodes.UnawaitedFutureAccess,
+                $"Cannot access property '{member}' on type '{objectType}' - it belongs to the awaited value, not to the future.",
+                $"write '(await ...).{member}', or await the call if '{member}' is the next step of a chain"
+            );
+
+            return BindType(node, Types.PrimitiveType.Never);
+        }
+
         _diagnostics.Error(node, InternalCodes.InvalidAccess, $"Expression of type '{indexType}' cannot be used to index type '{objectType}'.{cannotFindReason}");
         return BindType(node, Types.PrimitiveType.Never);
     }

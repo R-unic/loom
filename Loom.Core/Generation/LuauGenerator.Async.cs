@@ -37,6 +37,25 @@ public sealed partial class LuauGenerator
     }
 
     /// <summary>
+    ///     The receiver of a chain step that read through a <c>Future</c>, waited for if it is not a call the
+    ///     fusion already collapsed.
+    /// </summary>
+    /// <remarks>
+    ///     A chain of yielding calls needs nothing here - each link is fused, so <c>a.wait_for_child("a")
+    ///     .wait_for_child("b")</c> emits the two plain calls. A future that arrived some other way, as a
+    ///     stored variable or a parameter, has to actually be waited for before the member exists on it.
+    /// </remarks>
+    private LuauExpression AccessTarget(Expression access, Expression receiver)
+    {
+        var generated = (LuauExpression)Visit(receiver);
+        if (!IsChainAwaited(access) || receiver is Invocation invocation && IsFusedAwaitedCall(invocation))
+            return generated;
+
+        _semanticModel.RuntimeReferences++;
+        return LuauFactory.RuntimeLibraryCall(["await"], [generated]);
+    }
+
+    /// <summary>
     ///     Whether calling this evaluates to a <c>Future</c>. Read off the callee's type rather than off the
     ///     declaration, so a call through a variable or a parameter is lowered the same way a call by name is.
     /// </summary>
@@ -49,11 +68,20 @@ public sealed partial class LuauGenerator
         };
 
     /// <summary>
-    ///     Whether the future this call would build is elided because an <c>await</c> immediately consumes
-    ///     it. Both halves of the fusion ask through here - the call skips building the future and the await
+    ///     Whether the future this call would build is elided because something consumes it immediately.
+    ///     Both halves of the fusion ask through here - the call skips building the future and the waiter
     ///     skips waiting on one - so they cannot disagree about which calls are fused.
     /// </summary>
-    private bool IsFusedAwaitedCall(Invocation invocation) => invocation.Parent is Await && IsAsyncInvocation(invocation);
+    /// <remarks>
+    ///     Two consumers qualify. An <c>await</c> directly on the call, and a chain step reading straight
+    ///     through it (<c>TypeChecker.TryReadThroughFuture</c>) - in a chain of yielding calls every link but
+    ///     the last is consumed by the next one, so the whole chain collapses to the plain Luau calls.
+    /// </remarks>
+    private bool IsFusedAwaitedCall(Invocation invocation) =>
+        IsAsyncInvocation(invocation)
+        && (invocation.Parent is Await || invocation.Parent is Expression access && IsChainAwaited(access));
+
+    private bool IsChainAwaited(Expression access) => _semanticModel.ChainAwaitedReceiverTypes.ContainsKey(access.Id);
 
     /// <summary>
     ///     Starts the call on a thread of its own. <c>Loom.future</c> takes the callee and its arguments

@@ -353,6 +353,122 @@ public class AsyncAwaitTest
         );
     }
 
+    // one 'await' covers a whole chain of yielding calls, so a wait_for_child chain does not need a set of
+    // parentheses per link - every step is fused, so the chain collapses to the plain Luau calls
+    [Fact]
+    public void OneAwaitCoversAChainOfYieldingCalls()
+    {
+        const string source = """
+            async fn find(a: Instance): Instance {
+                return await a.wait_for_child("a").wait_for_child("b").wait_for_child("c");
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+
+        var luau = Utility.GetLuauAST(source, true).Render();
+
+        Assert.Contains("a:WaitForChild(\"a\"):WaitForChild(\"b\"):WaitForChild(\"c\")", luau, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loom.future", luau, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loom.await", luau, StringComparison.Ordinal);
+    }
+
+    // the read-through is tied to "another suspension point follows", so a field read off a future still
+    // takes the parenthesised form - which is also what keeps 'future.status' meaning what it says
+    [Fact]
+    public void ReadingAFieldOffAFutureStillNeedsParentheses()
+    {
+        const string source = """
+            async fn find(a: Instance): string {
+                return await a.wait_for_child("a").name;
+            }
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(source),
+            InternalCodes.UnawaitedFutureAccess,
+            "Cannot access property 'name' on type 'Future' - it belongs to the awaited value, not to the future.",
+            "write '(await ...).name', or await the call if 'name' is the next step of a chain"
+        );
+
+        const string parenthesised = """
+            async fn find(a: Instance): string {
+                return (await a.wait_for_child("a")).name;
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(parenthesised));
+    }
+
+    // a future's own members stay reachable without an await - reading 'status' is how you poll one
+    [Fact]
+    public void AFuturesOwnMembersAreStillReadableWithoutAwaiting()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            fn poll(): FutureStatus {
+                let pending = load();
+                return pending.status;
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+    }
+
+    [Fact]
+    public void AChainWithoutAnAwaitIsStillReported()
+    {
+        const string source = """
+            fn find(a: Instance): void {
+                let child = a.wait_for_child("a").wait_for_child("b");
+            }
+            """;
+
+        Assert.Contains(
+            Utility.GetTypeCheckerDiagnostics(source).Set,
+            diagnostic => diagnostic.Code == InternalCodes.UnawaitedFutureAccess
+        );
+    }
+
+    // a future that arrived some other way is not a call the fusion collapsed, so it has to actually be
+    // waited for before the member exists on it
+    [Fact]
+    public void AStoredFutureInAChainIsWaitedForProperly()
+    {
+        const string source = """
+            async fn find(a: Instance): Instance {
+                let pending = a.wait_for_child("a");
+                return await pending.wait_for_child("b");
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+
+        var luau = Utility.GetLuauAST(source, true).Render();
+
+        Assert.Contains("Loom.await(pending)", luau, StringComparison.Ordinal);
+    }
+
+    // only the awaited expression's own spine reads through - a chain buried in an argument is not quietly
+    // awaited along with it, even though it sits inside the await's subtree
+    [Fact]
+    public void AChainInsideAnArgumentDoesNotReadThrough()
+    {
+        const string source = """
+            async fn caller(a: Instance, b: Instance): Instance {
+                return await a.wait_for_child(b.wait_for_child("x").get_full_name());
+            }
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(source),
+            InternalCodes.UnawaitedFutureAccess,
+            "Cannot access property 'get_full_name' on type 'Future' - it belongs to the awaited value, not to the future.",
+            "write '(await ...).get_full_name', or await the call if 'get_full_name' is the next step of a chain"
+        );
+    }
+
     [Fact]
     public void TheFutureStaticsRouteToTheRuntime()
     {

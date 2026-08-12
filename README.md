@@ -1286,8 +1286,35 @@ const function load(key: string): Loom.Result<unknown, Loom.RobloxError>
 end
 ```
 
-Everywhere else `await` follows JS precedence - it takes the whole postfix chain - so reading a member off an
-awaited value takes parentheses: `(await find()).name`.
+### Chains
+
+One `await` covers a whole chain of yielding calls. Each future is resolved on the way past, so a
+`wait_for_child` chain does not need a set of parentheses per link:
+
+```rs
+let torso = await character.wait_for_child("Humanoid").wait_for_child("Torso");
+```
+
+```luau
+const torso = character:WaitForChild("Humanoid"):WaitForChild("Torso")
+```
+
+Every link is fused, so the chain costs exactly what it would have written by hand. The `await` still says the
+expression parks the thread; what it stops saying is how many times.
+
+The read-through applies to **calls** only - another suspension point following. A field read off a future still
+takes the parenthesised form, which is also what keeps a future's own members reachable:
+
+```rs
+let name = await find().name;      ## error - 'name' belongs to the awaited value
+let name = (await find()).name;    ## ok
+let status = load().status;        ## ok - polling a future, no await involved
+```
+
+And only the awaited expression's own spine reads through, so a chain buried in an argument is not quietly
+awaited along with it.
+
+Everywhere else `await` follows JS precedence - it takes the whole postfix chain.
 
 ### `Future`
 

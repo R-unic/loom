@@ -118,10 +118,13 @@ declare interface Instance: Object {
 	## Hand-written, so the CanYield tag that makes every other yielding member 'async' does not reach
 	## it - it is spelled out here instead. This is the one member fallible.toml subtracts: it parks
 	## the thread but does not raise, which is exactly what 'async' without 'wraps_errors' says.
+	## 'T' defaults the way it does on find_first_child and every other name-based lookup here: the name
+	## says nothing about the class, so without a default a bare call has nothing to infer from and the
+	## caller is forced to annotate one even when Instance is all they wanted.
 	[luau_name("WaitForChild"), luau_method]
-	wait_for_child: async fn<T: Instance>(childName: string): T;
+	wait_for_child: async fn<T: Instance = Instance>(childName: string): T;
 	[luau_name("WaitForChild"), luau_method]
-	wait_for_child: async fn<T: Instance>(childName: string, timeOut: number): T?;
+	wait_for_child: async fn<T: Instance = Instance>(childName: string, timeOut: number): T?;
 }
 
 declare sealed interface buffer;
