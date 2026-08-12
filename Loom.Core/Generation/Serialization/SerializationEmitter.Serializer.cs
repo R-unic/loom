@@ -10,21 +10,25 @@ internal sealed partial class SerializationEmitter
     private static readonly List<string> _cframeSentinels = ["CFrame.identity"];
 
     /// <summary>
-    ///     Collections counted during the size pass, by the field counted. Luau has no length operator for
-    ///     a keyed table, so a map's count is a loop either way - but the writer's prefix needs the same
+    ///     Collections whose count is already in a local, by the field counted. Luau has no length operator
+    ///     for a keyed table, so a map's count is a loop either way - but the writer's prefix needs the same
     ///     number the sizing already walked for, and so does an array's, which reads its length three times
     ///     over otherwise: once for the prefix, once to size its entries' bit block, once to bound the loop.
     /// </summary>
-    private readonly Dictionary<SerializationField, string> _measuredCounts = [];
+    /// <remarks>
+    ///     An entry means the local is reachable from wherever the emitter currently is, which is what makes
+    ///     reading it back safe. Whoever put it there is who knows that: the size pass registers only what it
+    ///     declared at the function's root, which every block below can see, and a caller that bound a count
+    ///     itself registers it for exactly as long as the statements it encloses are being emitted.
+    /// </remarks>
+    private readonly Dictionary<SerializationField, string> _boundCounts = [];
     private List<LuauStatement>? _measureRoot;
-    private List<LuauStatement>? _writeRoot;
 
     public Function EmitSerializer()
     {
         _locals.Clear();
-        _measuredCounts.Clear();
+        _boundCounts.Clear();
         var body = new List<LuauStatement>();
-        _writeRoot = body;
         if (schema.HasBlobs)
             body.Add(new ConstVariable(BlobsLocal, null, Table.Empty));
 
@@ -323,7 +327,7 @@ internal sealed partial class SerializationEmitter
             AddToSize(statements, ElementBitBlockSize(mapField.EntryBits, new Identifier(countLocal)));
 
             if (ReferenceEquals(statements, _measureRoot))
-                _measuredCounts[mapField] = countLocal;
+                _boundCounts[mapField] = countLocal;
 
             return;
         }
@@ -337,7 +341,7 @@ internal sealed partial class SerializationEmitter
         AddToSize(statements, ElementBitBlockSize(arrayField.Element.HeaderBits, arrayCount));
 
         if (ReferenceEquals(statements, _measureRoot))
-            _measuredCounts[arrayField] = arrayCount.Name;
+            _boundCounts[arrayField] = arrayCount.Name;
 
         using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
@@ -359,7 +363,7 @@ internal sealed partial class SerializationEmitter
     /// </summary>
     private Identifier MapCount(MapField mapField, string leaf, LuauExpression value, List<LuauStatement> body)
     {
-        if (ReferenceEquals(body, _writeRoot) && _measuredCounts.TryGetValue(mapField, out var measured))
+        if (_boundCounts.TryGetValue(mapField, out var measured))
             return new Identifier(measured);
 
         var count = new Identifier(ReserveLocal(leaf + "_count"));
@@ -378,7 +382,7 @@ internal sealed partial class SerializationEmitter
     ///     rather than a loop - but the answer is still worth a name, since every caller wants it twice.
     /// </summary>
     private Identifier ArrayCount(ArrayField arrayField, string leaf, LuauExpression value, List<LuauStatement> body) =>
-        ReferenceEquals(body, _writeRoot) && _measuredCounts.TryGetValue(arrayField, out var measured)
+        _boundCounts.TryGetValue(arrayField, out var measured)
             ? new Identifier(measured)
             : BindCount(value, leaf, body);
 

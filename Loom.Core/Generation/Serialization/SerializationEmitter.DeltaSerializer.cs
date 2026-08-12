@@ -25,6 +25,7 @@ internal sealed partial class SerializationEmitter
     public Function EmitDeltaWriteHelper()
     {
         _locals.Clear();
+        _boundCounts.Clear();
         var diffFields = DiffableFields();
         var body = new List<LuauStatement>();
 
@@ -452,7 +453,9 @@ internal sealed partial class SerializationEmitter
         cursor.Flush(body);
 
         var resend = new List<LuauStatement>();
+        _boundCounts[array] = count.Name;
         EmitValueWrite(array, currentValue, cursor, resend);
+        _boundCounts.Remove(array);
         cursor.Flush(resend);
 
         var unchanged = new List<LuauStatement>();

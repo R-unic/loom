@@ -226,12 +226,11 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
   const recent_length_changed = #baseline.recent ~= recent_count
   buffer_writebits(b, 11, 1, if recent_length_changed then 1 else 0)
   if recent_length_changed then
-    const recent_count_2 = #value.recent
-    buffer_writeu32(b, offset, recent_count_2)
+    buffer_writeu32(b, offset, recent_count)
     offset += 4
     const recent_bits = offset * 8
-    offset += (recent_count_2 + 7) // 8
-    for i = 1, recent_count_2 do
+    offset += (recent_count + 7) // 8
+    for i = 1, recent_count do
       const recent_element = value.recent[i]
       local recent_element_tag = 0
       if recent_element.kind == "Miss" then
