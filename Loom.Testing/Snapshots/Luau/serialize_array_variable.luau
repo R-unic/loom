@@ -11,7 +11,8 @@ const function Roster_serialize_binary(value: Roster): Loom.Serialized
   local size = 4 + #value.positions * 6
   size += 4
   for i = 1, #value.names do
-    size += 4 + #value.names[i]
+    const names_element = value.names[i]
+    size += 4 + #names_element
   end
   const b = buffer_create(size)
   buffer_writeu32(b, 0, #value.names)

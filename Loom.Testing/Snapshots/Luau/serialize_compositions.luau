@@ -36,9 +36,10 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
   end
   size += 4
   for i = 1, #value.map_list do
+    const map_list_element = value.map_list[i]
     size += 4
     local map_list_element_count = 0
-    for map_list_element_key, map_list_element_value in value.map_list[i] do
+    for map_list_element_key, map_list_element_value in map_list_element do
       map_list_element_count += 1
       size += 4 + #map_list_element_key
       size += 1
@@ -57,7 +58,8 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
   if value.maybe_names ~= nil then
     size += 4
     for i = 1, #value.maybe_names do
-      size += 4 + #value.maybe_names[i]
+      const maybe_names_element = value.maybe_names[i]
+      size += 4 + #maybe_names_element
     end
   end
   const b = buffer_create(size)

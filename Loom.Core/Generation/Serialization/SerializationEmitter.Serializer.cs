@@ -350,12 +350,21 @@ internal sealed partial class SerializationEmitter
         // per nesting level needs a counter of its own, or an inner one would clobber the outer's.
         using var scope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
-        var elementValue = new ElementAccess(value, new Identifier(loop));
-        var elementStatements = new List<LuauStatement>();
-        MeasureField(arrayField.Element, elementValue, elementStatements);
 
-        if (elementStatements.Count > 0)
-            statements.Add(new NumericForStatement(loop, _one, Length(value), null, new Chunk(elementStatements)));
+        // Bound the way the write pass binds its element, rather than reached through the collection each
+        // time. Nesting is what makes the difference: an inner element measured off the parameter spells
+        // out every level above it, so a row's string costs three lookups per entry instead of one.
+        var element = new Identifier(ReserveLocal(LeafName(arrayField.Element.Path)));
+        var elementStatements = new List<LuauStatement>();
+        MeasureField(arrayField.Element, element, elementStatements);
+
+        // A zero-width element measures to nothing at all, and a loop binding a value no one reads is
+        // worse than no loop - so the binding is placed only once something below has asked for it.
+        if (elementStatements.Count == 0)
+            return;
+
+        var bind = new ConstVariable(element.Name, null, new ElementAccess(value, new Identifier(loop)));
+        statements.Add(new NumericForStatement(loop, _one, Length(value), null, new Chunk([bind, ..elementStatements])));
     }
 
     /// <summary>

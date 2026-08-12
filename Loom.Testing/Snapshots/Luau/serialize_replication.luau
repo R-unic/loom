@@ -46,9 +46,9 @@ const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Seri
   size += 4
   size += (#value.recent * 12 + 7) // 8
   for i = 1, #value.recent do
-    const recent_element_value = value.recent[i]
+    const recent_element = value.recent[i]
     local recent_element_tag = 0
-    if recent_element_value.kind == "Respawned" then
+    if recent_element.kind == "Respawned" then
       recent_element_tag = 1
     end
     if recent_element_tag == 1 then

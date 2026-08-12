@@ -367,7 +367,8 @@ public class SerializationSchemaTest
         // A variable-width element cannot state its width as an expression, so the total is accumulated
         // by walking the value before the buffer is allocated.
         Assert.Contains("local size = 0", luau);
-        Assert.Contains("size += 4 + #value.values[i]", luau);
+        Assert.Contains("const values_element = value.values[i]", luau);
+        Assert.Contains("size += 4 + #values_element", luau);
         Assert.Contains("buffer_create(size)", luau);
 
         // Element locals must not collide with the collection's own, nor carry brackets into a name.
@@ -611,7 +612,7 @@ public class SerializationSchemaTest
     #region Measurability
     [Theory]
     [InlineData("name: string?", "size += 4 + #value.name")]
-    [InlineData("values: string[]", "size += 4 + #value.values[i]")]
+    [InlineData("values: string[]", "size += 4 + #values_element")]
     [InlineData("values: number[]", "#value.values * 4")]
     public void VariableWidthField_IsMeasuredBeforeAllocating(string property, string expected)
     {
@@ -646,8 +647,14 @@ public class SerializationSchemaTest
 
         // A counter per level, or an inner loop would clobber the outer's, and a length prefix per level.
         Assert.Contains("for i = 1, #value.rows do", luau);
-        Assert.Contains("for i_2 = 1, #value.rows[i] do", luau);
-        Assert.Contains("size += 4 + #value.rows[i][i_2]", luau);
+        Assert.Contains("for i_2 = 1, #rows_element do", luau);
+        Assert.Contains("size += 4 + #rows_element_element", luau);
+
+        // Each level measures off the element the level above bound, not off the parameter: measuring an
+        // inner element by spelling out every level above it costs a lookup per level, per entry.
+        Assert.Contains("const rows_element = value.rows[i]", luau);
+        Assert.Contains("const rows_element_element = rows_element[i_2]", luau);
+        Assert.DoesNotContain("#value.rows[i][i_2]", luau);
 
         // Nested paths carry a bracket group per level; stopping after the first leaves the rest in the
         // name and produces something that is not an identifier at all.

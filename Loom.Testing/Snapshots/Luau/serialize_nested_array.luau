@@ -9,9 +9,11 @@ const function Grid_serialize_binary(value: Grid): Loom.Serialized
   local size = 0
   size += 4
   for i = 1, #value.rows do
+    const rows_element = value.rows[i]
     size += 4
-    for i_2 = 1, #value.rows[i] do
-      size += 4 + #value.rows[i][i_2]
+    for i_2 = 1, #rows_element do
+      const rows_element_element = rows_element[i_2]
+      size += 4 + #rows_element_element
     end
   end
   const b = buffer_create(size)

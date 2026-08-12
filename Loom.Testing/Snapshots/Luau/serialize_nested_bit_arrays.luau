@@ -11,18 +11,19 @@ const function Canvas_serialize_binary(value: Canvas): Loom.Serialized
   local size = 0
   size += 4
   for i = 1, #value.masks do
-    size += 4 + (#value.masks[i] + 7) // 8
+    const masks_element = value.masks[i]
+    size += 4 + (#masks_element + 7) // 8
   end
   size += 4
   size += (#value.shapes + 7) // 8
   for i = 1, #value.shapes do
-    const shapes_element_value = value.shapes[i]
+    const shapes_element = value.shapes[i]
     local shapes_element_tag = 0
-    if shapes_element_value.kind == "Line" then
+    if shapes_element.kind == "Line" then
       shapes_element_tag = 1
     end
     if shapes_element_tag == 1 then
-      size += 4 + #value.shapes[i].label
+      size += 4 + #shapes_element.label
     end
   end
   const b = buffer_create(size)
