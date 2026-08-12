@@ -138,6 +138,22 @@ public class ArrayCombinatorRuntimeTest
         Assert.Equal(expected, Run($"let rows = [[1, 2, 3], [4]];\nlet outcome = {expression};"));
 
     /// <summary>
+    ///     A chain accumulates into the name it is bound to rather than into a temporary, so the answer
+    ///     has to survive the counter and the binding being one variable - including where the loop binds
+    ///     that same name itself and the two have to stay apart.
+    /// </summary>
+    [Theory]
+    [InlineData("let n = numbers.where(fn(n) -> n > 2).length;", "n", "3")]
+    [InlineData("let big = numbers.where(fn(big) -> big > 2).length;", "big", "3")]
+    [InlineData("let i = numbers.select(fn(v, i) -> v * i).where(fn(v) -> v > 4).length;", "i", "3")]
+    [InlineData("let kept = numbers.where(fn(n) -> n > 2).length;", "kept", "3")]
+    [InlineData("let total = numbers.select(fn(n) -> n * 2).aggregate(0, fn(a, n) -> a + n);", "total", "30")]
+    [InlineData("let sum = numbers.aggregate(0, fn(sum, n) -> sum + n);", "sum", "15")]
+    [InlineData("mut kept = numbers.where(fn(n) -> n > 2).length;", "kept", "3")]
+    public void AccumulatesIntoTheNameItIsBoundTo(string declaration, string read, string expected) =>
+        Assert.Equal(expected, Run($"{Numbers}{declaration}\nlet outcome = {read};"));
+
+    /// <summary>
     ///     Measuring drops the array, not the work that filled it: the predicate still sees every element.
     /// </summary>
     [Fact]

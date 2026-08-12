@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
+using Loom.Core.Text;
 using Loom.Luau;
 using Loom.Luau.AST;
 using static Loom.Core.Generation.Macros.ArrayLowering;
@@ -102,7 +103,7 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     }
 
     public bool TryGenerate(Invocation invocation, [MaybeNullWhen(false)] out LuauExpression expression) =>
-        TryGenerate(invocation, minimumStages: 2, measured: false, out expression);
+        TryGenerate(invocation, invocation, minimumStages: 2, measured: false, out expression);
 
     /// <summary>
     ///     Rewrites <c>chain.length</c> so the chain counts rather than collects. A filter already visits
@@ -123,10 +124,15 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
             && only.Name.Text.Trim() == "length"
             && access.Expression is Invocation invocation
             && semanticModel.GetType(invocation) is ArrayType
-            && TryGenerate(invocation, minimumStages: 1, measured: true, out expression);
+            && TryGenerate(invocation, access, minimumStages: 1, measured: true, out expression);
     }
 
-    private bool TryGenerate(Invocation invocation, int minimumStages, bool measured, [MaybeNullWhen(false)] out LuauExpression expression)
+    private bool TryGenerate(
+        Invocation invocation,
+        Node bindingNode,
+        int minimumStages,
+        bool measured,
+        [MaybeNullWhen(false)] out LuauExpression expression)
     {
         expression = null;
         if (!TryCollectChain(invocation, minimumStages, out var stages, out var sourceExpression))
@@ -142,11 +148,13 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         foreach (var stage in bound)
             stage.Arguments = stage.Stage.Arguments.ConvertAll(argument => visit(argument));
 
-        var source = state.PushToVariable(SourceName, visit(sourceExpression));
+        var visitedSource = visit(sourceExpression);
+        var target = TargetName(bindingNode, bound, visitedSource);
+        var source = state.PushToVariable(SourceName, visitedSource);
 
         var reserved = new HashSet<string> { source.Name };
         var terminal = bound[^1];
-        var answer = OpenTerminal(terminal, source, reserved, out var result, out var count);
+        var answer = OpenTerminal(terminal, source, target, reserved, out var result, out var count);
         BindCallbacks(bound, reserved);
 
         var elementName = ElementNameFor(bound, 0, bound[0].Stage.Name == "flatten" ? SegmentName : ElementName);
@@ -196,6 +204,44 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     ///     becomes the source the fused loop reads. A chain whose inner links are not fusable still fuses
     ///     the outer ones and treats the rest as its source, so a partial win is still taken.
     /// </summary>
+    /// <summary>
+    ///     The name the chain is about to be bound to, where binding it is the only thing that happens to
+    ///     it. Accumulating into that name directly is what the binding would have copied anyway - a
+    ///     <c>local _count = 0</c> that ends in <c>const kept = _count</c> is one variable pretending to
+    ///     be two - and it puts the reader's own name on the loop instead of a generated one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Declined for a <c>mut</c> binding, whose declaration form is the generator's to choose since
+    ///         it may be reassigned later, and for an annotated one, whose type belongs on the declaration
+    ///         this would elide.
+    ///     </para>
+    ///     <para>
+    ///         Declined too where anything in the chain names it. The accumulator is declared before the
+    ///         loop, so a callback reading a variable of that name from an enclosing scope would find this
+    ///         one instead - the same capture <see cref="BindCallbacks" /> guards against between stages.
+    ///     </para>
+    /// </remarks>
+    private static string? TargetName(Node bindingNode, List<BoundStage> bound, LuauExpression source)
+    {
+        if (bindingNode.Parent is not EqualsValueClause { Parent: VariableDeclaration declaration }
+            || declaration.ColonTypeClause != null
+            || declaration.Keyword.Kind != SyntaxKind.LetKeyword)
+            return null;
+
+        var mentioned = new HashSet<string>();
+        if (!LuauIdentifiers.TryCollect(source, mentioned))
+            return null;
+
+        foreach (var stage in bound)
+            foreach (var argument in stage.Arguments)
+                if (!LuauIdentifiers.TryCollect(argument, mentioned))
+                    return null;
+
+        var name = declaration.Name.Text;
+        return mentioned.Contains(name) ? null : name;
+    }
+
     /// <summary>Marks the terminal as measured, or answers false where measuring it would drop work.</summary>
     private static bool TryMeasureTerminal(List<Stage> stages)
     {
@@ -388,51 +434,72 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     }
 
     /// <summary>Declares whatever the terminal accumulates into, and hands back what the chain evaluates to.</summary>
-    private LuauExpression OpenTerminal(BoundStage terminal, Identifier source, HashSet<string> reserved, out Identifier? result, out Identifier? count)
+    /// <remarks>
+    ///     Only the one the chain evaluates to takes <paramref name="target" />. A <c>select_many</c>
+    ///     declares a running count alongside its result, and that one is nobody's binding.
+    /// </remarks>
+    private LuauExpression OpenTerminal(
+        BoundStage terminal,
+        Identifier source,
+        string? target,
+        HashSet<string> reserved,
+        out Identifier? result,
+        out Identifier? count)
     {
         result = null;
         count = null;
         if (terminal.Stage.MeasuresOnly)
         {
-            count = Declare(CountName, reserved, name => new LocalVariable(name, null, new NumberLiteral(0)));
+            count = Declare(target, CountName, reserved, name => new LocalVariable(name, null, new NumberLiteral(0)));
             return count;
         }
 
         switch (terminal.Stage.Name)
         {
             case "select" or "where":
-                result = Declare(ResultName, reserved, name => new ConstVariable(name, null, LuauFactory.TableCall("create", [new UnaryOperator("#", source)])));
+                result = Declare(
+                    target,
+                    ResultName,
+                    reserved,
+                    name => new ConstVariable(name, null, LuauFactory.TableCall("create", [new UnaryOperator("#", source)]))
+                );
+
                 return result;
 
             case "select_many" or "flatten":
-                result = Declare(ResultName, reserved, name => new ConstVariable(name, null, new Table([])));
-                count = Declare(CountName, reserved, name => new LocalVariable(name, null, new NumberLiteral(0)));
+                result = Declare(target, ResultName, reserved, name => new ConstVariable(name, null, new Table([])));
+                count = Declare(null, CountName, reserved, name => new LocalVariable(name, null, new NumberLiteral(0)));
                 return result;
 
             case "to_set":
-                result = Declare(ResultName, reserved, name => new ConstVariable(name, null, new Table([])));
+                result = Declare(target, ResultName, reserved, name => new ConstVariable(name, null, new Table([])));
                 return result;
 
             case "aggregate":
-                result = Declare(AccumulatorName, reserved, name => new LocalVariable(name, null, terminal.Arguments[0]));
+                result = Declare(target, AccumulatorName, reserved, name => new LocalVariable(name, null, terminal.Arguments[0]));
                 return result;
 
             case "count":
-                count = Declare(CountName, reserved, name => new LocalVariable(name, null, new NumberLiteral(0)));
+                count = Declare(target, CountName, reserved, name => new LocalVariable(name, null, new NumberLiteral(0)));
                 return count;
 
             default:
             {
                 var matched = terminal.Stage.Name == "any";
-                result = Declare(matched ? FoundName : SatisfiedName, reserved, name => new LocalVariable(name, null, new BooleanLiteral(!matched)));
+                result = Declare(target, matched ? FoundName : SatisfiedName, reserved, name => new LocalVariable(name, null, new BooleanLiteral(!matched)));
                 return result;
             }
         }
     }
 
-    private Identifier Declare(string name, HashSet<string> reserved, Func<string, LuauStatement> declaration)
+    private Identifier Declare(string? target, string fallback, HashSet<string> reserved, Func<string, LuauStatement> declaration)
     {
-        var allocated = state.Scope.AddIdentifier(name);
+        // The binding this is standing in for already put its name in scope, so take it as given rather
+        // than allocating it again - AddIdentifier would read the name as taken and hand back a second one.
+        var allocated = target ?? state.Scope.AddIdentifier(fallback);
+        if (target != null)
+            state.Scope.Reserve(target);
+
         reserved.Add(allocated);
         state.Prereq(declaration(allocated));
 

@@ -6,6 +6,47 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class MacroExpanderTest
 {
+    /// <summary>
+    ///     A chain bound straight to a name accumulates into that name, so no temporary is declared and
+    ///     no copy of it is left behind.
+    /// </summary>
+    [Theory]
+    [InlineData("let kept = numbers.where(fn(n) -> n > 1).length;", "kept")]
+    [InlineData("let total = numbers.select(fn(n) -> n * 2).aggregate(0, fn(a, n) -> a + n);", "total")]
+    [InlineData("let found = numbers.select(fn(n) -> n * 2).any(fn(n) -> n > 4);", "found")]
+    public void Generates_ArrayChain_AccumulatingIntoTheNameItIsBoundTo(string declaration, string name)
+    {
+        var luauTree = Utility.GetLuauAST($"let numbers = [1, 2, 3]; {declaration}", true);
+
+        Assert.IsType<ForStatement>(luauTree.Statements[^1]);
+        Assert.Equal(name, Assert.IsType<LocalVariable>(luauTree.Statements[^2]).Name);
+    }
+
+    /// <summary>
+    ///     Unless the loop binds that name itself, where accumulating into it would count into the loop
+    ///     variable instead. Then the temporary comes back.
+    /// </summary>
+    [Fact]
+    public void Generates_ArrayChain_KeepingATemporaryWhenTheLoopBindsTheSameName()
+    {
+        var luauTree = Utility.GetLuauAST("let numbers = [1, 2, 3]; let n = numbers.where(fn(n) -> n > 1).length;", true);
+
+        var binding = Assert.IsType<ConstVariable>(luauTree.Statements[^1]);
+        Assert.Equal("n", binding.Name);
+        Assert.NotEqual("n", Assert.IsType<Identifier>(binding.Initializer).Name);
+    }
+
+    /// <summary>A 'mut' binding may be reassigned, so its declaration stays the generator's to write.</summary>
+    [Fact]
+    public void Generates_ArrayChain_KeepingATemporaryForAMutableBinding()
+    {
+        var luauTree = Utility.GetLuauAST("let numbers = [1, 2, 3]; mut kept = numbers.where(fn(n) -> n > 1).length;", true);
+
+        var binding = Assert.IsType<LocalVariable>(luauTree.Statements[^1]);
+        Assert.Equal("kept", binding.Name);
+        Assert.NotEqual("kept", Assert.IsType<Identifier>(binding.Initializer!).Name);
+    }
+
     [Theory]
     [InlineData("CreatableInstance", "new_instance")]
     [InlineData("ServiceInstance", "get_service")]

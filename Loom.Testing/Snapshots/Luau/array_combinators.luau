@@ -24,15 +24,14 @@ for _, n in numbers do
   _accumulator = sum + n
 end
 const total = _accumulator
-local _accumulator_1 = 0
+local chained = 0
 for _, n in numbers do
   const n = n * 2
   if n > 4 then
-    const sum = _accumulator_1
-    _accumulator_1 = sum + n
+    const sum = chained
+    chained = sum + n
   end
 end
-const chained = _accumulator_1
 const function triple(n: number): number
   return n * 3
 end
@@ -81,66 +80,61 @@ for _, _segment_1 in rows do
   _count_3 += _length_1
 end
 const flat = _result_5
-const _result_6 = table.create(#rows)
+const flat_big = table.create(#rows)
 local _count_4 = 0
 for _, _segment_2 in rows do
   for _, n in _segment_2 do
     if n > 1 then
       _count_4 += 1
-      _result_6[_count_4] = n
+      flat_big[_count_4] = n
     end
   end
 end
-const flat_big = _result_6
-const _result_7 = table.create(#rows)
+const flat_indexed = table.create(#rows)
 local _count_5 = 0
 for _, _segment_3 in rows do
   for _, n in _segment_3 do
     _count_5 += 1
     const i = _count_5
-    _result_7[_count_5] = n * i
+    flat_indexed[_count_5] = n * i
   end
 end
-const flat_indexed = _result_7
-local _accumulator_2 = 0
+local spread_total = 0
 for _, r in rows do
   for _, n in r do
     if n > 1 then
-      const a = _accumulator_2
-      _accumulator_2 = a + n
+      const a = spread_total
+      spread_total = a + n
     end
   end
 end
-const spread_total = _accumulator_2
-const _result_8 = {}
+const _result_6 = {}
 local _count_6 = 0
 for _, _segment_4 in rows do
   const _length_2 = #_segment_4
-  table.move(_segment_4, 1, _length_2, _count_6 + 1, _result_8)
+  table.move(_segment_4, 1, _length_2, _count_6 + 1, _result_6)
   _count_6 += _length_2
 end
 local _found_1 = false
-for _, n in _result_8 do
+for _, n in _result_6 do
   if n > 2 then
     _found_1 = true
     break
   end
 end
 const flat_any = _found_1
-local _count_7 = 0
+local kept_count = 0
 for _, n in numbers do
   if n > 2 then
-    _count_7 += 1
+    kept_count += 1
   end
 end
-const kept_count = _count_7
-local _count_8 = 0
+local flat_size = 0
 for _, _segment_5 in rows do
-  _count_8 += #_segment_5
+  flat_size += #_segment_5
 end
-const flat_size = _count_8
-const _result_9 = table.create(#numbers)
+const _result_7 = table.create(#numbers)
 for _index_2, n in numbers do
-  _result_9[_index_2] = n * 2
+  _result_7[_index_2] = n * 2
 end
-const mapped_size = #_result_9
+const mapped_size = #_result_7
