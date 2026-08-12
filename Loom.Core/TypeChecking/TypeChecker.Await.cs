@@ -113,31 +113,20 @@ public sealed partial class TypeChecker
     private bool IsFutureType(Node failNode, Type type) => TryGetFutureValueType(failNode, type, out _);
 
     /// <summary>
-    ///     The <c>T</c> of a <c>Future&lt;T&gt;</c>, however that future arrived here.
+    ///     The <c>T</c> of a <c>Future&lt;T&gt;</c>, however that future arrived here - including out of a
+    ///     variable, which used to reach this as the expanded <c>Future</c> interface with the
+    ///     instantiation, and so <c>T</c>, already gone (see #198).
     /// </summary>
-    /// <remarks>
-    ///     <see cref="TypeSolver" />'s <c>Substitute</c> expands a generic whose arguments are all resolved
-    ///     into its body, so a future held in a variable reaches this as the <c>Future</c> interface rather
-    ///     than as the instantiation - which is why <c>Future.value</c> is declared <c>T?</c>, and why the
-    ///     expanded form is read back off it. Matching that form by name is the same compromise
-    ///     <see cref="Generation.Macros.Providers.ResultMacroProvider" /> makes for <c>ResultOk</c>.
-    /// </remarks>
     private bool TryGetFutureValueType(Node failNode, Type type, [MaybeNullWhen(false)] out Type value)
     {
-        switch (type)
+        if (type is InstantiatedType instantiated && instantiated.GenericType.Equals(GetGenericFutureType(failNode)) && instantiated.Arguments.Count == 1)
         {
-            case InstantiatedType instantiated when instantiated.GenericType.Equals(GetGenericFutureType(failNode)) && instantiated.Arguments.Count == 1:
-                value = instantiated.Arguments[0];
-                return true;
-
-            case InterfaceType { Name: "Future" } interfaceType when interfaceType.Properties.Find(property => property.Name == "value") is { } settled:
-                value = settled.ValueType.NonNullable();
-                return true;
-
-            default:
-                value = null;
-                return false;
+            value = instantiated.Arguments[0];
+            return true;
         }
+
+        value = null;
+        return false;
     }
 
     private GenericType GetGenericFutureType(Node failNode) => GetIntrinsicType<GenericType>(failNode, "Future");

@@ -91,6 +91,9 @@ public sealed partial class TypeChecker
 
     private Type IndexType(Node node, Type type, Type indexType, string errorMessage)
     {
+        if (IsUnawaitedFutureMember(node, type, indexType))
+            return ReportCannotUseToIndex(node, type, indexType);
+
         if (type is InstantiatedType instantiated)
             type = instantiated.Expand();
 
@@ -208,6 +211,19 @@ public sealed partial class TypeChecker
             ? BindType(node, TypeSimplifier.Simplify(new Types.UnionType(stringLiteralResults)))
             : ReportCannotUseToIndex(node, type, indexType);
     }
+
+    /// <summary>
+    ///     Whether reading <paramref name="indexType" /> off <paramref name="type" /> is the common mistake
+    ///     of reaching for a member of the awaited value on the future itself. Asked before the expansion
+    ///     in <see cref="IndexType" />, since that is the last point a future is recognisable as one - past
+    ///     it there is only an interface, which no failed lookup can tell apart from any other. A member
+    ///     the future genuinely has ('status', 'value') is not one of these and reads normally.
+    /// </summary>
+    private bool IsUnawaitedFutureMember(Node node, Type type, Type indexType) =>
+        indexType is Types.LiteralType { Value: string }
+        && IsFutureType(node, type)
+        && TypeSimplifier.Expanded(type) is NativelyIndexableType future
+        && future.GetTypeAtIndex(indexType).BodyType == null;
 
     private Type GetTypeAtIndexSingle(Node node, Type type, Type indexType) =>
         type switch

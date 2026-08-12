@@ -477,7 +477,13 @@ public sealed class TypeNarrower
         (trueState.NarrowedTypes[baseAddress], falseState.NarrowedTypes[baseAddress]) = AssignNarrowed(isEquals, trueBaseType, falseBaseType);
     }
 
-    private Type? GetBaseExpressionType(Expression expression, FlowState currentState)
+    // Expanded, not simplified: narrowing splits a value across the arms of a union, and a discriminated
+    // union written as a generic ('Result<T, E>') is only a union once expanded. Left as the
+    // instantiation it now reaches the checker as, every narrowing here silently declines to fire.
+    private Type? GetBaseExpressionType(Expression expression, FlowState currentState) =>
+        UnnarrowedBaseExpressionType(expression, currentState) is { } type ? TypeSimplifier.Expanded(type) : null;
+
+    private Type? UnnarrowedBaseExpressionType(Expression expression, FlowState currentState)
     {
         if (TryGetNarrowedType(expression, currentState, out var narrowed))
             return narrowed;

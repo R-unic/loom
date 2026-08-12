@@ -51,7 +51,7 @@ public sealed partial class TypeChecker
             Visit(declaration.Body);
         }
 
-        return TypeSimplifier.Simplify(new IntersectionType([traitType, interfaceType]));
+        return TypeSimplifier.Expanded(new IntersectionType([traitType, interfaceType]));
     }
 
     public override Type VisitSelfExpression(SelfExpression selfExpression)
@@ -128,9 +128,11 @@ public sealed partial class TypeChecker
         }
 
         var typeParameters = interfaceDeclaration.TypeParameters?.ParameterList.ConvertAll(VisitTypeParameter);
+        // Expanded, since a base written as an instantiation ('interface Click: IAction<"Click">') is only
+        // an InterfaceType once expanded, and anything that is not one is dropped on the next line.
         var constraints = interfaceDeclaration.ColonTypeListClause?.Types
                 .Select(Visit)
-                .Select(TypeSimplifier.Simplify)
+                .Select(TypeSimplifier.Expanded)
                 .OfType<InterfaceType>()
                 .ToList()
             ?? [];
