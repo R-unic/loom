@@ -57,9 +57,14 @@ public sealed partial class Resolver
         ResolverScope? firstScope = null;
         foreach (var pattern in orPattern.Patterns)
         {
-            var scope = PushScope();
-            var success = Visit(pattern);
-            PopScope();
+            bool success;
+            ResolverScope scope;
+            using (var alternative = InScope())
+            {
+                scope = alternative.Scope;
+                success = Visit(pattern);
+            }
+
             if (!success)
                 return false;
 

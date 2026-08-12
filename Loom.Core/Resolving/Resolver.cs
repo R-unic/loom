@@ -28,15 +28,14 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
 
         // ambient names live in a scope of their own so that a module declaring 'Vector3' shadows the
         // intrinsic rather than colliding with it — the file's own declarations are the ones it can see
-        PushScope();
+        using var ambientScope = InScope();
         DeclareIntrinsicSymbols();
         DeclareGlobalSymbols();
 
-        _moduleScope = PushScope();
+        using var moduleScope = InScope();
+        _moduleScope = moduleScope.Scope;
         VisitTree(parserResult.Tree);
         ReportUnusedImports();
-        PopScope();
-        PopScope();
 
         return _semanticModel;
     }
@@ -68,11 +67,8 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
 
     public override bool VisitBlock(Block block)
     {
-        PushScope();
-        var result = ResolveStatements(block.Statements);
-        PopScope();
-
-        return result;
+        using var _ = InScope();
+        return ResolveStatements(block.Statements);
     }
 
     private bool ResolveStatements(List<Statement> statements)
@@ -144,14 +140,44 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
 
     private bool IsDeclarationFile() => parserResult.Tree.File.IsDeclaration;
     private ResolverScope CurrentScope() => _scopes.Peek();
-    private void PopScope() => _scopes.Pop();
 
-    private ResolverScope PushScope()
+    /// <summary>
+    ///     Pushes a scope that pops itself at the end of the enclosing block: <c>using var _ = InScope();</c>.
+    ///     This is the only way to open one — pairing a push with a pop by hand works right up until somebody
+    ///     adds a <c>return</c> between them, and a scope left on the stack silently changes what every later
+    ///     name in the file resolves to.
+    /// </summary>
+    private ScopeHandle InScope()
     {
         var scope = new ResolverScope();
         _scopes.Push(scope);
 
-        return scope;
+        return new ScopeHandle(this, scope);
+    }
+
+    /// <summary>Pops the scope <see cref="InScope" /> pushed. Use its <see cref="Scope" /> to reach the scope itself.</summary>
+    private readonly ref struct ScopeHandle(Resolver resolver, ResolverScope scope)
+    {
+        public ResolverScope Scope { get; } = scope;
+        public void Dispose() => resolver._scopes.Pop();
+    }
+
+    /// <summary>
+    ///     Enters <paramref name="context" /> until the end of the enclosing block:
+    ///     <c>using var _ = InContext(ResolverContext.Loop);</c>. Restores whatever was current before rather
+    ///     than clearing, since these nest — a loop inside a function is still inside the function.
+    /// </summary>
+    private ContextHandle InContext(ResolverContext context)
+    {
+        var handle = new ContextHandle(this, _context);
+        _context = context;
+
+        return handle;
+    }
+
+    private readonly ref struct ContextHandle(Resolver resolver, ResolverContext previous)
+    {
+        public void Dispose() => resolver._context = previous;
     }
 
     /// <summary>

@@ -78,7 +78,7 @@ public sealed partial class Resolver
             return false;
         }
 
-        PushScope();
+        using var _ = InScope();
         interfaceSymbol.Implementations.Add(implement);
         interfaceSymbol.Implements.Add(traitSymbol);
         traitSymbol.ImplementedBy.Add(interfaceSymbol);
@@ -102,7 +102,6 @@ public sealed partial class Resolver
         if (success)
             Visit(implement.Body);
 
-        PopScope();
         return success;
     }
 
@@ -153,9 +152,8 @@ public sealed partial class Resolver
         if (!DeclareTrait(traitDeclaration) || !ResolveTraitBody(traitDeclaration.Body, traitDeclaration.Name.Text))
             return false;
 
-        PushScope();
+        using var _ = InScope();
         base.VisitTraitDeclaration(traitDeclaration);
-        PopScope();
 
         return true;
     }
@@ -168,17 +166,17 @@ public sealed partial class Resolver
             || !ResolveInterfaceConstraints(interfaceDeclaration.ColonTypeListClause, symbol))
             return false;
 
-        PushScope();
-        base.VisitInterfaceDeclaration(interfaceDeclaration);
-        PopScope();
+        // the body is resolved outside this scope, against the interface's own members rather than its
+        // type parameters
+        using (var _ = InScope())
+            base.VisitInterfaceDeclaration(interfaceDeclaration);
 
         return ResolveInterfaceBody(interfaceDeclaration.Body, symbol);
     }
 
     public override bool VisitDeclare(Declare declare)
     {
-        var lastContext = _context;
-        _context = ResolverContext.Ambient;
+        using var ambient = InContext(ResolverContext.Ambient);
 
         bool result;
         if (declare.Signature is InterfaceDeclaration interfaceDeclaration)
@@ -191,9 +189,9 @@ public sealed partial class Resolver
             if (result)
             {
                 interfaceSymbol!.IsAmbient = true;
-                PushScope();
-                result &= base.VisitInterfaceDeclaration(interfaceDeclaration);
-                PopScope();
+                using (var _ = InScope())
+                    result &= base.VisitInterfaceDeclaration(interfaceDeclaration);
+
                 result &= ResolveInterfaceBody(interfaceDeclaration.Body, interfaceSymbol);
             }
         }
@@ -202,7 +200,6 @@ public sealed partial class Resolver
             result = Visit(declare.Signature);
         }
 
-        _context = lastContext;
         return result;
     }
 

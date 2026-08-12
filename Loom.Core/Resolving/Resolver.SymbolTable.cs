@@ -144,9 +144,11 @@ public sealed partial class Resolver
     private Symbol? LookupSymbol(string name, SymbolKind kind) => LookupSymbol(name, NamespaceOf(kind));
 
     /// <remarks>
-    ///     Innermost scope first, so a local shadows an outer name rather than colliding with it. Only the
-    ///     first symbol under a name is returned; a name bound more than once in one scope is an overload set,
-    ///     which the type checker resolves from the call site rather than from here.
+    ///     Innermost scope first, so a local shadows an outer name rather than colliding with it. The first
+    ///     symbol under a name is the answer: a scope holds at most one per name, since declaring a second
+    ///     is the duplicate-name error. Overloads are not an exception - an overload set is a property of an
+    ///     interface, merged into one intersection-typed member and picked apart at the call site, so it
+    ///     never reaches a scope.
     /// </remarks>
     private Symbol? LookupSymbol(string name, SymbolNamespace symbolNamespace)
     {

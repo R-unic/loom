@@ -9,10 +9,8 @@ public sealed partial class Resolver
     {
         Visit(after.Duration);
 
-        var lastContext = _context;
-        _context = ResolverContext.Scheduler;
+        using var _ = InContext(ResolverContext.Scheduler);
         Visit(after.Body);
-        _context = lastContext;
 
         return true;
     }
@@ -23,10 +21,8 @@ public sealed partial class Resolver
         if (every.Condition != null)
             Visit(every.Condition);
 
-        var lastContext = _context;
-        _context = ResolverContext.Scheduler;
+        using var _ = InContext(ResolverContext.Scheduler);
         Visit(every.Body);
-        _context = lastContext;
 
         return true;
     }
@@ -34,18 +30,16 @@ public sealed partial class Resolver
     public override bool VisitFor(For @for)
     {
         Visit(@for.CollectionExpression);
-        PushScope();
-        var namesDeclared = @for.Names.All(name => DeclareVariable(name, name.Token.Text));
-        if (namesDeclared)
-        {
-            var lastContext = _context;
-            _context = ResolverContext.Loop;
-            Visit(@for.Body);
-            _context = lastContext;
-        }
 
-        PopScope();
-        return namesDeclared;
+        using var _ = InScope();
+        var namesDeclared = @for.Names.All(name => DeclareVariable(name, name.Token.Text));
+        if (!namesDeclared)
+            return false;
+
+        using var __ = InContext(ResolverContext.Loop);
+        Visit(@for.Body);
+
+        return true;
     }
 
     public override bool VisitMatchExpression(MatchExpression matchExpression)
@@ -62,22 +56,23 @@ public sealed partial class Resolver
 
     public override bool VisitMatchArm(MatchArm matchArm)
     {
-        PushScope();
-
-        var success = Visit(matchArm.Pattern)
+        using var _ = InScope();
+        return Visit(matchArm.Pattern)
             && (matchArm.Guard == null || Visit(matchArm.Guard))
             && Visit(matchArm.Body);
-
-        PopScope();
-        return success;
     }
 
     public override bool VisitIf(If @if)
     {
-        PushScope();
-        var conditionSuccess = Visit(@if.Condition);
-        var thenSuccess = Visit(@if.ThenBranch);
-        PopScope();
+        bool conditionSuccess, thenSuccess;
+
+        // the else branch is resolved outside this scope: a name bound in the condition or the then
+        // branch is not in scope for it
+        using (var _ = InScope())
+        {
+            conditionSuccess = Visit(@if.Condition);
+            thenSuccess = Visit(@if.ThenBranch);
+        }
 
         var elseSuccess = @if.ElseBranch == null || Visit(@if.ElseBranch);
         return conditionSuccess && thenSuccess && elseSuccess;
@@ -87,10 +82,8 @@ public sealed partial class Resolver
     {
         Visit(@while.Condition);
 
-        var lastContext = _context;
-        _context = ResolverContext.Loop;
+        using var _ = InContext(ResolverContext.Loop);
         Visit(@while.Body);
-        _context = lastContext;
 
         return true;
     }
