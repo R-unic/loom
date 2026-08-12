@@ -1,5 +1,4 @@
 using Loom.Core.Parsing.AST;
-using Loom.Core.TypeChecking.Types;
 using Loom.Luau;
 using Loom.Luau.AST;
 using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;

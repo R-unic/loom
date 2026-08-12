@@ -1,6 +1,5 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
-using Loom.Core.TypeChecking.Types;
 using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 

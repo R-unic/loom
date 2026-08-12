@@ -1151,10 +1151,13 @@ A Roblox API method that can raise returns `Result<T, RobloxError>` instead. The
 with a shared handler, so nothing is allocated per call site beyond the `Result`, and `?` propagates it like any
 other.
 
+A method that also *yields* is `async fn` on top of this, so it is awaited as well - see
+[`async` and `await`](#async-and-await). `get_data_store` does not yield; `get_async` does.
+
 ```rs
-fn load(key: string): Result<unknown, RobloxError> {
+async fn load(key: string): Result<unknown, RobloxError> {
     let store = data_store_service.get_data_store("players")?;
-    let value = store.get_async(key)?;
+    let value = await store.get_async(key)?;
     return Result.ok(value);
 }
 ```
