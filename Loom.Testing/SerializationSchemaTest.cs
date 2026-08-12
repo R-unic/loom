@@ -401,7 +401,7 @@ public class SerializationSchemaTest
         Assert.Contains("for i = 1, values_count do", luau);
         Assert.Contains("offset += 1", luau);
 
-        Assert.Contains("if buffer_len(b) < offset + values_count then", luau);
+        Assert.Contains("if b_len < offset + values_count then", luau);
     }
     [Fact]
     public void PackedSentinel_SkipsComponentsOnMatch()
@@ -462,7 +462,7 @@ public class SerializationSchemaTest
             )
             .Render();
 
-        Assert.Contains("if buffer_len(b) < offset + 2 then", luau);
+        Assert.Contains("if b_len < offset + 2 then", luau);
     }
     #region Unions
     private const string ActionUnion =
@@ -552,7 +552,7 @@ public class SerializationSchemaTest
     {
         var luau = Utility.GetLuauAST(ActionUnion, true).Render();
 
-        Assert.Contains("if buffer_len(b) < offset + 1 then", luau);
+        Assert.Contains("if b_len < offset + 1 then", luau);
     }
 
     [Fact]

@@ -1,8 +1,8 @@
 const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
 const buffer_create = buffer.create
 const buffer_writeu8 = buffer.writeu8
-const buffer_len = buffer.len
 const buffer_readu8 = buffer.readu8
+const buffer_len = buffer.len
 const function MyData_serialize_binary(value: MyData): Loom.Serialized
   const b = buffer_create(1)
   buffer_writeu8(b, 0, value.id)

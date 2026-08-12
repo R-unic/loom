@@ -3,10 +3,10 @@ const buffer_create = buffer.create
 const buffer_writeu32 = buffer.writeu32
 const buffer_writestring = buffer.writestring
 const buffer_writei16 = buffer.writei16
-const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
 const buffer_readi16 = buffer.readi16
+const buffer_len = buffer.len
 const function Roster_serialize_binary(value: Roster): Loom.Serialized
   local size = 4 + #value.positions * 6
   size += 4
@@ -42,7 +42,8 @@ const function Roster_serialize_binary(value: Roster): Loom.Serialized
 end
 const function Roster_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Roster, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 8 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 8 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const names_count = buffer_readu32(b, 0)
@@ -51,7 +52,7 @@ const function Roster_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   for i = 1, names_count do
     const names_element_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + names_element_length then
+    if b_len < offset + names_element_length then
       return { ok = false, error = { kind = "invalid_length", field = "names[]" } }
     end
     const names_element = buffer_readstring(b, offset, names_element_length)
@@ -60,7 +61,7 @@ const function Roster_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
   end
   const positions_count = buffer_readu32(b, offset)
   offset += 4
-  if buffer_len(b) < offset + positions_count * 6 then
+  if b_len < offset + positions_count * 6 then
     return { ok = false, error = { kind = "invalid_length", field = "positions" } }
   end
   const positions = {}

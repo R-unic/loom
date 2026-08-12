@@ -6,13 +6,13 @@ const buffer_writeu32 = buffer.writeu32
 const buffer_writestring = buffer.writestring
 const buffer_writei16 = buffer.writei16
 const buffer_writef32 = buffer.writef32
-const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
 const buffer_readu8 = buffer.readu8
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
 const buffer_readi16 = buffer.readi16
 const buffer_readf32 = buffer.readf32
+const buffer_len = buffer.len
 const function KitchenSink_serialize_binary(value: KitchenSink): Loom.Serialized
   const blobs = {}
   const payload_value = value.payload
@@ -82,7 +82,8 @@ const function KitchenSink_serialize_binary(value: KitchenSink): Loom.Serialized
 end
 const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom.Result<KitchenSink, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 35 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 35 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const blobs = serialized.blobs
@@ -96,7 +97,7 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
   if label_present then
     const label_2_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + label_2_length then
+    if b_len < offset + label_2_length then
       return { ok = false, error = { kind = "invalid_length", field = "label" } }
     end
     const label_2 = buffer_readstring(b, offset, label_2_length)
@@ -105,7 +106,7 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
   end
   const points_count = buffer_readu32(b, offset)
   offset += 4
-  if buffer_len(b) < offset + points_count * 6 then
+  if b_len < offset + points_count * 6 then
     return { ok = false, error = { kind = "invalid_length", field = "points" } }
   end
   const points = {}
@@ -125,7 +126,7 @@ const function KitchenSink_deserialize_binary(serialized: Loom.Serialized): Loom
   elseif payload_tag == 1 then
     const message_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + message_length then
+    if b_len < offset + message_length then
       return { ok = false, error = { kind = "invalid_length", field = "payload.message" } }
     end
     const message = buffer_readstring(b, offset, message_length)

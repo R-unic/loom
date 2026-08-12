@@ -22,6 +22,7 @@ internal sealed partial class SerializationEmitter(SerializationSchema schema, L
     private const string DiffParameter = "diff";
     private const string SerializedParameter = "serialized";
     private const string BufferLocal = "b";
+    private const string BufferLengthLocal = "b_len";
     private const string BlobsLocal = "blobs";
     private const string BlobIndexLocal = "blob_index";
     private const string OffsetLocal = "offset";

@@ -7,7 +7,6 @@ const buffer_writebits = buffer.writebits
 const buffer_writei16 = buffer.writei16
 const buffer_writef32 = buffer.writef32
 const buffer_writeu8 = buffer.writeu8
-const buffer_len = buffer.len
 const buffer_readu16 = buffer.readu16
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
@@ -15,6 +14,7 @@ const buffer_readbits = buffer.readbits
 const buffer_readi16 = buffer.readi16
 const buffer_readf32 = buffer.readf32
 const buffer_readu8 = buffer.readu8
+const buffer_len = buffer.len
 const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Serialized
   const blobs = {}
   const team_value = value.team
@@ -126,7 +126,8 @@ const function PlayerSnapshot_serialize_binary(value: PlayerSnapshot): Loom.Seri
 end
 const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): Loom.Result<PlayerSnapshot, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 14 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 14 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const blobs = serialized.blobs
@@ -136,7 +137,7 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
   local blob_index = 1
   const display_name_length = buffer_readu32(b, 4)
   local offset = 8
-  if buffer_len(b) < offset + display_name_length then
+  if b_len < offset + display_name_length then
     return { ok = false, error = { kind = "invalid_length", field = "display_name" } }
   end
   const display_name = buffer_readstring(b, offset, display_name_length)
@@ -155,7 +156,7 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
   const velocity_sentinel = buffer_readbits(b, 10, 3)
   local velocity = nil
   if velocity_sentinel == 0 then
-    if buffer_len(b) < offset + 6 then
+    if b_len < offset + 6 then
       return { ok = false, error = { kind = "truncated", field = "velocity" } }
     end
     const velocity_x = buffer_readi16(b, offset)
@@ -181,7 +182,7 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
   const aim_sentinel = buffer_readbits(b, 13, 1)
   local aim = nil
   if aim_sentinel == 0 then
-    if buffer_len(b) < offset + 16 then
+    if b_len < offset + 16 then
       return { ok = false, error = { kind = "truncated", field = "aim" } }
     end
     const aim_x = buffer_readf32(b, offset)
@@ -226,7 +227,7 @@ const function PlayerSnapshot_deserialize_binary(serialized: Loom.Serialized): L
       end
       recent_element = { kind = "Damaged", amount = buffer_readbits(b, recent_bits + (i - 1) * 12 + 1, 10), attacker = attacker }
     elseif recent_element_tag == 1 then
-      if buffer_len(b) < offset + 6 then
+      if b_len < offset + 6 then
         return { ok = false, error = { kind = "truncated", field = "recent[]" } }
       end
       const at_x = buffer_readi16(b, offset)

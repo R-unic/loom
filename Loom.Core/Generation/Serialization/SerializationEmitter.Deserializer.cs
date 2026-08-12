@@ -10,15 +10,19 @@ internal sealed partial class SerializationEmitter
     public Function EmitDeserializer()
     {
         _locals.Clear();
+        _readsBufferLength = false;
         var body = new List<LuauStatement>();
         var readCursor = new Cursor(schema.HeaderBytes);
         var reads = new List<LuauStatement>();
         var initializers = new List<TableInitializer>();
 
+        foreach (var serializationField in schema.Fields)
+            initializers.Add(new PropertyTableInitializer(LeafName(serializationField.Path), EmitRead(serializationField, readCursor, reads)));
+
         if (!schema.IsEmpty)
         {
             body.Add(new ConstVariable(BufferLocal, null, new PropertyAccess(new Identifier(SerializedParameter), ["buffer"])));
-            body.Add(EmitTruncationGuard());
+            body.AddRange(EmitTruncationGuard(MinimumByteCount()));
         }
 
         if (schema.HasBlobs)
@@ -36,9 +40,6 @@ internal sealed partial class SerializationEmitter
 
             body.Add(new LocalVariable(BlobIndexLocal, null, _one));
         }
-
-        foreach (var serializationField in schema.Fields)
-            initializers.Add(new PropertyTableInitializer(LeafName(serializationField.Path), EmitRead(serializationField, readCursor, reads)));
 
         body.AddRange(reads);
         body.Add(
@@ -64,19 +65,56 @@ internal sealed partial class SerializationEmitter
     }
 
     /// <summary>
-    ///     The minimum width is known, so one up-front check covers every fixed read that follows - no
-    ///     pcall, and a specific error rather than "buffer access out of bounds".
+    ///     The buffer's length, named by the guard that already had to measure it. A buffer cannot change
+    ///     size, so every bounds check past that point is a comparison against a local rather than another
+    ///     call into the library - one per variable-width field, and one per element of an array of them.
     /// </summary>
-    private IfStatement EmitTruncationGuard()
+    private Identifier BufferLength()
+    {
+        _readsBufferLength = true;
+        return new Identifier(BufferLengthLocal);
+    }
+
+    private bool _readsBufferLength;
+
+    /// <summary>
+    ///     The minimum width is known, so one up-front check covers every fixed read that follows - no
+    ///     pcall, and a specific error rather than "buffer access out of bounds". The length is bound only
+    ///     when something downstream went on to ask for it, so a schema whose reads are all fixed-width is
+    ///     not left carrying a local nobody reads.
+    /// </summary>
+    /// <remarks>
+    ///     Emitted after the reads it guards, since only they can say whether the length is wanted again.
+    /// </remarks>
+    private List<LuauStatement> EmitTruncationGuard(int minimumBytes)
     {
         var missing = new BinaryOperator(new Identifier(BufferLocal), "==", new NilLiteral());
-        var tooShort = new BinaryOperator(BufferCall("len", [new Identifier(BufferLocal)]), "<", new NumberLiteral(MinimumByteCount()));
-        return new IfStatement(
-            new BinaryOperator(missing, "or", tooShort),
-            new Chunk([new Return(BuildErrorTable("truncated", null, 0))]),
-            [],
-            null
-        );
+        var truncated = new Chunk([new Return(BuildErrorTable("truncated", null, 0))]);
+        if (!_readsBufferLength)
+            return
+            [
+                new IfStatement(
+                    new BinaryOperator(missing, "or", new BinaryOperator(BufferCall("len", [new Identifier(BufferLocal)]), "<", new NumberLiteral(minimumBytes))),
+                    truncated,
+                    [],
+                    null
+                )
+            ];
+
+        return
+        [
+            new ConstVariable(
+                BufferLengthLocal,
+                null,
+                new IfExpression(IsPresent(new Identifier(BufferLocal)), BufferCall("len", [new Identifier(BufferLocal)]), [], _zero)
+            ),
+            new IfStatement(
+                new BinaryOperator(missing, "or", new BinaryOperator(new Identifier(BufferLengthLocal), "<", new NumberLiteral(minimumBytes))),
+                truncated,
+                [],
+                null
+            )
+        ];
     }
 
     /// <summary>
@@ -257,7 +295,7 @@ internal sealed partial class SerializationEmitter
             statements.Add(
                 new IfStatement(
                     new BinaryOperator(
-                        BufferCall("len", [new Identifier(BufferLocal)]),
+                        BufferLength(),
                         "<",
                         Add(new Identifier(OffsetLocal), Multiply(count, new NumberLiteral(elementBytes)))
                     ),
@@ -299,7 +337,7 @@ internal sealed partial class SerializationEmitter
         statements.Add(
             new IfStatement(
                 new BinaryOperator(
-                    BufferCall("len", [new Identifier(BufferLocal)]),
+                    BufferLength(),
                     "<",
                     Add(new Identifier(OffsetLocal), new NumberLiteral(byteCount))
                 ),
@@ -460,7 +498,7 @@ internal sealed partial class SerializationEmitter
 
         statements.Add(
             new IfStatement(
-                new BinaryOperator(BufferCall("len", [new Identifier(BufferLocal)]), "<", Add(new Identifier(OffsetLocal), length)),
+                new BinaryOperator(BufferLength(), "<", Add(new Identifier(OffsetLocal), length)),
                 new Chunk([new Return(BuildErrorTable("invalid_length", stringField.Path, null))]),
                 [],
                 null

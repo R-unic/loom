@@ -2,9 +2,9 @@ const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
 const buffer_create = buffer.create
 const buffer_writeu32 = buffer.writeu32
 const buffer_writebits = buffer.writebits
-const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readbits = buffer.readbits
+const buffer_len = buffer.len
 const function Flags_serialize_binary(value: Flags): Loom.Serialized
   const b = buffer_create(4 + (#value.values + 7) // 8)
   const values_count = #value.values

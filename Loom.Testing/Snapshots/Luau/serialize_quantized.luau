@@ -1,8 +1,8 @@
 const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
 const buffer_create = buffer.create
 const buffer_writebits = buffer.writebits
-const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
+const buffer_len = buffer.len
 const function Dials_serialize_binary(value: Dials): Loom.Serialized
   const b = buffer_create(3)
   buffer_writebits(b, 0, 7, math.round(value.opacity / 0.01))

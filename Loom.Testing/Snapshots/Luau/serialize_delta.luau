@@ -8,7 +8,6 @@ const buffer_writebits = buffer.writebits
 const buffer_writei16 = buffer.writei16
 const buffer_writef32 = buffer.writef32
 const buffer_copy = buffer.copy
-const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
 const buffer_readu16 = buffer.readu16
 const buffer_readu32 = buffer.readu32
@@ -16,6 +15,7 @@ const buffer_readstring = buffer.readstring
 const buffer_readu8 = buffer.readu8
 const buffer_readi16 = buffer.readi16
 const buffer_readf32 = buffer.readf32
+const buffer_len = buffer.len
 const function PlayerState_serialize_binary(value: PlayerState): Loom.Serialized
   const position_value = value.position
   local position_sentinel = 0
@@ -378,7 +378,8 @@ const function PlayerState_diff_binary(baseline: PlayerState, value: PlayerState
 end
 const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: Loom.Serialized): Loom.Result<PlayerState, Loom.DeserializeError>
   const b = diff.buffer
-  if b == nil or buffer_len(b) < 2 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 2 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   local offset = 2
@@ -396,7 +397,7 @@ const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: L
   if name_changed then
     const name_2_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + name_2_length then
+    if b_len < offset + name_2_length then
       return { ok = false, error = { kind = "invalid_length", field = "name" } }
     end
     const name_2 = buffer_readstring(b, offset, name_2_length)
@@ -429,7 +430,7 @@ const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: L
     const position_2_sentinel = buffer_readbits(b, 5, 3)
     local position_2 = nil
     if position_2_sentinel == 0 then
-      if buffer_len(b) < offset + 6 then
+      if b_len < offset + 6 then
         return { ok = false, error = { kind = "truncated", field = "position" } }
       end
       const position_x = buffer_readi16(b, offset)
@@ -465,7 +466,7 @@ const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: L
       const last_event_3_tag = buffer_readbits(b, 10, 1)
       local last_event_3 = nil
       if last_event_3_tag == 0 then
-        if buffer_len(b) < offset + 4 then
+        if b_len < offset + 4 then
           return { ok = false, error = { kind = "truncated", field = "last_event" } }
         end
         const amount = buffer_readf32(b, offset)
@@ -487,7 +488,7 @@ const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: L
         const last_event_5_tag = buffer_readbits(b, 10, 1)
         local last_event_5 = nil
         if last_event_5_tag == 0 then
-          if buffer_len(b) < offset + 4 then
+          if b_len < offset + 4 then
             return { ok = false, error = { kind = "truncated", field = "last_event" } }
           end
           const amount_2 = buffer_readf32(b, offset)
@@ -535,7 +536,7 @@ const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: L
       const recent_element_tag = buffer_readbits(b, recent_2_bits + (i - 1), 1)
       local recent_element = nil
       if recent_element_tag == 0 then
-        if buffer_len(b) < offset + 4 then
+        if b_len < offset + 4 then
           return { ok = false, error = { kind = "truncated", field = "recent[]" } }
         end
         const amount_5 = buffer_readf32(b, offset)
@@ -561,7 +562,7 @@ const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: L
         const recent_element_2_tag = buffer_readbits(b, recent_bits + (i - 1) * 2 + 1, 1)
         local recent_element_2 = nil
         if recent_element_2_tag == 0 then
-          if buffer_len(b) < offset + 4 then
+          if b_len < offset + 4 then
             return { ok = false, error = { kind = "truncated", field = "recent[]" } }
           end
           const amount_5 = buffer_readf32(b, offset)
@@ -606,7 +607,7 @@ const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: L
   for i_2 = 1, scores_removed_count do
     const scores_key_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + scores_key_length then
+    if b_len < offset + scores_key_length then
       return { ok = false, error = { kind = "invalid_length", field = "scores[k]" } }
     end
     const scores_key = buffer_readstring(b, offset, scores_key_length)
@@ -619,7 +620,7 @@ const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: L
   for i_3 = 1, scores_added_count do
     const scores_key_2_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + scores_key_2_length then
+    if b_len < offset + scores_key_2_length then
       return { ok = false, error = { kind = "invalid_length", field = "scores[k]" } }
     end
     const scores_key_2 = buffer_readstring(b, offset, scores_key_2_length)
@@ -638,7 +639,7 @@ const function PlayerState_apply_diff_binary_read(baseline: PlayerState, diff: L
   for i_4 = 1, scores_changed_count do
     const scores_key_3_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + scores_key_3_length then
+    if b_len < offset + scores_key_3_length then
       return { ok = false, error = { kind = "invalid_length", field = "scores[k]" } }
     end
     const scores_key_3 = buffer_readstring(b, offset, scores_key_3_length)

@@ -2,9 +2,9 @@ const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
 const buffer_create = buffer.create
 const buffer_writef32 = buffer.writef32
 const buffer_writebits = buffer.writebits
-const buffer_len = buffer.len
 const buffer_readf32 = buffer.readf32
 const buffer_readbits = buffer.readbits
+const buffer_len = buffer.len
 const function Anchor_serialize_binary(value: Anchor): Loom.Serialized
   const b = buffer_create(44)
   buffer_writef32(b, 4, value.exact.X)

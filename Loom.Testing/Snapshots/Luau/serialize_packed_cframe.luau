@@ -3,10 +3,10 @@ const buffer_create = buffer.create
 const buffer_writebits = buffer.writebits
 const buffer_writef32 = buffer.writef32
 const buffer_writeu32 = buffer.writeu32
-const buffer_len = buffer.len
 const buffer_readbits = buffer.readbits
 const buffer_readf32 = buffer.readf32
 const buffer_readu32 = buffer.readu32
+const buffer_len = buffer.len
 const function Waypoint_serialize_binary(value: Waypoint): Loom.Serialized
   const frame_value = value.frame
   local frame_sentinel = 0
@@ -30,14 +30,15 @@ const function Waypoint_serialize_binary(value: Waypoint): Loom.Serialized
 end
 const function Waypoint_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Waypoint, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 1 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 1 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const frame_sentinel = buffer_readbits(b, 0, 1)
   local frame = nil
   local offset = 1
   if frame_sentinel == 0 then
-    if buffer_len(b) < offset + 16 then
+    if b_len < offset + 16 then
       return { ok = false, error = { kind = "truncated", field = "frame" } }
     end
     const frame_x = buffer_readf32(b, offset)

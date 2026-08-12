@@ -3,10 +3,10 @@ const buffer_create = buffer.create
 const buffer_writeu8 = buffer.writeu8
 const buffer_writebits = buffer.writebits
 const buffer_writei16 = buffer.writei16
-const buffer_len = buffer.len
 const buffer_readu8 = buffer.readu8
 const buffer_readbits = buffer.readbits
 const buffer_readi16 = buffer.readi16
+const buffer_len = buffer.len
 const function Entity_serialize_binary(value: Entity): Loom.Serialized
   const b = buffer_create(2 + (if value.target ~= nil then 2 else 0))
   buffer_writeu8(b, 1, value.id)
@@ -20,14 +20,15 @@ const function Entity_serialize_binary(value: Entity): Loom.Serialized
 end
 const function Entity_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Entity, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 2 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 2 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const target_present = buffer_readbits(b, 0, 1) == 1
   local target = nil
   local offset = 2
   if target_present then
-    if buffer_len(b) < offset + 2 then
+    if b_len < offset + 2 then
       return { ok = false, error = { kind = "truncated", field = "target" } }
     end
     const target_2 = buffer_readi16(b, offset)

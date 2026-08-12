@@ -1,8 +1,8 @@
 const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
 const buffer_create = buffer.create
 const buffer_writeu8 = buffer.writeu8
-const buffer_len = buffer.len
 const buffer_readu8 = buffer.readu8
+const buffer_len = buffer.len
 const buffer_writebits = buffer.writebits
 const buffer_writeu32 = buffer.writeu32
 const buffer_writestring = buffer.writestring
@@ -148,7 +148,8 @@ const function Compositions_serialize_binary(value: Compositions): Loom.Serializ
 end
 const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Compositions, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 9 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 9 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const maybe_map_present = buffer_readbits(b, 0, 1) == 1
@@ -161,7 +162,7 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
     for i = 1, maybe_map_2_count do
       const maybe_map_key_length = buffer_readu32(b, offset)
       offset += 4
-      if buffer_len(b) < offset + maybe_map_key_length then
+      if b_len < offset + maybe_map_key_length then
         return { ok = false, error = { kind = "invalid_length", field = "maybe_map[k]" } }
       end
       const maybe_map_key = buffer_readstring(b, offset, maybe_map_key_length)
@@ -182,7 +183,7 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
     for i_2 = 1, map_list_element_count do
       const map_list_element_key_length = buffer_readu32(b, offset)
       offset += 4
-      if buffer_len(b) < offset + map_list_element_key_length then
+      if b_len < offset + map_list_element_key_length then
         return { ok = false, error = { kind = "invalid_length", field = "map_list[][k]" } }
       end
       const map_list_element_key = buffer_readstring(b, offset, map_list_element_key_length)
@@ -201,7 +202,7 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
   for i = 1, sparse_count do
     const sparse_key_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + sparse_key_length then
+    if b_len < offset + sparse_key_length then
       return { ok = false, error = { kind = "invalid_length", field = "sparse[k]" } }
     end
     const sparse_key = buffer_readstring(b, offset, sparse_key_length)
@@ -211,7 +212,7 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
     if sparse_value_present then
       const sparse_value_2_length = buffer_readu32(b, offset)
       offset += 4
-      if buffer_len(b) < offset + sparse_value_2_length then
+      if b_len < offset + sparse_value_2_length then
         return { ok = false, error = { kind = "invalid_length", field = "sparse[v]" } }
       end
       const sparse_value_2 = buffer_readstring(b, offset, sparse_value_2_length)
@@ -223,7 +224,7 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
   const maybe_leaf_present = buffer_readbits(b, 1, 1) == 1
   local maybe_leaf = nil
   if maybe_leaf_present then
-    if buffer_len(b) < offset + 1 then
+    if b_len < offset + 1 then
       return { ok = false, error = { kind = "truncated", field = "maybe_leaf" } }
     end
     const n = buffer_readu8(b, offset)
@@ -239,7 +240,7 @@ const function Compositions_deserialize_binary(serialized: Loom.Serialized): Loo
     for i = 1, maybe_names_2_count do
       const maybe_names_element_length = buffer_readu32(b, offset)
       offset += 4
-      if buffer_len(b) < offset + maybe_names_element_length then
+      if b_len < offset + maybe_names_element_length then
         return { ok = false, error = { kind = "invalid_length", field = "maybe_names[]" } }
       end
       const maybe_names_element = buffer_readstring(b, offset, maybe_names_element_length)

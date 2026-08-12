@@ -5,12 +5,12 @@ const buffer_writestring = buffer.writestring
 const buffer_writebits = buffer.writebits
 const buffer_writef32 = buffer.writef32
 const buffer_writeu8 = buffer.writeu8
-const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
 const buffer_readbits = buffer.readbits
 const buffer_readf32 = buffer.readf32
 const buffer_readu8 = buffer.readu8
+const buffer_len = buffer.len
 const function Registry_serialize_binary(value: Registry): Loom.Serialized
   local size = 0
   size += 4
@@ -85,7 +85,8 @@ const function Registry_serialize_binary(value: Registry): Loom.Serialized
 end
 const function Registry_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Registry, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 12 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 12 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const flags_count = buffer_readu32(b, 0)
@@ -96,7 +97,7 @@ const function Registry_deserialize_binary(serialized: Loom.Serialized): Loom.Re
   for i = 1, flags_count do
     const flags_key_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + flags_key_length then
+    if b_len < offset + flags_key_length then
       return { ok = false, error = { kind = "invalid_length", field = "flags[k]" } }
     end
     const flags_key = buffer_readstring(b, offset, flags_key_length)
@@ -113,7 +114,7 @@ const function Registry_deserialize_binary(serialized: Loom.Serialized): Loom.Re
     offset += 1
     const label_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + label_length then
+    if b_len < offset + label_length then
       return { ok = false, error = { kind = "invalid_length", field = "entries[v].label" } }
     end
     const label = buffer_readstring(b, offset, label_length)
@@ -126,14 +127,14 @@ const function Registry_deserialize_binary(serialized: Loom.Serialized): Loom.Re
   for i = 1, lists_count do
     const lists_key_length = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + lists_key_length then
+    if b_len < offset + lists_key_length then
       return { ok = false, error = { kind = "invalid_length", field = "lists[k]" } }
     end
     const lists_key = buffer_readstring(b, offset, lists_key_length)
     offset += lists_key_length
     const lists_value_count = buffer_readu32(b, offset)
     offset += 4
-    if buffer_len(b) < offset + lists_value_count * 4 then
+    if b_len < offset + lists_value_count * 4 then
       return { ok = false, error = { kind = "invalid_length", field = "lists[v]" } }
     end
     const lists_value = {}

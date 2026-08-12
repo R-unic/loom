@@ -3,10 +3,10 @@ const buffer_create = buffer.create
 const buffer_writeu32 = buffer.writeu32
 const buffer_writebits = buffer.writebits
 const buffer_writestring = buffer.writestring
-const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readbits = buffer.readbits
 const buffer_readstring = buffer.readstring
+const buffer_len = buffer.len
 const function Canvas_serialize_binary(value: Canvas): Loom.Serialized
   local size = 0
   size += 4
@@ -67,7 +67,8 @@ const function Canvas_serialize_binary(value: Canvas): Loom.Serialized
 end
 const function Canvas_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Canvas, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 8 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 8 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const masks_count = buffer_readu32(b, 0)
@@ -97,7 +98,7 @@ const function Canvas_deserialize_binary(serialized: Loom.Serialized): Loom.Resu
     elseif shapes_element_tag == 1 then
       const label_length = buffer_readu32(b, offset)
       offset += 4
-      if buffer_len(b) < offset + label_length then
+      if b_len < offset + label_length then
         return { ok = false, error = { kind = "invalid_length", field = "shapes[].label" } }
       end
       const label = buffer_readstring(b, offset, label_length)

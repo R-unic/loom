@@ -24,13 +24,29 @@ internal sealed partial class SerializationEmitter
     public Function EmitDeltaReadHelper()
     {
         _locals.Clear();
+        _readsBufferLength = false;
         var diffFields = DiffableFields();
         var controlBytes = BitWidth.ToByteCount(diffFields.Sum(f => f.DiffHeaderBits));
 
-        var body = new List<LuauStatement>
+        var reads = new List<LuauStatement>();
+        var cursor = new Cursor(controlBytes);
+        cursor.GoDynamic(reads);
+
+        var initializers = new List<TableInitializer>();
+        foreach (var field in schema.Fields)
         {
-            new ConstVariable(BufferLocal, null, new PropertyAccess(new Identifier(DiffParameter), ["buffer"])), EmitDeltaTruncationGuard(controlBytes)
-        };
+            if (field is ConstantField constant)
+            {
+                initializers.Add(new PropertyTableInitializer(LeafName(field.Path), ToLiteral(constant.Value)));
+                continue;
+            }
+
+            var baselineValue = Access(new Identifier(BaselineParameter), field.Path);
+            initializers.Add(new PropertyTableInitializer(LeafName(field.Path), EmitFieldDiffRead(field, baselineValue, cursor, reads)));
+        }
+
+        var body = new List<LuauStatement> { new ConstVariable(BufferLocal, null, new PropertyAccess(new Identifier(DiffParameter), ["buffer"])) };
+        body.AddRange(EmitTruncationGuard(controlBytes));
 
         if (schema.HasBlobs)
         {
@@ -47,22 +63,7 @@ internal sealed partial class SerializationEmitter
             body.Add(new LocalVariable(BlobIndexLocal, null, _one));
         }
 
-        var cursor = new Cursor(controlBytes);
-        cursor.GoDynamic(body);
-
-        var initializers = new List<TableInitializer>();
-        foreach (var field in schema.Fields)
-        {
-            if (field is ConstantField constant)
-            {
-                initializers.Add(new PropertyTableInitializer(LeafName(field.Path), ToLiteral(constant.Value)));
-                continue;
-            }
-
-            var baselineValue = Access(new Identifier(BaselineParameter), field.Path);
-            initializers.Add(new PropertyTableInitializer(LeafName(field.Path), EmitFieldDiffRead(field, baselineValue, cursor, body)));
-        }
-
+        body.AddRange(reads);
         body.Add(
             new Return(new Table([new PropertyTableInitializer("ok", new BooleanLiteral(true)), new PropertyTableInitializer("value", new Table(initializers))]))
         );
@@ -131,18 +132,6 @@ internal sealed partial class SerializationEmitter
         LuauFactory.QualifyRuntimeType(
             new TypeName("Result", [new TypeName(schema.Interface.Name), LuauFactory.QualifyRuntimeType(new TypeName("DeserializeError"))])
         );
-
-    private IfStatement EmitDeltaTruncationGuard(int controlBytes)
-    {
-        var missing = new BinaryOperator(new Identifier(BufferLocal), "==", new NilLiteral());
-        var tooShort = new BinaryOperator(BufferCall("len", [new Identifier(BufferLocal)]), "<", new NumberLiteral(controlBytes));
-        return new IfStatement(
-            new BinaryOperator(missing, "or", tooShort),
-            new Chunk([new Return(BuildErrorTable("truncated", null, 0))]),
-            [],
-            null
-        );
-    }
 
     /// <summary>Reads one field's diff, mirroring <see cref="EmitFieldDiffWrite" /> case for case.</summary>
     private LuauExpression EmitFieldDiffRead(SerializationField field, LuauExpression baselineValue, Cursor cursor, List<LuauStatement> statements) =>

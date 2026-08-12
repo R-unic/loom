@@ -2,9 +2,9 @@ const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
 const buffer_create = buffer.create
 const buffer_writeu32 = buffer.writeu32
 const buffer_writestring = buffer.writestring
-const buffer_len = buffer.len
 const buffer_readu32 = buffer.readu32
 const buffer_readstring = buffer.readstring
+const buffer_len = buffer.len
 const function Grid_serialize_binary(value: Grid): Loom.Serialized
   local size = 0
   size += 4
@@ -39,7 +39,8 @@ const function Grid_serialize_binary(value: Grid): Loom.Serialized
 end
 const function Grid_deserialize_binary(serialized: Loom.Serialized): Loom.Result<Grid, Loom.DeserializeError>
   const b = serialized.buffer
-  if b == nil or buffer_len(b) < 4 then
+  const b_len = if b ~= nil then buffer_len(b) else 0
+  if b == nil or b_len < 4 then
     return { ok = false, error = { kind = "truncated", offset = 0 } }
   end
   const rows_count = buffer_readu32(b, 0)
@@ -52,7 +53,7 @@ const function Grid_deserialize_binary(serialized: Loom.Serialized): Loom.Result
     for i_2 = 1, rows_element_count do
       const rows_element_element_length = buffer_readu32(b, offset)
       offset += 4
-      if buffer_len(b) < offset + rows_element_element_length then
+      if b_len < offset + rows_element_element_length then
         return { ok = false, error = { kind = "invalid_length", field = "rows[][]" } }
       end
       const rows_element_element = buffer_readstring(b, offset, rows_element_element_length)

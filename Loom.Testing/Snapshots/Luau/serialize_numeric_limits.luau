@@ -8,7 +8,6 @@ const buffer_writei32 = buffer.writei32
 const buffer_writeu32 = buffer.writeu32
 const buffer_writef32 = buffer.writef32
 const buffer_writef64 = buffer.writef64
-const buffer_len = buffer.len
 const buffer_readi8 = buffer.readi8
 const buffer_readu8 = buffer.readu8
 const buffer_readi16 = buffer.readi16
@@ -17,6 +16,7 @@ const buffer_readi32 = buffer.readi32
 const buffer_readu32 = buffer.readu32
 const buffer_readf32 = buffer.readf32
 const buffer_readf64 = buffer.readf64
+const buffer_len = buffer.len
 const function Limits_serialize_binary(value: Limits): Loom.Serialized
   const b = buffer_create(26)
   buffer_writei8(b, 0, value.i8)
