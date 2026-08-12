@@ -170,7 +170,7 @@ public sealed partial class TypeChecker
         _semanticModel.TypeSolver.AddConstraint(minimumType, Types.PrimitiveType.Number, rangeLiteral.Minimum);
         _semanticModel.TypeSolver.AddConstraint(maximumType, Types.PrimitiveType.Number, rangeLiteral.Maximum);
 
-        return BindType(rangeLiteral, Intrinsics.Range);
+        return BindType(rangeLiteral, IntrinsicTypes.Range);
     }
 
     public override Type VisitArrayLiteral(ArrayLiteral arrayLiteral)

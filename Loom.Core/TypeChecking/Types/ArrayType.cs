@@ -71,7 +71,7 @@ public sealed class ArrayType(Type elementType, bool isMutable)
         if (elementType is ArrayType nested)
             properties.Add(new ObjectProperty(false, "flatten", new FunctionType([], [], new ArrayType(nested.ElementType, false))));
 
-        if (Intrinsics.SetDefinition is { } setDefinition)
+        if (IntrinsicTypes.SetDefinition is { } setDefinition)
             properties.Add(new ObjectProperty(false, "to_set", new FunctionType([], [], setDefinition.Construct([elementType]))));
 
         if (!isMutable)

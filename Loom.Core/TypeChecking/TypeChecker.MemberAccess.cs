@@ -57,14 +57,14 @@ public sealed partial class TypeChecker
         {
             case Types.TypeParameter { Constraint: ObjectType or InterfaceType or InstantiatedType } parameter:
                 return new Types.IndexedType(parameter, indexType);
-            case Types.ArrayType when indexType.IsAssignableTo(Intrinsics.Range):
+            case Types.ArrayType when indexType.IsAssignableTo(IntrinsicTypes.Range):
                 CheckInvalidAccessAssignment(elementAccess, type, indexType);
                 return type;
             case Types.TupleType tupleType when indexType is Types.LiteralType { Value: long or int }:
                 return GetTupleElementAccessType(elementAccess, tupleType, indexType);
         }
 
-        var indexIsRangeOrNumber = indexType.IsAssignableTo(Intrinsics.Range) || indexType.IsAssignableTo(Types.PrimitiveType.Number);
+        var indexIsRangeOrNumber = indexType.IsAssignableTo(IntrinsicTypes.Range) || indexType.IsAssignableTo(Types.PrimitiveType.Number);
         if (!indexIsRangeOrNumber || !type.IsAssignableTo(Types.PrimitiveType.String))
             return IndexType(elementAccess, type, indexType, $"Cannot index value of type '{type}'.");
 
@@ -133,7 +133,7 @@ public sealed partial class TypeChecker
                 return GetTypeAtIndex(node, type, indexType);
 
             case Types.PrimitiveType { Kind: PrimitiveTypeKind.String }:
-                return GetTypeAtIndex(node, Intrinsics.StringMembers, indexType);
+                return GetTypeAtIndex(node, IntrinsicTypes.StringMembers, indexType);
         }
 
         _diagnostics.Error(node, InternalCodes.InvalidAccess, errorMessage);

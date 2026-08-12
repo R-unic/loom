@@ -64,7 +64,7 @@ public sealed partial class TypeChecker
         // target written as an instantiation ('ImmutRecord<string, bool>') only has members once expanded.
         var expressionType = TypeSimplifier.Expanded(_semanticModel.GetType(expression));
         if (expressionType is Types.PrimitiveType { Kind: PrimitiveTypeKind.String })
-            expressionType = Intrinsics.StringMembers;
+            expressionType = IntrinsicTypes.StringMembers;
 
         var indexType = assignmentOperator.Left switch
         {

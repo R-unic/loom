@@ -166,7 +166,7 @@ public sealed partial class LuauGenerator
             return new ForStatement(names, collectionExpression, body);
         }
 
-        if (!collectionType.Equals(Intrinsics.Range))
+        if (!collectionType.Equals(IntrinsicTypes.Range))
             return collectionType is ObjectType or InterfaceType
                 ? new ForStatement(names.Count == 1 ? ["_", names[0]] : names, collectionExpression, body)
                 : new ForStatement(names, collectionExpression, body);

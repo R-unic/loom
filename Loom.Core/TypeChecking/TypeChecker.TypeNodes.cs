@@ -171,7 +171,7 @@ public sealed partial class TypeChecker
         if (symbol != null)
         {
             if (IsTupleMarkerSymbol(symbol))
-                return BindType(typeName, Intrinsics.TupleMarker);
+                return BindType(typeName, IntrinsicTypes.TupleMarker);
 
             var declaredType = ResolveHoistedType(symbol);
             if (symbol is { Kind: SymbolKind.EnumType } && declaredType is ObjectType objectType)
