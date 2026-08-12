@@ -222,15 +222,22 @@ internal sealed partial class SerializationEmitter
     /// </summary>
     private Identifier ResolveUnionTag(UnionField unionField, LuauExpression value, string preferredName, List<LuauStatement> body)
     {
-        var valueLocal = ReserveLocal(preferredName + "_value");
+        // Only the conditions below read it, and a value already held in a local is one of them - an
+        // element the enclosing loop bound, say. Binding it again would name the same thing twice.
+        var subject = value;
+        if (subject is not Identifier)
+        {
+            subject = new Identifier(ReserveLocal(preferredName + "_value"));
+            body.Add(new ConstVariable(((Identifier)subject).Name, null, value));
+        }
+
         var tagLocal = ReserveLocal(preferredName);
-        body.Add(new ConstVariable(valueLocal, null, value));
         body.Add(new LocalVariable(tagLocal, null, _zero));
 
         var branches = new List<ElseIfBranch>();
         for (var index = 1; index < unionField.Variants.Count; index++)
         {
-            var condition = VariantCondition(unionField, new Identifier(valueLocal), index);
+            var condition = VariantCondition(unionField, subject, index);
             var assign = new Chunk([new ExpressionStatement(new BinaryOperator(new Identifier(tagLocal), "=", new NumberLiteral(index)))]);
             if (index == 1)
                 body.Add(new IfStatement(condition, assign, branches, null));
@@ -444,11 +451,25 @@ internal sealed partial class SerializationEmitter
         EmitValueWrite(array, currentValue, cursor, resend);
 
         var unchanged = new List<LuauStatement>();
+
+        // Reserved ahead of the loop's own names: it is declared outside the loop and outlives it.
         var bitBase = ReserveElementBits(array.Element.DiffHeaderBits, leaf, Length(currentValue), cursor, unchanged);
+
+        using var elementScope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
-        var elementBaseline = new ElementAccess(baselineValue, new Identifier(loop));
-        var elementCurrent = new ElementAccess(currentValue, new Identifier(loop));
-        var elementBody = new List<LuauStatement>();
+
+        // Bound once per entry, as the ordinary array write already binds its element. A diff reaches for
+        // both sides several times over - a tag, a comparison, then whichever components changed - and
+        // indexing for each of them is a lookup per read on a path that runs per element.
+        var elementLeaf = LeafName(array.Element.Path);
+        var elementBaseline = new Identifier(ReserveLocal(elementLeaf + "_baseline"));
+        var elementCurrent = new Identifier(ReserveLocal(elementLeaf));
+        var elementBody = new List<LuauStatement>
+        {
+            new ConstVariable(elementBaseline.Name, null, new ElementAccess(baselineValue, new Identifier(loop))),
+            new ConstVariable(elementCurrent.Name, null, new ElementAccess(currentValue, new Identifier(loop)))
+        };
+
         var restore = EnterElement(cursor, bitBase, array.Element.DiffHeaderBits, loop);
         EmitFieldDiffWrite(array.Element, elementBaseline, elementCurrent, cursor, elementBody);
         restore();
@@ -476,43 +497,49 @@ internal sealed partial class SerializationEmitter
         body.Add(new ConstVariable(added, null, Table.Empty));
         body.Add(new ConstVariable(changed, null, Table.Empty));
 
-        var currentKey = ReserveLocal(leaf + "_current_key");
-        var currentEntry = ReserveLocal(leaf + "_current_entry");
-        var baselineEntry = ReserveLocal(leaf + "_baseline_entry");
-        var classifyCurrent = new List<LuauStatement>
+        using (LoopScope())
         {
-            new ConstVariable(baselineEntry, null, new ElementAccess(baselineValue, new Identifier(currentKey))),
-            new IfStatement(
-                new BinaryOperator(new Identifier(baselineEntry), "==", new NilLiteral()),
-                new Chunk([new ExpressionStatement(LuauFactory.TableCall("insert", [new Identifier(added), new Identifier(currentKey)]))]),
-                [],
-                new Chunk(
-                    [
-                        new IfStatement(
-                            new UnaryOperator("not ", DeepEqual(new Identifier(baselineEntry), new Identifier(currentEntry))),
-                            new Chunk([new ExpressionStatement(LuauFactory.TableCall("insert", [new Identifier(changed), new Identifier(currentKey)]))]),
-                            [],
-                            null
-                        )
-                    ]
+            var currentKey = ReserveLocal(leaf + "_current_key");
+            var currentEntry = ReserveLocal(leaf + "_current_entry");
+            var baselineEntry = ReserveLocal(leaf + "_baseline_entry");
+            var classifyCurrent = new List<LuauStatement>
+            {
+                new ConstVariable(baselineEntry, null, new ElementAccess(baselineValue, new Identifier(currentKey))),
+                new IfStatement(
+                    new BinaryOperator(new Identifier(baselineEntry), "==", new NilLiteral()),
+                    new Chunk([new ExpressionStatement(LuauFactory.TableCall("insert", [new Identifier(added), new Identifier(currentKey)]))]),
+                    [],
+                    new Chunk(
+                        [
+                            new IfStatement(
+                                new UnaryOperator("not ", DeepEqual(new Identifier(baselineEntry), new Identifier(currentEntry))),
+                                new Chunk([new ExpressionStatement(LuauFactory.TableCall("insert", [new Identifier(changed), new Identifier(currentKey)]))]),
+                                [],
+                                null
+                            )
+                        ]
+                    )
                 )
-            )
-        };
+            };
 
-        body.Add(new ForStatement([currentKey, currentEntry], currentValue, new Chunk(classifyCurrent)));
+            body.Add(new ForStatement([currentKey, currentEntry], currentValue, new Chunk(classifyCurrent)));
+        }
 
-        var baselineKey = ReserveLocal(leaf + "_baseline_key");
-        var classifyBaseline = new List<LuauStatement>
+        using (LoopScope())
         {
-            new IfStatement(
-                new BinaryOperator(new ElementAccess(currentValue, new Identifier(baselineKey)), "==", new NilLiteral()),
-                new Chunk([new ExpressionStatement(LuauFactory.TableCall("insert", [new Identifier(removed), new Identifier(baselineKey)]))]),
-                [],
-                null
-            )
-        };
+            var baselineKey = ReserveLocal(leaf + "_baseline_key");
+            var classifyBaseline = new List<LuauStatement>
+            {
+                new IfStatement(
+                    new BinaryOperator(new ElementAccess(currentValue, new Identifier(baselineKey)), "==", new NilLiteral()),
+                    new Chunk([new ExpressionStatement(LuauFactory.TableCall("insert", [new Identifier(removed), new Identifier(baselineKey)]))]),
+                    [],
+                    null
+                )
+            };
 
-        body.Add(new ForStatement([baselineKey], baselineValue, new Chunk(classifyBaseline)));
+            body.Add(new ForStatement([baselineKey], baselineValue, new Chunk(classifyBaseline)));
+        }
 
         WriteMapKeyRun(
             map,
@@ -560,30 +587,38 @@ internal sealed partial class SerializationEmitter
         var count = Length(new Identifier(keysLocal));
         WriteNumber(cursor, map.LengthType, count, body);
 
+        // Claimed before the loop's own names, since it is declared outside the loop and outlives it.
+        var bitBase = includeValue && recurseValue
+            ? ReserveElementBits(map.DiffEntryBits, leaf + "_entry", count, cursor, body)
+            : null;
+
+        using var entryScope = LoopScope();
         var loop = ReserveLocal(LoopLocal);
-        var boundKey = ReserveLocal(leaf + "_key_" + loop);
+        var boundKey = ReserveLocal(leaf + "_key");
         var loopBody = new List<LuauStatement> { new ConstVariable(boundKey, null, new ElementAccess(new Identifier(keysLocal), new Identifier(loop))) };
         EmitValueWrite(map.Key, new Identifier(boundKey), cursor, loopBody);
 
+        // The entry itself is bound rather than looked up per read. A key run walks a list of keys, so
+        // unlike the ordinary map write - which iterates pairs and is handed the value - nothing here has
+        // the entry in hand, and every field of it would otherwise re-index the map by a string key.
         if (includeValue && !recurseValue)
         {
-            EmitValueWrite(map.Value, new ElementAccess(currentValue!, new Identifier(boundKey)), cursor, loopBody);
+            var addedEntry = new Identifier(ReserveLocal(leaf + "_entry"));
+            loopBody.Add(new ConstVariable(addedEntry.Name, null, new ElementAccess(currentValue!, new Identifier(boundKey))));
+            EmitValueWrite(map.Value, addedEntry, cursor, loopBody);
             body.Add(new NumericForStatement(loop, _one, count, null, new Chunk(loopBody)));
             return;
         }
 
         if (includeValue)
         {
-            var bitBase = ReserveElementBits(map.DiffEntryBits, leaf + "_entry", count, cursor, body);
-            var restore = EnterElement(cursor, bitBase, map.DiffEntryBits, loop);
-            EmitFieldDiffWrite(
-                map.Value,
-                new ElementAccess(baselineValue!, new Identifier(boundKey)),
-                new ElementAccess(currentValue!, new Identifier(boundKey)),
-                cursor,
-                loopBody
-            );
+            var baselineEntry = new Identifier(ReserveLocal(leaf + "_baseline_entry"));
+            var currentEntry = new Identifier(ReserveLocal(leaf + "_entry"));
+            loopBody.Add(new ConstVariable(baselineEntry.Name, null, new ElementAccess(baselineValue!, new Identifier(boundKey))));
+            loopBody.Add(new ConstVariable(currentEntry.Name, null, new ElementAccess(currentValue!, new Identifier(boundKey))));
 
+            var restore = EnterElement(cursor, bitBase, map.DiffEntryBits, loop);
+            EmitFieldDiffWrite(map.Value, baselineEntry, currentEntry, cursor, loopBody);
             restore();
         }
 

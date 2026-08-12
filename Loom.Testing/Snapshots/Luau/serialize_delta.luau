@@ -252,14 +252,14 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
     const recent_bits_2 = offset * 8
     offset += (#value.recent * 2 + 7) // 8
     for i = 1, #value.recent do
-      const recent_element_tag_b_value = baseline.recent[i]
+      const recent_element_baseline = baseline.recent[i]
+      const recent_element = value.recent[i]
       local recent_element_tag_b = 0
-      if recent_element_tag_b_value.kind == "Miss" then
+      if recent_element_baseline.kind == "Miss" then
         recent_element_tag_b = 1
       end
-      const recent_element_tag_c_value = value.recent[i]
       local recent_element_tag_c = 0
-      if recent_element_tag_c_value.kind == "Miss" then
+      if recent_element.kind == "Miss" then
         recent_element_tag_c = 1
       end
       const recent_element_tag_changed = recent_element_tag_b ~= recent_element_tag_c
@@ -267,15 +267,15 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
       if recent_element_tag_changed then
         buffer_writebits(b, recent_bits_2 + (i - 1) * 2 + 1, 1, recent_element_tag_c)
         if recent_element_tag_c == 0 then
-          buffer_writef32(b, offset, value.recent[i].amount)
+          buffer_writef32(b, offset, recent_element.amount)
           offset += 4
         end
       else
         if recent_element_tag_c == 0 then
-          const amount_changed_2 = not Loom.deep_equal(baseline.recent[i].amount, value.recent[i].amount)
+          const amount_changed_2 = not Loom.deep_equal(recent_element_baseline.amount, recent_element.amount)
           buffer_writebits(b, recent_bits_2 + (i - 1) * 2 + 1, 1, if amount_changed_2 then 1 else 0)
           if amount_changed_2 then
-            buffer_writef32(b, offset, value.recent[i].amount)
+            buffer_writef32(b, offset, recent_element.amount)
             offset += 4
           end
         end
@@ -302,49 +302,52 @@ const function PlayerState_diff_binary_write(baseline: PlayerState, value: Playe
   end
   buffer_writeu32(b, offset, #scores_removed)
   offset += 4
-  for i_2 = 1, #scores_removed do
-    const scores_key_i_2 = scores_removed[i_2]
-    const scores_key_length = #scores_key_i_2
+  for i = 1, #scores_removed do
+    const scores_key = scores_removed[i]
+    const scores_key_length = #scores_key
     buffer_writeu32(b, offset, scores_key_length)
     offset += 4
-    buffer_writestring(b, offset, scores_key_i_2)
+    buffer_writestring(b, offset, scores_key)
     offset += scores_key_length
   end
   buffer_writeu32(b, offset, #scores_added)
   offset += 4
-  for i_3 = 1, #scores_added do
-    const scores_key_i_3 = scores_added[i_3]
-    const scores_key_length_2 = #scores_key_i_3
-    buffer_writeu32(b, offset, scores_key_length_2)
+  for i = 1, #scores_added do
+    const scores_key = scores_added[i]
+    const scores_key_length = #scores_key
+    buffer_writeu32(b, offset, scores_key_length)
     offset += 4
-    buffer_writestring(b, offset, scores_key_i_3)
-    offset += scores_key_length_2
-    buffer_writeu8(b, offset, value.scores[scores_key_i_3].primary)
+    buffer_writestring(b, offset, scores_key)
+    offset += scores_key_length
+    const scores_entry = value.scores[scores_key]
+    buffer_writeu8(b, offset, scores_entry.primary)
     offset += 1
-    buffer_writeu8(b, offset, value.scores[scores_key_i_3].secondary)
+    buffer_writeu8(b, offset, scores_entry.secondary)
     offset += 1
   end
   buffer_writeu32(b, offset, #scores_changed)
   offset += 4
   const scores_entry_bits = offset * 8
   offset += (#scores_changed * 2 + 7) // 8
-  for i_4 = 1, #scores_changed do
-    const scores_key_i_4 = scores_changed[i_4]
-    const scores_key_length_3 = #scores_key_i_4
-    buffer_writeu32(b, offset, scores_key_length_3)
+  for i = 1, #scores_changed do
+    const scores_key = scores_changed[i]
+    const scores_key_length = #scores_key
+    buffer_writeu32(b, offset, scores_key_length)
     offset += 4
-    buffer_writestring(b, offset, scores_key_i_4)
-    offset += scores_key_length_3
-    const primary_changed_2 = not Loom.deep_equal(baseline.scores[scores_key_i_4].primary, value.scores[scores_key_i_4].primary)
-    buffer_writebits(b, scores_entry_bits + (i_4 - 1) * 2, 1, if primary_changed_2 then 1 else 0)
+    buffer_writestring(b, offset, scores_key)
+    offset += scores_key_length
+    const scores_baseline_entry = baseline.scores[scores_key]
+    const scores_entry = value.scores[scores_key]
+    const primary_changed_2 = not Loom.deep_equal(scores_baseline_entry.primary, scores_entry.primary)
+    buffer_writebits(b, scores_entry_bits + (i - 1) * 2, 1, if primary_changed_2 then 1 else 0)
     if primary_changed_2 then
-      buffer_writeu8(b, offset, value.scores[scores_key_i_4].primary)
+      buffer_writeu8(b, offset, scores_entry.primary)
       offset += 1
     end
-    const secondary_changed_2 = not Loom.deep_equal(baseline.scores[scores_key_i_4].secondary, value.scores[scores_key_i_4].secondary)
-    buffer_writebits(b, scores_entry_bits + (i_4 - 1) * 2 + 1, 1, if secondary_changed_2 then 1 else 0)
+    const secondary_changed_2 = not Loom.deep_equal(scores_baseline_entry.secondary, scores_entry.secondary)
+    buffer_writebits(b, scores_entry_bits + (i - 1) * 2 + 1, 1, if secondary_changed_2 then 1 else 0)
     if secondary_changed_2 then
-      buffer_writeu8(b, offset, value.scores[scores_key_i_4].secondary)
+      buffer_writeu8(b, offset, scores_entry.secondary)
       offset += 1
     end
   end
