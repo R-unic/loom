@@ -1162,13 +1162,11 @@ public class MacroExpanderTest
         var luauTree = Utility.GetLuauAST(source, true);
         Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
 
-        var prefixVariable = Assert.IsType<ConstVariable>(luauTree.Statements[^2]);
-        Assert.IsType<StringLiteral>(prefixVariable.Initializer);
-
+        // A literal prefix is read where it stands and measured here, so nothing is hoisted for it.
         var variable = Assert.IsType<ConstVariable>(luauTree.Statements.Last());
         var binaryOperator = Assert.IsType<BinaryOperator>(variable.Initializer);
         Assert.Equal("==", binaryOperator.Operator);
-        Assert.Equal(prefixVariable.Name, Assert.IsType<Identifier>(binaryOperator.Right).Name);
+        Assert.Equal("ab", Assert.IsType<StringLiteral>(binaryOperator.Right).Value);
 
         var call = Assert.IsType<Call>(binaryOperator.Left);
         var callee = Assert.IsType<PropertyAccess>(call.Callee);
@@ -1177,9 +1175,28 @@ public class MacroExpanderTest
         Assert.Equal(3, call.Arguments.Count);
         Assert.Equal("s", Assert.IsType<Identifier>(call.Arguments[0]).Name);
         Assert.Equal(1, Assert.IsType<NumberLiteral>(call.Arguments[1]).Value);
+        Assert.Equal(2, Assert.IsType<NumberLiteral>(call.Arguments[2]).Value);
+    }
 
+    [Fact]
+    public void Generates_String_StartsWith_NamingAPrefixThatDoesSomething()
+    {
+        const string source = "fn p(): string { return 'ab'; } let s = 'abc'; s.starts_with(p())";
+        var luauTree = Utility.GetLuauAST(source, true);
+        Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
+
+        // 'sub' reads the prefix for its length and the comparison reads it again, so a call is named once.
+        var prefixVariable = Assert.IsType<ConstVariable>(luauTree.Statements[^2]);
+        Assert.IsType<Call>(prefixVariable.Initializer);
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements.Last());
+        var binaryOperator = Assert.IsType<BinaryOperator>(variable.Initializer);
+        Assert.Equal(prefixVariable.Name, Assert.IsType<Identifier>(binaryOperator.Right).Name);
+
+        var call = Assert.IsType<Call>(binaryOperator.Left);
         var lengthOperator = Assert.IsType<UnaryOperator>(call.Arguments[2]);
         Assert.Equal("#", lengthOperator.Operator);
+        Assert.Equal(prefixVariable.Name, Assert.IsType<Identifier>(lengthOperator.Operand).Name);
     }
 
     [Fact]
@@ -1189,14 +1206,11 @@ public class MacroExpanderTest
         var luauTree = Utility.GetLuauAST(source, true);
         Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
 
-        // the receiver is already a plain identifier, so only the literal suffix argument gets hoisted
-        var suffixVariable = Assert.IsType<ConstVariable>(luauTree.Statements[^2]);
-        Assert.IsType<StringLiteral>(suffixVariable.Initializer);
-
+        // Both operands are already readable where they stand, so neither is hoisted.
         var variable = Assert.IsType<ConstVariable>(luauTree.Statements.Last());
         var binaryOperator = Assert.IsType<BinaryOperator>(variable.Initializer);
         Assert.Equal("==", binaryOperator.Operator);
-        Assert.Equal(suffixVariable.Name, Assert.IsType<Identifier>(binaryOperator.Right).Name);
+        Assert.Equal("bc", Assert.IsType<StringLiteral>(binaryOperator.Right).Value);
 
         var call = Assert.IsType<Call>(binaryOperator.Left);
         var callee = Assert.IsType<PropertyAccess>(call.Callee);
@@ -1204,14 +1218,28 @@ public class MacroExpanderTest
         Assert.Equal("sub", Assert.Single(callee.Names));
         Assert.Equal("s", Assert.IsType<Identifier>(call.Arguments[0]).Name);
 
+        // A known suffix length folds '#s - 2 + 1' down to the one subtraction it amounts to.
         var start = Assert.IsType<BinaryOperator>(call.Arguments[1]);
-        Assert.Equal("+", start.Operator);
+        Assert.Equal("-", start.Operator);
         Assert.Equal(1, Assert.IsType<NumberLiteral>(start.Right).Value);
+        Assert.Equal("#", Assert.IsType<UnaryOperator>(start.Left).Operator);
+    }
 
-        var subtraction = Assert.IsType<BinaryOperator>(start.Left);
-        Assert.Equal("-", subtraction.Operator);
-        Assert.IsType<UnaryOperator>(subtraction.Left);
-        Assert.IsType<UnaryOperator>(subtraction.Right);
+    [Fact]
+    public void Generates_String_EndsWith_WithASingleCharacterSuffix()
+    {
+        const string source = "let s = 'abc'; s.ends_with('c')";
+        var luauTree = Utility.GetLuauAST(source, true);
+        Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements.Last());
+        var binaryOperator = Assert.IsType<BinaryOperator>(variable.Initializer);
+        var call = Assert.IsType<Call>(binaryOperator.Left);
+
+        // '#s - 1 + 1' is '#s', so no arithmetic survives at all.
+        var start = Assert.IsType<UnaryOperator>(call.Arguments[1]);
+        Assert.Equal("#", start.Operator);
+        Assert.Equal("s", Assert.IsType<Identifier>(start.Operand).Name);
     }
 
     [Theory]

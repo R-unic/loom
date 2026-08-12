@@ -77,13 +77,17 @@ internal sealed class RangeMacroProvider : IMacroProvider
     public bool TryElementAccess(MacroContext context, ElementAccess access, Type targetType, [MaybeNullWhen(false)] out LuauExpression expression)
     {
         var one = new NumberLiteral(1);
-        var length = context.State.PushToVariable("_length", new UnaryOperator("#", access.Target));
+
+        // The target is measured and then sliced, so a target that does something - 'text()[1..3]' -
+        // would do it once for the length and again for the slice.
+        var target = context.State.PushIfRepeated("_target", access.Target);
+        var length = context.State.PushToVariable("_length", new UnaryOperator("#", target));
         var (minimumValue, maximumValue) = GetRangeBounds(context, access.Index);
         var minimum = LuauFactory.MathClampCall(minimumValue, one, length);
         var maximum = LuauFactory.MathClampCall(maximumValue, one, length);
         expression = targetType.IsAssignableTo(PrimitiveType.String)
-            ? LuauFactory.StringCall("sub", [access.Target, minimum, maximum])
-            : LuauFactory.TableCall("move", [access.Target, minimum, maximum, one, Table.Empty]);
+            ? LuauFactory.StringCall("sub", [target, minimum, maximum])
+            : LuauFactory.TableCall("move", [target, minimum, maximum, one, Table.Empty]);
 
         return true;
     }

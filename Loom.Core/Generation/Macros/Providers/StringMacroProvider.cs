@@ -1,3 +1,4 @@
+using System.Text;
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
@@ -99,26 +100,15 @@ internal sealed class StringMacroProvider : IMacroProvider
             }
             case "starts_with":
             {
-                var prefix = context.State.PushToVariable("_prefix", call.Arguments.Single());
-                expression = new BinaryOperator(
-                    LuauFactory.StringCall("sub", [str, new NumberLiteral(1), new UnaryOperator("#", prefix)]),
-                    "==",
-                    prefix
-                );
-
+                var prefix = context.State.PushIfRepeated("_prefix", call.Arguments.Single());
+                expression = new BinaryOperator(LuauFactory.StringCall("sub", [str, new NumberLiteral(1), LengthOf(prefix)]), "==", prefix);
                 return true;
             }
             case "ends_with":
             {
-                var self = context.State.PushToVariable("_str", str);
-                var suffix = context.State.PushToVariable("_suffix", call.Arguments.Single());
-                var start = new BinaryOperator(
-                    new BinaryOperator(new UnaryOperator("#", self), "-", new UnaryOperator("#", suffix)),
-                    "+",
-                    new NumberLiteral(1)
-                );
-
-                expression = new BinaryOperator(LuauFactory.StringCall("sub", [self, start]), "==", suffix);
+                var self = context.State.PushIfRepeated("_str", str);
+                var suffix = context.State.PushIfRepeated("_suffix", call.Arguments.Single());
+                expression = new BinaryOperator(LuauFactory.StringCall("sub", [self, LastCharacters(self, LengthOf(suffix))]), "==", suffix);
                 return true;
             }
         }
@@ -126,4 +116,26 @@ internal sealed class StringMacroProvider : IMacroProvider
         expression = null;
         return false;
     }
+
+    /// <summary>
+    ///     Where <c>string.sub</c> has to start to read the last <paramref name="count" /> characters.
+    ///     Written out that is <c>#s - count + 1</c>, but a known count folds the two into one subtraction
+    ///     - and a one-character suffix into none at all.
+    /// </summary>
+    private static LuauExpression LastCharacters(LuauExpression self, LuauExpression count) =>
+        count is not NumberLiteral { Value: var length }
+            ? new BinaryOperator(new BinaryOperator(LengthOf(self), "-", count), "+", new NumberLiteral(1))
+            : length == 1
+                ? LengthOf(self)
+                : new BinaryOperator(LengthOf(self), "-", new NumberLiteral(length - 1));
+
+    /// <summary>
+    ///     The length of a literal is known here, so <c>s.starts_with("ab")</c> compares against 2 rather
+    ///     than measuring a constant at runtime. Luau measures a string in bytes, which is what the source
+    ///     was read as, so a literal outside ASCII counts the same either way.
+    /// </summary>
+    private static LuauExpression LengthOf(LuauExpression expression) =>
+        expression is StringLiteral literal
+            ? new NumberLiteral(Encoding.UTF8.GetByteCount(literal.Value))
+            : new UnaryOperator("#", expression);
 }
