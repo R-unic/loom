@@ -321,6 +321,38 @@ public class AsyncAwaitTest
         Assert.Contains(".GetAsync", luau, StringComparison.Ordinal);
     }
 
+    // the one part of Roblox's 'task' library the language does not already cover - 'delay' is what
+    // 'after' lowers to, 'spawn' is what calling an async fn does, and 'every' covers the rest
+    [Fact]
+    public void WaitIsAsyncAndLowersToTaskWait()
+    {
+        const string source = """
+            async fn pause(): number {
+                return await wait(1);
+            }
+            """;
+
+        var luau = Utility.GetLuauAST(source, true).Render();
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+        Assert.Contains("task.wait(1)", luau, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loom.future", luau, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WaitingWithoutAwaitingIsAFuture()
+    {
+        const string source = """
+            fn caller(): number -> wait(1);
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(source),
+            InternalCodes.TypeMismatch,
+            "Type 'Future' is not assignable to type 'number'."
+        );
+    }
+
     [Fact]
     public void TheFutureStaticsRouteToTheRuntime()
     {

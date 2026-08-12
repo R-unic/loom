@@ -129,6 +129,15 @@ declare fn deprecated(message: string?): void;
 ### Chooses how the CFrame property is encoded - compressed, or with full precision.
 [attribute_usage(AttributeTargets.Property)] declare fn cframe_type(ty: CFrameType): void;
 
+### Parks the calling thread for at least 'seconds', or until the next frame when given none.
+###
+### The only part of Roblox's 'task' library Loom does not already cover: 'delay' is what an 'after'
+### statement lowers to, 'spawn' is what calling an 'async fn' does, and the repeating case is
+### 'every'. Sleeping had nothing, so this is it.
+### @param seconds how long to wait for, defaulting to a single frame
+### @returns how long it actually waited, which is never less than 'seconds'
+declare async fn wait(seconds: number?): number;
+
 ### Raises 'message', ending the calling thread unless something catches it.
 ### @param message what to raise
 ### @param level how far up the call stack to blame, defaulting to the caller
