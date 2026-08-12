@@ -50,7 +50,7 @@ Every command takes the project directory as an optional argument, defaulting to
 
 ```ts
 interface User { name: string, age: number }
-let user = new User { name: "Ada", age: 30 };
+let user = new User { name: "Poppy", age: 31 };
 let { name, age } = user;
 ```
 
@@ -59,7 +59,7 @@ type User = {
   read name: string,
   read age: number,
 }
-const user = { name = "Ada", age = 30 }
+const user = { name = "Poppy", age = 31 }
 const name = user.name
 const age = user.age
 ```
@@ -370,8 +370,8 @@ Trailing parameters can declare a default value, used whenever the argument is o
 ```rs
 fn greet(name: string, greeting: string = "Hello") -> print(greeting + ", " + name + "!");
 
-greet("Ada");
-greet("Ada", "Hi");
+greet("Poppy");
+greet("Poppy", "Hi");
 ```
 
 ```luau
@@ -381,8 +381,8 @@ const function greet(name: string, greeting: string?)
 	end
 	return print(greeting .. ", " .. name .. "!")
 end
-greet("Ada")
-greet("Ada", "Hi")
+greet("Poppy")
+greet("Poppy", "Hi")
 ```
 ---
 ### Arrays
@@ -441,7 +441,7 @@ const second = array[2]
 
 ```rs
 interface User { name: string, age: number }
-let user = new User { name: "Ada", age: 30 };
+let user = new User { name: "Poppy", age: 31 };
 let { name, age } = user;
 ```
 
@@ -450,7 +450,7 @@ type User = {
   read name: string,
   read age: number,
 }
-const user = { name = "Ada", age = 30 }
+const user = { name = "Poppy", age = 31 }
 const name = user.name
 const age = user.age
 ```
@@ -2003,13 +2003,13 @@ interface PlayerState {
   name: string<u8>;
 }
 
-let state = new PlayerState { health: 100, name: "Ada" };
+let state = new PlayerState { health: 100, name: "Poppy" };
 let payload = serialize_binary(state);
 let restored = deserialize_binary::<PlayerState>(payload);
 if restored.ok
   print(restored.value.health);
 
-let diff = diff_binary(state, new PlayerState { health: 90, name: "Ada" });
+let diff = diff_binary(state, new PlayerState { health: 90, name: "Poppy" });
 let updated = apply_diff_binary(state, diff);
 ```
 
