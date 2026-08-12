@@ -11,11 +11,54 @@ public abstract class Node
     {
         Id = new NodeId(Interlocked.Increment(ref _nextId));
 
-        Children = children.OfType<Node>().OrderBy(n => n.Span.Position).ToArray();
-        Tokens = theseTokens.OfType<Token>().OrderBy(t => t.Span.Position).ToArray();
+        Children = InSourceOrder(children, static child => child.Span.Position);
+        Tokens = InSourceOrder(theseTokens, static token => token.Span.Position);
         Span = DeriveSpan();
         foreach (var child in Children)
             child.Parent = this;
+    }
+
+    /// <summary>
+    ///     <paramref name="items" />, nulls dropped, ordered by where each one starts.
+    /// </summary>
+    /// <remarks>
+    ///     A parser builds a node out of tokens it just read, so they arrive in source order already and the
+    ///     sort is a formality - but it was being paid for on every node, and <c>OrderBy</c> buffers the
+    ///     sequence and allocates a key array and an index map before it will admit a one-element list is
+    ///     sorted. Checking is linear and answers yes almost every time. When it answers no the work goes
+    ///     back to <c>OrderBy</c> rather than <c>Array.Sort</c>, which is unstable: two nodes can start at
+    ///     the same position - a missing token synthesized by error recovery has no width - and the order
+    ///     they were given in is what decides which one <see cref="DeriveSpan" /> reads.
+    /// </remarks>
+    private static T[] InSourceOrder<T>(IEnumerable<T?> items, Func<T, int> positionOf)
+        where T : class
+    {
+        var ordered = items is IReadOnlyList<T?> list ? WithoutNulls(list) : items.OfType<T>().ToArray();
+        for (var i = 1; i < ordered.Length; i++)
+            if (positionOf(ordered[i - 1]) > positionOf(ordered[i]))
+                return ordered.OrderBy(positionOf).ToArray();
+
+        return ordered;
+    }
+
+    private static T[] WithoutNulls<T>(IReadOnlyList<T?> items)
+        where T : class
+    {
+        var count = 0;
+        for (var i = 0; i < items.Count; i++)
+            if (items[i] != null)
+                count++;
+
+        if (count == 0)
+            return [];
+
+        var result = new T[count];
+        var next = 0;
+        for (var i = 0; i < items.Count; i++)
+            if (items[i] is { } item)
+                result[next++] = item;
+
+        return result;
     }
 
     public NodeId Id { get; }
