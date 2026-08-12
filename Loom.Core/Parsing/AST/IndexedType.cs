@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class IndexedType(Token leftBracket, Token rightBracket, TypeExpression targetType, TypeExpression indexType)
-    : TypeExpression([..targetType.Tokens, leftBracket, ..indexType.Tokens, rightBracket], [targetType, indexType])
+    : TypeExpression([leftBracket, rightBracket], [targetType, indexType])
 {
     public Token LeftBracket { get; } = leftBracket;
     public Token RightBracket { get; } = rightBracket;

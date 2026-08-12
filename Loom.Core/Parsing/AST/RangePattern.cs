@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class RangePattern(Pattern minimum, Token dotDot, Pattern maximum)
-    : Pattern([..minimum.Tokens, dotDot, ..maximum.Tokens], [minimum, maximum])
+    : Pattern([dotDot], [minimum, maximum])
 {
     public Pattern Minimum { get; } = minimum;
     public Token DotDot { get; } = dotDot;

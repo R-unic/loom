@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class EqualsTypeClause(Token equalsToken, TypeExpression type)
-    : Node([equalsToken, ..type.Tokens], [type])
+    : Node([equalsToken], [type])
 {
     public Token EqualsToken { get; } = equalsToken;
     public TypeExpression Type { get; } = type;

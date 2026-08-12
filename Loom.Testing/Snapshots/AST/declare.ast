@@ -276,6 +276,7 @@ Declare(
       AttributeList: [
         Attribute(
           IsInvoked: True
+          Name: "luau_name"
           Expression: Identifier(
             Name: Token(Identifier, "luau_name")
             Token(Identifier, "luau_name")

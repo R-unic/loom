@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class IndexerDeclaration(Token? mutKeyword, Token leftBracket, Token rightBracket, TypeExpression indexType, ColonTypeClause colonTypeClause)
-    : Statement([mutKeyword, leftBracket, ..indexType.Tokens, rightBracket, ..colonTypeClause.Tokens], [indexType, colonTypeClause])
+    : Statement([mutKeyword, leftBracket, rightBracket], [indexType, colonTypeClause])
 {
     public Token? MutKeyword { get; } = mutKeyword;
     public Token LeftBracket { get; } = leftBracket;

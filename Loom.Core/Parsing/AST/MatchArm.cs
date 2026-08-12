@@ -4,7 +4,7 @@ namespace Loom.Core.Parsing.AST;
 
 public class MatchArm(Pattern pattern, Token? when, Expression? guard, Token arrow, Expression body)
     : Node(
-        [when, arrow, ..pattern.Tokens, ..guard?.Tokens ?? [], ..body.Tokens],
+        [when, arrow],
         [pattern, guard, body]
     )
 {

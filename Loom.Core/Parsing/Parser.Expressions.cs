@@ -114,7 +114,7 @@ public sealed partial class Parser
                 expression = ParseElementAccess(Advance(), Expect(SyntaxKind.LBracket), expression);
             else if (Match(out var dot, SyntaxKind.Dot, SyntaxKind.QuestionDot))
                 expression = ParseNamedAccess(dot, expression);
-            else if (Current().Kind == SyntaxKind.Bang && IsOnSameLine(expression.Tokens[^1], Current()))
+            else if (Current().Kind == SyntaxKind.Bang && IsOnSameLine(expression.LastToken()!, Current()))
                 expression = new NullForgiving(expression, Advance());
             else if (AtErrorPropagationStart())
                 expression = new ErrorPropagation(expression, Advance());

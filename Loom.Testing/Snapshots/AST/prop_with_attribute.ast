@@ -21,6 +21,7 @@
           AttributeList: [
             Attribute(
               IsInvoked: False
+              Name: "some_attribute"
               Expression: Identifier(
                 Name: Token(Identifier, "some_attribute")
                 Token(Identifier, "some_attribute")
@@ -34,6 +35,7 @@
             )
             Attribute(
               IsInvoked: True
+              Name: "other_attribute"
               Expression: Identifier(
                 Name: Token(Identifier, "other_attribute")
                 Token(Identifier, "other_attribute")

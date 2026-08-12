@@ -17,9 +17,7 @@ public sealed class ImportDeclaration(
             typeKeyword,
             leftBrace,
             rightBrace,
-            fromKeyword,
-            ..specifiers.SelectMany(s => s.Tokens),
-            ..moduleSpecifier.Tokens
+            fromKeyword
         ],
         [..specifiers, moduleSpecifier]
     )

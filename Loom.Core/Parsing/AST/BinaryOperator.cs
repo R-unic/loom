@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class BinaryOperator(Token @operator, Expression left, Expression right)
-    : Expression([..left.Tokens, @operator, ..right.Tokens], [left, right])
+    : Expression([@operator], [left, right])
 {
     public Token Operator { get; } = @operator;
     public Expression Left { get; } = left;

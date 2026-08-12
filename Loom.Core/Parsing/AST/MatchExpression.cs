@@ -4,7 +4,7 @@ namespace Loom.Core.Parsing.AST;
 
 public class MatchExpression(Token keyword, Expression expression, Token leftBrace, Token rightBrace, List<MatchArm> arms)
     : Expression(
-        [keyword, leftBrace, rightBrace, ..expression.Tokens, ..arms.SelectMany(a => a.Tokens)],
+        [keyword, leftBrace, rightBrace],
         [expression, ..arms]
     )
 {

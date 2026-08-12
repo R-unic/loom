@@ -364,7 +364,7 @@ public sealed partial class Resolver
 
     private AttributeSymbol DeclareAttribute(Attribute attribute)
     {
-        var name = attribute.Expression.Tokens.Last(t => t.Kind == SyntaxKind.Identifier).Text;
+        var name = attribute.Name!;
         var declarationSymbol = LookupSymbol(name, SymbolKind.Function);
         return new AttributeSymbol(attribute, name) { IsIntrinsic = declarationSymbol?.IsIntrinsic ?? false };
     }

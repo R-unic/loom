@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class ElseBranch(Token keyword, Statement branch)
-    : Statement([keyword, ..branch.Tokens], [branch])
+    : Statement([keyword], [branch])
 {
     public Token Keyword { get; } = keyword;
     public Statement Branch { get; } = branch;

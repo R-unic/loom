@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class TypeOf(Token keyword, Token leftParen, Token rightParen, Expression expression)
-    : TypeExpression([keyword, leftParen, ..expression.Tokens, rightParen], [expression])
+    : TypeExpression([keyword, leftParen, rightParen], [expression])
 {
     public Token Keyword { get; } = keyword;
     public Token LeftParen { get; } = leftParen;

@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class Return(Token keyword, Expression? expression)
-    : Statement([keyword, ..expression?.Tokens ?? []], [expression])
+    : Statement([keyword], [expression])
 {
     public Token Keyword { get; } = keyword;
     public Expression? Expression { get; } = expression;

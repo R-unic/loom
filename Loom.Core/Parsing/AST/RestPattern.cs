@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class RestPattern(Token dotDot, Pattern pattern)
-    : Pattern([dotDot, ..pattern.Tokens], [pattern])
+    : Pattern([dotDot], [pattern])
 {
     public Token DotDot { get; } = dotDot;
     public Pattern Pattern { get; } = pattern;

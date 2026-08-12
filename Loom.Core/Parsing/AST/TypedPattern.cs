@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class TypedPattern(Token name, Token when, TypeExpression type, ObjectPattern? objectPattern)
-    : Pattern([name, when, ..type.Tokens, ..objectPattern?.Tokens ?? []], [type, objectPattern])
+    : Pattern([name, when], [type, objectPattern])
 {
     public Token Name { get; } = name;
     public Token When { get; } = when;

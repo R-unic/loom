@@ -181,7 +181,7 @@ public static class Intrinsics
             return null;
 
         var usageAttribute = declaredAttributes.AttributeList.Find(
-            a => a.Expression.Tokens.LastOrDefault(t => t.Kind == SyntaxKind.Identifier)?.Text == "attribute_usage"
+            a => a.Name == "attribute_usage"
         );
 
         if (usageAttribute?.Arguments.ArgumentList is not [var flagsExpression] || semanticModel.GetConstantValue(flagsExpression) is not double flagsValue)

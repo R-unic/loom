@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public sealed class ElementAccess(Token? questionMark, Token leftBracket, Token rightBracket, Expression expression, Expression indexExpression)
-    : AssignmentTarget([..expression.Tokens, questionMark, leftBracket, ..indexExpression.Tokens, rightBracket], [expression, indexExpression])
+    : AssignmentTarget([questionMark, leftBracket, rightBracket], [expression, indexExpression])
 {
     public Token? QuestionMark { get; } = questionMark;
     public Token LeftBracket { get; } = leftBracket;

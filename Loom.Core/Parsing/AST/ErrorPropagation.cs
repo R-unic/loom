@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class ErrorPropagation(Expression expression, Token question)
-    : Expression([..expression.Tokens, question], [expression])
+    : Expression([question], [expression])
 {
     public Expression Expression { get; } = expression;
     public Token Question { get; } = question;

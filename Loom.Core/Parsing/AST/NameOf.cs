@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class NameOf(Token keyword, TypeArguments<TypeName>? typeArguments, Token leftParen, Token rightParen, Name? name)
-    : Expression([keyword, ..typeArguments?.Tokens ?? [], leftParen, ..name?.Tokens ?? [], rightParen], [typeArguments, name])
+    : Expression([keyword, leftParen, rightParen], [typeArguments, name])
 {
     public Token Keyword { get; } = keyword;
     public TypeArguments<TypeName>? TypeArguments { get; } = typeArguments;

@@ -50,7 +50,7 @@ public static class FoldingRanges
         if (imports.Length < 2)
             return;
 
-        AddLines(ranges, LineOf(imports[0].Tokens[0]), LineOf(imports[^1].Tokens[^1]), FoldingRangeKind.Imports);
+        AddLines(ranges, LineOf(imports[0].AllTokens()[0]), LineOf(imports[^1].LastToken()!), FoldingRangeKind.Imports);
     }
 
     /// <summary>

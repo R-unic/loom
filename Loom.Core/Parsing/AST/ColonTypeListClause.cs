@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class ColonTypeListClause(Token colonToken, List<TypeExpression> types)
-    : TypeExpression([colonToken, ..types.SelectMany(t => t.Tokens)], types)
+    : TypeExpression([colonToken], types)
 {
     public Token ColonToken { get; } = colonToken;
     public List<TypeExpression> Types { get; } = types;

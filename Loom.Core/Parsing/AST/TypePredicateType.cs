@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public sealed class TypePredicateType(Expression subject, Token isKeyword, TypeExpression type)
-    : TypeExpression([..subject.Tokens, isKeyword, ..type.Tokens], [subject, type])
+    : TypeExpression([isKeyword], [subject, type])
 {
     public Expression Subject { get; } = subject;
     public Token IsKeyword { get; } = isKeyword;

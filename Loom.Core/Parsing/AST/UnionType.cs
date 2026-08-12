@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class UnionType(List<Token> pipes, List<TypeExpression> types)
-    : TypeExpression([..pipes, ..types.SelectMany(t => t.Tokens)], types)
+    : TypeExpression([..pipes], types)
 {
     public List<Token> Pipes { get; } = pipes;
     public List<TypeExpression> Types { get; } = types;

@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class Is(Expression expression, Token keyword, Pattern pattern)
-    : Expression([..expression.Tokens, keyword, ..pattern.Tokens], [expression, pattern])
+    : Expression([keyword], [expression, pattern])
 {
     public Expression Expression { get; } = expression;
     public Token Keyword { get; } = keyword;

@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class Parameter(Token? dotDot, Token name, ColonTypeClause? colonTypeClause, EqualsValueClause? equalsValueClause)
-    : NamedDeclaration([dotDot, ..colonTypeClause?.Tokens ?? [], ..equalsValueClause?.Tokens ?? []], name, colonTypeClause, equalsValueClause)
+    : NamedDeclaration([dotDot], name, colonTypeClause, equalsValueClause)
 {
     public Token? DotDot { get; } = dotDot;
     public ColonTypeClause? ColonTypeClause { get; } = colonTypeClause;

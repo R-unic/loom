@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class TernaryOperator(Token question, Token colon, Expression condition, Expression thenBranch, Expression elseBranch)
-    : Expression([..condition.Tokens, question, ..thenBranch.Tokens, colon, ..elseBranch.Tokens], [condition, thenBranch, elseBranch])
+    : Expression([question, colon], [condition, thenBranch, elseBranch])
 {
     public Token Question { get; } = question;
     public Token Colon { get; } = colon;

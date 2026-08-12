@@ -1,7 +1,7 @@
 namespace Loom.Core.Parsing.AST;
 
 public class TypePattern(TypeExpression type, ObjectPattern? objectPattern)
-    : Pattern([..type.Tokens, ..objectPattern?.Tokens ?? []], [type, objectPattern])
+    : Pattern([], [type, objectPattern])
 {
     public TypeExpression Type { get; } = type;
     public ObjectPattern? ObjectPattern { get; } = objectPattern;

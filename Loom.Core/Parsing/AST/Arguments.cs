@@ -3,7 +3,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Parsing.AST;
 
 public class Arguments(Token leftParen, Token rightParen, List<Expression> arguments)
-    : Expression([leftParen, ..arguments.SelectMany(p => p.Tokens), rightParen], arguments)
+    : Expression([leftParen, rightParen], arguments)
 {
     public Token LeftParen { get; } = leftParen;
     public Token RightParen { get; } = rightParen;
