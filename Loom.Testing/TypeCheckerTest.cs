@@ -1212,6 +1212,172 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(diagnostics);
     }
 
+    #region NestedGenericShadowing
+    /// <remarks>
+    ///     A function that declares a parameter of its own shadows the enclosing generic's. TypeParameter
+    ///     equality is name-blind, so the two Ts below are indistinguishable by shape - binding the inner one
+    ///     to whatever Box was instantiated with typed the call by the interface's argument instead of its
+    ///     own, silently and with no diagnostic.
+    /// </remarks>
+    [Fact]
+    public void Checks_ANestedGenericsOwnTypeParameter_ShadowsTheEnclosingOne()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Box<T> {
+                value: T;
+                map: fn<T>(other: T): T;
+            }
+
+            declare let b: Box<number>;
+            b.map::<string>("hi")
+            """
+        );
+
+        Assert.Equal("string", type.ToString());
+    }
+
+    [Fact]
+    public void ThrowsFor_ANestedGenericCall_MismatchingItsOwnTypeArgument()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Box<T> {
+                value: T;
+                map: fn<T>(other: T): T;
+            }
+
+            declare let b: Box<number>;
+            let bad: number = b.map::<string>("hi");
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type 'string' is not assignable to type 'number'.");
+    }
+
+    /// <remarks>A function that only <em>uses</em> the enclosing parameter does not declare it, so it still binds.</remarks>
+    [Fact]
+    public void Checks_ANestedFunctionUsingTheEnclosingTypeParameter_StillBindsIt()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Box<T> {
+                value: T;
+                get: fn(): T;
+            }
+
+            declare let b: Box<number>;
+            b.get()
+            """
+        );
+
+        Assert.Equal("number", type.ToString());
+    }
+    #endregion NestedGenericShadowing
+
+    #region DeferredTypeOperators
+    /// <remarks>
+    ///     'keyof(T)' over a bare parameter is deferred the way 'T[K]' is, not answered at the declaration:
+    ///     what T stands for is known only once the generic is instantiated. It used to be 'never', which
+    ///     made every utility type written over its own keys silently empty.
+    /// </remarks>
+    [Theory]
+    [InlineData("type Keys<T> = keyof(T);\ndeclare let probe: Keys<User>;", "\"name\" | \"age\"")]
+    [InlineData("type ValueOf<T> = T[keyof(T)];\ndeclare let probe: ValueOf<User>;", "string | number")]
+    [InlineData("type Lookup<T, K: keyof(T)> = T[K];\ndeclare let probe: Lookup<User, \"name\">;", "string")]
+    [InlineData("type Lookup<T, K: keyof(T)> = T[K];\ndeclare let probe: Lookup<User, \"age\">;", "number")]
+    public void Checks_DeferredKeyOf_ResolvesOnInstantiation(string source, string expected)
+    {
+        var type = Utility.GetLastStatementType($"interface User {{ name: string, age: number }}\n{source}\nprobe");
+        var expanded = type is InstantiatedType instantiated ? instantiated.Expand() : type;
+
+        Assert.Equal(expected, expanded.ToString());
+    }
+
+    [Fact]
+    public void Checks_DeferredKeyOf_ConstrainsATypeArgument()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface User { name: string, age: number }
+            type Lookup<T, K: keyof(T)> = T[K];
+            declare let bad: Lookup<User, "nope">;
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.ConstraintViolation,
+            "Type '\"nope\"' does not satisfy constraint '\"name\" | \"age\"' for type parameter 'K'."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_KeyOf_OnANonObject_ThroughAnInstantiation()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("type Keys<T> = keyof(T);\ndeclare let probe: Keys<number>;");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidKeyOf, "Cannot access keys of type 'number'.");
+    }
+
+    /// <remarks>
+    ///     A member belongs to an intersection if any constituent has it. Member access used to reject every
+    ///     intersection outright, which made 'A & B' unusable for anything but assignability.
+    /// </remarks>
+    [Theory]
+    [InlineData("direct.name", "string")]
+    [InlineData("direct.tag", "string")]
+    [InlineData("direct.age", "number")]
+    [InlineData("direct[\"name\"]", "string")]
+    public void Checks_MemberAccess_OnAnIntersection(string expression, string expected)
+    {
+        var type = Utility.GetLastStatementType(
+            $"interface User {{ name: string, age: number }}\ninterface Tagged {{ tag: string }}\ndeclare let direct: User & Tagged;\n{expression}"
+        );
+
+        Assert.Equal(expected, type.ToString());
+    }
+
+    [Fact]
+    public void Checks_MemberAccess_OnAnIntersectionThroughAGenericAlias() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                interface User { name: string, age: number }
+                interface Tagged { tag: string }
+                type Merge<A, B> = A & B;
+                declare let merged: Merge<User, Tagged>;
+                let a: string = merged.name;
+                let b: string = merged.tag;
+                """
+            )
+        );
+
+    [Fact]
+    public void Checks_MemberAccess_OnAnIntersection_IntersectsWhenSeveralConstituentsHaveIt()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Named { value: string }
+            interface Aged { value: string }
+            declare let both: Named & Aged;
+            both.value
+            """
+        );
+
+        Assert.Equal("string", type.ToString());
+    }
+
+    [Fact]
+    public void ThrowsFor_MemberAccess_OnAnIntersection_WhereNoConstituentHasIt()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            "interface User { name: string }\ninterface Tagged { tag: string }\ndeclare let direct: User & Tagged;\ndirect.missing;"
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidAccess, "Cannot access property 'missing' on type 'User & Tagged'.");
+    }
+    #endregion DeferredTypeOperators
+
     [Fact]
     public void ThrowsFor_KeyOf_OnPrimitive()
     {
@@ -7933,6 +8099,36 @@ public class TypeCheckerTest
     ///     positional - so the array it declares used to arrive as one ordinary parameter and a handler
     ///     naming the arguments individually was rejected.
     /// </remarks>
+    /// <remarks>
+    ///     A handler is free to ignore arguments it is handed, which is how most Roblox events are used.
+    ///     Assignability always allowed it and unification did not, so a declared handler type accepted what
+    ///     an inline one was refused.
+    /// </remarks>
+    [Fact]
+    public void Checks_EventConnect_HandlerMayTakeFewerParametersThanTheEventDeclares() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                event abc(a: number, b: string);
+                abc += fn(a) { print(a); };
+                abc += fn() { print("fired"); };
+                abc += fn(a, b) { print(a, b); };
+                """
+            )
+        );
+
+    [Fact]
+    public void ThrowsFor_EventConnect_HandlerTakingMoreParametersThanTheEventDeclares()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(a: number); abc += fn(a: number, b: string) { };");
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "Type 'fn(number, string): void' is not assignable to type 'fn(number): void'."
+        );
+    }
+
     [Fact]
     public void Checks_VariadicEventConnect_HandlerMayNameEachArgument() =>
         Utility.AssertNoErrors(

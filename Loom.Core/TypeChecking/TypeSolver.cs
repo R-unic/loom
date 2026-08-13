@@ -86,6 +86,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         var transformed = type switch
         {
             IndexedType indexedType => new IndexedType(Map(indexedType.Target), Map(indexedType.Index)),
+            KeyOfType keyOfType => new KeyOfType(Map(keyOfType.Target)),
             ArrayType arrayType => new ArrayType(Map(arrayType.ElementType), arrayType.IsMutable),
             InterfaceType interfaceType => new InterfaceType(
                 interfaceType.Name,
@@ -373,11 +374,13 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
     {
         updated = false;
 
-        // unification has to answer the same question IsAssignableTo does, or a call site would accept
-        // through inference what a declared type rejects
+        // Unification has to answer the same question IsAssignableTo does, or a call site would accept
+        // through inference what a declared type rejects - so this is that rule and nothing else. It used to
+        // carry one more clause, rejecting a source that required *fewer* parameters than the target, which
+        // is the safe direction rather than the unsafe one: a function is free to ignore arguments it is
+        // handed, which is what an event handler naming the first of two does.
         var restAbsorbsParameters = FunctionType.RestAbsorbsParameters(a.HasRestParameter, b.HasRestParameter);
         if (a.TypeParameters.Count != b.TypeParameters.Count
-            || a.RequiredParameterTypes.Count < b.RequiredParameterTypes.Count
             || !restAbsorbsParameters && a.ParameterTypes.Count > b.ParameterTypes.Count
             || a.IsAsync != b.IsAsync)
             return ReportTypeMismatch(a, b, span, trace: trace);
@@ -418,6 +421,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         {
             TypeVariable tv => tv.Id == variable.Id,
             IndexedType indexedType => OccursIn(variable, indexedType.Target, visited) || OccursIn(variable, indexedType.Index, visited),
+            KeyOfType keyOfType => OccursIn(variable, keyOfType.Target, visited),
             InterfaceType i => i.Constraints.Any(t => OccursIn(variable, t, visited)) || OccursIn(variable, i.ObjectType, visited),
             ObjectType obj => obj.Indexer != null && (OccursIn(variable, obj.Indexer.KeyType, visited) || OccursIn(variable, obj.Indexer.ValueType, visited))
                 || obj.Properties.Any(p => OccursIn(variable, p.ValueType, visited)),

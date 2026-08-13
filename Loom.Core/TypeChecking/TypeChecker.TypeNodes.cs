@@ -51,6 +51,12 @@ public sealed partial class TypeChecker
                 targetType = constrainedInstantiation.Expand();
         }
 
+        // Deferred rather than rejected, the same way VisitIndexedType defers 'T[K]': what an unconstrained
+        // parameter stands for is known only once the generic is instantiated, and SubstituteKeyOfType
+        // resolves it there. Answering 'never' here made every 'keyof(T)' over a bare parameter empty.
+        if (targetType is Types.TypeParameter or Types.TypeVariable or Types.IndexedType or Types.KeyOfType)
+            return BindType(keyOf, new Types.KeyOfType(targetType));
+
         if (targetType is not (ObjectType or InterfaceType))
         {
             _diagnostics.Error(keyOf, InternalCodes.InvalidKeyOf, $"Cannot access keys of type '{targetType.Widen()}'.");

@@ -129,6 +129,22 @@ public sealed partial class TypeChecker
                 );
             }
 
+            // A member of an intersection belongs to it if any constituent has it, so this asks each without
+            // reporting and only complains when none of them answered. Where several answer, the results are
+            // intersected: the value is all of those things at once, which is what the intersection says.
+            case Types.IntersectionType intersection:
+            {
+                var found = intersection.Types
+                    .Select(member => TypeSimplifier.ResolveIndex(member, indexType))
+                    .OfType<Type>()
+                    .ToList();
+
+                if (found.Count == 0)
+                    break;
+
+                return BindType(node, TypeSimplifier.Simplify(found.Count == 1 ? found[0] : new Types.IntersectionType(found)));
+            }
+
             case NativelyIndexableType:
                 return GetTypeAtIndex(node, type, indexType);
 

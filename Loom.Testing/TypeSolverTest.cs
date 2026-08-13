@@ -6,6 +6,7 @@ using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
 using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
 using IntersectionType = Loom.Core.TypeChecking.Types.IntersectionType;
 using OptionalType = Loom.Core.TypeChecking.Types.OptionalType;
+using LoomType = Loom.Core.TypeChecking.Types.Type;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
@@ -293,8 +294,16 @@ public class TypeSolverTest
         Assert.True(solver.SolveConstraints());
     }
 
+    /// <summary>
+    ///     A function may ignore arguments it is handed, so taking fewer than the target supplies unifies.
+    /// </summary>
+    /// <remarks>
+    ///     This is the direction <see cref="FunctionType.IsAssignableTo" /> has always allowed, and
+    ///     unification used to reject - so a handler naming the first of an event's two arguments was
+    ///     accepted by a declared type and refused by inference.
+    /// </remarks>
     [Fact]
-    public void Unify_FunctionTypes_DifferentArity()
+    public void Unify_FunctionTypes_FewerParamsThanTarget_Unifies()
     {
         var diagnostics = CreateDiagnostics();
         var solver = new TypeSolver(diagnostics);
@@ -302,8 +311,53 @@ public class TypeSolverTest
         var fn2 = new FunctionType([], [PrimitiveType.Number, PrimitiveType.Bool], PrimitiveType.String);
         solver.AddConstraint(fn1, fn2, Utility.Span);
 
-        Assert.False(solver.SolveConstraints());
-        Assert.NotEmpty(diagnostics.Errors().Set);
+        Assert.True(solver.SolveConstraints());
+        Assert.Empty(diagnostics.Errors().Set);
+        Assert.True(fn1.IsAssignableTo(fn2), "unification and assignability have to answer the same question");
+    }
+
+    /// <summary>
+    ///     Unification and assignability answer the same question, over the shapes that historically made
+    ///     them disagree: parameter counts, rest parameters, and asyncness.
+    /// </summary>
+    /// <remarks>
+    ///     They are two implementations of one rule living in different files, and a divergence is invisible
+    ///     from either side - a call site accepts through inference what a declared type rejects, or the
+    ///     reverse. Comparing them directly is the only thing that catches it.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(FunctionPairs))]
+    public void Unify_AndAssignability_AgreeOnFunctionTypes(FunctionType source, FunctionType target)
+    {
+        var diagnostics = CreateDiagnostics();
+        var solver = new TypeSolver(diagnostics);
+        solver.AddConstraint(source, target, Utility.Span);
+
+        Assert.Equal(source.IsAssignableTo(target), solver.SolveConstraints());
+    }
+
+    public static TheoryData<FunctionType, FunctionType> FunctionPairs()
+    {
+        FunctionType Fn(List<LoomType> parameters, LoomType returnType, bool hasRest = false, bool isAsync = false) =>
+            new([], parameters, returnType, hasRest, isAsync);
+
+        var data = new TheoryData<FunctionType, FunctionType>();
+        var shapes = new List<FunctionType>
+        {
+            Fn([], PrimitiveType.Void),
+            Fn([PrimitiveType.Number], PrimitiveType.Void),
+            Fn([PrimitiveType.Number, PrimitiveType.String], PrimitiveType.Void),
+            Fn([PrimitiveType.Number], PrimitiveType.Number),
+            Fn([new ArrayType(PrimitiveType.Number, false)], PrimitiveType.Void, hasRest: true),
+            Fn([PrimitiveType.String, new ArrayType(PrimitiveType.Number, false)], PrimitiveType.Void, hasRest: true),
+            Fn([PrimitiveType.Number], PrimitiveType.Void, isAsync: true)
+        };
+
+        foreach (var source in shapes)
+        foreach (var target in shapes)
+            data.Add(source, target);
+
+        return data;
     }
 
     [Fact]
