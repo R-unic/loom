@@ -1,3 +1,4 @@
+using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Pipeline;
@@ -97,6 +98,10 @@ public sealed class ModuleGraph
                 if (target == null)
                     continue;
 
+                // The edge is still recorded: the import resolved, and dropping it here would bury the realm
+                // error under "cannot find name" for everything the module publishes.
+                ReportRealmViolation(parsedFile.File, target.File, specifier, roots, diagnostics);
+
                 resolvedModules[node.Id] = target.File;
                 edges.Add(new ModuleEdge(node, target));
             }
@@ -117,6 +122,36 @@ public sealed class ModuleGraph
 
         return new ModuleGraph(order, resolvedModules, diagnostics, dependents);
     }
+
+    /// <summary>
+    ///     Reports an import reaching across a realm boundary. Replication is what makes this an error rather
+    ///     than a convention: a server module is never delivered to the client, so a client importing one
+    ///     names something that is not there at runtime, and a server importing a client module ships code it
+    ///     should not have. Shared is importable from anywhere, which is what makes it shared.
+    /// </summary>
+    private static void ReportRealmViolation(
+        SourceFile importing,
+        SourceFile imported,
+        Node moduleReference,
+        SourceRootSet roots,
+        ModuleDiagnostics diagnostics)
+    {
+        var from = roots.RealmOf(importing);
+        var to = roots.RealmOf(imported);
+        if (to == Realm.Shared || to == from)
+            return;
+
+        Report(
+            diagnostics,
+            importing,
+            moduleReference,
+            InternalCodes.RealmBoundaryCrossed,
+            $"A {Describe(from)} module cannot import a {Describe(to)} one.",
+            $"move what both realms need into a shared directory, or declare this module's directory as '{Describe(to)}'"
+        );
+    }
+
+    private static string Describe(Realm realm) => realm.ToString().ToLowerInvariant();
 
     /// <remarks>
     ///     Specifiers are matched case-sensitively because Roblox requires are, so a module that differs only

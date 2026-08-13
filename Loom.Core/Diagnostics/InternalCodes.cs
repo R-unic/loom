@@ -142,6 +142,7 @@ public static class InternalCodes
     public const string AwaitOutsideAsyncFunction = "L418";
     public const string AwaitRequiresFuture = "L419";
     public const string UnawaitedFutureAccess = "L420";
+    public const string RealmBoundaryCrossed = "L421";
 
     public const string SimplifiableCode = "L500";
 }

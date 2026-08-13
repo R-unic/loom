@@ -721,6 +721,53 @@ public class SourceRootTest
     }
 
     /// <summary>
+    ///     Replication is what makes crossing a realm an error rather than a matter of taste: a server module
+    ///     is never delivered to the client, so a client importing one names something that is not there at
+    ///     runtime. Shared is importable from either side, which is what makes it shared.
+    /// </summary>
+    [Theory]
+    [InlineData("client/importer.loom", "../server/store", true)]
+    [InlineData("server/importer.loom", "../client/widget", true)]
+    [InlineData("client/importer.loom", "../shared/util", false)]
+    [InlineData("server/importer.loom", "../shared/util", false)]
+    [InlineData("shared/importer.loom", "./util", false)]
+    [InlineData("client/importer.loom", "./widget", false)]
+    public void Imports_MayNotCrossARealmBoundary(string importingPath, string specifier, bool rejected)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-realm-" + Guid.NewGuid());
+        try
+        {
+            var config = WriteProject(
+                directory,
+                "project_type = \"game\"\n[realms]\nclient = \"client\"\nserver = \"server\"\n",
+                [
+                    (importingPath, $"import {{ thing }} from \"{specifier}\";\nlet used = thing;"),
+                    ("server/store.loom", "export let thing = 1;"),
+                    ("client/widget.loom", "export let thing = 1;"),
+                    ("shared/util.loom", "export let thing = 1;")
+                ]
+            );
+
+            config.NoEmit = true;
+
+            var unit = new CompilationUnit(new SourceRootSet(new SourceRoot(config)));
+            var crossings = unit.Compile().Diagnostics.Set.Where(d => d.Code == InternalCodes.RealmBoundaryCrossed).ToList();
+
+            if (!rejected)
+            {
+                Assert.Empty(crossings);
+                return;
+            }
+
+            Assert.Contains(crossings, d => d.Message.Contains("cannot import"));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    /// <summary>
     ///     A file takes the realm of the directory naming it, and the longest one wins - so a realm declared
     ///     inside another narrows it rather than being shadowed by whichever the dictionary happened to hold
     ///     first. A file under no declared directory is shared, which is what a project declaring none gets.
