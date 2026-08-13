@@ -1,4 +1,4 @@
-using Loom.Core.Diagnostics;
+﻿using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Events;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
@@ -17,7 +17,6 @@ public sealed partial class LuauGenerator
 {
     public override LuauNode VisitEventDeclaration(EventDeclaration eventDeclaration)
     {
-        // TODO: generic events
         if (eventDeclaration.TypeParameters != null)
             _diagnostics.NotImplemented(eventDeclaration.TypeParameters, "Generic event declarations are not yet supported.");
 
