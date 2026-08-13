@@ -11,10 +11,20 @@ namespace Loom.LanguageServer;
 ///     edited. A client keeps whatever it was last sent, so this also has to remember what it said: a file
 ///     whose errors are gone needs to be told so explicitly, and nothing else will say it.
 /// </summary>
-public sealed class DiagnosticPublisher(ILanguageServerFacade server)
+/// <remarks>
+///     Deciding what to publish and reaching the client with it are separate: the first is a state machine
+///     worth testing on its own, and the second is one call on a connection a test has no way to hold.
+/// </remarks>
+public sealed class DiagnosticPublisher
 {
     private readonly HashSet<DocumentUri> _reported = [];
     private readonly Lock _gate = new();
+    private readonly Action<PublishDiagnosticsParams> _send;
+
+    public DiagnosticPublisher(ILanguageServerFacade server)
+        : this(published => server.TextDocument.PublishDiagnostics(published)) { }
+
+    public DiagnosticPublisher(Action<PublishDiagnosticsParams> send) => _send = send;
 
     /// <summary>Publishes the result's diagnostics, and clears every file that had some and no longer does.</summary>
     public void Publish(CompilationResult? result)
@@ -82,7 +92,7 @@ public sealed class DiagnosticPublisher(ILanguageServerFacade server)
     {
         try
         {
-            server.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams { Uri = uri, Diagnostics = diagnostics });
+            _send(new PublishDiagnosticsParams { Uri = uri, Diagnostics = diagnostics });
         }
         catch (Exception)
         {

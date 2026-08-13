@@ -101,8 +101,17 @@ public class DiagnosticPublisherTest
     }
 
     /// <summary>
-    ///     The facade is only ever used to send; every decision the publisher makes is in
-    ///     <see cref="DiagnosticPublisher.Next" />, which is what these cases drive.
+    ///     Sending is one call on a connection a test has no way to hold; every decision the publisher makes
+    ///     is in <see cref="DiagnosticPublisher.Next" />, which is what these cases drive.
     /// </summary>
-    private static DiagnosticPublisher Publisher() => new(null!);
+    private static DiagnosticPublisher Publisher() => new(static _ => { });
+
+    /// <summary>A publisher that records what it would have sent, for the cases that drive it end to end.</summary>
+    internal static DiagnosticPublisher Recording(out List<PublishDiagnosticsParams> sent)
+    {
+        var recorded = new List<PublishDiagnosticsParams>();
+        sent = recorded;
+
+        return new DiagnosticPublisher(recorded.Add);
+    }
 }
