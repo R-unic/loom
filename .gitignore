@@ -8,3 +8,4 @@ riderModule.iml
 *.Corrupted.*.Tmp
 Loom.sln.DotSettings.user
 coverage/
+publish/
