@@ -228,6 +228,83 @@ public class ArrayCombinatorRuntimeTest
         Assert.Equal("2", Run(source));
     }
 
+    /// <summary>
+    ///     The unfused fallback. A callback whose body contains a shape the identifier scan does not model -
+    ///     a spread, here - makes fusing unsafe, so each combinator emits a loop of its own instead. That
+    ///     path computes the same answers or the refusal to fuse is not the safe direction it claims to be.
+    /// </summary>
+    [Theory]
+    [InlineData("numbers.aggregate(0, fn(a, n) -> total_of(..[a, n]))", "15")]
+    [InlineData("numbers.select(fn(n) -> total_of(..[n, n])).join(\",\")", "2,4,6,8,10")]
+    [InlineData("numbers.where(fn(n) -> total_of(..[n]) > 3).join(\",\")", "4,5")]
+    [InlineData("numbers.count(fn(n) -> total_of(..[n]) > 3)", "2")]
+    [InlineData("numbers.any(fn(n) -> total_of(..[n]) > 4)", "true")]
+    [InlineData("numbers.all(fn(n) -> total_of(..[n]) > 0)", "true")]
+    public void ComputesWhenFusingIsDeclined(string expression, string expected)
+    {
+        const string helper = """
+            fn total_of(..values: number[]): number {
+                mut sum = 0;
+                for v : values
+                    sum += v;
+
+                return sum;
+            }
+
+            """;
+
+        Assert.Equal(expected, Run($"{helper}{Numbers}let outcome = {expression};"));
+    }
+
+    /// <summary>
+    ///     Every combinator driven by a named function rather than a lambda. A callback written inline is
+    ///     inlined into the fused loop; one passed by name cannot be, so each combinator falls back to
+    ///     emitting a loop of its own that calls it - a second lowering per combinator that a chain of
+    ///     lambdas never reaches.
+    /// </summary>
+    [Theory]
+    [InlineData("numbers.select(twice).join(\",\")", "2,4,6,8,10")]
+    [InlineData("numbers.where(big).join(\",\")", "4,5")]
+    [InlineData("numbers.aggregate(0, add).", "15")]
+    [InlineData("numbers.select_many(pair).join(\",\")", "1,10,2,20,3,30,4,40,5,50")]
+    [InlineData("numbers.any(big).", "true")]
+    [InlineData("numbers.all(big).", "false")]
+    [InlineData("numbers.count(big).", "2")]
+    public void ComputesWithACallbackPassedByName(string expression, string expected)
+    {
+        const string helpers = """
+            fn twice(n: number): number -> n * 2;
+            fn big(n: number): bool -> n > 3;
+            fn add(total: number, n: number): number -> total + n;
+            fn pair(n: number): number[] -> [n, n * 10];
+
+            """;
+
+        Assert.Equal(expected, Run($"{helpers}{Numbers}let outcome = {expression.TrimEnd('.')};"));
+    }
+
+    /// <summary>
+    ///     The members that lower to a <c>table</c> call rather than a loop. They fuse with nothing, so what
+    ///     has to be right is the call itself - a wrong argument order here is a silent no-op or a value
+    ///     inserted at the wrong index, and both read as the array simply not changing.
+    /// </summary>
+    [Theory]
+    [InlineData("let xs = mut [1, 2, 3]; xs.push(4); let outcome = xs.join(\",\");", "1,2,3,4")]
+    [InlineData("let xs = mut [1, 2, 3]; xs.insert(1, 0); let outcome = xs.join(\",\");", "0,1,2,3")]
+    [InlineData("let xs = mut [1, 2, 3]; xs.pop(); let outcome = xs.join(\",\");", "1,2")]
+    [InlineData("let xs = mut [1, 2, 3]; xs.remove(1); let outcome = xs.join(\",\");", "2,3")]
+    [InlineData("let xs = [1, 2, 3]; let outcome = xs.index_of(2);", "2")]
+    [InlineData("let xs = [1, 2, 3]; let outcome = xs.has(2);", "true")]
+    [InlineData("let xs = [1, 2, 3]; let outcome = xs.has(9);", "false")]
+    [InlineData("let xs = [1, 2, 3]; let outcome = xs.length;", "3")]
+    [InlineData("let xs = [\"a\", \"b\"]; let outcome = xs.join(\"-\");", "a-b")]
+    public void ComputesTheTableBackedMembers(string source, string expected) => Assert.Equal(expected, Run(source));
+
+    /// <remarks>A set is a table keyed by its members, so membership is a lookup rather than a scan.</remarks>
+    [Fact]
+    public void ToSet_KeysTheTableByItsMembers() =>
+        Assert.Equal("true", Run("let xs = [1, 2, 2, 3]; let s = xs.to_set(); let outcome = s.has(2) && !s.has(9);"));
+
     private static string Run(string source)
     {
         var luau = Utility.GetLuauAST(source, typeCheck: true).Render().Replace("const ", "local ");
