@@ -92,6 +92,7 @@ public static partial class ConfigReader
         ValidateDirectory(config.Files.SourceDirectory, "source_directory", diagnostics);
         ValidateDirectory(config.Files.OutputDirectory, "output_directory", diagnostics);
         ReadDependencies(config, diagnostics);
+        ReadRealms(config, diagnostics);
         if (config.Registry != null && !IsFetchableUrl(config.Registry.Index))
             diagnostics.Add(new ConfigDiagnostic($"invalid registry index '{config.Registry.Index}'; expected an http or https URL."));
     }
@@ -126,6 +127,63 @@ public static partial class ConfigReader
         if (Path.IsPathRooted(directory))
             diagnostics.Add(new ConfigDiagnostic($"[files] '{key}' must be relative to the project directory, but '{directory}' is absolute."));
     }
+
+    /// <summary>
+    ///     Reads <c>[realms]</c>, whose keys are directories under the source directory and whose values name
+    ///     the realm the code in them runs in.
+    /// </summary>
+    /// <remarks>
+    ///     Directories are normalised to one separator and stripped of leading and trailing ones, so the same
+    ///     directory written <c>"net/server"</c>, <c>"net\server"</c> and <c>"/net/server/"</c> is one entry
+    ///     rather than three that disagree. A directory listed twice is an error for the same reason a
+    ///     dependency listed twice is: nothing here can say which line was meant.
+    /// </remarks>
+    private static void ReadRealms(LoomConfig config, List<ConfigDiagnostic> diagnostics)
+    {
+        foreach (var (directory, value) in config.RealmEntries)
+        {
+            if (value is not string name)
+            {
+                diagnostics.Add(new ConfigDiagnostic($"[realms] '{directory}' must name a realm: \"shared\", \"client\" or \"server\"."));
+                continue;
+            }
+
+            if (!TryReadRealm(name, out var realm))
+            {
+                diagnostics.Add(new ConfigDiagnostic($"[realms] '{directory}' has invalid realm '{name}'; expected \"shared\", \"client\" or \"server\"."));
+                continue;
+            }
+
+            // Normalised before it is checked, so what is validated is what is stored: a leading separator
+            // reads as "the directory at the top of the source tree" rather than as an absolute path, while
+            // something genuinely rooted - a drive letter - survives normalising and is still rejected.
+            var normalized = NormalizeRealmDirectory(directory);
+            if (string.IsNullOrWhiteSpace(normalized) || Path.IsPathRooted(normalized) || normalized.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+            {
+                diagnostics.Add(new ConfigDiagnostic($"[realms] '{directory}' must be a non-empty path relative to the source directory."));
+                continue;
+            }
+
+            if (!config.Realms.TryAdd(normalized, realm))
+                diagnostics.Add(new ConfigDiagnostic($"[realms] lists '{directory}' more than once."));
+        }
+    }
+
+    private static bool TryReadRealm(string name, out Realm realm)
+    {
+        realm = Realm.Shared;
+        switch (name.Trim().ToLowerInvariant())
+        {
+            case "shared": realm = Realm.Shared; return true;
+            case "client": realm = Realm.Client; return true;
+            case "server": realm = Realm.Server; return true;
+            default: return false;
+        }
+    }
+
+    /// <summary>One spelling of a directory, so two ways of writing the same one are one entry.</summary>
+    public static string NormalizeRealmDirectory(string directory) =>
+        directory.Replace('\\', '/').Trim().Trim('/');
 
     private static void ReadDependencies(LoomConfig config, List<ConfigDiagnostic> diagnostics)
     {

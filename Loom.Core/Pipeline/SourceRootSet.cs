@@ -66,6 +66,12 @@ public sealed class SourceRootSet : IReadOnlyList<SourceRoot>
     public LoomConfig ConfigOf(SourceFile file) => Of(file).Config;
 
     /// <summary>
+    ///     The realm <paramref name="file" /> runs in, decided by its own root: a dependency declares where its
+    ///     code runs, and a consumer that lays its directories out differently does not get to overrule it.
+    /// </summary>
+    public Realm RealmOf(SourceFile file) => Of(file).RealmOf(file.AbsolutePath);
+
+    /// <summary>
     ///     The root publishing <paramref name="package" />, which is the root a specifier naming that package
     ///     resolves in, or <see langword="null" /> when the unit compiles no such package.
     /// </summary>

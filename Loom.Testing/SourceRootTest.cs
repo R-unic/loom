@@ -719,4 +719,37 @@ public class SourceRootTest
 
         return config;
     }
+
+    /// <summary>
+    ///     A file takes the realm of the directory naming it, and the longest one wins - so a realm declared
+    ///     inside another narrows it rather than being shadowed by whichever the dictionary happened to hold
+    ///     first. A file under no declared directory is shared, which is what a project declaring none gets.
+    /// </summary>
+    [Theory]
+    [InlineData("shared/util.loom", Realm.Shared)]
+    [InlineData("client/hud.loom", Realm.Client)]
+    [InlineData("server/store.loom", Realm.Server)]
+    [InlineData("net/wire.loom", Realm.Shared)]
+    [InlineData("net/server/handler.loom", Realm.Server)]
+    [InlineData("loose.loom", Realm.Shared)]
+    public void RealmOf_TakesTheLongestDirectoryNamingTheFile(string path, Realm expected)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-realm-" + Guid.NewGuid());
+        try
+        {
+            var config = WriteProject(
+                directory,
+                "project_type = \"game\"\n[realms]\nclient = \"client\"\nserver = \"server\"\nnet = \"shared\"\n\"net/server\" = \"server\"\n",
+                [(path, "let x = 1;")]
+            );
+
+            var root = new SourceRoot(config);
+
+            Assert.Equal(expected, root.RealmOf(Path.Combine(config.Files.SourceDirectory, path.Replace('/', Path.DirectorySeparatorChar))));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
 }
