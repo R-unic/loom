@@ -288,10 +288,31 @@ public sealed partial class TypeChecker
             }
 
             if (signature.TryGetIntrinsicAttribute(_semanticModel, "luau_metamethod", out var metamethodAttribute))
+            {
                 ValidateMetamethodAttribute(metamethodAttribute);
+                CheckMetamethodDoesNotYield(signature);
+            }
         }
 
         return properties;
+    }
+
+    /// <summary>
+    ///     A metamethod is invoked by Luau itself, across a C-call boundary, where a yielding thread raises
+    ///     rather than suspends. So an operator that awaits does not block - it fails, at whichever call
+    ///     first reached the yield, with an error naming neither the operator nor the type it belongs to.
+    /// </summary>
+    private void CheckMetamethodDoesNotYield(DeclareFunctionSignature signature)
+    {
+        if (signature.AsyncKeyword == null)
+            return;
+
+        _diagnostics.Error(
+            signature.AsyncKeyword,
+            InternalCodes.YieldInNoYieldContext,
+            $"'{signature.Name.Text}' is a metamethod, so it cannot be 'async'.",
+            "Luau invokes it across a C-call boundary, where yielding raises - await before the operator runs and give it the result"
+        );
     }
 
     private void ValidateMetamethodAttribute(AttributeSymbol attribute)

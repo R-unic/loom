@@ -1746,6 +1746,28 @@ public class TypeCheckerTest
             )
         );
 
+    /// <remarks>
+    ///     Luau invokes a metamethod itself, across a C-call boundary, where a yielding thread raises rather
+    ///     than suspends - so an operator that awaits does not block, it fails at whichever call first
+    ///     reached the yield.
+    /// </remarks>
+    [Fact]
+    public void Reports_AsyncMetamethod()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Location { position: number }
+
+            trait Add<T> {
+                [luau_metamethod("__add")]
+                async fn add(other: T): T;
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.YieldInNoYieldContext, "'add' is a metamethod, so it cannot be 'async'.");
+    }
+
     [Fact]
     public void Allows_BinaryOperator_ViaTraitMetamethod()
     {
