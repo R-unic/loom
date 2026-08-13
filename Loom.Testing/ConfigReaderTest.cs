@@ -385,6 +385,15 @@ public class ConfigReaderTest
     public void Realms_RejectTheSameDirectoryTwice() =>
         Assert.Contains("more than once", ReadInvalid("[realms]\n\"net/server\" = \"server\"\n\"net\\\\server\" = \"client\"\n").ToString());
 
+    /// <remarks>
+    ///     Answered without Path.IsPathRooted, which reads a drive letter as rooted on Windows and as an
+    ///     ordinary directory name everywhere else - so the same manifest would be rejected on one CI leg
+    ///     and read as a directory called 'C:' on the next.
+    /// </remarks>
+    [Fact]
+    public void Realms_RejectADriveLetterOnEveryPlatform() =>
+        Assert.Contains("relative to the source directory", ReadInvalid("[realms]\n\"C:/game/client\" = \"client\"\n").ToString());
+
     [Fact]
     public void Realms_DefaultToNone() => Assert.Empty(ReadValid("project_type = \"game\"\n").Realms);
 }

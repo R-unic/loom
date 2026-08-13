@@ -189,6 +189,12 @@ public sealed partial class Resolver
         if (HasDuplicateSymbol(import, name, SymbolNamespace.Value, $"Variable '{name}' is already declared in this scope."))
             return true;
 
+        // A namespace import brings the whole module into reach rather than a chosen list, so every
+        // export has to be reachable - naming one this realm may not have is what a named import would
+        // have been rejected for, and the form it is written in does not change who may call it.
+        foreach (var export in moduleModel.Exports)
+            ReportRealmNarrowing(import, export.Name, export.Symbol);
+
         // the symbol stands for the required table, so unlike a named import it is declared on this node
         var symbol = new VariableSymbol(import, name);
         DeclareSymbol(symbol);
@@ -401,11 +407,15 @@ public sealed partial class Resolver
             return false;
         }
 
-        foreach (var export in exports)
-            ReportRealmNarrowing(specifier, name, export.Symbol);
-
+        // Only for an import that brings something to run. A type-only import is erased, so there is
+        // nothing of the other realm left at runtime for the boundary to be protecting.
         if (!import.IsTypeOnly)
+        {
+            foreach (var export in exports)
+                ReportRealmNarrowing(specifier, name, export.Symbol);
+
             return exports.All(export => DeclareImportedSymbol(import, specifier, export.Symbol, module, moduleModel));
+        }
 
         var typeExports = exports.FindAll(export => export.Symbol.IsTypeSymbol);
         if (typeExports.Count != 0)
@@ -431,7 +441,7 @@ public sealed partial class Resolver
     ///     modules is the only way to reach another realm's declaration, since everything in one file shares
     ///     that file's realm. So the import is both the first place this is knowable and the whole of it.
     /// </remarks>
-    private void ReportRealmNarrowing(ImportSpecifier specifier, string name, Symbol export)
+    private void ReportRealmNarrowing(Node specifier, string name, Symbol export)
     {
         if (RealmAttributeOf(export) is not { } declared)
             return;

@@ -403,6 +403,17 @@ public sealed partial class TypeChecker
             if (property.TryGetIntrinsicAttribute(_semanticModel, "luau_metamethod", out var metamethodAttribute))
             {
                 ValidateMetamethodAttribute(metamethodAttribute);
+
+                // Same rule as a trait's metamethod: Luau invokes it across a C-call boundary, and a
+                // declare interface is the one other place a metamethod may be written.
+                if (valueType is FunctionType { IsAsync: true })
+                    _diagnostics.Error(
+                        metamethodAttribute.Attribute,
+                        InternalCodes.YieldInNoYieldContext,
+                        $"'{name}' is a metamethod, so it cannot be 'async'.",
+                        "Luau invokes it across a C-call boundary, where yielding raises - await before the operator runs and give it the result"
+                    );
+
                 if (valueType is FunctionType && !property.IsDescendantOf<Declare>())
                     _diagnostics.Error(
                         metamethodAttribute.Attribute,

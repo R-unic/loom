@@ -158,7 +158,7 @@ public static partial class ConfigReader
             // reads as "the directory at the top of the source tree" rather than as an absolute path, while
             // something genuinely rooted - a drive letter - survives normalising and is still rejected.
             var normalized = NormalizeRealmDirectory(directory);
-            if (string.IsNullOrWhiteSpace(normalized) || Path.IsPathRooted(normalized) || normalized.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+            if (string.IsNullOrWhiteSpace(normalized) || IsRooted(normalized) || normalized.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
             {
                 diagnostics.Add(new ConfigDiagnostic($"[realms] '{directory}' must be a non-empty path relative to the source directory."));
                 continue;
@@ -184,6 +184,16 @@ public static partial class ConfigReader
     /// <summary>One spelling of a directory, so two ways of writing the same one are one entry.</summary>
     public static string NormalizeRealmDirectory(string directory) =>
         directory.Replace('\\', '/').Trim().Trim('/');
+
+    /// <summary>
+    ///     Whether a normalised directory names somewhere absolute. Asked without <see cref="Path.IsPathRooted(string)" />,
+    ///     which answers by the platform it is running on: a drive letter is rooted on Windows and an
+    ///     ordinary directory name everywhere else, so the same manifest would be rejected on one machine
+    ///     and read as a directory called <c>C:</c> on the next.
+    /// </summary>
+    /// <remarks>A leading separator is already gone by here, which is what leaves a drive letter to check for.</remarks>
+    private static bool IsRooted(string normalized) =>
+        normalized.Length >= 2 && normalized[1] == ':' && char.IsAsciiLetter(normalized[0]);
 
     private static void ReadDependencies(LoomConfig config, List<ConfigDiagnostic> diagnostics)
     {

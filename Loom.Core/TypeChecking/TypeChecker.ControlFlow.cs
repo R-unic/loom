@@ -26,6 +26,12 @@ public sealed partial class TypeChecker
         if (collectionType is InstantiatedType i)
             collectionType = i.Expand();
 
+        // What a type parameter can be iterated as is whatever its constraint promised, so the loop reads
+        // through to that rather than at the parameter - which satisfies nothing and is assignable to
+        // nothing, and would otherwise reject every generic function that takes something to walk.
+        if (collectionType is Types.TypeParameter { Constraint: { } constraint })
+            collectionType = TypeSimplifier.Expanded(constraint);
+
         _semanticModel.TypeSolver.AddConstraint(collectionType, ObjectType.Empty, @for.CollectionExpression);
         var isRange = collectionType.Equals(IntrinsicTypes.Range);
         var iteratedElement = IteratorElementType(collectionType);

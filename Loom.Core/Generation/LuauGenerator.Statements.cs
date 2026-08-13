@@ -158,7 +158,12 @@ public sealed partial class LuauGenerator
     {
         var names = @for.Names.ConvertAll(n => n.Token.Text);
         var body = GenerateChunk(@for.Body);
+
+        // Read through a type parameter to what its constraint promised, the same way the checker does -
+        // otherwise a generic function walks the parameter, which says nothing about how to iterate it.
         var collectionType = _semanticModel.GetType(@for.CollectionExpression);
+        if (collectionType is TypeChecking.Types.TypeParameter { Constraint: { } constraint })
+            collectionType = TypeSimplifier.Expanded(constraint);
         var collectionExpression = Visit(@for.CollectionExpression);
         if (names.Count == 2 && collectionType is ArrayType)
         {

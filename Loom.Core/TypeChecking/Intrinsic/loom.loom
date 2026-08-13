@@ -121,7 +121,9 @@ declare fn deprecated(message: string?): void;
 ### Luau invokes across a C-call boundary such as table.sort's comparator. Awaiting inside one is an
 ### error, and so is marking it 'async': both mean the thread would yield where Luau raises rather
 ### than suspends. Metadata only: it wraps nothing at runtime.
-[attribute_usage(AttributeTargets.Function | AttributeTargets.Property), metadata_only]
+### Only on a function: what it forbids is awaiting inside a body, and a property declares a
+### signature rather than a body, so permitting it there would accept the attribute and enforce nothing.
+[attribute_usage(AttributeTargets.Function), metadata_only]
 declare fn no_yield: void;
 
 ### Narrows which realm may use this declaration, below whatever [realms] says about the directory

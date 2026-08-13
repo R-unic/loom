@@ -15,8 +15,8 @@ jobs:
   # exist on one of them: a drive letter that round-trips in a different case, a path separator, a
   # filesystem that compares names case-insensitively. Coverage is collected on one leg rather than
   # all three - it is the same code either way, and Coveralls takes a single submission.
-  test:
-    name: test (${{ matrix.os }})
+  suite:
+    name: suite (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -62,3 +62,19 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: coverage/lcov.info
+
+  # One check whose name does not move when the matrix does. A required status check is named, so
+  # spreading the suite across three legs would otherwise retire the name branch protection asks for
+  # and leave every pull request waiting on a check that no longer reports.
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    needs: suite
+    if: always()
+    steps:
+      - name: Check the suite passed on every OS
+        run: |
+          if [ "${{ needs.suite.result }}" != "success" ]; then
+            echo "the suite did not pass on every OS: ${{ needs.suite.result }}"
+            exit 1
+          fi

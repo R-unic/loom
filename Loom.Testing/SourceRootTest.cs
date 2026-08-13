@@ -810,6 +810,47 @@ public class SourceRootTest
     }
 
     /// <summary>
+    ///     The form an import is written in does not change who may call what. A namespace import brings the
+    ///     whole module into reach rather than a chosen list, so every export has to be reachable - and a
+    ///     type-only import brings nothing to run, so there is nothing at runtime for the boundary to guard.
+    /// </summary>
+    [Theory]
+    [InlineData("import * as types from \"../shared/util\";\nlet x = types.secret();", true)]
+    [InlineData("import type { Secret } from \"../shared/util\";\nlet x: Secret? = none;", false)]
+    public void Imports_EnforceARealmAttribute_WhateverFormTheyTake(string source, bool rejected)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-realm-" + Guid.NewGuid());
+        try
+        {
+            var config = WriteProject(
+                directory,
+                "project_type = \"game\"\n[realms]\nclient = \"client\"\nserver = \"server\"\n",
+                [
+                    ("client/importer.loom", source),
+                    ("shared/util.loom", "[server] export fn secret(): number { return 1; }\n[server] export interface Secret { id: number }")
+                ]
+            );
+
+            config.NoEmit = true;
+
+            var unit = new CompilationUnit(new SourceRootSet(new SourceRoot(config)));
+            var crossings = unit.Compile().Diagnostics.Set.Where(d => d.Code == InternalCodes.RealmBoundaryCrossed).ToList();
+
+            if (!rejected)
+            {
+                Assert.Empty(crossings);
+                return;
+            }
+
+            Assert.Contains(crossings, d => d.Message.Contains("server-only"));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    /// <summary>
     ///     A file takes the realm of the directory naming it, and the longest one wins - so a realm declared
     ///     inside another narrows it rather than being shadowed by whichever the dictionary happened to hold
     ///     first. A file under no declared directory is shared, which is what a project declaring none gets.
