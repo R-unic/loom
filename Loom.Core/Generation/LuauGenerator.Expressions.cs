@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Loom.Core.Generation.Macros;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
@@ -554,7 +555,62 @@ public sealed partial class LuauGenerator
     public override LuauNode VisitRangeLiteral(RangeLiteral rangeLiteral) =>
         new Table([new PropertyTableInitializer("minimum", Visit(rangeLiteral.Minimum)), new PropertyTableInitializer("maximum", Visit(rangeLiteral.Maximum))]);
 
-    public override LuauNode VisitArrayLiteral(ArrayLiteral arrayLiteral) => new Table(arrayLiteral.Expressions.ConvertAll(e => new TableInitializer(Visit(e))));
+    public override LuauNode VisitArrayLiteral(ArrayLiteral arrayLiteral) =>
+        arrayLiteral.Expressions.Exists(element => element is SpreadElement)
+            ? GenerateSpreadArrayLiteral(arrayLiteral.Expressions)
+            : new Table(arrayLiteral.Expressions.ConvertAll(e => new TableInitializer(Visit(e))));
+
+    /// <summary>
+    ///     Builds the array a statement at a time rather than as one constructor, because a spread's length is
+    ///     only known at runtime. A literal that leads with a spread starts from a <c>table.clone</c> of it, so
+    ///     a plain copy costs one call; otherwise the elements ahead of the first spread stay in the
+    ///     constructor, so the common prepend keeps its literal. Each spread after that is one
+    ///     <c>table.move</c> rather than an element-at-a-time loop.
+    /// </summary>
+    private LuauExpression GenerateSpreadArrayLiteral(List<Expression> elements)
+    {
+        var leadingCount = elements.FindIndex(element => element is SpreadElement);
+        var leadsWithSpread = leadingCount == 0;
+        var nextIndex = leadsWithSpread ? 1 : leadingCount;
+        LuauExpression initial = leadsWithSpread
+            ? LuauFactory.TableCall("clone", [Visit(((SpreadElement)elements[0]).Expression)])
+            : new Table(elements.GetRange(0, leadingCount).ConvertAll(e => new TableInitializer(Visit(e))));
+
+        if (nextIndex >= elements.Count)
+            return initial;
+
+        var resultName = _state.Scope.AddIdentifier(ArrayLowering.ResultName);
+        var result = new Loom.Luau.AST.Identifier(resultName);
+        _state.Prereq(new ConstVariable(resultName, null, initial));
+
+        LuauExpression initialCount = leadsWithSpread ? new Loom.Luau.AST.UnaryOperator("#", result) : new NumberLiteral(leadingCount);
+        var countName = _state.Scope.AddIdentifier(ArrayLowering.CountName);
+        var count = new Loom.Luau.AST.Identifier(countName);
+        _state.Prereq(new LocalVariable(countName, null, initialCount));
+
+        for (var i = nextIndex; i < elements.Count; i++)
+        {
+            var statements = new List<LuauStatement>();
+            if (elements[i] is SpreadElement spreadElement)
+            {
+                ArrayLowering.AppendSegment(_state, statements, result, count, Visit(spreadElement.Expression));
+            }
+            else
+            {
+                var value = Visit(elements[i]);
+                statements.Add(new ExpressionStatement(new Loom.Luau.AST.BinaryOperator(count, "+=", new NumberLiteral(1))));
+                statements.Add(
+                    new ExpressionStatement(new Loom.Luau.AST.BinaryOperator(new Loom.Luau.AST.ElementAccess(result, count), "=", value))
+                );
+            }
+
+            _state.Prereq(statements.ToArray());
+        }
+
+        return result;
+    }
+
+    public override LuauNode VisitSpreadElement(SpreadElement spreadElement) => Visit(spreadElement.Expression);
 
     public override LuauNode VisitTupleExpression(TupleExpression tupleExpression) =>
         new Table(tupleExpression.Expressions.ConvertAll(e => new TableInitializer(Visit(e))));

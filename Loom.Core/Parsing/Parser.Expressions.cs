@@ -468,10 +468,12 @@ public sealed partial class Parser
         if (Match(out var immediateRightBracket, SyntaxKind.RBracket))
             return new ArrayLiteral(mutKeyword, leftBracket, immediateRightBracket, []);
 
-        var expressions = ParseDelimited(ParseExpression);
+        var expressions = ParseDelimited(ParseArrayElement);
         var rightBracket = Expect(SyntaxKind.RBracket);
         return new ArrayLiteral(mutKeyword, leftBracket, rightBracket, expressions);
     }
+
+    private Expression ParseArrayElement() => Match(out var dotDot, SyntaxKind.DotDot) ? new SpreadElement(dotDot, ParseExpression()) : ParseExpression();
 
     private InterpolatedStringLiteral ParseInterpolatedStringLiteral(Token startToken)
     {

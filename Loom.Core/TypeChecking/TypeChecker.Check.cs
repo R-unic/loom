@@ -158,7 +158,20 @@ public sealed partial class TypeChecker
         var elementConstraints = new List<TypeSolver.TypeConstraint>();
         foreach (var element in arrayLiteral.Expressions)
         {
-            elementTypes.Add(Check(element, expected.ElementType, state, out var constraint));
+            TypeSolver.TypeConstraint? constraint;
+            if (element is SpreadElement spreadElement)
+            {
+                // Immutable, because the copy is what lands in the result: a 'mut' operand spreads into an
+                // immutable array and an immutable one spreads into a 'mut' array.
+                var operandType = Check(spreadElement.Expression, new ArrayType(expected.ElementType, false), state, out constraint);
+                BindType(spreadElement, operandType);
+                elementTypes.Add(SpreadedElementType(spreadElement, operandType));
+            }
+            else
+            {
+                elementTypes.Add(Check(element, expected.ElementType, state, out constraint));
+            }
+
             if (constraint != null)
                 elementConstraints.Add(constraint);
         }

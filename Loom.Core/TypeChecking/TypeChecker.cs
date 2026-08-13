@@ -176,11 +176,34 @@ public sealed partial class TypeChecker
     public override Type VisitArrayLiteral(ArrayLiteral arrayLiteral)
     {
         // TODO: array literal types for immutable arrays assigned to immutable names
-        var expressionTypes = arrayLiteral.Expressions.ConvertAll(Visit).ConvertAll(t => t.Widen());
+        var expressionTypes = arrayLiteral.Expressions.ConvertAll(ContributedElementType).ConvertAll(t => t.Widen());
         var elementType = TypeSimplifier.Simplify(new Types.UnionType(expressionTypes));
         var isMutable = arrayLiteral.MutKeyword != null;
         var type = new Types.ArrayType(elementType, isMutable);
         return BindType(arrayLiteral, type);
+    }
+
+    private Type ContributedElementType(Expression element) =>
+        element is SpreadElement spreadElement ? SpreadedElementType(spreadElement, Visit(spreadElement)) : Visit(element);
+
+    public override Type VisitSpreadElement(SpreadElement spreadElement) => BindType(spreadElement, Visit(spreadElement.Expression));
+
+    /// <summary>
+    ///     The element type a spread contributes to the array being built. A spread copies, so the operand's
+    ///     own mutability never reaches the result and only its element type matters.
+    /// </summary>
+    private Type SpreadedElementType(SpreadElement spreadElement, Type operandType)
+    {
+        if (TypeSimplifier.Expanded(operandType) is Types.ArrayType arrayType)
+            return arrayType.ElementType;
+
+        _diagnostics.Error(
+            spreadElement,
+            InternalCodes.InvalidSpreadOperand,
+            $"Only an array may be spread, got '{operandType}'."
+        );
+
+        return Types.PrimitiveType.Unknown;
     }
 
     public override Type VisitTupleExpression(TupleExpression tupleExpression) =>

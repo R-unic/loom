@@ -6843,6 +6843,70 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_SpreadElement_ContributesElementType()
+    {
+        var type = Utility.GetLastStatementType("""let xs = ["a"]; ["b", ..xs]""");
+        var array = Assert.IsType<ArrayType>(type);
+        Assert.False(array.IsMutable);
+
+        var primitive = Assert.IsType<PrimitiveType>(array.ElementType);
+        Assert.Equal(PrimitiveTypeKind.String, primitive.Kind);
+    }
+
+    [Fact]
+    public void Checks_SpreadElement_UnionsWithTheOtherElements()
+    {
+        var type = Utility.GetLastStatementType("""let xs = [1, 2]; ["a", ..xs]""");
+        var array = Assert.IsType<ArrayType>(type);
+
+        Assert.Equal("(string | number)[]", array.ToString());
+    }
+
+    [Fact]
+    public void Checks_SpreadOfMutableArray_IntoImmutableArray()
+    {
+        var type = Utility.GetLastStatementType("let xs = mut [1, 2]; [..xs]");
+        var array = Assert.IsType<ArrayType>(type);
+
+        Assert.False(array.IsMutable);
+        Assert.Equal(PrimitiveTypeKind.Number, Assert.IsType<PrimitiveType>(array.ElementType).Kind);
+    }
+
+    [Fact]
+    public void Checks_SpreadOfImmutableArray_IntoMutableArray()
+    {
+        var type = Utility.GetLastStatementType("let xs = [1, 2]; let ys: number[mut] = mut [..xs]; ys");
+        var array = Assert.IsType<ArrayType>(type);
+
+        Assert.True(array.IsMutable);
+    }
+
+    [Fact]
+    public void Checks_AnnotatedSpreadArrayLiteral()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("""let xs: number[] = [1]; let ys: (number | string)[] = ["a", ..xs];""");
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadOfNonArray()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = 1; let xs = [..x];");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidSpreadOperand, "Only an array may be spread, got '1'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_AnnotatedSpreadArrayLiteral_ElementMismatch()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("""let names = ["a"]; let xs: number[] = [1, ..names];""");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "Type '(number | string)[]' is not assignable to type 'number[]'.\n    Type 'string[]' is not assignable to type 'number[]'.\n        Type 'string' is not assignable to type 'number'."
+        );
+    }
+
+    [Fact]
     public void Checks_NumberLiterals()
     {
         var type = Utility.GetLastStatementType("69");
