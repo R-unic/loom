@@ -74,38 +74,7 @@ public class ObjectType(ObjectIndexer? indexer, List<ObjectProperty> properties)
             ? source.IsMutable && source.ValueType.Equals(target.ValueType)
             : source.ValueType.IsAssignableTo(target.ValueType);
 
-    public Type KeyUnion()
-    {
-        var propertyKeyType = PropertyKeyUnion();
-        if (Indexer == null)
-            return propertyKeyType;
-
-        var types = new List<Type> { Indexer.KeyType };
-        if (propertyKeyType is UnionType propertyKeyUnion)
-            types.AddRange(propertyKeyUnion.Types);
-        else
-            types.Add(propertyKeyType);
-
-        return TypeSimplifier.Simplify(new UnionType(types));
-    }
-
-    public Type ValueUnion()
-    {
-        var propertyValueType = PropertyUnion();
-        if (Indexer == null)
-            return propertyValueType;
-
-        var types = new List<Type> { Indexer.ValueType };
-        if (propertyValueType is UnionType propertyUnion)
-            types.AddRange(propertyUnion.Types);
-        else
-            types.Add(propertyValueType);
-
-        return TypeSimplifier.Simplify(new UnionType(types));
-    }
-
     public override Type PropertyKeyUnion() => TypeSimplifier.Simplify(new UnionType(Properties.ConvertAll(Type (p) => new LiteralType(p.Name))));
-    public Type PropertyUnion() => TypeSimplifier.Simplify(new UnionType(Properties.ConvertAll(p => p.ValueType)));
 
     [SuppressMessage("ReSharper", "NonReadonlyMemberInGetHashCode")]
     public override int GetHashCode()

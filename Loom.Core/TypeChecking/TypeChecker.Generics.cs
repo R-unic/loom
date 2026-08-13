@@ -138,6 +138,14 @@ public sealed partial class TypeChecker
     {
         var target = SubstituteTypeParameters(failNode, indexedType.Target, substitution, cache);
         var index = SubstituteTypeParameters(failNode, indexedType.Index, substitution, cache);
+
+        // A substitution that lands on another type parameter has not resolved the index, only renamed it.
+        // Resolving it anyway would pick one of the mapping's value types and drop its correspondence with
+        // the key, which is the whole of what T[K] says - and 'Serializer<MessageData[K]>' would then not
+        // accept what 'serializer_of::<MessageData, K>' hands back.
+        if (target is TypeParameter || index is TypeParameter)
+            return new IndexedType(target, index);
+
         return GetTypeAtIndex(failNode, target, index);
     }
 

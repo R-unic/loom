@@ -1049,6 +1049,92 @@ public class TypeCheckerTest
         Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type 'string?' is not assignable to type 'bool'.");
     }
 
+    private const string MergedMapping = """
+        enum Message { ShootGun, Reload }
+
+        interface ShootGunPacket { velocity: number }
+        interface ReloadPacket { ammo: number }
+
+        declare interface ShootGunEntry { [Message["ShootGun"]]: ShootGunPacket; }
+        declare interface ReloadEntry { [Message["Reload"]]: ReloadPacket; }
+        declare interface MessageData: ShootGunEntry, ReloadEntry;
+
+        """;
+
+    [Fact]
+    public void Checks_KeyOf_UnionsEveryInheritedIndexersKey()
+    {
+        var type = Utility.GetLastStatementType($"{MergedMapping}declare let key: keyof(MessageData);\nkey");
+
+        Assert.Equal("0 | 1", type.ToString());
+    }
+
+    [Fact]
+    public void Checks_IndexingByAUnionOfKeys_UnionsTheValuesTheyReach()
+    {
+        var type = Utility.GetLastStatementType($"{MergedMapping}declare let value: MessageData[keyof(MessageData)];\nvalue");
+
+        Assert.Equal("ShootGunPacket | ReloadPacket", type.ToString());
+    }
+
+    /// <remarks>
+    ///     Asserted by what the key is <em>not</em> assignable to: the key used to come back as 'never', which
+    ///     goes into anything, so a loop that accepted every narrower type was the shape of the bug.
+    /// </remarks>
+    [Fact]
+    public void Checks_ForOverAMergedMapping_BindsEveryInheritedKey()
+    {
+        const string source = $$"""
+            {{MergedMapping}}declare let data: MessageData;
+            declare fn take_any(key: keyof(MessageData)): void;
+            declare fn take_one(key: Message["ShootGun"]): void;
+
+            for key, value : data {
+                take_any(key);
+                take_one(key);
+            }
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+
+        Assert.Single(diagnostics.Set.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '0 | 1' is not assignable to type '0'.");
+    }
+
+    /// <remarks>
+    ///     A type parameter in target position used to be rejected outright, leaving the declared return type
+    ///     as 'never' - assignable to whatever the caller annotated, so every such call silently type-checked.
+    /// </remarks>
+    [Fact]
+    public void Checks_IndexedReturnType_ThroughATypeParameterTarget()
+    {
+        const string declaration = "interface Named { a: number, b: string }\ndeclare fn pick<T, K>(key: K): T[K];\n";
+
+        Assert.Equal("number", Utility.GetLastStatementType($"{declaration}pick::<Named, \"a\">(\"a\")").ToString());
+        Assert.Equal("ShootGunPacket", Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, Message[\"ShootGun\"]>(Message.ShootGun)").ToString());
+        Assert.Equal(
+            "ShootGunPacket | ReloadPacket",
+            Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, keyof(MessageData)>(Message.ShootGun)").ToString()
+        );
+    }
+
+    /// <remarks>
+    ///     A substituted index that is still a type parameter leaves 'T[K]' unresolved, so it keeps naming the
+    ///     value that goes with that key rather than collapsing to whichever indexer answered first.
+    /// </remarks>
+    [Fact]
+    public void Checks_IndexedReturnType_StaysDeferred_WhileTheIndexIsStillAParameter()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            $$"""
+              {{MergedMapping}}declare fn pick<T, K>(key: K): T[K];
+              fn get_packet<K: Message>(message: K): MessageData[K] -> pick::<MessageData, K>(message);
+              """
+        );
+
+        Utility.AssertNoErrors(diagnostics);
+    }
+
     [Fact]
     public void ThrowsFor_KeyOf_OnPrimitive()
     {
