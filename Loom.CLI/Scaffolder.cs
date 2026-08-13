@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text.Json;
 using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Pipeline;
@@ -33,7 +34,7 @@ internal static class Scaffolder
         var initializeGit = Prompt.Confirm("Initialize a git repository?");
         Console.WriteLine();
 
-        Scaffold(projectDirectory, projectType);
+        Scaffold(projectDirectory, projectType, name);
         if (initializeGit)
             InitializeGitRepository(projectDirectory);
 
@@ -43,7 +44,7 @@ internal static class Scaffolder
         return 0;
     }
 
-    private static void Scaffold(string projectDirectory, ProjectType projectType)
+    private static void Scaffold(string projectDirectory, ProjectType projectType, string projectName)
     {
         Directory.CreateDirectory(projectDirectory);
         var sourceDirectory = Path.Combine(projectDirectory, "src");
@@ -60,7 +61,7 @@ internal static class Scaffolder
             const string projectFileName = "default.project.json";
             File.WriteAllText(
                 Path.Combine(projectDirectory, projectFileName),
-                GetRojoProjectContent(Path.GetDirectoryName(projectDirectory) ?? "???")
+                GetRojoProjectContent(projectName)
             );
             filesWritten.Add(projectFileName);
         }
@@ -83,10 +84,15 @@ internal static class Scaffolder
         output_directory = "dist"
         """ + Environment.NewLine;
 
+    /// <remarks>
+    ///     The name goes through the JSON serializer rather than straight into the template: a directory may
+    ///     legally be named with a quote or a backslash, and either one written verbatim produces a manifest
+    ///     that nothing can read back.
+    /// </remarks>
     private static string GetRojoProjectContent(string projectName) =>
         $$"""
         {
-          "name": "{{projectName}}",
+          "name": {{JsonSerializer.Serialize(projectName)}},
           "globIgnorePaths": ["**/loom-config.toml"],
           "tree": {
             "$className": "DataModel",
