@@ -6,4 +6,5 @@ riderModule.iml
 .claude/
 **/TestResults/
 *.Corrupted.*.Tmp
-Loom.sln.DotSettings.usercoverage/
+Loom.sln.DotSettings.user
+coverage/
