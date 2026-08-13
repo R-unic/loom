@@ -60,13 +60,20 @@ public sealed partial class TypeChecker
                     BindType(@for.Names[1], Types.PrimitiveType.Number);
 
                 break;
+            // One name over a keyed collection binds the value, not the key - which is what the generator
+            // emits, placing a discard where the key would go. Binding the key here promised a name of one
+            // type and handed the loop a value of another, with nothing in between to notice.
             case InterfaceType or ObjectType:
             {
                 var objectType = collectionType is InterfaceType interfaceType ? interfaceType.ObjectType : (ObjectType)collectionType;
-                BindType(@for.Names[0], objectType.KeyUnion());
-                if (@for.Names.Count > 1)
-                    BindType(@for.Names[1], elementType);
+                if (@for.Names.Count == 1)
+                {
+                    BindType(@for.Names[0], elementType);
+                    break;
+                }
 
+                BindType(@for.Names[0], objectType.KeyUnion());
+                BindType(@for.Names[1], elementType);
                 break;
             }
         }
