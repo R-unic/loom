@@ -110,6 +110,16 @@ declare fn wraps_errors: void;
 [attribute_usage(AttributeTargets.Function | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
 declare fn deprecated(message: string?): void;
 
+### Narrows which realm may use this declaration, below whatever [realms] says about the directory
+### it is written in. A shared module still replicates in full - marking a declaration inside one
+### does not stop its code reaching the client - so this says who may *reach* it, and the guarantee
+### that server code is never delivered at all remains the directory's to make. Metadata only.
+[attribute_usage(AttributeTargets.Function | AttributeTargets.Interface | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
+declare fn server: void;
+### Narrows this declaration to client code. See 'server'. Metadata only.
+[attribute_usage(AttributeTargets.Function | AttributeTargets.Interface | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
+declare fn client: void;
+
 ## Serialization attributes. See TypeChecker.Serialization.cs for the co-requirement rules
 ## these carry: 'packed' requires 'serializable', every property attribute requires its
 ## containing interface to be 'serializable', and 'number_step' requires 'number_range'.

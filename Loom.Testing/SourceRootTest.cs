@@ -768,6 +768,48 @@ public class SourceRootTest
     }
 
     /// <summary>
+    ///     A declaration inside a shared module may still be one realm's alone. The module is importable from
+    ///     either side - it is shared - so the narrowing is checked where the name binds to what it names.
+    /// </summary>
+    [Theory]
+    [InlineData("client/importer.loom", "[server] export fn secret(): number { return 1; }", true)]
+    [InlineData("server/importer.loom", "[server] export fn secret(): number { return 1; }", false)]
+    [InlineData("client/importer.loom", "[client] export fn secret(): number { return 1; }", false)]
+    [InlineData("client/importer.loom", "export fn secret(): number { return 1; }", false)]
+    public void Imports_RespectARealmAttributeOnTheDeclaration(string importingPath, string declaration, bool rejected)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-realm-" + Guid.NewGuid());
+        try
+        {
+            var config = WriteProject(
+                directory,
+                "project_type = \"game\"\n[realms]\nclient = \"client\"\nserver = \"server\"\n",
+                [
+                    (importingPath, "import { secret } from \"../shared/util\";\nlet used = secret();"),
+                    ("shared/util.loom", declaration)
+                ]
+            );
+
+            config.NoEmit = true;
+
+            var unit = new CompilationUnit(new SourceRootSet(new SourceRoot(config)));
+            var crossings = unit.Compile().Diagnostics.Set.Where(d => d.Code == InternalCodes.RealmBoundaryCrossed).ToList();
+
+            if (!rejected)
+            {
+                Assert.Empty(crossings);
+                return;
+            }
+
+            Assert.Contains(crossings, d => d.Message.Contains("server-only"));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    /// <summary>
     ///     A file takes the realm of the directory naming it, and the longest one wins - so a realm declared
     ///     inside another narrows it rather than being shadowed by whichever the dictionary happened to hold
     ///     first. A file under no declared directory is shared, which is what a project declaring none gets.

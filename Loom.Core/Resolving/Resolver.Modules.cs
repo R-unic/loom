@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
@@ -400,6 +401,9 @@ public sealed partial class Resolver
             return false;
         }
 
+        foreach (var export in exports)
+            ReportRealmNarrowing(specifier, name, export.Symbol);
+
         if (!import.IsTypeOnly)
             return exports.All(export => DeclareImportedSymbol(import, specifier, export.Symbol, module, moduleModel));
 
@@ -416,6 +420,44 @@ public sealed partial class Resolver
 
         return false;
     }
+
+    /// <summary>
+    ///     Reports importing a declaration whose <c>[server]</c> or <c>[client]</c> attribute narrows it below
+    ///     the realm doing the importing. The module itself was importable — a shared module is — but a
+    ///     declaration inside it may still be one side's alone.
+    /// </summary>
+    /// <remarks>
+    ///     Checked where an imported name binds to what it names, rather than at each use of it: crossing
+    ///     modules is the only way to reach another realm's declaration, since everything in one file shares
+    ///     that file's realm. So the import is both the first place this is knowable and the whole of it.
+    /// </remarks>
+    private void ReportRealmNarrowing(ImportSpecifier specifier, string name, Symbol export)
+    {
+        if (RealmAttributeOf(export) is not { } declared)
+            return;
+
+        var importing = compilationUnit.Roots.RealmOf(parserResult.Tree.File);
+        if (declared == importing)
+            return;
+
+        _diagnostics.Error(
+            specifier,
+            InternalCodes.RealmBoundaryCrossed,
+            $"'{name}' is {declared.ToString().ToLowerInvariant()}-only, so {importing.ToString().ToLowerInvariant()} code cannot import it.",
+            $"move it into a {declared.ToString().ToLowerInvariant()} module, or drop the attribute if both realms are meant to reach it"
+        );
+    }
+
+    /// <summary>
+    ///     The realm a declaration's own attributes narrow it to, or null when they narrow it to none. Read
+    ///     off the declaration rather than <see cref="Symbol.Attributes" />, which only some symbol kinds
+    ///     carry - the attribute is written on the declaration whatever kind it turns out to declare.
+    /// </summary>
+    private static Realm? RealmAttributeOf(Symbol symbol) =>
+        symbol.Declaration is not IWithAttributes { Attributes: { } attributes } ? null
+        : attributes.AttributeList.Exists(attribute => attribute.Name == "server") ? Realm.Server
+        : attributes.AttributeList.Exists(attribute => attribute.Name == "client") ? Realm.Client
+        : null;
 
     /// <summary>
     ///     Binds the exporting module's own symbol instance into this scope under the local name. The instance
