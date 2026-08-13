@@ -374,11 +374,13 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
     {
         updated = false;
 
-        // unification has to answer the same question IsAssignableTo does, or a call site would accept
-        // through inference what a declared type rejects
+        // Unification has to answer the same question IsAssignableTo does, or a call site would accept
+        // through inference what a declared type rejects - so this is that rule and nothing else. It used to
+        // carry one more clause, rejecting a source that required *fewer* parameters than the target, which
+        // is the safe direction rather than the unsafe one: a function is free to ignore arguments it is
+        // handed, which is what an event handler naming the first of two does.
         var restAbsorbsParameters = FunctionType.RestAbsorbsParameters(a.HasRestParameter, b.HasRestParameter);
         if (a.TypeParameters.Count != b.TypeParameters.Count
-            || a.RequiredParameterTypes.Count < b.RequiredParameterTypes.Count
             || !restAbsorbsParameters && a.ParameterTypes.Count > b.ParameterTypes.Count
             || a.IsAsync != b.IsAsync)
             return ReportTypeMismatch(a, b, span, trace: trace);

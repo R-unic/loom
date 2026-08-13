@@ -8099,6 +8099,36 @@ public class TypeCheckerTest
     ///     positional - so the array it declares used to arrive as one ordinary parameter and a handler
     ///     naming the arguments individually was rejected.
     /// </remarks>
+    /// <remarks>
+    ///     A handler is free to ignore arguments it is handed, which is how most Roblox events are used.
+    ///     Assignability always allowed it and unification did not, so a declared handler type accepted what
+    ///     an inline one was refused.
+    /// </remarks>
+    [Fact]
+    public void Checks_EventConnect_HandlerMayTakeFewerParametersThanTheEventDeclares() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                event abc(a: number, b: string);
+                abc += fn(a) { print(a); };
+                abc += fn() { print("fired"); };
+                abc += fn(a, b) { print(a, b); };
+                """
+            )
+        );
+
+    [Fact]
+    public void ThrowsFor_EventConnect_HandlerTakingMoreParametersThanTheEventDeclares()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(a: number); abc += fn(a: number, b: string) { };");
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "Type 'fn(number, string): void' is not assignable to type 'fn(number): void'."
+        );
+    }
+
     [Fact]
     public void Checks_VariadicEventConnect_HandlerMayNameEachArgument() =>
         Utility.AssertNoErrors(
