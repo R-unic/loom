@@ -286,7 +286,13 @@ public sealed partial class TypeChecker
         if (declaredType != null && parameter.EqualsValueClause != null)
             _semanticModel.TypeSolver.AddConstraint(initializerType!, declaredType, parameter.EqualsValueClause.Value);
 
-        if (parameter.DotDot != null && declaredType != null && !IsArrayType(declaredType) && !IsTupleRestType(declaredType))
+        // Not inside a type pattern: '..let P' there binds the whole remainder of the signature as a tuple,
+        // so what it stands for is a pack rather than the array a real rest parameter is passed.
+        if (parameter.DotDot != null
+            && declaredType != null
+            && parameter.ColonTypeClause?.Type is not InferType
+            && !IsArrayType(declaredType)
+            && !IsTupleRestType(declaredType))
             _diagnostics.Error(
                 parameter,
                 InternalCodes.InvalidRestParameterType,

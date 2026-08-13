@@ -148,7 +148,14 @@ public sealed partial class LuauGenerator
             ? Visit<TypeParameters>(typeAlias.TypeParameters)
             : new TypeParameters();
 
-        var type = Visit(typeAlias.EqualsTypeClause.Type);
+        // A branching alias still waiting on its subject has no Luau body: every use of it emits what it
+        // worked out to instead (see LuauGenerator.Types.cs), so the alias is only still here to keep an
+        // export of the name valid. One whose subject was already concrete resolved to an ordinary type and
+        // is emitted as one.
+        var type = _semanticModel.GetType(typeAlias) is TypeChecking.Types.ConditionalType or GenericType { UnderlyingType: TypeChecking.Types.ConditionalType }
+            ? Luau.AST.PrimitiveType.Unknown
+            : Visit(typeAlias.EqualsTypeClause.Type);
+
         return new Luau.AST.TypeAlias(typeAlias.Name.Text, typeParameters, type);
     }
 

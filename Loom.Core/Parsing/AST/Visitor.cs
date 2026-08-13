@@ -60,6 +60,9 @@ public abstract class Visitor<T>(Func<Node?, T> defaultValue)
     public virtual T VisitIndexerDeclaration(IndexerDeclaration indexerDeclaration) =>
         CombineResults([Visit(indexerDeclaration.IndexType), Visit(indexerDeclaration.ColonTypeClause)]);
 
+    public virtual T VisitMappedTypeDeclaration(MappedTypeDeclaration mappedTypeDeclaration) =>
+        CombineResults([Visit(mappedTypeDeclaration.SourceType), Visit(mappedTypeDeclaration.ColonTypeClause)]);
+
     public virtual T VisitPropertyDeclaration(PropertyDeclaration propertyDeclaration) =>
         CombineResults([VisitWithDefault(propertyDeclaration.Attributes), Visit(propertyDeclaration.ColonTypeClause)]);
 
@@ -219,6 +222,21 @@ public abstract class Visitor<T>(Func<Node?, T> defaultValue)
     public virtual T VisitKeyOf(KeyOf keyOf) => Visit(keyOf.Type);
     public virtual T VisitTypeOf(TypeOf typeOf) => Visit(typeOf.Expression);
     public virtual T VisitTypePredicateType(TypePredicateType typePredicateType) => CombineResults([Visit(typePredicateType.Subject), Visit(typePredicateType.Type)]);
+
+    public virtual T VisitConditionalType(ConditionalType conditionalType) =>
+        CombineResults(
+            [
+                Visit(conditionalType.CheckType),
+                Visit(conditionalType.TargetType),
+                Visit(conditionalType.ThenType),
+                Visit(conditionalType.ElseType)
+            ]
+        );
+
+    public virtual T VisitTypeMatch(TypeMatch matchType) => CombineResults([Visit(matchType.Subject), VisitList(matchType.Arms)]);
+    public virtual T VisitTypeMatchArm(TypeMatchArm matchTypeArm) => CombineResults([Visit(matchTypeArm.Pattern), Visit(matchTypeArm.Result)]);
+    public virtual T VisitInferType(InferType inferType) => VisitWithDefault(inferType.ColonTypeClause);
+    public virtual T VisitWildcardType(WildcardType wildcardType) => DefaultValue(wildcardType);
 
     public virtual T VisitFunctionType(FunctionType functionType) =>
         CombineResults([VisitWithDefault(functionType.TypeParameters), VisitWithDefault(functionType.Parameters), Visit(functionType.ReturnType)]);

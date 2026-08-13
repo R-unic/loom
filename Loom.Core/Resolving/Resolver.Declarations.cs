@@ -249,4 +249,67 @@ public sealed partial class Resolver
     }
 
     public override bool VisitTypeParameter(TypeParameter typeParameter) => DeclareType(typeParameter) && base.VisitTypeParameter(typeParameter);
+
+    /// <summary>
+    ///     A binder is in scope for the branch its pattern chose, and nowhere else - so the target and the
+    ///     'then' branch share a scope the 'else' branch is outside of. Two arms of the same match may
+    ///     therefore reuse a name, and reusing one within a single arm is the duplicate-name error.
+    /// </summary>
+    public override bool VisitConditionalType(ConditionalType conditionalType)
+    {
+        var resolved = Visit(conditionalType.CheckType);
+        using (var _ = InScope())
+        {
+            resolved &= DeclarePatternBinders(conditionalType.TargetType);
+            resolved &= Visit(conditionalType.TargetType);
+            resolved &= Visit(conditionalType.ThenType);
+        }
+
+        return Visit(conditionalType.ElseType) && resolved;
+    }
+
+    public override bool VisitTypeMatch(TypeMatch typeMatch)
+    {
+        var resolved = Visit(typeMatch.Subject);
+        foreach (var arm in typeMatch.Arms)
+            resolved &= Visit(arm);
+
+        return resolved;
+    }
+
+    public override bool VisitTypeMatchArm(TypeMatchArm typeMatchArm)
+    {
+        using var _ = InScope();
+        return DeclarePatternBinders(typeMatchArm.Pattern) & Visit(typeMatchArm.Pattern) & Visit(typeMatchArm.Result);
+    }
+
+    /// <summary>
+    ///     Every <c>let</c> the pattern declares, put in the arm's own scope ahead of the pattern being
+    ///     walked.
+    /// </summary>
+    /// <remarks>
+    ///     Declaring one where it is written would put it in whatever scope it happens to sit in -
+    ///     <see cref="VisitFunctionType" /> opens one of its own - and that scope is gone by the time the
+    ///     arm's result is resolved. A binder belongs to the arm, wherever inside the pattern it appears.
+    /// </remarks>
+    private bool DeclarePatternBinders(TypeExpression pattern)
+    {
+        var declared = true;
+        foreach (var binder in pattern.EnumerateDescendants<InferType>().Prepend(pattern as InferType).OfType<InferType>())
+            declared &= DeclareType(binder, binder.Name.Text);
+
+        return declared;
+    }
+
+    public override bool VisitMappedTypeDeclaration(MappedTypeDeclaration mappedTypeDeclaration)
+    {
+        // The source keys are read in the interface's own scope - the binder does not exist yet there, and
+        // 'keyof(K)' naming the binder it is about to declare would otherwise resolve to itself.
+        var resolved = Visit(mappedTypeDeclaration.SourceType);
+
+        using var _ = InScope();
+        return DeclareType(mappedTypeDeclaration, mappedTypeDeclaration.Name.Text)
+            && Visit(mappedTypeDeclaration.ColonTypeClause)
+            && resolved;
+    }
 }

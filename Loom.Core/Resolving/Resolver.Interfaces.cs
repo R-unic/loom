@@ -251,6 +251,22 @@ public sealed partial class Resolver
         if (body == null)
             return true;
 
+        // A mapped type describes the whole body - every member it has comes from the keys it maps over -
+        // so anything written beside it would be describing the same object twice with no rule for which
+        // one wins.
+        var mapped = body.Members.OfType<MappedTypeDeclaration>().ToList();
+        if (mapped.Count > 0 && body.Members.Count > 1)
+        {
+            foreach (var extra in body.Members.Where(member => member != mapped[0]))
+                _diagnostics.Error(
+                    extra,
+                    InternalCodes.InvalidMappedType,
+                    $"Type '{interfaceSymbol.Name}' maps over another type's keys, so it may not declare members of its own."
+                );
+
+            return false;
+        }
+
         var indexers = body.Members.OfType<IndexerDeclaration>().ToList();
         if (indexers.Count > 1)
         {

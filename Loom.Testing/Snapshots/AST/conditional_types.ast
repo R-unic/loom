@@ -1,0 +1,247 @@
+﻿TypeAlias(
+  EqualsTypeClause(
+    EqualsToken: Token(Equals, "=")
+    Type: ConditionalType(
+      CheckType: TypeName(
+        Name: Token(Identifier, "T")
+        TypeArguments: null
+      )
+      IsKeyword: Token(IsKeyword, "is")
+      TargetType: FunctionType(
+        FnKeyword: Token(FnKeyword, "fn")
+        TypeParameters: null
+        Parameters(
+          LeftParen: Token(LParen, "(")
+          RightParen: Token(RParen, ")")
+          ParameterList: [
+            Parameter(
+              DotDot: Token(DotDot, "..")
+              ColonTypeClause(
+                ColonToken: Token(Colon, ":")
+                Type: ArrayType(
+                  ElementType: PrimitiveType(
+                    TypeArguments: null
+                    Kind: Unknown
+                    Width: null
+                  )
+                  LeftBracket: Token(LBracket, "[")
+                  MutKeyword: null
+                  RightBracket: Token(RBracket, "]")
+                )
+              )
+              EqualsValueClause: null
+              Name: Token(Identifier, "$p0")
+            )
+          ]
+        )
+        ReturnType: ColonTypeClause(
+          ColonToken: Token(Colon, ":")
+          Type: InferType(
+            Name: Token(Identifier, "R")
+            ColonTypeClause: null
+          )
+        )
+        AsyncKeyword: null
+      )
+      Question: Token(Question, "?")
+      ThenType: TypeName(
+        Name: Token(Identifier, "R")
+        TypeArguments: null
+      )
+      Colon: Token(Colon, ":")
+      ElseType: PrimitiveType(
+        TypeArguments: null
+        Kind: Never
+        Width: null
+      )
+    )
+  )
+  TypeParameters(
+    LeftArrow: Token(LArrow, "<")
+    RightArrow: Token(RArrow, ">")
+    ParameterList: [
+      TypeParameter(
+        ColonTypeClause: null
+        EqualsTypeClause: null
+        Name: Token(Identifier, "T")
+      )
+    ]
+  )
+  Name: Token(Identifier, "ReturnType")
+)
+TypeAlias(
+  EqualsTypeClause(
+    EqualsToken: Token(Equals, "=")
+    Type: TypeMatch(
+      EachKeyword: null
+      Subject: TypeName(
+        Name: Token(Identifier, "T")
+        TypeArguments: null
+      )
+      LeftBrace: Token(LBrace, "{")
+      RightBrace: Token(RBrace, "}")
+      Arms: [
+        TypeMatchArm(
+          Pattern: TypeName(
+            Name: Token(Identifier, "Future")
+            TypeArguments(
+              LeftArrow: Token(LArrow, "<")
+              RightArrow: Token(RArrow, ">")
+              ArgumentsList: [
+                InferType(
+                  Name: Token(Identifier, "V")
+                  ColonTypeClause: null
+                )
+              ]
+            )
+          )
+          Arrow: Token(Arrow, "->")
+          Result: TypeName(
+            Name: Token(Identifier, "Awaited")
+            TypeArguments(
+              LeftArrow: Token(LArrow, "<")
+              RightArrow: Token(RArrow, ">")
+              ArgumentsList: [
+                TypeName(
+                  Name: Token(Identifier, "V")
+                  TypeArguments: null
+                )
+              ]
+            )
+          )
+        )
+        TypeMatchArm(
+          Pattern: WildcardType(
+            Token(Identifier, "_")
+          )
+          Arrow: Token(Arrow, "->")
+          Result: TypeName(
+            Name: Token(Identifier, "T")
+            TypeArguments: null
+          )
+        )
+      ]
+    )
+  )
+  TypeParameters(
+    LeftArrow: Token(LArrow, "<")
+    RightArrow: Token(RArrow, ">")
+    ParameterList: [
+      TypeParameter(
+        ColonTypeClause: null
+        EqualsTypeClause: null
+        Name: Token(Identifier, "T")
+      )
+    ]
+  )
+  Name: Token(Identifier, "Awaited")
+)
+TypeAlias(
+  EqualsTypeClause(
+    EqualsToken: Token(Equals, "=")
+    Type: TypeMatch(
+      EachKeyword: Token(Identifier, "each")
+      Subject: TypeName(
+        Name: Token(Identifier, "T")
+        TypeArguments: null
+      )
+      LeftBrace: Token(LBrace, "{")
+      RightBrace: Token(RBrace, "}")
+      Arms: [
+        TypeMatchArm(
+          Pattern: TypeName(
+            Name: Token(Identifier, "U")
+            TypeArguments: null
+          )
+          Arrow: Token(Arrow, "->")
+          Result: PrimitiveType(
+            TypeArguments: null
+            Kind: Never
+            Width: null
+          )
+        )
+        TypeMatchArm(
+          Pattern: InferType(
+            Name: Token(Identifier, "Other")
+            ColonTypeClause: null
+          )
+          Arrow: Token(Arrow, "->")
+          Result: TypeName(
+            Name: Token(Identifier, "Other")
+            TypeArguments: null
+          )
+        )
+      ]
+    )
+  )
+  TypeParameters(
+    LeftArrow: Token(LArrow, "<")
+    RightArrow: Token(RArrow, ">")
+    ParameterList: [
+      TypeParameter(
+        ColonTypeClause: null
+        EqualsTypeClause: null
+        Name: Token(Identifier, "T")
+      )
+      TypeParameter(
+        ColonTypeClause: null
+        EqualsTypeClause: null
+        Name: Token(Identifier, "U")
+      )
+    ]
+  )
+  Name: Token(Identifier, "Exclude")
+)
+InterfaceDeclaration(
+  SealedKeyword: null
+  ColonTypeListClause: null
+  Body: InterfaceBody(
+    LeftBrace: Token(LBrace, "{")
+    RightBrace: Token(RBrace, "}")
+    Members: [
+      MappedTypeDeclaration(
+        MutKeyword: Token(MutKeyword, "mut")
+        LeftBracket: Token(LBracket, "[")
+        RightBracket: Token(RBracket, "]")
+        Name: Token(Identifier, "K")
+        FromKeyword: Token(Identifier, "from")
+        SourceType: KeyOf(
+          LeftParen: Token(LParen, "(")
+          RightParen: Token(RParen, ")")
+          Type: TypeName(
+            Name: Token(Identifier, "T")
+            TypeArguments: null
+          )
+        )
+        ColonTypeClause(
+          ColonToken: Token(Colon, ":")
+          Type: IndexedType(
+            LeftBracket: Token(LBracket, "[")
+            RightBracket: Token(RBracket, "]")
+            TargetType: TypeName(
+              Name: Token(Identifier, "T")
+              TypeArguments: null
+            )
+            IndexType: TypeName(
+              Name: Token(Identifier, "K")
+              TypeArguments: null
+            )
+          )
+        )
+      )
+    ]
+  )
+  Attributes: null
+  TypeParameters(
+    LeftArrow: Token(LArrow, "<")
+    RightArrow: Token(RArrow, ">")
+    ParameterList: [
+      TypeParameter(
+        ColonTypeClause: null
+        EqualsTypeClause: null
+        Name: Token(Identifier, "T")
+      )
+    ]
+  )
+  Name: Token(Identifier, "AsMut")
+)

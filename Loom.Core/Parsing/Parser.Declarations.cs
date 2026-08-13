@@ -123,12 +123,28 @@ public sealed partial class Parser
         return ParsePropertyDeclaration(mutKeyword, null);
     }
 
-    private IndexerDeclaration? ParseIndexerDeclaration(Token? mutKeyword, Token leftBracket)
+    private Statement? ParseIndexerDeclaration(Token? mutKeyword, Token leftBracket)
     {
+        // '[K from ...]' binds a name for the keys it maps over, where '[K]' names the key type itself.
+        if (Current() is { Kind: SyntaxKind.Identifier } && Peek(1) is { Kind: SyntaxKind.Identifier, Text: "from" })
+            return ParseMappedTypeDeclaration(mutKeyword, leftBracket);
+
         var indexType = ParseType();
         var rightBracket = Expect(SyntaxKind.RBracket);
         var colonTypeClause = ExpectInterfaceMemberColonTypeClause($"Expected indexer type, got {SafeTokenText(Current())}.");
         return colonTypeClause == null ? null : new IndexerDeclaration(mutKeyword, leftBracket, rightBracket, indexType, colonTypeClause);
+    }
+
+    private MappedTypeDeclaration? ParseMappedTypeDeclaration(Token? mutKeyword, Token leftBracket)
+    {
+        var name = ExpectIdentifier("mapped type binder name");
+        var fromKeyword = ExpectContextualKeyword("from");
+        var sourceType = ParseType();
+        var rightBracket = Expect(SyntaxKind.RBracket);
+        var colonTypeClause = ExpectInterfaceMemberColonTypeClause($"Expected mapped member type, got {SafeTokenText(Current())}.");
+        return colonTypeClause == null
+            ? null
+            : new MappedTypeDeclaration(mutKeyword, leftBracket, rightBracket, name, fromKeyword, sourceType, colonTypeClause);
     }
 
     private PropertyDeclaration? ParsePropertyDeclaration(Token? mutKeyword, Attributes? attributes)
@@ -406,6 +422,9 @@ public sealed partial class Parser
         return new EventDeclaration(keyword, name, typeParameters, parameters, attributes);
     }
 
+    /// <summary>How many parameters of the current list were written without a name. See <see cref="ParseUnnamedPatternParameter" />.</summary>
+    private int _unnamedParameterIndex;
+
     private Parameters? ParseParameters()
     {
         if (!Match(out var leftParen, SyntaxKind.LParen))
@@ -414,7 +433,13 @@ public sealed partial class Parser
         if (Match(out var rightParen, SyntaxKind.RParen))
             return new Parameters(leftParen, rightParen, []);
 
-        var parameters = ParseDelimited(ParseParameter);
+        // Restored rather than merely reset, so a function type written inside another's parameter list
+        // numbers its own unnamed parameters from zero - each list is a scope of its own.
+        var enclosingIndex = _unnamedParameterIndex;
+        _unnamedParameterIndex = 0;
+        var parameters = Bracketed(() => ParseDelimited(ParseParameter));
+        _unnamedParameterIndex = enclosingIndex;
+
         rightParen = Expect(SyntaxKind.RParen);
         ValidateRestParameterPlacement(parameters);
 
@@ -424,10 +449,32 @@ public sealed partial class Parser
     private Parameter ParseParameter()
     {
         var dotDot = Match(out var dots, SyntaxKind.DotDot) ? dots : null;
+        if (_typePatternDepth > 0 && !AtNamedParameter())
+            return ParseUnnamedPatternParameter(dotDot);
+
         var name = ExpectIdentifier("parameter name");
         var colonTypeClause = ParseColonTypeClause();
         var equalsValueClause = ParseEqualsValueClause();
         return new Parameter(dotDot, name, colonTypeClause, equalsValueClause);
+    }
+
+    private bool AtNamedParameter() => Current() is { Kind: SyntaxKind.Identifier } && PeekKind(1) == SyntaxKind.Colon;
+
+    /// <summary>
+    ///     A parameter of a function type written inside a type pattern - <c>fn(..let P): any</c> - where
+    ///     only the type is being matched and there is no value for a name to stand for.
+    /// </summary>
+    /// <remarks>
+    ///     The name is synthesized rather than omitted so the rest of the compiler keeps seeing an ordinary
+    ///     parameter, and is spelled with a character no source can contain so two of them in one signature
+    ///     are never the duplicate-name error.
+    /// </remarks>
+    private Parameter ParseUnnamedPatternParameter(Token? dotDot)
+    {
+        var start = Current();
+        var span = new TextSpan(start.Span.Position, 0);
+        var name = new Token(SyntaxKind.Identifier, start.File, span, $"$p{_unnamedParameterIndex++}");
+        return new Parameter(dotDot, name, new ColonTypeClause(new Token(SyntaxKind.Colon, start.File, span, ":"), ParseType()), null);
     }
 
     private EqualsValueClause? ParseEqualsValueClause() => Match(out var equals, SyntaxKind.Equals) ? new EqualsValueClause(equals, ParseExpression()) : null;

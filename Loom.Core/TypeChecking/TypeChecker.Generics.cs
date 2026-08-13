@@ -8,6 +8,7 @@ using IndexedType = Loom.Core.TypeChecking.Types.IndexedType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
+using ConditionalType = Loom.Core.TypeChecking.Types.ConditionalType;
 
 namespace Loom.Core.TypeChecking;
 
@@ -81,8 +82,16 @@ public sealed partial class TypeChecker
             CheckTypeParameterConstraints(node, fullArguments[i], parameter, resolvedConstraints.GetValueOrDefault(parameter));
         }
 
+        ConditionalTypeEvaluator.TakeOverflow();
         var instantiated = genericType.Construct(fullArguments);
         ReportUnresolvableKeyOf(node, instantiated.Expand());
+        if (ConditionalTypeEvaluator.TakeOverflow())
+            _diagnostics.Error(
+                node,
+                InternalCodes.ConditionalTypeTooDeep,
+                $"Resolving '{genericType.Declaration.Name.Text}' here did not finish within the conditional type recursion limits.",
+                "give the recursion a case that stops, or write the type out"
+            );
 
         return BindType(node, instantiated);
     }
@@ -177,7 +186,7 @@ public sealed partial class TypeChecker
 
         bool contains(Type current)
         {
-            if (current is KeyOfType or IndexedType)
+            if (current is KeyOfType or IndexedType or ConditionalType or MappedType)
                 return true;
 
             if (!visited.Add(current))
@@ -290,6 +299,10 @@ public sealed partial class TypeChecker
                 ? SubstituteIndexedType(failNode, substitution, indexedType, cache)
                 : type is KeyOfType keyOfType
                 ? SubstituteKeyOfType(failNode, substitution, keyOfType, cache)
+                // Deferred the same way, but with nothing about them to report where the substitution does
+                // not resolve them - so they go through the shared substituter rather than a copy here.
+                : type is ConditionalType or MappedType
+                ? TypeSubstitution.Apply(type, substitution)
                 : TypeSolver.Transform(
                     type,
                     t => t switch

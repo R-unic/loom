@@ -10,6 +10,7 @@ using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using TypePredicateType = Loom.Core.TypeChecking.Types.TypePredicateType;
+using ConditionalType = Loom.Core.TypeChecking.Types.ConditionalType;
 using TupleType = Loom.Core.TypeChecking.Types.TupleType;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
@@ -87,6 +88,13 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         {
             IndexedType indexedType => new IndexedType(Map(indexedType.Target), Map(indexedType.Index)),
             KeyOfType keyOfType => new KeyOfType(Map(keyOfType.Target)),
+            // The binder is not mapped: it is bound by the mapped type itself, one key at a time.
+            MappedType mappedType => new MappedType(mappedType.Binder, Map(mappedType.Source), Map(mappedType.ValueType), mappedType.IsMutable),
+            ConditionalType conditionalType => new ConditionalType(
+                Map(conditionalType.Subject),
+                conditionalType.Arms.ConvertAll(arm => new ConditionalArm(Map(arm.Pattern), Map(arm.Result), arm.Binders)),
+                conditionalType.Distributes
+            ),
             ArrayType arrayType => new ArrayType(Map(arrayType.ElementType), arrayType.IsMutable),
             InterfaceType interfaceType => new InterfaceType(
                 interfaceType.Name,

@@ -1,0 +1,15 @@
+type ReturnType<T> = T is fn(..unknown[]): let R ? R : never;
+
+type Awaited<T> = match T {
+    Future<let V> -> Awaited<V>,
+    _ -> T,
+};
+
+type Exclude<T, U> = match each T {
+    U -> never,
+    let Other -> Other,
+};
+
+interface AsMut<T> {
+    mut [K from keyof(T)]: T[K];
+}

@@ -1,0 +1,30 @@
+type ReturnType<T> = T is fn(..unknown[]): let R ? R : never;
+type ElementOf<T> = T is (let E)[] ? E : never;
+
+type Exclude<T, U> = match each T {
+    U -> never,
+    let Other -> Other,
+};
+
+type Awaited<T> = match T {
+    Future<let V> -> Awaited<V>,
+    _ -> T,
+};
+
+interface AsMut<T> {
+    mut [K from keyof(T)]: T[K];
+}
+
+interface Point {
+    x: number;
+    y: number;
+}
+
+declare let point: AsMut<Point>;
+
+let width: ReturnType<fn(): number> = 3;
+let letter: ElementOf<string[]> = "a";
+let key: Exclude<"x" | "y" | "z", "y"> = "x";
+let awaited: Awaited<Future<Future<number>>> = 7;
+
+print(width, letter, key, awaited, point.x);

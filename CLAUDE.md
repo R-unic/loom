@@ -34,7 +34,14 @@ before claiming done.
     - `TypeChecking/` — `TypeChecker` (partial: `.Enums`, `.Generics`, `.Interfaces`, `.ControlFlow`, `.Declarations`, `.Invocations`, `.Match`, `.MemberAcess`,
       `.Operators`, `.TypeNodes`, , `.Check` (bidirectional/contextual typing)), plus `TypeInferrer`, `TypeNarrower`, `TypeSimplifier`, `TypeSolver`; Intrinsics
       for injecting .loom files into all Loom programs
-      `Types/` one file per type kind (union, intersection, literal, generic, etc.); `Intrinsic/` + operator binders/rules
+      `Types/` one file per type kind (union, intersection, literal, generic, etc.); `Intrinsic/` + operator binders/rules.
+      `KeyOfType`, `IndexedType`, `MappedType` (`[K from keyof(T)]: T[K]`) and `ConditionalType` (`T is U ? A : B`, and the
+      n-armed `match T { ... }` it is the two-armed case of) are all *deferred operators*: they answer nothing at the
+      declaration, where the target is still a parameter, and are resolved by `TypeSubstitution.Apply` once an
+      instantiation supplies one. Adding another means a case there, in `TypeSolver.Transform`, and in
+      `TypeSimplifier.Normalize`. `TypeMatcher` measures a subject against a pattern and binds its `let` names;
+      `ConditionalTypeEvaluator` picks the arm, distributes over a union for `match each`, and unrolls a tail-recursive
+      arm iteratively under two bounds (small for nesting, large for tail steps)
     - `Generation/` — `LuauGenerator` (partial: `.Declarations`, `.Events`, `.Expressions`, `.Interfaces`, `.Match`, `.Statements`, `.Types`),
       `LuauOperatorMap.cs`, `Macros/` with `IMacroProvider` implementations under `Macros/Providers/` (Array, Range, Number, Result, Instance, global
       invocations)
@@ -143,6 +150,14 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
   warnings and info and collapses errors into one `PackageFailedToCompile` per file carrying the first underlying error. `DiagnosticOptions
   .ReportDependencyDiagnostics` (CLI: `--dependency-diagnostics`) turns that off for debugging a package from a project consuming it. Opening a package's own
   files in the LSP needs no flag — the package is the entry root of its own unit there.
+- `x is T` is read as a type predicate or as a conditional type depending on whether a `?` follows the target, which the parser only finds out after reading
+  it — so `_suppressOptionalSuffix` turns off the postfix `?` for the length of that target and is cleared only by `Parser.Bracketed`, for positions a closing
+  bracket ends before the `?` could be reached. A target that really is optional therefore needs parens: `T is (number?) ? A : B`. A pattern's `let` binders
+  are declared into the *arm's* scope by `DeclarePatternBinders`, not where they are written — `VisitFunctionType` opens a scope of its own, and
+  `fn(): let R ? R : never` would otherwise lose `R` before the branch that uses it.
+- A conditional alias emits no Luau body (Luau can express the answer but not the question): every use emits what it resolved to via `LuauTypeRenderer`, and a
+  use still generic at emission falls back to `unknown` with a warning — never `any`, which would silence every check downstream instead of making the consumer
+  narrow. A mapped type does have a Luau lowering (`{ [keyof<T>]: index<T, keyof<T>> }`), so it keeps its name at use sites.
 - The resolver keeps ambient names (intrinsics + `.d.loom` globals) in a scope below the file's own, so a module declaration shadows them instead of
   colliding. Scope depth is therefore not a test for "top level of a module" — use `AtModuleScope()`. Imports resolve ahead of the file's statements, so a name
   may be used above the import that brings it in.

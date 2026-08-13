@@ -93,6 +93,9 @@ public sealed partial class LuauGenerator
         if (symbol is not InterfaceSymbol interfaceSymbol)
             return new NoOpStatement();
 
+        if (interfaceDeclaration.Body?.Members.OfType<MappedTypeDeclaration>().FirstOrDefault() is { } mapped)
+            return GenerateMappedTypeAlias(interfaceDeclaration, mapped);
+
         var indexer = interfaceDeclaration.Body?.Members.OfType<IndexerDeclaration>().FirstOrDefault();
         var propertyDeclarations = interfaceDeclaration.Body?.Members.OfType<PropertyDeclaration>() ?? [];
         var eventDeclarations = interfaceDeclaration.Body?.Members.OfType<EventDeclaration>() ?? [];
@@ -123,6 +126,37 @@ public sealed partial class LuauGenerator
                 )
                 : tableType
         );
+    }
+
+    /// <summary>
+    ///     A mapped type becomes a Luau indexer keyed on the whole key set: <c>{ [keyof&lt;T&gt;]: index&lt;T,
+    ///     keyof&lt;T&gt;&gt; }</c>. That is less than Loom knows - which key has which type is lost, since
+    ///     Luau has no way to say it - but it is the closest shape there is, and every concrete use resolves
+    ///     to real properties before it reaches here anyway (see <see cref="LuauTypeRenderer" />).
+    /// </summary>
+    private LuauNode GenerateMappedTypeAlias(InterfaceDeclaration interfaceDeclaration, MappedTypeDeclaration mapped)
+    {
+        var binder = new TypeAliasSubstitution(mapped.Name.Text, Visit<LuauType>(mapped.SourceType));
+        var indexer = new TableTypeIndexer(mapped.MutKeyword == null ? LuauVisibility.Read : null, binder.Source, (LuauType)binder.Substitute(Visit(mapped.ColonTypeClause)));
+        return new TypeAlias(interfaceDeclaration.Name.Text, GenerateTypeParameters(interfaceDeclaration.TypeParameters), new TableType(indexer, []));
+    }
+
+    /// <summary>
+    ///     Replaces the mapped type's binder with the key set it ranges over, since Luau's indexer has no
+    ///     name to bind: <c>[K from keyof(T)]: T[K]</c> is written there as <c>index&lt;T, keyof&lt;T&gt;&gt;</c>.
+    /// </summary>
+    private sealed record TypeAliasSubstitution(string BinderName, LuauType Source)
+    {
+        public LuauNode Substitute(LuauNode type) =>
+            type switch
+            {
+                Luau.AST.TypeName { TypeArguments.Count: 0 } named when named.Name == BinderName => Source,
+                Luau.AST.TypeName named => new Luau.AST.TypeName(named.Name, named.TypeArguments.ConvertAll(argument => (LuauType)Substitute(argument))),
+                Luau.AST.OptionalType optional => new Luau.AST.OptionalType((LuauType)Substitute(optional.Inner)),
+                Luau.AST.UnionType union => new Luau.AST.UnionType(union.Types.ConvertAll(t => (LuauType)Substitute(t))),
+                IntersectionType intersection => new IntersectionType(intersection.Types.ConvertAll(t => (LuauType)Substitute(t))),
+                _ => type
+            };
     }
 
     /// <summary>

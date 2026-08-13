@@ -129,6 +129,9 @@ public sealed partial class TypeChecker
         }
 
         var typeParameters = interfaceDeclaration.TypeParameters?.ParameterList.ConvertAll(VisitTypeParameter);
+        if (interfaceDeclaration.Body?.Members.OfType<MappedTypeDeclaration>().FirstOrDefault() is { } mappedDeclaration)
+            return BindType(interfaceDeclaration, PublishMappedType(interfaceDeclaration, typeParameters, mappedDeclaration));
+
         // Expanded, since a base written as an instantiation ('interface Click: IAction<"Click">') is only
         // an InterfaceType once expanded, and anything that is not one is dropped on the next line.
         var constraints = interfaceDeclaration.ColonTypeListClause?.Types
@@ -465,6 +468,26 @@ public sealed partial class TypeChecker
                 signatures = null;
                 return false;
         }
+    }
+
+    /// <summary>
+    ///     A mapped interface publishes the <see cref="MappedType" /> itself rather than an
+    ///     <see cref="InterfaceType" /> wrapped around one: its members are not written down anywhere, so
+    ///     there is nothing to put in an object body until the keys arrive.
+    /// </summary>
+    private Type PublishMappedType(InterfaceDeclaration interfaceDeclaration, List<Types.TypeParameter>? typeParameters, MappedTypeDeclaration mappedDeclaration)
+    {
+        if (interfaceDeclaration.ColonTypeListClause != null)
+            _diagnostics.Error(
+                interfaceDeclaration.ColonTypeListClause,
+                InternalCodes.InvalidMappedType,
+                $"Type '{interfaceDeclaration.Name.Text}' maps over another type's keys, so it cannot also inherit members."
+            );
+
+        var mapped = ResolveMappedType(mappedDeclaration);
+        return typeParameters == null
+            ? mapped.Resolve() ?? mapped
+            : new GenericType(interfaceDeclaration, typeParameters, mapped);
     }
 
     private ObjectIndexer? ResolveInterfaceIndexer(List<InterfaceType> constraints, IndexerDeclaration? indexerDeclaration)

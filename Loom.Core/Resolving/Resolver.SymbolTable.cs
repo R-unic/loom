@@ -33,8 +33,16 @@ public sealed partial class Resolver
 
     private bool DeclareType(NamedDeclaration node) => DeclareType(node, new TypeAliasSymbol(node, node.Name.Text));
 
-    private bool DeclareType(NamedDeclaration node, TypeSymbol symbol) =>
-        DeclareOnce(node, symbol, SymbolNamespace.Type, $"Type '{node.Name.Text}' is already declared in this scope.");
+    private bool DeclareType(NamedDeclaration node, TypeSymbol symbol) => DeclareType(node, node.Name.Text, symbol);
+
+    /// <summary>
+    ///     For a type name declared by something that is not a <see cref="NamedDeclaration" /> - a mapped
+    ///     type's binder, or a <c>let</c> inside a type pattern.
+    /// </summary>
+    private bool DeclareType(Node node, string name) => DeclareType(node, name, new TypeAliasSymbol(node, name));
+
+    private bool DeclareType(Node node, string name, TypeSymbol symbol) =>
+        DeclareOnce(node, symbol, SymbolNamespace.Type, $"Type '{name}' is already declared in this scope.");
 
     /// <summary>
     ///     Puts <paramref name="symbol" /> in the current scope, or reports <paramref name="duplicateError" />

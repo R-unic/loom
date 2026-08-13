@@ -7,22 +7,149 @@ namespace Loom.Core.Parsing;
 
 public sealed partial class Parser
 {
-    private TypeExpression ParseType() =>
-        Current().Kind is SyntaxKind.Identifier or SyntaxKind.At && PeekKind(1) == SyntaxKind.IsKeyword
-            ? ParseTypePredicateType()
-            : ParseUnionType();
+    /// <summary>
+    ///     Suppresses the postfix <c>?</c> for the length of one <c>is</c> target, so <c>T is number ? A : B</c>
+    ///     reads the <c>?</c> as the branch rather than as an optional type. A target that really is optional
+    ///     needs parentheses.
+    /// </summary>
+    /// <remarks>
+    ///     It has to reach every position the target can <em>end</em> in, not just its outermost one - the
+    ///     <c>?</c> in <c>T is fn(): let R ? R : never</c> follows a return type, and a function type's
+    ///     return clause is the last thing parsed for it. So this stays set through the nesting and is
+    ///     cleared only by <see cref="Bracketed{T}" />, for the positions a closing bracket ends before the
+    ///     <c>?</c> could ever be reached.
+    /// </remarks>
+    private bool _suppressOptionalSuffix;
 
-    private TypeExpression ParseTypePredicateType()
+    private T Bracketed<T>(Func<T> parse)
     {
-        Expression subject;
-        if (Match(out var atToken, SyntaxKind.At))
-            subject = new SelfExpression(atToken);
-        else
-            subject = new Identifier(Expect(SyntaxKind.Identifier));
+        var suppressed = _suppressOptionalSuffix;
+        _suppressOptionalSuffix = false;
+        try
+        {
+            return parse();
+        }
+        finally
+        {
+            _suppressOptionalSuffix = suppressed;
+        }
+    }
 
+    /// <summary>
+    ///     How many type patterns deep the parser is. <c>let</c> binders and <c>_</c> only mean anything
+    ///     inside one, and nesting rather than a flag is what lets a pattern hold a function type whose own
+    ///     return type is a binder.
+    /// </summary>
+    private int _typePatternDepth;
+
+    private TypeExpression ParseType() => ParseTypeOrPredicate();
+
+    /// <summary>
+    ///     Both readings of <c>x is T</c>: the type predicate a function's return position takes, and the
+    ///     conditional type's branch. Which one it is only becomes clear once the <c>is</c> target has been
+    ///     read and a <c>?</c> either follows it or does not, so the two share a parse up to that point.
+    /// </summary>
+    private TypeExpression ParseTypeOrPredicate()
+    {
+        // '@ is T' can only ever be a predicate - the subject is a value, and '@' names no type.
+        if (Current().Kind == SyntaxKind.At && PeekKind(1) == SyntaxKind.IsKeyword)
+            return ParseSelfTypePredicateType();
+
+        var left = ParseUnionType();
+        if (!Match(out var isKeyword, SyntaxKind.IsKeyword))
+            return left;
+
+        var target = ParseIsTargetType();
+        if (!Match(out var question, SyntaxKind.Question))
+            return CompleteTypePredicate(left, isKeyword, target);
+
+        var thenType = ParseType();
+        var colon = Expect(SyntaxKind.Colon);
+        var elseType = ParseType();
+        return new ConditionalType(left, isKeyword, target, question, thenType, colon, elseType);
+    }
+
+    private TypeExpression ParseIsTargetType()
+    {
+        var suppressed = _suppressOptionalSuffix;
+        _suppressOptionalSuffix = true;
+        _typePatternDepth++;
+        try
+        {
+            return ParseUnionType();
+        }
+        finally
+        {
+            _suppressOptionalSuffix = suppressed;
+            _typePatternDepth--;
+        }
+    }
+
+    private TypeExpression ParseSelfTypePredicateType()
+    {
+        var atToken = Expect(SyntaxKind.At);
         var isKeyword = Expect(SyntaxKind.IsKeyword);
         var type = ParseType();
-        return new TypePredicateType(subject, isKeyword, type);
+        return new TypePredicateType(new SelfExpression(atToken), isKeyword, type);
+    }
+
+    private TypeExpression CompleteTypePredicate(TypeExpression subject, Token isKeyword, TypeExpression target)
+    {
+        if (subject is TypeName { TypeArguments: null } typeName)
+            return new TypePredicateType(new Identifier(typeName.Name), isKeyword, target);
+
+        _diagnostics.Error(
+            subject,
+            InternalCodes.InvalidTypePredicateSubject,
+            "A type predicate's subject must be a parameter name.",
+            "add '? ... : ...' to write a conditional type instead"
+        );
+
+        return new NullTypeExpression(isKeyword);
+    }
+
+    private TypeExpression ParseTypeMatch(Token matchKeyword)
+    {
+        var eachKeyword = AtContextualKeyword("each") && PeekKind(1) != SyntaxKind.LBrace ? Advance() : null;
+        var subject = ParseUnionType();
+        var leftBrace = Expect(SyntaxKind.LBrace);
+        var arms = Bracketed(ParseTypeMatchArms);
+        var rightBrace = Expect(SyntaxKind.RBrace);
+        if (arms.Count == 0)
+            _diagnostics.Error(matchKeyword, InternalCodes.EmptyMatch, "A type-level 'match' must have at least one arm.");
+
+        return new TypeMatch(matchKeyword, eachKeyword, subject, leftBrace, rightBrace, arms);
+    }
+
+    private List<TypeMatchArm> ParseTypeMatchArms()
+    {
+        var arms = new List<TypeMatchArm>();
+        while (!IsEof() && Current() is not { Kind: SyntaxKind.RBrace })
+        {
+            var previousPosition = _position;
+            arms.Add(ParseTypeMatchArm());
+            Match(SyntaxKind.Comma, SyntaxKind.Semicolon);
+            EnsureProgress(previousPosition);
+        }
+
+        return arms;
+    }
+
+    private TypeMatchArm ParseTypeMatchArm()
+    {
+        _typePatternDepth++;
+        TypeExpression pattern;
+        try
+        {
+            pattern = ParseUnionType();
+        }
+        finally
+        {
+            _typePatternDepth--;
+        }
+
+        var arrow = Expect(SyntaxKind.Arrow);
+        return new TypeMatchArm(pattern, arrow, ParseType());
     }
 
     private TypeExpression ParseUnionType() => ParseChainedType(ParseIntersectionType, SyntaxKind.Pipe, (separators, types) => new UnionType(separators, types));
@@ -49,11 +176,11 @@ public sealed partial class Parser
                     continue;
                 }
 
-                var indexType = ParseType();
+                var indexType = Bracketed(ParseType);
                 var rightBracket = Expect(SyntaxKind.RBracket);
                 type = new IndexedType(leftBracket, rightBracket, type, indexType);
             }
-            else if (Match(out var question, SyntaxKind.Question))
+            else if (!_suppressOptionalSuffix && Match(out var question, SyntaxKind.Question))
             {
                 type = new OptionalType(question, type);
             }
@@ -67,10 +194,22 @@ public sealed partial class Parser
 
     private TypeExpression ParseUnaryType()
     {
+        if (Match(out var matchKeyword, SyntaxKind.MatchKeyword))
+            return ParseTypeMatch(matchKeyword);
+
+        if (_typePatternDepth > 0 && Match(out var letKeyword, SyntaxKind.LetKeyword))
+        {
+            var binderName = ExpectIdentifier("binder name");
+            return new InferType(letKeyword, binderName, ParseColonTypeClause());
+        }
+
+        if (_typePatternDepth > 0 && Current() is { Kind: SyntaxKind.Identifier, Text: "_" })
+            return new WildcardType(Advance());
+
         if (Match(out var keyOfKeyword, SyntaxKind.KeyOfKeyword))
         {
             var leftParen = Expect(SyntaxKind.LParen);
-            var innerType = ParsePostfixType();
+            var innerType = Bracketed(ParsePostfixType);
             var rightParen = Expect(SyntaxKind.RParen);
             return new KeyOf(keyOfKeyword, leftParen, rightParen, innerType);
         }
@@ -141,7 +280,9 @@ public sealed partial class Parser
         return new FunctionType(fnKeyword, typeParameters, parameters, returnType, asyncKeyword);
     }
 
-    private TypeExpression ParseParenthesizedType(Token leftParen)
+    private TypeExpression ParseParenthesizedType(Token leftParen) => Bracketed(() => ParseParenthesizedTypeBody(leftParen));
+
+    private TypeExpression ParseParenthesizedTypeBody(Token leftParen)
     {
         var type = ParseType();
         if (Current().Kind == SyntaxKind.Comma)
@@ -191,7 +332,7 @@ public sealed partial class Parser
         if (!Match(out var leftArrow, SyntaxKind.LArrow))
             return null;
 
-        var parameters = ParseDelimited(ParseTypeParameter);
+        var parameters = Bracketed(() => ParseDelimited(ParseTypeParameter));
         var rightArrow = Expect(SyntaxKind.RArrow);
         return new TypeParameters(leftArrow, rightArrow, parameters);
     }
@@ -209,7 +350,7 @@ public sealed partial class Parser
         if (!Match(out var leftArrow, forInvocation ? SyntaxKind.ColonColonLArrow : SyntaxKind.LArrow))
             return null;
 
-        var arguments = ParseDelimited(ParseType);
+        var arguments = Bracketed(() => ParseDelimited(ParseType));
         if (MatchClosingArrow(out var rightArrow))
             return new TypeArguments(leftArrow, rightArrow, arguments);
 
@@ -223,7 +364,7 @@ public sealed partial class Parser
         if (!Match(out var leftArrow, forInvocation ? SyntaxKind.ColonColonLArrow : SyntaxKind.LArrow))
             return null;
 
-        var arguments = ParseDelimited(ParseType);
+        var arguments = Bracketed(() => ParseDelimited(ParseType));
         if (error != null && arguments.Find(a => a is not T) is { } invalidArgument)
         {
             _diagnostics.Error(invalidArgument, InternalCodes.InvalidTypeArguments, error);
