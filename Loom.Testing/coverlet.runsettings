@@ -13,6 +13,6 @@
       and blocks until the client disconnects. The generated regex engines go for the same reason the
       compiler-generated attribute does: nobody wrote those branches.
     -->
-    <Exclude>[Loom.Testing]*,[Loom.LanguageServer]Program,[*]System.Text.RegularExpressions.Generated*</Exclude>
+    <Exclude>[Loom.Testing]*,[Loom.LanguageServer]Program*,[*]System.Text.RegularExpressions.Generated*</Exclude>
   </Coverlet>
 </RunSettings>
