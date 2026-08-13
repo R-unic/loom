@@ -249,9 +249,7 @@ public sealed partial class TypeChecker
     /// </summary>
     private ConditionalArm BuildConditionalArm(TypeExpression pattern, TypeExpression result)
     {
-        var binders = pattern.EnumerateDescendants<InferType>()
-            .Prepend(pattern as InferType)
-            .OfType<InferType>()
+        var binders = pattern.EnumerateSelfAndDescendants<InferType>()
             .Select(Visit)
             .OfType<Types.TypeParameter>()
             .ToList();

@@ -140,11 +140,7 @@ public sealed partial class LuauGenerator
     /// </remarks>
     private LuauNode GenerateMappedTypeAlias(InterfaceDeclaration interfaceDeclaration, MappedTypeDeclaration mapped)
     {
-        var indexer = new TableTypeIndexer(
-            mapped.MutKeyword == null ? LuauVisibility.Read : null,
-            Visit<LuauType>(mapped.SourceType),
-            Visit<LuauType>(mapped.ColonTypeClause)
-        );
+        var indexer = new TableTypeIndexer(mapped.MutKeyword == null ? LuauVisibility.Read : null, Visit(mapped.SourceType), Visit(mapped.ColonTypeClause));
 
         return new TypeAlias(interfaceDeclaration.Name.Text, GenerateTypeParameters(interfaceDeclaration.TypeParameters), new TableType(indexer, []));
     }

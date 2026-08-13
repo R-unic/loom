@@ -239,6 +239,20 @@ public class ConditionalTypeTest
         Assert.Equal("never", TypeOfAlias(source, "First<(number, string, bool)>"));
     }
 
+    /// <summary>Positions the pattern pins down have to agree, not only the ones it binds.</summary>
+    [Fact]
+    public void Rejects_APositionThePatternPinsDown()
+    {
+        const string source = """
+            type Second<T> = match T { (number, let B) -> B, _ -> never };
+            type Waited<T> = match T { Future<let V> -> V, _ -> never };
+            """;
+
+        Assert.Equal("bool", TypeOfAlias(source, "Second<(number, bool)>"));
+        Assert.Equal("never", TypeOfAlias(source, "Second<(string, bool)>"));
+        Assert.Equal("number", TypeOfAlias(source, "Waited<Future<number>>"));
+    }
+
     /// <summary>
     ///     A subject written as some other alias is expanded before the arms see it - the pattern is asking
     ///     about its shape, and the name it was reached through is not part of that.
@@ -539,9 +553,9 @@ public class ConditionalTypeTest
         for (var depth = 0; depth < 60; depth++)
             nested = new ConditionalType(nested, [new ConditionalArm(binder, new ArrayType(binder, false), [binder])], false);
 
-        ConditionalTypeEvaluator.TakeOverflow();
+        ConditionalTypeEvaluator.ClearOverflow();
         Assert.Null(ConditionalTypeEvaluator.TryEvaluate((ConditionalType)nested));
-        Assert.True(ConditionalTypeEvaluator.TakeOverflow());
+        Assert.True(ConditionalTypeEvaluator.TookOverflow());
     }
 
     [Fact]
@@ -718,6 +732,42 @@ public class ConditionalTypeTest
         var luau = Utility.GetLuauAST("interface Box<T> { value: (number is number ? T : never); }", true).Render();
         Assert.Contains("read value: (T)", luau);
     }
+
+    /// <summary>
+    ///     An imported alias resolves the same way one declared here does. The generator decides whether to
+    ///     emit the answer or the name by reading the alias declaration's own type, and that declaration is
+    ///     in another file - so this is the case where reading it could come back empty.
+    /// </summary>
+    [Fact]
+    public void Answers_AnAliasImportedFromAnotherModule() =>
+        Utility.WithTempProject(
+            [
+                (
+                    "utils.loom",
+                    """
+                    export type ReturnType<T> = T is fn(..unknown[]): let R ? R : never;
+                    export interface AsMut<T> { mut [K from keyof(T)]: T[K]; }
+                    """
+                ),
+                (
+                    "main.loom",
+                    """
+                    import type { ReturnType, AsMut } from "./utils";
+
+                    interface Point { mut x: number; }
+
+                    fn widen(point: AsMut<Point>): ReturnType<fn(): number> -> point.x;
+                    """
+                )
+            ],
+            (_, result) =>
+            {
+                Utility.AssertNoErrors(result);
+
+                var main = Assert.Single(result.Files, file => file.SourceFile.Name == "main.loom");
+                Assert.Contains("widen(point: AsMut<Point>): number", main.RenderedLuau);
+            }
+        );
 
     /// <summary>
     ///     Tier four: <c>unknown</c> rather than <c>any</c>, since <c>any</c> would silence every check

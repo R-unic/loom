@@ -16,6 +16,8 @@ using TypeName = Loom.Core.Parsing.AST.TypeName;
 using TypeParameter = Loom.Core.Parsing.AST.TypeParameter;
 using TypeParameters = Loom.Core.Parsing.AST.TypeParameters;
 using UnionType = Loom.Core.Parsing.AST.UnionType;
+using ConditionalType = Loom.Core.TypeChecking.Types.ConditionalType;
+using GenericType = Loom.Core.TypeChecking.Types.GenericType;
 
 namespace Loom.Core.Generation;
 
@@ -83,9 +85,15 @@ public sealed partial class LuauGenerator
         return constraint != null ? new Luau.AST.IntersectionType([luauTypeName, constraint]) : luauTypeName;
     }
 
-    private bool NamesConditionalAlias(Symbol symbol) =>
-        symbol.Declaration is Parsing.AST.TypeAlias
-        && _semanticModel.GetType(symbol.Declaration) is TypeChecking.Types.ConditionalType or TypeChecking.Types.GenericType { UnderlyingType: TypeChecking.Types.ConditionalType };
+    /// <summary>
+    ///     Whether <paramref name="declaration" /> is a branching type that never found its answer - the one
+    ///     kind of alias with no Luau body, since Luau can express what a conditional resolves to but not the
+    ///     question. One whose subject was already concrete resolved to an ordinary type and is not this.
+    /// </summary>
+    internal bool IsUnresolvedConditional(Node declaration) =>
+        _semanticModel.GetType(declaration) is ConditionalType or GenericType { UnderlyingType: ConditionalType };
+
+    private bool NamesConditionalAlias(Symbol symbol) => symbol.Declaration is Parsing.AST.TypeAlias && IsUnresolvedConditional(symbol.Declaration);
 
     private static bool IsLoomRuntimeType(Symbol symbol) =>
         symbol is { IsIntrinsic: true, File.Name: "runtime.loom" or "None.loom" or "PluginSecurity.loom" } && _loomRuntimeTypeNames.Contains(symbol.Name);

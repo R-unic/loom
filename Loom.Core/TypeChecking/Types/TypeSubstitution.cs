@@ -92,23 +92,36 @@ internal static class TypeSubstitution
     /// </summary>
     private static Type SubstituteMappedType(MappedType mappedType, TypeParameterSubstitution substitution)
     {
-        var substituted = new MappedType(
-            mappedType.Binder,
-            Apply(mappedType.Source, substitution),
-            Apply(mappedType.ValueType, substitution),
-            mappedType.IsMutable
-        );
+        var source = Apply(mappedType.Source, substitution);
+        var valueType = Apply(mappedType.ValueType, substitution);
+        var substituted = ReferenceEquals(source, mappedType.Source) && ReferenceEquals(valueType, mappedType.ValueType)
+            ? mappedType
+            : new MappedType(mappedType.Binder, source, valueType, mappedType.IsMutable);
 
         return substituted.Resolve() ?? substituted;
     }
 
-    internal static ConditionalType SubstituteArms(ConditionalType conditionalType, TypeParameterSubstitution substitution) =>
-        new(
-            Apply(conditionalType.Subject, substitution),
-            conditionalType.Arms.ConvertAll(arm => new ConditionalArm(Apply(arm.Pattern, substitution), Apply(arm.Result, substitution), arm.Binders)),
-            conditionalType.Distributes
+    internal static ConditionalType SubstituteArms(ConditionalType conditionalType, TypeParameterSubstitution substitution)
+    {
+        var subject = Apply(conditionalType.Subject, substitution);
+        var changed = !ReferenceEquals(subject, conditionalType.Subject);
+        var arms = conditionalType.Arms.ConvertAll(arm =>
+            {
+                var pattern = Apply(arm.Pattern, substitution);
+                var result = Apply(arm.Result, substitution);
+                changed |= !ReferenceEquals(pattern, arm.Pattern) || !ReferenceEquals(result, arm.Result);
+                return new ConditionalArm(pattern, result, arm.Binders);
+            }
         );
 
+        return changed ? new ConditionalType(subject, arms, conditionalType.Distributes) : conditionalType;
+    }
+
+    /// <remarks>
+    ///     Evaluated even where the substitution changed nothing: a conditional written over a concrete
+    ///     subject is answerable the moment it exists, and the substitution it happens to sit inside is not
+    ///     what makes it so.
+    /// </remarks>
     private static Type SubstituteConditionalType(ConditionalType conditionalType, TypeParameterSubstitution substitution)
     {
         var substituted = SubstituteArms(conditionalType, substitution);

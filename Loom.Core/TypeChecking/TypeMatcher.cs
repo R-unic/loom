@@ -1,9 +1,5 @@
 using Loom.Core.TypeChecking.Types;
-using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
-using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
-using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
-using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 
 namespace Loom.Core.TypeChecking;
 
@@ -16,13 +12,22 @@ namespace Loom.Core.TypeChecking;
 ///     is what <c>T is string ? ... </c> means. Binders are what force the structural walk: nothing about
 ///     "is this assignable" can say which part of the source landed on <c>let R</c>, so those positions
 ///     have to be reached by taking both types apart in step.
+///     <para>
+///         One instance per match, holding the state the walk carries: what has been bound, which pairs are
+///         already being compared, and which patterns were found to hold a binder. Threading those through
+///         every method as parameters is the same thing without a place to keep the memo, and the memo is
+///         what stops <see cref="ContainsBinder" /> re-walking the pattern at every step.
+///     </para>
 /// </remarks>
-internal static class TypeMatcher
+internal sealed class TypeMatcher(IReadOnlyList<TypeParameter> binders, TypeParameterSubstitution bindings)
 {
+    private readonly Dictionary<Type, bool> _hasBinder = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<(Type, Type)> _visiting = new(ReferencePairComparer.Instance);
+
     public static bool TryMatch(Type subject, Type pattern, IReadOnlyList<TypeParameter> binders, TypeParameterSubstitution bindings) =>
         binders.Count == 0
             ? Matches(subject, pattern)
-            : Match(subject, pattern, binders, bindings, new HashSet<(Type, Type)>(ReferencePairComparer.Instance));
+            : new TypeMatcher(binders, bindings).Match(subject, pattern);
 
     /// <summary>
     ///     Whether <paramref name="subject" /> fits <paramref name="pattern" />, which is assignability plus
@@ -33,68 +38,55 @@ internal static class TypeMatcher
     private static bool Matches(Type subject, Type pattern) =>
         (Type.IsNone(pattern) && Type.IsNone(subject)) || subject.IsAssignableTo(pattern);
 
-    private static bool Match(
-        Type subject,
-        Type pattern,
-        IReadOnlyList<TypeParameter> binders,
-        TypeParameterSubstitution bindings,
-        HashSet<(Type, Type)> visiting)
+    private bool Match(Type subject, Type pattern)
     {
-        if (pattern is TypeParameter parameter && IsBinder(binders, parameter))
-            return Bind(parameter, subject, bindings);
+        if (pattern is TypeParameter parameter && IsBinder(parameter))
+            return Bind(parameter, subject);
 
         // Everything below walks structure, which only a pattern with a binder somewhere inside it needs.
-        if (!ContainsBinder(pattern, binders))
+        if (!ContainsBinder(pattern))
             return Matches(subject, pattern);
 
         var pair = (subject, pattern);
-        if (!visiting.Add(pair))
+        if (!_visiting.Add(pair))
             return true;
 
         try
         {
-            return MatchStructure(subject, pattern, binders, bindings, visiting);
+            return MatchStructure(subject, pattern);
         }
         finally
         {
-            visiting.Remove(pair);
+            _visiting.Remove(pair);
         }
     }
 
-    private static bool MatchStructure(
-        Type subject,
-        Type pattern,
-        IReadOnlyList<TypeParameter> binders,
-        TypeParameterSubstitution bindings,
-        HashSet<(Type, Type)> visiting)
+    private bool MatchStructure(Type subject, Type pattern)
     {
-        bool MatchChild(Type childSubject, Type childPattern) => Match(childSubject, childPattern, binders, bindings, visiting);
-
         switch (subject, pattern)
         {
-            case (Types.OptionalType s, Types.OptionalType p):
-                return MatchChild(s.NonNullableType, p.NonNullableType);
+            case (OptionalType s, OptionalType p):
+                return Match(s.NonNullableType, p.NonNullableType);
 
             case (ArrayType s, ArrayType p):
-                return MatchChild(s.ElementType, p.ElementType);
+                return Match(s.ElementType, p.ElementType);
 
-            case (Types.TupleType s, Types.TupleType p) when s.ElementTypes.Count == p.ElementTypes.Count:
-                return !s.ElementTypes.Where((element, i) => !MatchChild(element, p.ElementTypes[i])).Any();
+            case (TupleType s, TupleType p):
+                return MatchInOrder(s.ElementTypes, p.ElementTypes);
 
             case (FunctionType s, FunctionType p):
-                return MatchFunction(s, p, binders, bindings, visiting);
+                return MatchFunction(s, p);
 
             // Compared as instantiations before either is expanded: 'Future<let V>' is asking which generic
             // the subject is, and expanding it first throws away the only thing that could answer.
-            case (Types.InstantiatedType s, Types.InstantiatedType p)
-                when s.GenericType.Equals(p.GenericType) && s.Arguments.Count == p.Arguments.Count:
-                return !s.Arguments.Where((argument, i) => !MatchChild(argument, p.Arguments[i])).Any();
+            case (InstantiatedType s, InstantiatedType p) when s.GenericType.Equals(p.GenericType):
+                return MatchInOrder(s.Arguments, p.Arguments);
 
-            case (Types.InstantiatedType s, _):
-                return MatchChild(s.Expand(), pattern);
+            case (InstantiatedType s, _):
+                return Match(s.Expand(), pattern);
 
-            case (Types.UnionType s, Types.UnionType p):
-                return MatchUnion(s, p, binders, bindings, visiting);
+            case (UnionType s, UnionType p):
+                return MatchUnion(s, p);
 
             // Objects have no case of their own because no pattern can reach one: an object type is only
             // ever written as an interface name, and a name is an instantiation or an interface - handled
@@ -102,6 +94,18 @@ internal static class TypeMatcher
             default:
                 return Matches(subject, pattern);
         }
+    }
+
+    private bool MatchInOrder(List<Type> subjects, List<Type> patterns)
+    {
+        if (subjects.Count != patterns.Count)
+            return false;
+
+        for (var i = 0; i < subjects.Count; i++)
+            if (!Match(subjects[i], patterns[i]))
+                return false;
+
+        return true;
     }
 
     /// <summary>
@@ -114,20 +118,15 @@ internal static class TypeMatcher
     ///     literal arm needed. A failed attempt has to put back whatever it bound on the way, since a
     ///     later partner may still succeed.
     /// </remarks>
-    private static bool MatchUnion(
-        Types.UnionType subject,
-        Types.UnionType pattern,
-        IReadOnlyList<TypeParameter> binders,
-        TypeParameterSubstitution bindings,
-        HashSet<(Type, Type)> visiting)
+    private bool MatchUnion(UnionType subject, UnionType pattern)
     {
         if (subject.Types.Count != pattern.Types.Count)
             return false;
 
         var unmatched = new List<Type>(subject.Types);
-        foreach (var member in pattern.Types.OrderBy(member => ContainsBinder(member, binders)))
+        foreach (var member in pattern.Types.OrderBy(ContainsBinder))
         {
-            var partner = unmatched.FindIndex(candidate => TryMatchMember(candidate, member, binders, bindings, visiting));
+            var partner = unmatched.FindIndex(candidate => TryMatchMember(candidate, member));
             if (partner < 0)
                 return false;
 
@@ -137,15 +136,10 @@ internal static class TypeMatcher
         return true;
     }
 
-    private static bool TryMatchMember(
-        Type subject,
-        Type pattern,
-        IReadOnlyList<TypeParameter> binders,
-        TypeParameterSubstitution bindings,
-        HashSet<(Type, Type)> visiting)
+    private bool TryMatchMember(Type subject, Type pattern)
     {
         var restore = new TypeParameterSubstitution(bindings);
-        if (Match(subject, pattern, binders, bindings, visiting))
+        if (Match(subject, pattern))
             return true;
 
         bindings.Clear();
@@ -161,44 +155,34 @@ internal static class TypeMatcher
     ///     array instead - <c>fn(..unknown[]): let R</c> - it is a shape every remaining parameter must fit,
     ///     which is what makes a pattern match a function of any arity.
     /// </summary>
-    private static bool MatchFunction(
-        FunctionType subject,
-        FunctionType pattern,
-        IReadOnlyList<TypeParameter> binders,
-        TypeParameterSubstitution bindings,
-        HashSet<(Type, Type)> visiting)
+    private bool MatchFunction(FunctionType subject, FunctionType pattern)
     {
-        bool MatchChild(Type childSubject, Type childPattern) => Match(childSubject, childPattern, binders, bindings, visiting);
-
         if (subject.IsAsync != pattern.IsAsync)
             return false;
 
-        var fixedCount = pattern.HasRestParameter ? pattern.ParameterTypes.Count - 1 : pattern.ParameterTypes.Count;
-        if (subject.ParameterTypes.Count < fixedCount || !pattern.HasRestParameter && subject.ParameterTypes.Count != fixedCount)
+        // A rest parameter is one of the parameter types, so a signature claiming one without any is
+        // malformed rather than variadic - reading the last of an empty list is the only other option.
+        var hasRest = pattern.HasRestParameter && pattern.ParameterTypes.Count > 0;
+        var fixedCount = hasRest ? pattern.ParameterTypes.Count - 1 : pattern.ParameterTypes.Count;
+        if (subject.ParameterTypes.Count < fixedCount || !hasRest && subject.ParameterTypes.Count != fixedCount)
             return false;
 
         for (var i = 0; i < fixedCount; i++)
-            if (!MatchChild(subject.ParameterTypes[i], pattern.ParameterTypes[i]))
+            if (!Match(subject.ParameterTypes[i], pattern.ParameterTypes[i]))
                 return false;
 
-        if (!pattern.HasRestParameter)
-            return MatchChild(subject.ReturnType, pattern.ReturnType);
+        return (!hasRest || MatchRestParameter(subject, pattern.ParameterTypes[^1], fixedCount))
+            && Match(subject.ReturnType, pattern.ReturnType);
+    }
 
-        var rest = pattern.ParameterTypes[^1];
-        var remaining = subject.ParameterTypes.Skip(fixedCount).ToList();
-        if (rest is TypeParameter restBinder && IsBinder(binders, restBinder))
-        {
-            if (!Bind(restBinder, new Types.TupleType(remaining), bindings))
-                return false;
-        }
-        else
-        {
-            var element = rest is ArrayType array ? array.ElementType : rest;
-            if (remaining.Any(parameterType => !MatchChild(parameterType, element)))
-                return false;
-        }
+    private bool MatchRestParameter(FunctionType subject, Type rest, int fixedCount)
+    {
+        var remaining = subject.ParameterTypes.GetRange(fixedCount, subject.ParameterTypes.Count - fixedCount);
+        if (rest is TypeParameter restBinder && IsBinder(restBinder))
+            return Bind(restBinder, new TupleType(remaining));
 
-        return MatchChild(subject.ReturnType, pattern.ReturnType);
+        var element = rest is ArrayType array ? array.ElementType : rest;
+        return remaining.TrueForAll(parameterType => Match(parameterType, element));
     }
 
     /// <summary>
@@ -206,7 +190,7 @@ internal static class TypeMatcher
     ///     earlier position already bound it to. One name appearing twice in a pattern therefore means the
     ///     two positions must agree, rather than silently widening to their union.
     /// </summary>
-    private static bool Bind(TypeParameter parameter, Type type, TypeParameterSubstitution bindings)
+    private bool Bind(TypeParameter parameter, Type type)
     {
         if (parameter.Constraint != null && !type.IsAssignableTo(parameter.Constraint))
             return false;
@@ -218,36 +202,36 @@ internal static class TypeMatcher
         return true;
     }
 
-    private static bool IsBinder(IReadOnlyList<TypeParameter> binders, TypeParameter parameter) =>
-        binders.Any(binder => ReferenceEquals(binder, parameter));
+    private bool IsBinder(TypeParameter parameter) => binders.Any(binder => ReferenceEquals(binder, parameter));
 
-    /// <remarks>Only ever asked of a pattern that has binders - <see cref="TryMatch" /> answers the empty case before any walk starts.</remarks>
-    private static bool ContainsBinder(Type type, IReadOnlyList<TypeParameter> binders)
+    /// <remarks>
+    ///     Memoized because the walk asks this of every pattern it steps into, and answering it rebuilds the
+    ///     whole subtree: <see cref="TypeSolver.Transform" /> is the only general child enumerator there is,
+    ///     and it constructs a new type per composite to hand the children over.
+    /// </remarks>
+    private bool ContainsBinder(Type type)
     {
-        var visited = new HashSet<Type>(ReferenceEqualityComparer.Instance);
-        return Contains(type);
+        if (_hasBinder.TryGetValue(type, out var known))
+            return known;
 
-        bool Contains(Type current)
-        {
-            if (current is TypeParameter parameter && IsBinder(binders, parameter))
-                return true;
+        // Seeded before the walk so a type that reaches itself answers 'no' rather than recurring forever;
+        // whatever the walk finds below replaces it.
+        _hasBinder[type] = false;
+        if (type is TypeParameter parameter && IsBinder(parameter))
+            return _hasBinder[type] = true;
 
-            if (!visited.Add(current))
-                return false;
+        var found = false;
+        TypeSolver.Transform(
+            type,
+            child =>
+            {
+                found |= ContainsBinder(child);
+                return child;
+            },
+            simplify: false
+        );
 
-            var found = false;
-            TypeSolver.Transform(
-                current,
-                child =>
-                {
-                    found |= Contains(child);
-                    return child;
-                },
-                simplify: false
-            );
-
-            return found;
-        }
+        return _hasBinder[type] = found;
     }
 
     /// <summary>
@@ -262,13 +246,13 @@ internal static class TypeMatcher
     public static bool IsUnresolved(Type type) =>
         type switch
         {
-            TypeParameter or TypeVariable or KeyOfType or Types.IndexedType or ConditionalType or MappedType => true,
-            Types.InstantiatedType instantiated => instantiated.Arguments.Any(IsUnresolved),
+            TypeParameter or TypeVariable or KeyOfType or IndexedType or ConditionalType or MappedType => true,
+            InstantiatedType instantiated => instantiated.Arguments.Any(IsUnresolved),
             ArrayType array => IsUnresolved(array.ElementType),
-            Types.TupleType tuple => tuple.ElementTypes.Any(IsUnresolved),
-            Types.OptionalType optional => IsUnresolved(optional.NonNullableType),
-            Types.UnionType union => union.Types.Any(IsUnresolved),
-            Types.IntersectionType intersection => intersection.Types.Any(IsUnresolved),
+            TupleType tuple => tuple.ElementTypes.Any(IsUnresolved),
+            OptionalType optional => IsUnresolved(optional.NonNullableType),
+            UnionType union => union.Types.Any(IsUnresolved),
+            IntersectionType intersection => intersection.Types.Any(IsUnresolved),
             FunctionType function => function.TypeParameters.Count == 0
                 && (function.ParameterTypes.Any(IsUnresolved) || IsUnresolved(function.ReturnType)),
             _ => false

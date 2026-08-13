@@ -131,6 +131,30 @@ public class MappedTypeTest
         Assert.Equal(["x"], objectType.Properties.ConvertAll(p => p.Name));
     }
 
+    /// <summary>
+    ///     The keys may be reached through an alias rather than written as a <c>keyof</c> here, in which case
+    ///     expanding the source is what turns up the <c>keyof</c> that still has to be resolved.
+    /// </summary>
+    [Fact]
+    public void Maps_OverKeysReachedThroughAnAlias()
+    {
+        var objectType = Assert.IsType<ObjectType>(
+            TypeSimplifier.Expanded(
+                Utility.GetLastStatementType(
+                    Point
+                    + """
+                      type Keys<T> = keyof(T);
+                      interface Mapped<T> { [K from Keys<T>]: T[K]; }
+                      declare let point: Mapped<Point>;
+                      point
+                      """
+                )
+            )
+        );
+
+        Assert.Equal(["x", "y"], objectType.Properties.ConvertAll(p => p.Name));
+    }
+
     /// <summary>Nothing to expand while the keys are a parameter, so it stays a <see cref="MappedType" />.</summary>
     [Fact]
     public void Defers_WhileTheKeysAreStillAParameter()
@@ -221,10 +245,27 @@ public class MappedTypeTest
     ///     A body naming the type it belongs to has to find it already published - the same order the
     ///     ordinary interface path uses, and what a self-referential mapped type needs.
     /// </summary>
+    /// <remarks>
+    ///     The members have to survive the publish-then-fill: the type is bound before its keys are known so
+    ///     the body can find it, and anything that expanded it during that window would otherwise have cached
+    ///     the empty object it looked like then.
+    /// </remarks>
     [Fact]
     public void Allows_AMappingThatNamesItself()
     {
         Utility.AssertNoErrors(Utility.GetAnalysisDiagnostics("interface Rec<T> { [K from \"a\"]: Rec<T>; }\ndeclare let r: Rec<number>;"));
+
+        var type = Utility.GetLastStatementType(
+            """
+            interface Rec<T> { [K from "a"]: Rec<T>; }
+            declare let r: Rec<number>;
+            r
+            """
+        );
+
+        var objectType = Assert.IsType<ObjectType>(TypeSimplifier.Expanded(type));
+        Assert.Equal(["a"], objectType.Properties.ConvertAll(p => p.Name));
+        Assert.Equal("Rec<number>", objectType.Properties[0].ValueType.ToString());
     }
 
     /// <summary>While the keys are unknown there is nothing to compare structurally, so it answers as itself.</summary>

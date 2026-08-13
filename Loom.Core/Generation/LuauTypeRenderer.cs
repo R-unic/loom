@@ -2,13 +2,12 @@ using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using Loom.Luau;
 using Loom.Luau.AST;
-using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
 using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
 using IntersectionType = Loom.Core.TypeChecking.Types.IntersectionType;
-using LiteralType = Loom.Core.TypeChecking.Types.LiteralType;
 using OptionalType = Loom.Core.TypeChecking.Types.OptionalType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using TupleType = Loom.Core.TypeChecking.Types.TupleType;
+using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
@@ -102,7 +101,7 @@ internal static class LuauTypeRenderer
             case InterfaceType interfaceType:
                 return Named(interfaceType.Name, null, runtimeTypeNames);
 
-            case TypeChecking.Types.TypeParameter parameter:
+            case TypeParameter parameter:
                 return new Luau.AST.TypeName(parameter.Name);
 
             case ObjectType objectType:

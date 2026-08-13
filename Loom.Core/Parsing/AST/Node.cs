@@ -170,6 +170,13 @@ public abstract class Node
     /// <inheritdoc cref="EnumerateDescendants" />
     public IEnumerable<T> EnumerateDescendants<T>() where T : Node => EnumerateDescendants().OfType<T>();
 
+    /// <summary>
+    ///     This node and everything below it that is a <typeparamref name="T" />, for a walk whose root may
+    ///     itself be one - a type pattern that is nothing but a <c>let</c> binder, say.
+    /// </summary>
+    public IEnumerable<T> EnumerateSelfAndDescendants<T>() where T : Node =>
+        this is T self ? EnumerateDescendants<T>().Prepend(self) : EnumerateDescendants<T>();
+
     /// <summary>Every node below this one, materialized. Use <see cref="EnumerateDescendants" /> for a walk that only passes through once.</summary>
     public IReadOnlyList<Node> GetDescendants() => EnumerateDescendants().ToArray();
 

@@ -1,7 +1,5 @@
 using Loom.Core.TypeChecking.Types;
-using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
-using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
 namespace Loom.Core.TypeChecking;
 
@@ -35,16 +33,18 @@ internal static class ConditionalTypeEvaluator
     [ThreadStatic] private static bool _overflowed;
 
     /// <summary>
-    ///     Whether a bound was exceeded since this was last asked, clearing the flag. Evaluation runs deep
-    ///     inside substitution, where there is no node to report against; the type checker asks here once an
-    ///     instantiation is complete and reports it at the instantiation the user actually wrote.
+    ///     Whether a bound was exceeded since <see cref="ClearOverflow" /> was last called. Evaluation runs
+    ///     deep inside substitution, where there is no node to report against; the type checker clears this
+    ///     around an instantiation and reports it at the instantiation the user actually wrote.
     /// </summary>
-    public static bool TakeOverflow()
+    public static bool TookOverflow()
     {
         var overflowed = _overflowed;
         _overflowed = false;
         return overflowed;
     }
+
+    public static void ClearOverflow() => _overflowed = false;
 
     /// <summary>What <paramref name="conditional" /> works out to, or null while its subject is still unknown.</summary>
     public static Type? TryEvaluate(ConditionalType conditional)
@@ -125,7 +125,7 @@ internal static class ConditionalTypeEvaluator
     }
 
     /// <summary>
-    ///     Runs the arms once per member of a union - <c>match each</c>. An <see cref="Types.OptionalType" />
+    ///     Runs the arms once per member of a union - <c>match each</c>. An <see cref="OptionalType" />
     ///     is a union with <c>none</c>, so <c>T?</c> splits the same way any other union does, which is what
     ///     makes a NonNullable out of the same three lines every other filter is written in.
     /// </summary>

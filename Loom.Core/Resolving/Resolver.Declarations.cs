@@ -295,7 +295,7 @@ public sealed partial class Resolver
     private bool DeclarePatternBinders(TypeExpression pattern)
     {
         var declared = true;
-        foreach (var binder in pattern.EnumerateDescendants<InferType>().Prepend(pattern as InferType).OfType<InferType>())
+        foreach (var binder in pattern.EnumerateSelfAndDescendants<InferType>())
             declared &= DeclareType(binder, binder.Name.Text);
 
         return declared;
@@ -308,8 +308,11 @@ public sealed partial class Resolver
         var resolved = Visit(mappedTypeDeclaration.SourceType);
 
         using var _ = InScope();
+
+        // '&' rather than '&&': a binder whose name is already taken is still worth resolving the member
+        // type under, or every name it mentions is reported unresolved on top of the duplicate.
         return DeclareType(mappedTypeDeclaration, mappedTypeDeclaration.Name.Text)
-            && Visit(mappedTypeDeclaration.ColonTypeClause)
-            && resolved;
+            & Visit(mappedTypeDeclaration.ColonTypeClause)
+            & resolved;
     }
 }

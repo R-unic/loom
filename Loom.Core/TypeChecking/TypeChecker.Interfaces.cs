@@ -488,7 +488,12 @@ public sealed partial class TypeChecker
         // Published before its keys and member type are resolved, so a body naming the type it belongs to -
         // 'interface Rec<T> { [K from "a"]: Rec<T> }' - finds this entry rather than an unbound name. Same
         // order the ordinary interface path above uses, and for the same reason.
-        var mapped = new MappedType(VisitMappedTypeDeclaration(mappedDeclaration), PrimitiveType.Never, PrimitiveType.Never, mappedDeclaration.MutKeyword != null);
+        //
+        // The binder stands in for both until they arrive, because it is the one type that cannot resolve:
+        // anything a mapped type can answer would be answered and cached during the window by whatever
+        // expands the self-reference, and 'never' in particular answers "an object with no members".
+        var binder = VisitMappedTypeDeclaration(mappedDeclaration);
+        var mapped = new MappedType(binder, binder, binder, mappedDeclaration.MutKeyword != null);
         Type published = typeParameters == null ? mapped : new GenericType(interfaceDeclaration, typeParameters, mapped);
         BindType(interfaceDeclaration, published);
 

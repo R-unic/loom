@@ -82,10 +82,10 @@ public sealed partial class TypeChecker
             CheckTypeParameterConstraints(node, fullArguments[i], parameter, resolvedConstraints.GetValueOrDefault(parameter));
         }
 
-        ConditionalTypeEvaluator.TakeOverflow();
+        ConditionalTypeEvaluator.ClearOverflow();
         var instantiated = genericType.Construct(fullArguments);
         ReportUnresolvableKeyOf(node, instantiated.Expand());
-        if (ConditionalTypeEvaluator.TakeOverflow())
+        if (ConditionalTypeEvaluator.TookOverflow())
             _diagnostics.Error(
                 node,
                 InternalCodes.ConditionalTypeTooDeep,
