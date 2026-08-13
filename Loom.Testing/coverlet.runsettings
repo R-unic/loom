@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RunSettings>
-  <Coverlet>
-    <ExcludeByAttribute>System.Runtime.CompilerServices.CompilerGeneratedAttribute</ExcludeByAttribute>
-    <ExcludeByAttribute>System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
-    <!--
-      One comma-separated list: coverlet keeps only the last Exclude element, so splitting these across
-      several silently drops all but one.
-
-      The language server's entry point is excluded, and nothing else of it. Every handler answers off a
-      DocumentStore a test can build, so the mechanics are covered like any other code; what cannot be is
-      the process that owns them - it claims the real stdin/stdout, hands them to a running LanguageServer,
-      and blocks until the client disconnects. The generated regex engines go for the same reason the
-      compiler-generated attribute does: nobody wrote those branches.
-    -->
-    <Exclude>[Loom.Testing]*,[Loom.LanguageServer]Program*,[*]System.Text.RegularExpressions.Generated*</Exclude>
-  </Coverlet>
+  <!--
+    The XPlat collector reads its configuration from here and nowhere else. A bare <Coverlet> element at
+    the root parses without complaint and is silently ignored, so every filter under one is a filter that
+    never ran.
+  -->
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <ExcludeByAttribute>System.Runtime.CompilerServices.CompilerGeneratedAttribute,System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+          <!--
+            The language server's entry point, and nothing else of it. Every handler answers off a
+            DocumentStore a test can build, so the mechanics are covered like any other code; what cannot
+            be is the process that owns them - it claims the real stdin/stdout, hands them to a running
+            LanguageServer, and blocks until the client disconnects. The generated regex engines go for
+            the same reason the compiler-generated attribute does: nobody wrote those branches.
+          -->
+          <Exclude>[Loom.Testing]*,[Loom.LanguageServer]Program,[*]System.Text.RegularExpressions.Generated*</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
 </RunSettings>
