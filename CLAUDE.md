@@ -9,9 +9,10 @@ dotnet restore
 dotnet build
 dotnet test                     # full test suite (Loom.Testing, xUnit)
 dotnet test --filter "FullyQualifiedName~ParserTest"   # single test class
-dotnet run --project Loom.CLI -- <dir>                 # compile a Loom project (dir with loom-config.toml, default "."), TestProject exists for testing changes
+dotnet run --project Loom.CLI -- build <dir>           # compile a Loom project (dir with loom-config.toml, default "."), TestProject exists for testing changes
 dotnet run --project Loom.Tools -- ast <file.loom>     # dump AST for a file
-dotnet run --project Loom.Tools -- generate-ast-snapshots  # regenerate AST snapshot files
+dotnet run --project Loom.Tools -- compile <file.loom> # emit one file's Luau on stdout, diagnostics on stderr — how Snapshots/Luau fixtures are regenerated
+dotnet run --project Loom.Tools -- generate-ast-snapshots Loom.Testing/Snapshots/AST  # regenerate AST snapshot files
 ```
 
 CI (`.github/workflows/ci.yml`): `dotnet test -c Release` with coverage → Coveralls. Tests required for all PRs. Verify with `dotnet build` then `dotnet test`
@@ -54,7 +55,9 @@ before claiming done.
 - `Loom.Luau/` — Luau output AST + renderer (`LuauFactory`, `RenderState`, `AST/`)
 - `Loom.Config/` — `loom-config.toml` reader (Tomlyn). `ProjectType` (default `game`), `Debug` (default `false`, for emitting debug diagnostics) `FilesConfig`:
   `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`). Package identity lives here too: `[package]` (`PackageConfig`, with `PackageName` and
-  semver `Version` value types, plus `Realm`), `[dependencies]` (`Dependency`), `[registry]` (`RegistryConfig`). `ConfigReader` never throws on a manifest
+  semver `Version` value types, plus `Realm`), `[dependencies]` (`Dependency`), `[registry]` (`RegistryConfig`). `[realms]` maps a directory under the source
+  directory to `shared`/`client`/`server`; `SourceRoot.RealmOf` answers with the *longest* directory naming a file, so a realm declared inside another narrows
+  it rather than being shadowed, and a project declaring none has one realm and no boundary to cross. `ConfigReader` never throws on a manifest
   problem — malformed manifests come back as `null` plus `ConfigDiagnostic`s out of `LocateFromDirectory`. `[files]` directories are validated there too
   (non-empty, relative, path-legal), since nothing downstream can report one that isn't: they are resolved as real paths and a stage throwing is the
   compiler-bug path

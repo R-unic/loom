@@ -9,9 +9,10 @@ dotnet restore
 dotnet build
 dotnet test                     # full test suite (Loom.Testing, xUnit)
 dotnet test --filter "FullyQualifiedName~ParserTest"   # single test class
-dotnet run --project Loom.CLI -- <dir>                 # compile a Loom project (dir with loom-config.toml, default "."), TestProject exists for testing changes
+dotnet run --project Loom.CLI -- build <dir>           # compile a Loom project (dir with loom-config.toml, default "."), TestProject exists for testing changes
 dotnet run --project Loom.Tools -- ast <file.loom>     # dump AST for a file
-dotnet run --project Loom.Tools -- generate-ast-snapshots  # regenerate AST snapshot files
+dotnet run --project Loom.Tools -- compile <file.loom> # emit one file's Luau on stdout, diagnostics on stderr
+dotnet run --project Loom.Tools -- generate-ast-snapshots Loom.Testing/Snapshots/AST  # regenerate AST snapshot files
 ```
 
 CI (`.github/workflows/ci.yml`): `dotnet test -c Release` with coverage → Coveralls. Tests required for all PRs. Verify with `dotnet build` then `dotnet test`
@@ -39,7 +40,9 @@ before claiming done.
       support modules
 - `Loom.Luau/` — Luau output AST + renderer (`LuauFactory`, `RenderState`, `AST/`)
 - `Loom.Config/` — `loom-config.toml` reader (Tomlyn). `ProjectType` (default `game`), `Debug` (default `false`, for emitting debug diagnostics) `FilesConfig`:
-  `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`)
+  `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`). `[realms]` maps a directory under the source directory to
+  `shared`/`client`/`server`; `SourceRoot.RealmOf` answers with the *longest* directory naming a file, so a realm declared inside another narrows it
+  rather than being shadowed, and a project declaring none has one realm and no boundary to cross
 - `Loom.CLI/` — entry point; locates config, compiles unit, prints debug info. `Include/loom_runtime.luau` = runtime support emitted alongside output
 - `Loom.LanguageServer/` — LSP server (OmniSharp). One handler per request, all registered in `Program.cs`, all answering off the `DocumentStore`:
   it keeps one `CompilationUnit` per project root and recompiles the open file on every change. The pieces the handlers share:
