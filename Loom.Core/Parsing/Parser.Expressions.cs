@@ -399,7 +399,7 @@ public sealed partial class Parser
         if (Match(out var matchedRightParen, SyntaxKind.RParen))
             return new Arguments(leftParen, matchedRightParen, []);
 
-        var argumentList = ParseDelimited(ParseExpression);
+        var argumentList = ParseDelimited(ParseSpreadable);
         var rightParen = Expect(SyntaxKind.RParen);
         return new Arguments(leftParen, rightParen, argumentList);
     }
@@ -468,12 +468,12 @@ public sealed partial class Parser
         if (Match(out var immediateRightBracket, SyntaxKind.RBracket))
             return new ArrayLiteral(mutKeyword, leftBracket, immediateRightBracket, []);
 
-        var expressions = ParseDelimited(ParseArrayElement);
+        var expressions = ParseDelimited(ParseSpreadable);
         var rightBracket = Expect(SyntaxKind.RBracket);
         return new ArrayLiteral(mutKeyword, leftBracket, rightBracket, expressions);
     }
 
-    private Expression ParseArrayElement() => Match(out var dotDot, SyntaxKind.DotDot) ? new SpreadElement(dotDot, ParseExpression()) : ParseExpression();
+    private Expression ParseSpreadable() => Match(out var dotDot, SyntaxKind.DotDot) ? new SpreadElement(dotDot, ParseExpression()) : ParseExpression();
 
     private InterpolatedStringLiteral ParseInterpolatedStringLiteral(Token startToken)
     {

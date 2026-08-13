@@ -31,7 +31,7 @@ public sealed partial class LuauGenerator
         if (_arrayPipeline.TryGenerate(invocation, out var fused))
             return fused;
 
-        var arguments = invocation.Arguments.ArgumentList.ConvertAll(Visit);
+        var arguments = GenerateArguments(invocation.Arguments.ArgumentList);
         return invocation.Expression switch
         {
             QualifiedName { Names: var names } qualifiedName when names.Exists(n => n.IsOptional) => GenerateOptionalChain(
@@ -109,7 +109,7 @@ public sealed partial class LuauGenerator
             return false;
 
         var callee = Visit(invocation.Expression);
-        var arguments = invocation.Arguments.ArgumentList.ConvertAll(Visit);
+        var arguments = GenerateArguments(invocation.Arguments.ArgumentList);
         var (ok, propagated) = GenerateWrappedCallPair(callee, arguments);
         _state.Prereq(new IfStatement(NegateCondition(ok), new Chunk([new Luau.AST.Return(ErrorResult(propagated))]), [], null));
         value = propagated;
@@ -610,7 +610,29 @@ public sealed partial class LuauGenerator
         return result;
     }
 
-    public override LuauNode VisitSpreadElement(SpreadElement spreadElement) => Visit(spreadElement.Expression);
+    /// <summary>
+    ///     Lowers an argument list, expanding a spread with <c>table.unpack</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Only in last position, where Luau expands a call's results into the remaining arguments rather
+    ///     than truncating them to one. The type checker has already established that a spread lands in the
+    ///     rest parameter, so everything from the first one on belongs to the same array - which is exactly
+    ///     what the array-literal lowering builds, and the whole tail goes through it when the spread is not
+    ///     alone there.
+    /// </remarks>
+    private List<LuauExpression> GenerateArguments(List<Expression> argumentList)
+    {
+        var spreadIndex = argumentList.FindIndex(argument => argument is SpreadElement);
+        if (spreadIndex < 0)
+            return argumentList.ConvertAll(Visit);
+
+        var arguments = argumentList.GetRange(0, spreadIndex).ConvertAll(Visit);
+        var tail = argumentList.GetRange(spreadIndex, argumentList.Count - spreadIndex);
+        var spread = tail is [SpreadElement only] ? Visit(only.Expression) : GenerateSpreadArrayLiteral(tail);
+        arguments.Add(new Spread(spread));
+
+        return arguments;
+    }
 
     public override LuauNode VisitTupleExpression(TupleExpression tupleExpression) =>
         new Table(tupleExpression.Expressions.ConvertAll(e => new TableInitializer(Visit(e))));

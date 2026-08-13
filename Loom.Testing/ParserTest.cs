@@ -1014,6 +1014,20 @@ public class ParserTest
         Assert.IsType<Identifier>(spread.Expression);
     }
 
+    [Theory]
+    [InlineData("f(..a);", 1, 0)]
+    [InlineData("f(1, ..a);", 2, 1)]
+    [InlineData("f(..a, 1);", 2, 0)]
+    public void Parses_SpreadArguments(string source, int argumentCount, int spreadIndex)
+    {
+        var tree = Utility.GetAST(source);
+        var invocation = Assert.Single(tree.GetDescendants<Invocation>());
+
+        Assert.Equal(argumentCount, invocation.Arguments.ArgumentList.Count);
+        var spread = Assert.IsType<SpreadElement>(invocation.Arguments.ArgumentList[spreadIndex]);
+        Assert.IsType<Identifier>(spread.Expression);
+    }
+
     [Fact]
     public void Parses_SpreadOfRange_AsOneOperand()
     {

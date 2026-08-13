@@ -145,6 +145,7 @@ public static class InternalCodes
     public const string RealmBoundaryCrossed = "L421";
     public const string YieldInNoYieldContext = "L422";
     public const string InvalidSpreadOperand = "L423";
+    public const string InvalidSpreadArgument = "L424";
 
     public const string SimplifiableCode = "L500";
 }

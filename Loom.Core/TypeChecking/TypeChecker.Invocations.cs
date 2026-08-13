@@ -213,7 +213,7 @@ public sealed partial class TypeChecker
         {
             if (!deferred[i]) continue;
 
-            var expected = Types.FunctionType.ParameterTypeAt(parameterTypes, functionType.HasRestParameter, i);
+            var expected = ExpectedArgumentType(argumentList, i, parameterTypes, functionType.HasRestParameter);
             argumentTypes[i] = expected != null ? Check(argumentList[i], expected) : Visit(argumentList[i]);
         }
     }
@@ -229,13 +229,29 @@ public sealed partial class TypeChecker
         return BindType(invocation, Types.PrimitiveType.Void);
     }
 
+    /// <summary>
+    ///     The parameter type an argument is checked against, or null where checking it would only mislead.
+    /// </summary>
+    /// <remarks>
+    ///     A spread that lands short of the rest parameter is already reported by
+    ///     <see cref="CheckSpreadArguments" />, and comparing it against the fixed parameter it cannot fill
+    ///     would go on to say its element type is wrong when its placement is the whole of what is wrong.
+    /// </remarks>
+    private static Type? ExpectedArgumentType(List<Expression> argumentList, int index, List<Type> parameterTypes, bool hasRestParameter)
+    {
+        var fixedCount = hasRestParameter ? parameterTypes.Count - 1 : parameterTypes.Count;
+        return argumentList[index] is SpreadElement && (!hasRestParameter || index < fixedCount)
+            ? null
+            : Types.FunctionType.ParameterTypeAt(parameterTypes, hasRestParameter, index);
+    }
+
     private List<Type> BuildArgumentTypes(List<Expression> argumentList, List<Type> parameterTypes, bool hasRestParameter = false)
     {
         var argumentTypes = new List<Type>(argumentList.Count);
         argumentTypes.AddRange(
             argumentList.Select((t, i) =>
             {
-                var expected = Types.FunctionType.ParameterTypeAt(parameterTypes, hasRestParameter, i);
+                var expected = ExpectedArgumentType(argumentList, i, parameterTypes, hasRestParameter);
                 return expected != null ? Check(t, expected) : Visit(t);
             })
         );
@@ -254,7 +270,7 @@ public sealed partial class TypeChecker
         CheckArity(arguments, parameters, argumentTypes, parameterTypes, hasRestParameter);
         for (var i = 0; i < args.Count; i++)
         {
-            var expected = Types.FunctionType.ParameterTypeAt(parameterTypes, hasRestParameter, i);
+            var expected = ExpectedArgumentType(args, i, parameterTypes, hasRestParameter);
             if (expected != null)
                 Check(args[i], expected);
         }
@@ -269,8 +285,68 @@ public sealed partial class TypeChecker
             ? fixedCount + restTuple.ElementTypes.Count
             : null;
 
+    /// <summary>
+    ///     Reports a spread argument that does not land in an array rest parameter.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A rest parameter is the only place a count nobody knows until runtime can go: everything from
+    ///         it on arrives as one array, so how many elements the spread carries changes nothing about
+    ///         which parameter anything lands on. A fixed parameter has to know which argument it is being
+    ///         handed, and a tuple rest parameter has an exact arity, so neither can be given one.
+    ///     </para>
+    ///     <para>
+    ///         Reported here because <see cref="CheckArity" /> is the one thing every invocation path calls
+    ///         exactly once, whichever overload or instantiation it settled on first.
+    ///     </para>
+    /// </remarks>
+    private void CheckSpreadArguments(Arguments arguments, List<Type> parameterTypes, bool hasRestParameter)
+    {
+        var argumentList = arguments.ArgumentList;
+        var fixedCount = hasRestParameter ? parameterTypes.Count - 1 : parameterTypes.Count;
+        for (var i = 0; i < argumentList.Count; i++)
+        {
+            if (argumentList[i] is not SpreadElement spreadElement)
+                continue;
+
+            if (!hasRestParameter)
+            {
+                _diagnostics.Error(
+                    spreadElement,
+                    InternalCodes.InvalidSpreadArgument,
+                    "Only a rest parameter may be given a spread argument.",
+                    "this function takes a fixed number of arguments, so pass them one at a time"
+                );
+            }
+            else if (parameterTypes is [.., Types.TupleType restTuple])
+            {
+                _diagnostics.Error(
+                    spreadElement,
+                    InternalCodes.InvalidSpreadArgument,
+                    $"Rest parameter of type '{restTuple}' expects an exact number of arguments, so it cannot be given a spread argument."
+                );
+            }
+            else if (i < fixedCount)
+            {
+                _diagnostics.Error(
+                    spreadElement,
+                    InternalCodes.InvalidSpreadArgument,
+                    $"A spread argument must come after every fixed parameter, and {fixedCount - i} of them {(fixedCount - i == 1 ? "is" : "are")} still unfilled."
+                );
+            }
+        }
+    }
+
     private void CheckArity(Arguments arguments, Parameters? parameters, List<Type> argumentTypes, List<Type> parameterTypes, bool hasRestParameter = false)
     {
+        CheckSpreadArguments(arguments, parameterTypes, hasRestParameter);
+
+        // A spread stands for however many arguments it carries, so there is no count left to compare. Where
+        // one is placed as it must be, every fixed parameter is already filled by an argument ahead of it and
+        // the rest parameter takes any number; where it is not, that is what CheckSpreadArguments just said.
+        if (arguments.ArgumentList.Exists(argument => argument is SpreadElement))
+            return;
+
         var fixedParameterTypes = hasRestParameter ? parameterTypes.Take(parameterTypes.Count - 1).ToList() : parameterTypes;
         var requiredParameterTypes = new List<Type>();
         if (parameters == null)

@@ -176,21 +176,22 @@ public sealed partial class TypeChecker
     public override Type VisitArrayLiteral(ArrayLiteral arrayLiteral)
     {
         // TODO: array literal types for immutable arrays assigned to immutable names
-        var expressionTypes = arrayLiteral.Expressions.ConvertAll(ContributedElementType).ConvertAll(t => t.Widen());
+        var expressionTypes = arrayLiteral.Expressions.ConvertAll(Visit).ConvertAll(t => t.Widen());
         var elementType = TypeSimplifier.Simplify(new Types.UnionType(expressionTypes));
         var isMutable = arrayLiteral.MutKeyword != null;
         var type = new Types.ArrayType(elementType, isMutable);
         return BindType(arrayLiteral, type);
     }
 
-    private Type ContributedElementType(Expression element) =>
-        element is SpreadElement spreadElement ? SpreadedElementType(spreadElement, Visit(spreadElement)) : Visit(element);
-
-    public override Type VisitSpreadElement(SpreadElement spreadElement) => BindType(spreadElement, Visit(spreadElement.Expression));
+    public override Type VisitSpreadElement(SpreadElement spreadElement) =>
+        BindType(spreadElement, SpreadedElementType(spreadElement, Visit(spreadElement.Expression)));
 
     /// <summary>
-    ///     The element type a spread contributes to the array being built. A spread copies, so the operand's
-    ///     own mutability never reaches the result and only its element type matters.
+    ///     A spread is typed as what it contributes <em>per element</em>, not as the array it reads from, so
+    ///     everything that maps a position to a type - an array literal's element union, an argument against
+    ///     the parameter it lands on, a type parameter inferred from that argument - reads a spread the same
+    ///     way it reads an ordinary one. A spread also copies, so the operand's own mutability never reaches
+    ///     the result and only its element type survives.
     /// </summary>
     private Type SpreadedElementType(SpreadElement spreadElement, Type operandType)
     {

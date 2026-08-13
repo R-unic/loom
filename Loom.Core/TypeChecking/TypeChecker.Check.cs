@@ -23,6 +23,7 @@ public sealed partial class TypeChecker
         return expression switch
         {
             Parenthesized parenthesized => BindType(parenthesized, Check(parenthesized.Expression, expected, state, out constraint)),
+            SpreadElement spreadElement => CheckSpreadElement(spreadElement, expected, state, out constraint),
             ArrayLiteral arrayLiteral when expected is ArrayType arrayType => CheckArrayLiteral(arrayLiteral, arrayType, state),
             TupleExpression tupleExpression when expected is Types.TupleType tupleType => CheckTupleExpression(tupleExpression, tupleType, state),
             MatchExpression matchExpression => CheckMatchExpression(matchExpression, expected, state),
@@ -152,26 +153,27 @@ public sealed partial class TypeChecker
         }
     }
 
+    /// <summary>
+    ///     Checks a spread against the type of one element of wherever it is spreading into: an array of that
+    ///     element type is what the operand has to be.
+    /// </summary>
+    /// <remarks>
+    ///     Immutable, because the copy is what lands in the result - a <c>mut</c> operand spreads into an
+    ///     immutable array and an immutable one spreads into a <c>mut</c> array.
+    /// </remarks>
+    private Type CheckSpreadElement(SpreadElement spreadElement, Type expected, FlowState state, out TypeSolver.TypeConstraint? constraint)
+    {
+        var operandType = Check(spreadElement.Expression, new ArrayType(expected, false), state, out constraint);
+        return BindType(spreadElement, SpreadedElementType(spreadElement, operandType));
+    }
+
     private ArrayType CheckArrayLiteral(ArrayLiteral arrayLiteral, ArrayType expected, FlowState state)
     {
         var elementTypes = new List<Type>(arrayLiteral.Expressions.Count);
         var elementConstraints = new List<TypeSolver.TypeConstraint>();
         foreach (var element in arrayLiteral.Expressions)
         {
-            TypeSolver.TypeConstraint? constraint;
-            if (element is SpreadElement spreadElement)
-            {
-                // Immutable, because the copy is what lands in the result: a 'mut' operand spreads into an
-                // immutable array and an immutable one spreads into a 'mut' array.
-                var operandType = Check(spreadElement.Expression, new ArrayType(expected.ElementType, false), state, out constraint);
-                BindType(spreadElement, operandType);
-                elementTypes.Add(SpreadedElementType(spreadElement, operandType));
-            }
-            else
-            {
-                elementTypes.Add(Check(element, expected.ElementType, state, out constraint));
-            }
-
+            elementTypes.Add(Check(element, expected.ElementType, state, out var constraint));
             if (constraint != null)
                 elementConstraints.Add(constraint);
         }

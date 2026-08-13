@@ -6907,6 +6907,104 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_SpreadArgument_AgainstRestParameter()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn sum(..ns: number[]): number -> ns.length;
+            let xs = [1, 2];
+            sum(..xs);
+            sum(1, ..xs);
+            sum(..xs, 3);
+            sum(..xs, ..xs);
+            """
+        );
+
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void Checks_SpreadArgument_InfersTypeParameterFromItsElementType()
+    {
+        var type = Utility.GetLastStatementType("fn first<T>(..items: T[]): T? -> items[1]; let xs = [1, 2]; first(..xs)");
+
+        Assert.Equal("number?", type.ToString());
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadArgument_ElementTypeMismatch()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn sum(..ns: number[]): number -> ns.length;
+            let names = ["a"];
+            sum(..names);
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "Type 'string[]' is not assignable to type 'number[]'.\n    Type 'string' is not assignable to type 'number'."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadArgument_WithoutRestParameter()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn add(a: number, b: number): number -> a + b;
+            let xs = [1, 2];
+            add(..xs);
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InvalidSpreadArgument,
+            "Only a rest parameter may be given a spread argument.",
+            "this function takes a fixed number of arguments, so pass them one at a time"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadArgument_BeforeAFixedParameterIsFilled()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn labelled(label: string, ..ns: number[]): number -> ns.length;
+            let xs = [1, 2];
+            labelled(..xs);
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InvalidSpreadArgument,
+            "A spread argument must come after every fixed parameter, and 1 of them is still unfilled."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadArgument_IntoTupleRestParameter()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn point(..coordinates: (number, string)): number -> 1;
+            let xs = [1, 2];
+            point(..xs);
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InvalidSpreadArgument,
+            "Rest parameter of type '(number, string)' expects an exact number of arguments, so it cannot be given a spread argument."
+        );
+    }
+
+    [Fact]
     public void Checks_NumberLiterals()
     {
         var type = Utility.GetLastStatementType("69");

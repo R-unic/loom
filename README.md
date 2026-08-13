@@ -81,6 +81,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Functions](#functions)
   - [Arrays](#arrays)
   - [Spread Elements](#spread-elements)
+    - [Spreading into a call](#spreading-into-a-call)
   - [Destructuring](#destructuring)
   - [Tuples](#tuples)
   - [nameof](#nameof)
@@ -177,7 +178,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   [Range.clamp()](#rangeclamp), or [String Methods](#string-methods), fully-typed standard libraries like `math`, and Roblox-specific
   [Instance Helpers](#instance-helpers)
 - **Spread elements** – `[69, ..rest]` builds a new array out of an existing one, so a prepend, append or concatenation is an expression rather than a
-  sequence of mutations. See [example](#spread-elements).
+  sequence of mutations, and `f(..rest)` passes one as separate arguments to a rest parameter. See [example](#spread-elements).
 - **Iterators** – A type that implements `Iterator<T>` drives a `for` loop itself, deciding what "the next one" means and carrying its own position. See
   [example](#iterators).
 - **Realms** – `[realms]` says which directories run on the client and which on the server, and an import that crosses that boundary is an error rather than
@@ -490,6 +491,78 @@ Only an array may be spread — anything else is an error rather than an implici
 let x = 69;
 let xs = [..x];
 ##          ^ Only an array may be spread, got '69'.
+```
+
+---
+
+### Spreading into a call
+
+`..` also works at a call site, passing an array's elements as separate arguments — the other half of the `..args` a
+[rest parameter](#functions) collects them with, so forwarding one function's arguments to another is just spreading them
+back out.
+
+```rs
+fn sum(..ns: number[]): number {
+    mut total = 0;
+    for n : ns
+        total += n;
+
+    return total;
+}
+
+let xs = [1, 2, 3];
+let alone = sum(..xs);
+let after_fixed = sum(10, 20, ..xs);
+let before_more = sum(..xs, 100);
+```
+
+```luau
+const function sum(...: number): number
+  local ns = {...}
+  local total = 0
+  for _, n in ns do
+    total += n
+  end
+  return total
+end
+const xs = {1, 2, 3}
+const alone = sum(table.unpack(xs))
+const after_fixed = sum(10, 20, table.unpack(xs))
+const _result = table.clone(xs)
+local _count = #_result
+_count += 1
+_result[_count] = 100
+const before_more = sum(table.unpack(_result))
+```
+
+`table.unpack` only expands in last position, so a spread with anything after it builds the whole tail as one array first —
+the same lowering an array literal uses — and unpacks that.
+
+A generic rest parameter infers from the element type, so `..` carries the type through a forwarding function unchanged:
+
+```rs
+fn count_of<T>(..items: T[]): number -> items.length;
+fn forward(..args: number[]): number -> count_of(..args);
+```
+
+**A spread argument must land in the rest parameter.** A rest parameter is the only place a count nobody knows until runtime
+can go — everything from it on arrives as one array, so how many elements the spread carries changes nothing about which
+parameter anything lands on. A fixed parameter has to know which argument it is being handed:
+
+```rs
+fn add(a: number, b: number): number -> a + b;
+add(..xs);
+##  ^ Only a rest parameter may be given a spread argument.
+##    hint: this function takes a fixed number of arguments, so pass them one at a time
+
+fn labelled(label: string, ..ns: number[]): number -> ns.length;
+labelled(..xs);
+##       ^ A spread argument must come after every fixed parameter, and 1 of them is still unfilled.
+
+fn point(..coordinates: (number, string)): number -> 1;
+point(..xs);
+##    ^ Rest parameter of type '(number, string)' expects an exact number of arguments,
+##      so it cannot be given a spread argument.
 ```
 
 ---

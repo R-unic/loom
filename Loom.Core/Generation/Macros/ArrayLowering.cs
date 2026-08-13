@@ -23,6 +23,23 @@ internal static class ArrayLowering
     public const string DiscardName = "_";
 
     /// <summary>
+    ///     Adds every element of <paramref name="array" /> to <paramref name="set" /> as a key, which is
+    ///     all a set is. Shared so a set built from an array and a set built from spread members are the
+    ///     same table and need no conversion between them.
+    /// </summary>
+    public static void AddElementsToSet(LuauState state, List<LuauStatement> body, Identifier set, LuauExpression array)
+    {
+        var elementName = state.Scope.AddIdentifier(ElementName);
+        body.Add(
+            new ForStatement(
+                [DiscardName, elementName],
+                array,
+                new Chunk([new ExpressionStatement(new BinaryOperator(new ElementAccess(set, new Identifier(elementName)), "=", new BooleanLiteral(true)))])
+            )
+        );
+    }
+
+    /// <summary>
     ///     Copies a segment onto the end of the result with one <c>table.move</c> rather than an
     ///     element-at-a-time loop, carrying the write position in <paramref name="count" /> so the
     ///     append point is never re-derived.
