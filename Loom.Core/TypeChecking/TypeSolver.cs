@@ -86,6 +86,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         var transformed = type switch
         {
             IndexedType indexedType => new IndexedType(Map(indexedType.Target), Map(indexedType.Index)),
+            KeyOfType keyOfType => new KeyOfType(Map(keyOfType.Target)),
             ArrayType arrayType => new ArrayType(Map(arrayType.ElementType), arrayType.IsMutable),
             InterfaceType interfaceType => new InterfaceType(
                 interfaceType.Name,
@@ -418,6 +419,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         {
             TypeVariable tv => tv.Id == variable.Id,
             IndexedType indexedType => OccursIn(variable, indexedType.Target, visited) || OccursIn(variable, indexedType.Index, visited),
+            KeyOfType keyOfType => OccursIn(variable, keyOfType.Target, visited),
             InterfaceType i => i.Constraints.Any(t => OccursIn(variable, t, visited)) || OccursIn(variable, i.ObjectType, visited),
             ObjectType obj => obj.Indexer != null && (OccursIn(variable, obj.Indexer.KeyType, visited) || OccursIn(variable, obj.Indexer.ValueType, visited))
                 || obj.Properties.Any(p => OccursIn(variable, p.ValueType, visited)),

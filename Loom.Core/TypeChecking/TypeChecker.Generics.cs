@@ -53,9 +53,10 @@ public sealed partial class TypeChecker
                 substitution[tp] = type;
         }
 
+        var resolvedConstraints = ResolveConstraints(invocation, functionType.TypeParameters, substitution);
         foreach (var tp in functionType.TypeParameters)
             if (substitution.TryGetValue(tp, out var substitutedType) && tp.Constraint != null)
-                if (!CheckTypeParameterConstraints(invocation, substitutedType, tp))
+                if (!CheckTypeParameterConstraints(invocation, substitutedType, tp, resolvedConstraints.GetValueOrDefault(tp)))
                     return null;
 
         return substitution;
@@ -68,33 +69,132 @@ public sealed partial class TypeChecker
             return BindType(node, PrimitiveType.Never);
 
         var fullArguments = FillGenericArguments(genericType.Parameters, arguments);
+        var substitution = new TypeParameterSubstitution();
+        for (var i = 0; i < genericType.Parameters.Count; i++)
+            substitution[genericType.Parameters[i]] = fullArguments[i];
+
+        var resolvedConstraints = ResolveConstraints(node, genericType.Parameters, substitution);
         for (var i = 0; i < genericType.Parameters.Count; i++)
         {
             var parameter = genericType.Parameters[i];
-            var argument = fullArguments[i];
             if (parameter.Constraint == null) continue;
-            CheckTypeParameterConstraints(node, argument, parameter);
+            CheckTypeParameterConstraints(node, fullArguments[i], parameter, resolvedConstraints.GetValueOrDefault(parameter));
         }
 
         var instantiated = genericType.Construct(fullArguments);
+        ReportUnresolvableKeyOf(node, instantiated.Expand());
+
         return BindType(node, instantiated);
     }
 
-    private bool CheckTypeParameterConstraints(Node node, Type type, TypeParameter parameter)
+    /// <summary>
+    ///     Whether <paramref name="type" /> satisfies <paramref name="parameter" />'s constraint, measured
+    ///     against <paramref name="resolvedConstraint" /> where the caller has one.
+    /// </summary>
+    /// <remarks>
+    ///     A constraint that names another parameter - <c>K: keyof(T)</c> - only means anything once T is
+    ///     bound, so an instantiation resolves it in the scope it is being instantiated into and passes it
+    ///     here. Comparing against the declared form instead rejects every argument, since nothing is
+    ///     assignable to an unresolved <c>keyof(T)</c>.
+    /// </remarks>
+    private bool CheckTypeParameterConstraints(Node node, Type type, TypeParameter parameter, Type? resolvedConstraint = null)
     {
-        if (parameter.Constraint == null) return true;
+        var constraint = resolvedConstraint ?? parameter.Constraint;
+        if (constraint == null) return true;
         if (type is TypeParameter otherParameter)
             type = otherParameter.Constraint ?? PrimitiveType.Unknown;
 
-        if (type.IsAssignableTo(parameter.Constraint)) return true;
+        if (type.IsAssignableTo(constraint)) return true;
 
         _diagnostics.Error(
             node,
             InternalCodes.ConstraintViolation,
-            $"Type '{type}' does not satisfy constraint '{parameter.Constraint}' for type parameter '{parameter.Name}'."
+            $"Type '{type}' does not satisfy constraint '{constraint}' for type parameter '{parameter.Name}'."
         );
 
         return false;
+    }
+
+    /// <summary>
+    ///     Reports a <c>keyof</c> left unresolved by expansion because the argument it landed on has no keys.
+    /// </summary>
+    /// <remarks>
+    ///     <c>VisitKeyOf</c> catches this where the target is written out, but inside a generic the target is
+    ///     a parameter and there is nothing to complain about until an argument arrives - so
+    ///     <c>type Keys&lt;T&gt; = keyof(T); Keys&lt;number&gt;</c> would otherwise be silently inert.
+    /// </remarks>
+    private void ReportUnresolvableKeyOf(Node node, Type type)
+    {
+        var visited = new HashSet<Type>(ReferenceEqualityComparer.Instance);
+        report(type);
+
+        return;
+
+        void report(Type current)
+        {
+            if (!visited.Add(current))
+                return;
+
+            if (current is KeyOfType { Target: not (TypeParameter or TypeVariable or IndexedType or KeyOfType) } unresolved)
+            {
+                _diagnostics.Error(node, InternalCodes.InvalidKeyOf, $"Cannot access keys of type '{unresolved.Target.Widen()}'.");
+                return;
+            }
+
+            TypeSolver.Transform(
+                current,
+                child =>
+                {
+                    report(child);
+                    return child;
+                }
+            );
+        }
+    }
+
+    /// <summary>
+    ///     Each parameter's constraint with every parameter of the same generic substituted, so one written
+    ///     over another is measured against what that other turned out to be.
+    /// </summary>
+    private Dictionary<TypeParameter, Type> ResolveConstraints(Node node, List<TypeParameter> parameters, TypeParameterSubstitution substitution)
+    {
+        var resolved = new Dictionary<TypeParameter, Type>();
+        foreach (var parameter in parameters)
+            // Only a constraint carrying a deferred operator is substituted. Substitution rebuilds every
+            // composite it walks, and an interface put back together from its parts is no longer the one the
+            // argument was checked against - 'Instance' would stop satisfying 'Instance'. A constraint with
+            // no 'keyof' or 'T[K]' in it has nothing an argument could resolve anyway.
+            if (parameter.Constraint != null && ContainsDeferredOperator(parameter.Constraint))
+                resolved[parameter] = SubstituteTypeParameters(node, parameter.Constraint, substitution);
+
+        return resolved;
+    }
+
+    private static bool ContainsDeferredOperator(Type type)
+    {
+        var visited = new HashSet<Type>(ReferenceEqualityComparer.Instance);
+        return contains(type);
+
+        bool contains(Type current)
+        {
+            if (current is KeyOfType or IndexedType)
+                return true;
+
+            if (!visited.Add(current))
+                return false;
+
+            var found = false;
+            TypeSolver.Transform(
+                current,
+                child =>
+                {
+                    found |= contains(child);
+                    return child;
+                }
+            );
+
+            return found;
+        }
     }
 
     private bool CheckGenericArity(Node node, List<TypeParameter> parameters, List<Type> arguments, string genericKind)
@@ -149,6 +249,24 @@ public sealed partial class TypeChecker
         return GetTypeAtIndex(failNode, target, index);
     }
 
+    /// <summary>
+    ///     Resolves a deferred <c>keyof(T)</c> once <c>T</c> is known, leaving it deferred where the
+    ///     substitution only renamed the parameter.
+    /// </summary>
+    private Type SubstituteKeyOfType(Node failNode, TypeParameterSubstitution substitution, KeyOfType keyOfType, Dictionary<Type, Type> cache)
+    {
+        var target = SubstituteTypeParameters(failNode, keyOfType.Target, substitution, cache);
+        var substituted = new KeyOfType(target);
+        if (TypeSimplifier.ResolveKeys(substituted) is { } keys)
+            return keys;
+
+        if (target is TypeParameter or TypeVariable or IndexedType or KeyOfType)
+            return substituted;
+
+        _diagnostics.Error(failNode, InternalCodes.InvalidKeyOf, $"Cannot access keys of type '{target.Widen()}'.");
+        return PrimitiveType.Never;
+    }
+
     private List<Type> SubstituteTypeParameters(Node failNode, List<Type> types, TypeParameterSubstitution substitution) =>
         types.ConvertAll(t => SubstituteTypeParameters(failNode, t, substitution));
 
@@ -170,6 +288,8 @@ public sealed partial class TypeChecker
             ? substituted
             : type is IndexedType indexedType
                 ? SubstituteIndexedType(failNode, substitution, indexedType, cache)
+                : type is KeyOfType keyOfType
+                ? SubstituteKeyOfType(failNode, substitution, keyOfType, cache)
                 : TypeSolver.Transform(
                     type,
                     t => t switch

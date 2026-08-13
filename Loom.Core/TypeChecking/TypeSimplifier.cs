@@ -56,10 +56,27 @@ public static class TypeSimplifier
 
     public static Type? ResolveIndex(Type target, Type index)
     {
-        if (index is TypeParameter)
-            return null;
+        if (index is TypeParameter or KeyOfType)
+            return ResolveKeys(index) is { } keys ? ResolveIndex(target, keys) : null;
 
         return Expanded(target) is NativelyIndexableType indexable ? indexable.GetTypeAtIndex(index).BodyType?.ValueType : null;
+    }
+
+    /// <summary>
+    ///     The key union a deferred <c>keyof(T)</c> stands for once <c>T</c> is known, or null while it is
+    ///     still a parameter. Shared by both substitution paths so a <c>keyof</c> resolves the same whether
+    ///     the generic being instantiated is a function or a type alias.
+    /// </summary>
+    public static Type? ResolveKeys(Type type)
+    {
+        if (type is not KeyOfType keyOfType)
+            return null;
+
+        var target = keyOfType.Target;
+        if (target is TypeParameter or TypeVariable or IndexedType or KeyOfType)
+            return null;
+
+        return Expanded(target) is ObjectType or InterfaceType ? ((NativelyIndexableType)Expanded(target)).KeyUnion() : null;
     }
 
     private static ObjectType SimplifyObject(ObjectType objectType) =>
