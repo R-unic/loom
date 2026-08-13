@@ -97,7 +97,9 @@ public abstract class NativelyIndexableType : Type
             var reached = indexUnion.Types.ConvertAll(member => GetTypeAtIndex(member).BodyType);
             if (reached.TrueForAll(body => body != null))
                 return (new ObjectIndexer(
-                    reached.Exists(body => body!.IsMutable),
+                    // Mutable only where every member reached is: the index may turn out to be any one of
+                    // them, so one immutable member is enough to make a write through the union unsound.
+                    reached.TrueForAll(body => body!.IsMutable),
                     indexType,
                     TypeSimplifier.Simplify(new UnionType(reached.ConvertAll(body => body!.ValueType)))
                 ), "");

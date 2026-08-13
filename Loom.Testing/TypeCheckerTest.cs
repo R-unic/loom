@@ -1069,6 +1069,18 @@ public class TypeCheckerTest
         Assert.Equal("0 | 1", type.ToString());
     }
 
+    /// <remarks>
+    ///     Properties and indexers both reach through a whole chain of inheritance, so keys have to as well -
+    ///     they used to stop one level short, leaving 'keyof' over a grandparent's property empty.
+    /// </remarks>
+    [Fact]
+    public void Checks_KeyOf_ReachesThroughAMultiLevelInheritanceChain()
+    {
+        var type = Utility.GetLastStatementType("interface A { x: number }\ninterface B: A { }\ninterface C: B { }\ndeclare let key: keyof(C);\nkey");
+
+        Assert.Equal("\"x\"", type.ToString());
+    }
+
     [Fact]
     public void Checks_IndexingByAUnionOfKeys_UnionsTheValuesTheyReach()
     {
@@ -1097,9 +1109,74 @@ public class TypeCheckerTest
 
         var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
 
-        Assert.Single(diagnostics.Set.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Single(diagnostics.Set, d => d.Severity == DiagnosticSeverity.Error);
         Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '0 | 1' is not assignable to type '0'.");
     }
+
+    /// <inheritdoc cref="Checks_ForOverAMergedMapping_BindsEveryInheritedKey" />
+    [Fact]
+    public void Checks_ForOverAMergedMapping_BindsEveryInheritedValue()
+    {
+        const string source = $$"""
+            {{MergedMapping}}declare let data: MessageData;
+            declare fn take_any(packet: ShootGunPacket | ReloadPacket): void;
+            declare fn take_one(packet: ShootGunPacket): void;
+
+            for key, value : data {
+                take_any(value);
+                take_one(value);
+            }
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+
+        Assert.Single(diagnostics.Set, d => d.Severity == DiagnosticSeverity.Error);
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "Type 'ShootGunPacket | ReloadPacket' is not assignable to type 'ShootGunPacket'."
+        );
+    }
+
+    /// <remarks>
+    ///     A union index may turn out to be any one of its members, so a write through it is only sound when
+    ///     every indexer it reaches is mutable.
+    /// </remarks>
+    [Fact]
+    public void ThrowsFor_WritingThroughAUnionIndex_WhereOneIndexerIsImmutable()
+    {
+        const string source = """
+            enum M { A, B }
+            interface P { v: number }
+            declare interface ReadEntry { [M["A"]]: P; }
+            declare interface WriteEntry { mut [M["B"]]: P; }
+            declare interface Mixed: ReadEntry, WriteEntry;
+            declare let mixed: Mixed;
+            declare let key: keyof(Mixed);
+            declare let packet: P;
+            mixed[key] = packet;
+            """;
+
+        Utility.AssertDiagnostic(Utility.GetTypeCheckerDiagnostics(source), InternalCodes.AssignToImmutable, "Cannot assign to immutable index '0 | 1'.");
+    }
+
+    [Fact]
+    public void Checks_WritingThroughAUnionIndex_WhereEveryIndexerIsMutable() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                enum M { A, B }
+                interface P { v: number }
+                declare interface FirstEntry { mut [M["A"]]: P; }
+                declare interface SecondEntry { mut [M["B"]]: P; }
+                declare interface Both: FirstEntry, SecondEntry;
+                declare let both: Both;
+                declare let key: keyof(Both);
+                declare let packet: P;
+                both[key] = packet;
+                """
+            )
+        );
 
     /// <remarks>
     ///     A type parameter in target position used to be rejected outright, leaving the declared return type
@@ -7849,6 +7926,58 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(x: number); abc += fn(x: string) { };");
         Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type 'number' is not assignable to type 'string'.");
+    }
+
+    /// <remarks>
+    ///     Issue #206. A rest parameter lives on the declaration, not on <c>Event&lt;T1..T8&gt;</c>, which is
+    ///     positional - so the array it declares used to arrive as one ordinary parameter and a handler
+    ///     naming the arguments individually was rejected.
+    /// </remarks>
+    [Fact]
+    public void Checks_VariadicEventConnect_HandlerMayNameEachArgument() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                event abc(..data: unknown[]);
+                abc += fn(a, b, c) { print(a, b, c); };
+                abc += fn(only) { print(only); };
+                abc += fn() { };
+                """
+            )
+        );
+
+    [Fact]
+    public void Checks_VariadicEventConnect_HandlerParametersInferTheRestElementType() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics("event abc(label: string, ..rest: number[]); abc += fn(label, first) { let l: string = label; let f: number = first; };")
+        );
+
+    [Fact]
+    public void ThrowsFor_VariadicEventConnect_HandlerParameterMismatchesTheRestElementType()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(..data: number[]); abc += fn(a) { let s: string = a; };");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type 'number' is not assignable to type 'string'.");
+    }
+
+    [Fact]
+    public void Checks_VariadicEventFire_AcceptsAnyArgumentCountAndASpread() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                event abc(label: string, ..rest: number[]);
+                let ns = [1, 2];
+                abc("hi");
+                abc("hi", 1, 2);
+                abc("hi", ..ns);
+                """
+            )
+        );
+
+    [Fact]
+    public void ThrowsFor_VariadicEventFire_ArgumentMismatchesTheRestElementType()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(..data: number[]); abc(1, \"no\");");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"no\"' is not assignable to type 'number'.");
     }
 
     [Fact]

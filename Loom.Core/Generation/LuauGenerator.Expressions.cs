@@ -627,6 +627,13 @@ public sealed partial class LuauGenerator
             return argumentList.ConvertAll(Visit);
 
         var arguments = argumentList.GetRange(0, spreadIndex).ConvertAll(Visit);
+
+        // Into names before the tail is built, because the tail lowers to statements that sit above the call
+        // while these stay inline in it - so an argument that does something would otherwise do it after the
+        // spread had already read what it was about to change. A name or a literal is left where it is.
+        for (var i = 0; i < arguments.Count; i++)
+            arguments[i] = _state.PushIfRepeated(ArrayLowering.ArgumentName, arguments[i]);
+
         var tail = argumentList.GetRange(spreadIndex, argumentList.Count - spreadIndex);
         var spread = tail is [SpreadElement only] ? Visit(only.Expression) : GenerateSpreadArrayLiteral(tail);
         arguments.Add(new Spread(spread));

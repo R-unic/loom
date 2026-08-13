@@ -17,6 +17,7 @@ internal static class ArrayLowering
     public const string ElementName = "_element";
     public const string IndexName = "_index";
     public const string SegmentName = "_segment";
+    public const string ArgumentName = "_argument";
     public const string LengthName = "_length";
     public const string FoundName = "_found";
     public const string SatisfiedName = "_satisfied";

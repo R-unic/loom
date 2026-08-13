@@ -135,7 +135,7 @@ public sealed partial class TypeChecker
         if (binaryOperator.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals
             && TryGetEventParameterTypes(binaryOperator, leftType, out var eventParameters))
         {
-            var assignableFunction = new Types.FunctionType([], eventParameters, Types.PrimitiveType.Void);
+            var assignableFunction = new Types.FunctionType([], eventParameters, Types.PrimitiveType.Void, IsVariadicEvent(binaryOperator.Left));
             var handlerType = Check(binaryOperator.Right, assignableFunction);
             _semanticModel.TypeSolver.AddConstraint(handlerType, assignableFunction, binaryOperator.Right);
             return BindType(binaryOperator, GetIntrinsicType(binaryOperator, "ScriptConnection"));

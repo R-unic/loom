@@ -222,12 +222,33 @@ public sealed partial class TypeChecker
     {
         var argumentList = invocation.Arguments.ArgumentList;
         var argumentTypes = argumentList.ConvertAll(Visit);
-        var declaration = _semanticModel.GetSymbol(invocation.Expression)?.Declaration as EventDeclaration
-            ?? _semanticModel.GetPropertySymbol(invocation.Expression)?.Declaration as EventDeclaration;
+        var declaration = GetEventDeclaration(invocation.Expression);
 
-        CheckArguments(invocation.Arguments, declaration?.Parameters, argumentTypes, eventType.Arguments, argumentList);
+        // The declared parameters alone: Event<T1..T8> pads to eight, and the unused ones are 'none', which
+        // a rest parameter would otherwise be measured against as seven more parameters to fill first.
+        CheckArguments(
+            invocation.Arguments,
+            declaration?.Parameters,
+            argumentTypes,
+            eventType.Arguments.TakeWhile(Type.IsDefined).ToList(),
+            argumentList,
+            HasRestParameter(declaration?.Parameters)
+        );
+
         return BindType(invocation, Types.PrimitiveType.Void);
     }
+
+    /// <summary>
+    ///     The declaration of the event <paramref name="expression" /> names, whether it is a bare name or a
+    ///     member of something. An event's rest parameter lives here and not on its type: <c>Event&lt;T1..T8&gt;</c>
+    ///     is positional, so the array a rest parameter declares arrives as just another type argument.
+    /// </summary>
+    private EventDeclaration? GetEventDeclaration(Expression expression) =>
+        _semanticModel.GetSymbol(expression)?.Declaration as EventDeclaration
+        ?? _semanticModel.GetPropertySymbol(expression)?.Declaration as EventDeclaration;
+
+    /// <summary>Whether the event <paramref name="expression" /> names was declared with a rest parameter.</summary>
+    private bool IsVariadicEvent(Expression expression) => HasRestParameter(GetEventDeclaration(expression)?.Parameters);
 
     /// <summary>
     ///     The parameter type an argument is checked against, or null where checking it would only mislead.

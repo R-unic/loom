@@ -1028,6 +1028,13 @@ public class ParserTest
         Assert.IsType<Identifier>(spread.Expression);
     }
 
+    [Theory]
+    [InlineData("let x = [..];", "']'")]
+    [InlineData("let x = [1, ..];", "']'")]
+    [InlineData("f(..);", "')'")]
+    public void ThrowsFor_SpreadWithNoOperand(string source, string got) =>
+        Utility.AssertDiagnostic(Utility.GetParserDiagnostics(source), InternalCodes.UnexpectedToken, $"Expected expression, got {got}.");
+
     [Fact]
     public void Parses_SpreadOfRange_AsOneOperand()
     {

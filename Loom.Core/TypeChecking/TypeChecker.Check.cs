@@ -57,7 +57,10 @@ public sealed partial class TypeChecker
             var parameter = parameterList[i];
             var declaredType = MaybeVisit(parameter.ColonTypeClause);
             var initializerType = MaybeVisit(parameter.EqualsValueClause);
-            var contextualType = i < expected.ParameterTypes.Count ? expected.ParameterTypes[i] : null;
+            // ParameterTypeAt rather than an index, so a parameter past the expected function's fixed ones
+            // infers from what its rest parameter holds - a handler naming three of the arguments a variadic
+            // event fires has three parameters to infer and one array type to infer them all from.
+            var contextualType = expected.ParameterTypeAt(i);
             var type = declaredType ?? contextualType ?? initializerType;
             if (type == null)
             {
