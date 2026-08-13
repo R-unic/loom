@@ -56,6 +56,11 @@ public sealed partial class LuauGenerator
         if (NamesConditionalAlias(symbol))
             return RenderResolvedType(typeName);
 
+        // Luau's indexer binds no name for its key, so a mapped type's binder emits the key set it ranges
+        // over wherever it is used - which is what turns '[K from keyof(T)]: T[K][]' into '{ index<T, keyof<T>> }'.
+        if (symbol.Declaration is MappedTypeDeclaration mapped)
+            return Visit(mapped.SourceType);
+
         // 'Array<T, L>' is transparent sugar for 'T[]' - L only matters to the serializer, which reads
         // it straight off the type argument, so it never has anything to reach Luau with. Nothing named
         // 'Array' exists there, unlike 'T[]' itself.
@@ -99,8 +104,6 @@ public sealed partial class LuauGenerator
 
     public override LuauNode VisitConditionalType(Parsing.AST.ConditionalType conditionalType) => RenderResolvedType(conditionalType);
     public override LuauNode VisitTypeMatch(TypeMatch typeMatch) => RenderResolvedType(typeMatch);
-    public override LuauNode VisitWildcardType(WildcardType wildcardType) => UnknownType;
-    public override LuauNode VisitInferType(InferType inferType) => new Luau.AST.TypeName(inferType.Name.Text);
 
     /// <summary>
     ///     What a branching type worked out to, written out in its place. Luau can express the answer but
@@ -115,7 +118,8 @@ public sealed partial class LuauGenerator
     /// </remarks>
     private LuauNode RenderResolvedType(TypeExpression node)
     {
-        if (LuauTypeRenderer.Render(_semanticModel.GetType(node), _loomRuntimeTypeNames) is { } rendered)
+        var type = _semanticModel.GetType(node);
+        if (LuauTypeRenderer.Render(type, _loomRuntimeTypeNames) is { } rendered)
             return rendered;
 
         // Inside a generic type's own declaration there is nothing to say: it is written over a parameter
@@ -125,7 +129,7 @@ public sealed partial class LuauGenerator
             _diagnostics.Warn(
                 node,
                 InternalCodes.UnresolvedTypeInOutput,
-                $"'{_semanticModel.GetType(node)}' is still generic here, so it is emitted as 'unknown'.",
+                $"Type '{type}' is still generic here and is emitted as 'unknown'.",
                 "instantiate it with concrete type arguments to keep the precise type"
             );
 

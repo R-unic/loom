@@ -6,6 +6,7 @@ using InferType = Loom.Core.Parsing.AST.InferType;
 using TypeMatch = Loom.Core.Parsing.AST.TypeMatch;
 using TypePredicateType = Loom.Core.Parsing.AST.TypePredicateType;
 using WildcardType = Loom.Core.Parsing.AST.WildcardType;
+using LoomType = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Testing;
 
@@ -118,7 +119,7 @@ public class ConditionalTypeTest
     public void Reports_AMatchWithNoArms()
     {
         var diagnostics = Utility.GetParserDiagnostics("type X<T> = match T { };");
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.EmptyMatch, "A type-level 'match' must have at least one arm.");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.EmptyMatch, "Type-level 'match' needs at least one arm.");
     }
 
     /// <summary>
@@ -129,6 +130,22 @@ public class ConditionalTypeTest
     public void Reports_ABinderOutsideAPattern()
     {
         Assert.NotEmpty(Utility.GetParserDiagnostics("type X = let R;").Set);
+    }
+
+    /// <summary>
+    ///     Without the <c>?</c> this is the predicate form, whose subject is a parameter name - so anything
+    ///     else there is a conditional missing its branches rather than a predicate with an odd subject.
+    /// </summary>
+    [Fact]
+    public void Reports_AnIsTypeThatIsNeitherFormCleanly()
+    {
+        var diagnostics = Utility.GetParserDiagnostics("type X = (number) is string;");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InvalidTypePredicateSubject,
+            "Type predicate subject must be a parameter name.",
+            "add '? ... : ...' after the type to write a conditional type instead"
+        );
     }
 
     [Fact]
@@ -207,6 +224,170 @@ public class ConditionalTypeTest
     {
         Assert.Equal("(number, string)", TypeOfAlias(Utilities, "Parameters<fn(a: number, b: string): void>"));
         Assert.Equal("()", TypeOfAlias(Utilities, "Parameters<fn(): void>"));
+    }
+
+    [Fact]
+    public void Binds_ThroughAnOptionalAndATuple()
+    {
+        const string source = """
+            type Defined<T> = match T { (let E)? -> E, _ -> never };
+            type First<T> = match T { (let A, let B) -> A, _ -> never };
+            """;
+
+        Assert.Equal("string", TypeOfAlias(source, "Defined<string?>"));
+        Assert.Equal("number", TypeOfAlias(source, "First<(number, string)>"));
+        Assert.Equal("never", TypeOfAlias(source, "First<(number, string, bool)>"));
+    }
+
+    /// <summary>
+    ///     A subject written as some other alias is expanded before the arms see it - the pattern is asking
+    ///     about its shape, and the name it was reached through is not part of that.
+    /// </summary>
+    [Fact]
+    public void Binds_ThroughASubjectWrittenAsAnotherAlias()
+    {
+        Assert.Equal("number", TypeOfAlias(Utilities, "ElementOf<Array<number>>"));
+    }
+
+    /// <summary>
+    ///     A union's members have no order anybody wrote, so a pattern finds each member a partner rather
+    ///     than pairing them off by position.
+    /// </summary>
+    [Fact]
+    public void Binds_AUnionMember_WhicheverOrderItIsWrittenIn()
+    {
+        const string source = """
+            type Other<T> = match T { number | let R -> R, _ -> never };
+            """;
+
+        Assert.Equal("string", TypeOfAlias(source, "Other<number | string>"));
+        Assert.Equal("string", TypeOfAlias(source, "Other<string | number>"));
+        Assert.Equal("never", TypeOfAlias(source, "Other<string | bool>"));
+    }
+
+    /// <summary>One name twice in a pattern means the two positions must agree, rather than widening to their union.</summary>
+    [Fact]
+    public void Requires_ARepeatedBinderToAgree()
+    {
+        const string source = """
+            type Same<T> = match T { fn(a: let A, b: let A): unknown -> A, _ -> never };
+            """;
+
+        Assert.Equal("number", TypeOfAlias(source, "Same<fn(a: number, b: number): void>"));
+        Assert.Equal("never", TypeOfAlias(source, "Same<fn(a: number, b: string): void>"));
+    }
+
+    [Fact]
+    public void Rejects_AFunctionPatternOfTheWrongShape()
+    {
+        const string source = """
+            type Second<T> = match T { fn(a: unknown, b: let B): unknown -> B, _ -> never };
+            type Waited<T> = match T { async fn(): let R -> R, _ -> never };
+            """;
+
+        Assert.Equal("string", TypeOfAlias(source, "Second<fn(a: number, b: string): void>"));
+        Assert.Equal("never", TypeOfAlias(source, "Second<fn(a: number): void>"));
+        Assert.Equal("never", TypeOfAlias(source, "Waited<fn(): number>"));
+    }
+
+    /// <summary>
+    ///     A partner that binds and then fails further in has to put back what it bound, since a later
+    ///     member of the union may still take it.
+    /// </summary>
+    [Fact]
+    public void Unbinds_APartialMatchThatFailed()
+    {
+        const string source = """
+            type Handler = (fn(a: number): bool) | number;
+            type Arg<T> = match T { (fn(a: let A): string) | number -> A, _ -> never };
+            type Kept<T> = match T { (fn(a: let A): bool) | number -> A, _ -> never };
+            """;
+
+        Assert.Equal("never", TypeOfAlias(source, "Arg<Handler>"));
+        Assert.Equal("number", TypeOfAlias(source, "Kept<Handler>"));
+    }
+
+    /// <summary>Whatever an abandoned partner bound is put back, so a name the earlier members took keeps its binding.</summary>
+    [Fact]
+    public void Unbinds_AFailedPartner_WithoutLosingEarlierBindings()
+    {
+        const string source = """
+            type Handler = number[] | (fn(a: number): bool);
+            type Pair<T> = match T { (let B)[] | (fn(a: let A): string) -> B, _ -> never };
+            """;
+
+        Assert.Equal("never", TypeOfAlias(source, "Pair<Handler>"));
+    }
+
+    /// <summary>
+    ///     A rest binder takes the whole remainder as one pack, so a constraint on it is a constraint on the
+    ///     pack rather than on each parameter - and nothing that is not a tuple satisfies one.
+    /// </summary>
+    [Fact]
+    public void Rejects_ARestBinderWhoseConstraintTheWholePackCannotMeet()
+    {
+        const string source = """
+            type Ps<T> = match T { fn(..let P: number): unknown -> P, _ -> never };
+            """;
+
+        Assert.Equal("never", TypeOfAlias(source, "Ps<fn(a: number): void>"));
+    }
+
+    /// <summary>A rest written as an element array is a shape every remaining parameter has to fit.</summary>
+    [Fact]
+    public void Rejects_AParameterThatDoesNotFitTheRestElement()
+    {
+        const string source = """
+            type NumericReturn<T> = T is fn(..number[]): let X ? X : never;
+            """;
+
+        Assert.Equal("bool", TypeOfAlias(source, "NumericReturn<fn(a: number, b: number): bool>"));
+        Assert.Equal("never", TypeOfAlias(source, "NumericReturn<fn(a: string): bool>"));
+    }
+
+    /// <summary>Nothing to distribute over when the subject is not a union - <c>each</c> then means nothing at all.</summary>
+    [Fact]
+    public void Distributes_OverANonUnion_AsItself()
+    {
+        Assert.Equal("number", TypeOfAlias(Utilities, "Exclude<number, string>"));
+    }
+
+    /// <summary>An intersection is unknown while any part of it is, the same way a union is.</summary>
+    [Fact]
+    public void Defers_WhileAnIntersectionSubjectHoldsAParameter()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Point { x: number; }
+            type Describe<T> = match T { unknown -> true, _ -> false };
+            declare fn describe<T>(value: Describe<Point & T>): Describe<Point & T>;
+            describe
+            """
+        );
+
+        var function = Assert.IsType<FunctionType>(type);
+        Assert.IsType<ConditionalType>(TypeSimplifier.Expanded(function.ReturnType));
+    }
+
+    /// <summary>A union pattern describes the whole union, so one with a different number of members is a different type.</summary>
+    [Fact]
+    public void Rejects_AUnionPatternOfADifferentWidth()
+    {
+        Assert.Equal("never", TypeOfAlias("type Other<T> = match T { number | let R -> R, _ -> never };", "Other<number | string | bool>"));
+    }
+
+    /// <summary>An arm list with no catch-all narrows to nothing when nothing matches.</summary>
+    [Fact]
+    public void Answers_Never_WhenNoArmMatches()
+    {
+        Assert.Equal("never", TypeOfAlias("type OnlyNumber<T> = match T { number -> true };", "OnlyNumber<string>"));
+    }
+
+    /// <summary>Distributing runs the arms once per member, and <c>never</c> is the union with no members.</summary>
+    [Fact]
+    public void Distributes_OverNever_AsNever()
+    {
+        Assert.Equal("never", TypeOfAlias(Utilities, "Exclude<never, string>"));
     }
 
     [Fact]
@@ -345,6 +526,38 @@ public class ConditionalTypeTest
         Assert.Equal("match each T { number -> string }", distributed.ToString());
     }
 
+    /// <summary>
+    ///     The nesting bound, which the tail-call loop deliberately does not consume - a recursion that grows
+    ///     the type on every step nests instead, and TypeScript keeps that bound small. Built here rather
+    ///     than written in Loom because reaching fifty levels from source takes a program nobody would write.
+    /// </summary>
+    [Fact]
+    public void Reports_ARecursionThatNestsTooDeeply()
+    {
+        var binder = new TypeParameter("U");
+        LoomType nested = PrimitiveType.Number;
+        for (var depth = 0; depth < 60; depth++)
+            nested = new ConditionalType(nested, [new ConditionalArm(binder, new ArrayType(binder, false), [binder])], false);
+
+        ConditionalTypeEvaluator.TakeOverflow();
+        Assert.Null(ConditionalTypeEvaluator.TryEvaluate((ConditionalType)nested));
+        Assert.True(ConditionalTypeEvaluator.TakeOverflow());
+    }
+
+    [Fact]
+    public void ConditionalType_Equals_ComparesArmCount()
+    {
+        var parameter = new TypeParameter("T");
+        var one = new ConditionalType(parameter, [new ConditionalArm(PrimitiveType.Number, PrimitiveType.String, [])], false);
+        var two = new ConditionalType(
+            parameter,
+            [new ConditionalArm(PrimitiveType.Number, PrimitiveType.String, []), new ConditionalArm(PrimitiveType.Unknown, PrimitiveType.Bool, [])],
+            false
+        );
+
+        Assert.NotEqual(one, two);
+    }
+
     [Fact]
     public void ConditionalType_Equals()
     {
@@ -371,6 +584,139 @@ public class ConditionalTypeTest
 
         Assert.Contains("type ReturnType<T> = unknown", luau);
         Assert.DoesNotContain("ReturnType<", luau.Replace("type ReturnType<T>", ""));
+    }
+
+    /// <summary>
+    ///     Every shape an answer can take, written back out as Luau. The generator otherwise walks the
+    ///     syntax rather than the types, so this is the one path where a type has to be rendered from
+    ///     nothing but itself.
+    /// </summary>
+    [Theory]
+    [InlineData("T is number ? T? : never", "number?")]
+    [InlineData("T is number ? T[] : never", "{ number }")]
+    [InlineData("T is number ? fn(a: T): T : never", "(number) -> number")]
+    [InlineData("T is number ? fn(..xs: T[]): void : never", "(...number) -> nil")]
+    [InlineData("T is number ? Point : never", "Point")]
+    [InlineData("T is number ? Result<T, string> : never", "Loom.Result<number, string>")]
+    [InlineData("T is number ? u8 : never", "number")]
+    [InlineData("T is number ? string<u8> : never", "string")]
+    [InlineData("T is number ? true : false", "true")]
+    [InlineData("T is number ? 42 : never", "number")]
+    [InlineData("T is number ? none : never", "nil")]
+    [InlineData("T is number ? Point | string : never", "Point | string")]
+    [InlineData("T is number ? (T, string) : never", "{ number | string }")]
+    [InlineData("T is number ? Point & fn(): void : never", "Point & (() -> nil)")]
+    public void Generates_EveryShapeAnAnswerCanTake(string body, string expected)
+    {
+        var luau = Utility.GetLuauAST(
+            $$"""
+              interface Point { x: number; }
+              type Answer<T> = {{body}};
+              fn use(value: Answer<number>): void {
+                  print(value);
+              }
+              """,
+            true
+        ).Render();
+
+        Assert.Contains($"use(value: {expected})", luau);
+    }
+
+    /// <summary>
+    ///     An answer that is an object rather than a name - what a mapped type resolves to - is written out
+    ///     as the table it is, since there is no alias in the output standing for it.
+    /// </summary>
+    [Fact]
+    public void Generates_AnObjectAnswer_AsATable()
+    {
+        var luau = Utility.GetLuauAST(
+            """
+            interface Point { x: number; }
+            interface AsMut<T> { mut [K from keyof(T)]: T[K]; }
+            type Mut<T> = T is unknown ? AsMut<T> : never;
+            fn use(value: Mut<Point>): void {
+                print(value);
+            }
+            """,
+            true
+        ).Render();
+
+        Assert.Contains("x: number", luau);
+        Assert.DoesNotContain("use(value: Mut<", luau);
+    }
+
+    /// <summary>The n-armed form emits its answer the same way the two-armed one does.</summary>
+    [Fact]
+    public void Generates_TheAnswerOfAMatch()
+    {
+        var luau = Utility.GetLuauAST(
+            """
+            type Answer = match true { true -> number, _ -> string };
+            fn use(value: Answer): void {
+                print(value);
+            }
+            """,
+            true
+        ).Render();
+
+        Assert.Contains("type Answer = number", luau);
+        Assert.Contains("use(value: Answer)", luau);
+    }
+
+    /// <summary>An answer that merges two interfaces is the table they merge into, indexer and all.</summary>
+    [Fact]
+    public void Generates_AMergedAnswer_AsOneTable()
+    {
+        var luau = Utility.GetLuauAST(
+            """
+            interface Point { x: number; }
+            interface Keyed { [string]: number; }
+            type Answer<T> = T is number ? Point & Keyed : never;
+            fn use(value: Answer<number>): void {
+                print(value);
+            }
+            """,
+            true
+        ).Render();
+
+        Assert.Contains("read [string]: number", luau);
+        Assert.Contains("read x: number", luau);
+    }
+
+    /// <summary>
+    ///     An answer Luau has no word for anywhere inside it takes the whole thing down to <c>unknown</c>:
+    ///     half a type is not a type, and a table with one member missing would be a lie about the rest.
+    /// </summary>
+    [Theory]
+    [InlineData("keyof(T)")]
+    [InlineData("keyof(T) | string")]
+    [InlineData("fn(k: keyof(T)): void")]
+    [InlineData("Holder<T>")]
+    public void Generates_Unknown_WhenAnyPartOfTheAnswerIsStillDeferred(string member)
+    {
+        var luau = Utility.GetLuauAST(
+            $$"""
+              interface Holder<T> { [K from "a"]: {{member}}; }
+              type Answer<T> = number is number ? Holder<T> : never;
+              fn use<T>(value: Answer<T>): void {
+                  print(value);
+              }
+              """,
+            true
+        ).Render();
+
+        Assert.Contains("type Answer<T> = unknown", luau);
+    }
+
+    /// <summary>
+    ///     An answer that is still a type parameter renders as that parameter: the conditional resolved, but
+    ///     what it resolved to belongs to whatever generic encloses it.
+    /// </summary>
+    [Fact]
+    public void Generates_AParameterAnswer_AsThatParameter()
+    {
+        var luau = Utility.GetLuauAST("interface Box<T> { value: (number is number ? T : never); }", true).Render();
+        Assert.Contains("read value: (T)", luau);
     }
 
     /// <summary>

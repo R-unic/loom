@@ -93,35 +93,66 @@ internal static class TypeMatcher
             case (Types.InstantiatedType s, _):
                 return MatchChild(s.Expand(), pattern);
 
-            case (InterfaceType s, not InterfaceType):
-                return MatchChild(s.ObjectType, pattern);
+            case (Types.UnionType s, Types.UnionType p):
+                return MatchUnion(s, p, binders, bindings, visiting);
 
-            case (Types.UnionType s, Types.UnionType p) when s.Types.Count == p.Types.Count:
-                return !s.Types.Where((member, i) => !MatchChild(member, p.Types[i])).Any();
-
-            case (ObjectType s, ObjectType p):
-                return MatchObject(s, p, MatchChild);
-
+            // Objects have no case of their own because no pattern can reach one: an object type is only
+            // ever written as an interface name, and a name is an instantiation or an interface - handled
+            // above - never a body with a binder loose inside it.
             default:
                 return Matches(subject, pattern);
         }
     }
 
-    private static bool MatchObject(ObjectType subject, ObjectType pattern, Func<Type, Type, bool> matchChild)
+    /// <summary>
+    ///     Matches union members by finding each pattern member a partner, rather than pairing them off in
+    ///     order: a union's members have no order anybody wrote, so pairing by position would make
+    ///     <c>string | let R</c> match <c>string | number</c> and not <c>number | string</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Members with no binder in them are matched first, so a binder does not consume the partner a
+    ///     literal arm needed. A failed attempt has to put back whatever it bound on the way, since a
+    ///     later partner may still succeed.
+    /// </remarks>
+    private static bool MatchUnion(
+        Types.UnionType subject,
+        Types.UnionType pattern,
+        IReadOnlyList<TypeParameter> binders,
+        TypeParameterSubstitution bindings,
+        HashSet<(Type, Type)> visiting)
     {
-        foreach (var property in pattern.Properties)
+        if (subject.Types.Count != pattern.Types.Count)
+            return false;
+
+        var unmatched = new List<Type>(subject.Types);
+        foreach (var member in pattern.Types.OrderBy(member => ContainsBinder(member, binders)))
         {
-            var counterpart = subject.Properties.Find(p => p.Name == property.Name);
-            if (counterpart == null || !matchChild(counterpart.ValueType, property.ValueType))
+            var partner = unmatched.FindIndex(candidate => TryMatchMember(candidate, member, binders, bindings, visiting));
+            if (partner < 0)
                 return false;
+
+            unmatched.RemoveAt(partner);
         }
 
-        if (pattern.Indexer == null)
+        return true;
+    }
+
+    private static bool TryMatchMember(
+        Type subject,
+        Type pattern,
+        IReadOnlyList<TypeParameter> binders,
+        TypeParameterSubstitution bindings,
+        HashSet<(Type, Type)> visiting)
+    {
+        var restore = new TypeParameterSubstitution(bindings);
+        if (Match(subject, pattern, binders, bindings, visiting))
             return true;
 
-        return subject.Indexer != null
-            && matchChild(subject.Indexer.KeyType, pattern.Indexer.KeyType)
-            && matchChild(subject.Indexer.ValueType, pattern.Indexer.ValueType);
+        bindings.Clear();
+        foreach (var (binder, bound) in restore)
+            bindings[binder] = bound;
+
+        return false;
     }
 
     /// <summary>
@@ -190,11 +221,9 @@ internal static class TypeMatcher
     private static bool IsBinder(IReadOnlyList<TypeParameter> binders, TypeParameter parameter) =>
         binders.Any(binder => ReferenceEquals(binder, parameter));
 
-    public static bool ContainsBinder(Type type, IReadOnlyList<TypeParameter> binders)
+    /// <remarks>Only ever asked of a pattern that has binders - <see cref="TryMatch" /> answers the empty case before any walk starts.</remarks>
+    private static bool ContainsBinder(Type type, IReadOnlyList<TypeParameter> binders)
     {
-        if (binders.Count == 0)
-            return false;
-
         var visited = new HashSet<Type>(ReferenceEqualityComparer.Instance);
         return Contains(type);
 

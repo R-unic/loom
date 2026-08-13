@@ -89,8 +89,8 @@ public sealed partial class TypeChecker
             _diagnostics.Error(
                 node,
                 InternalCodes.ConditionalTypeTooDeep,
-                $"Resolving '{genericType.Declaration.Name.Text}' here did not finish within the conditional type recursion limits.",
-                "give the recursion a case that stops, or write the type out"
+                $"Type recursion limit exceeded on '{genericType.Declaration.Name.Text}'.",
+                "give the recursion an arm that stops"
             );
 
         return BindType(node, instantiated);

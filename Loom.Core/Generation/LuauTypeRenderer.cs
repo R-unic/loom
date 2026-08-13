@@ -28,8 +28,14 @@ namespace Loom.Core.Generation;
 internal static class LuauTypeRenderer
 {
     /// <summary>The Luau form of <paramref name="type" />, or null where there is none.</summary>
+    /// <remarks>
+    ///     Simplified on the way in, and again wherever an instantiation is expanded below. Substitution
+    ///     rebuilds what it walks through <see cref="TypeSolver.Transform" />, which has no OptionalType case
+    ///     of its own, so an answer of <c>T?</c> arrives as the bare union it is made of and would otherwise
+    ///     emit as <c>number | nil</c> rather than <c>number?</c>.
+    /// </remarks>
     public static LuauType? Render(Type type, IReadOnlySet<string> runtimeTypeNames) =>
-        Render(type, runtimeTypeNames, new HashSet<Type>(ReferenceEqualityComparer.Instance));
+        Render(TypeSimplifier.Simplify(type), runtimeTypeNames, new HashSet<Type>(ReferenceEqualityComparer.Instance));
 
     private static LuauType? Render(Type type, IReadOnlySet<string> runtimeTypeNames, HashSet<Type> visiting)
     {
@@ -150,7 +156,7 @@ internal static class LuauTypeRenderer
         // A generic standing for a computation rather than a shape - 'ReturnType<T>' - has no Luau alias to
         // name, so what it works out to is emitted in its place.
         if (instantiated.GenericType.UnderlyingType is ConditionalType or MappedType)
-            return renderChild(instantiated.Expand());
+            return renderChild(TypeSimplifier.Simplify(instantiated.Expand()));
 
         return RenderAll(instantiated.Arguments, renderChild) is { } arguments
             ? Named(instantiated.GenericType.Declaration.Name.Text, arguments, runtimeTypeNames)

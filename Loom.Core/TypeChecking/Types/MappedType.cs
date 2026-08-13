@@ -14,10 +14,18 @@ namespace Loom.Core.TypeChecking.Types;
 public sealed class MappedType(TypeParameter binder, Type source, Type valueType, bool isMutable) : Type
 {
     public TypeParameter Binder { get; } = binder;
+
     /// <summary>The keys to map over - <c>keyof(T)</c> above.</summary>
-    public Type Source { get; } = source;
+    /// <remarks>
+    ///     Settable, with <see cref="ValueType" />, so a mapped type whose body names itself can be published
+    ///     before that body is known - the same reason <see cref="GenericType.UnderlyingType" /> is. Resolving
+    ///     the two first and constructing afterwards left <c>interface Rec&lt;T&gt; { [K from "a"]: Rec&lt;T&gt; }</c>
+    ///     looking up its own name before anything had bound it.
+    /// </remarks>
+    public Type Source { get; internal set; } = source;
+
     /// <summary>What one key maps to, in terms of <see cref="Binder" /> - <c>T[K]</c> above.</summary>
-    public Type ValueType { get; } = valueType;
+    public Type ValueType { get; internal set; } = valueType;
     public bool IsMutable { get; } = isMutable;
 
     /// <summary>

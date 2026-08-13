@@ -54,7 +54,7 @@ public class MappedTypeTest
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.InvalidMappedType,
-            "Type 'Bad' maps over another type's keys, so it may not declare members of its own."
+            "Mapped type 'Bad' cannot declare members of its own."
         );
     }
 
@@ -65,7 +65,7 @@ public class MappedTypeTest
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.InvalidMappedType,
-            "Type 'Bad' maps over another type's keys, so it cannot also inherit members."
+            "Mapped type 'Bad' cannot have base types."
         );
     }
 
@@ -176,6 +176,69 @@ public class MappedTypeTest
         );
 
         Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.TypeMismatch);
+    }
+
+    /// <summary>An empty key set maps to an object with no members, not to a deferred mapping.</summary>
+    [Fact]
+    public void Expands_AnEmptyKeySet_ToAnEmptyObject()
+    {
+        var objectType = Assert.IsType<ObjectType>(
+            TypeSimplifier.Expanded(
+                Utility.GetLastStatementType(
+                    Point
+                    + """
+                      interface Nothing<T> { [K from never]: T; }
+                      declare let nothing: Nothing<Point>;
+                      nothing
+                      """
+                )
+            )
+        );
+
+        Assert.Empty(objectType.Properties);
+        Assert.Null(objectType.Indexer);
+    }
+
+    /// <summary>
+    ///     Keys that are not names stay deferred: an object with one member per key needs to know what the
+    ///     keys are called, and <c>number</c> names no member.
+    /// </summary>
+    [Fact]
+    public void Defers_KeysThatAreNotNames()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Numbered<T> { [K from number]: T; }
+            declare let numbered: Numbered<string>;
+            numbered
+            """
+        );
+
+        Assert.IsType<MappedType>(TypeSimplifier.Expanded(type));
+    }
+
+    /// <summary>
+    ///     A body naming the type it belongs to has to find it already published - the same order the
+    ///     ordinary interface path uses, and what a self-referential mapped type needs.
+    /// </summary>
+    [Fact]
+    public void Allows_AMappingThatNamesItself()
+    {
+        Utility.AssertNoErrors(Utility.GetAnalysisDiagnostics("interface Rec<T> { [K from \"a\"]: Rec<T>; }\ndeclare let r: Rec<number>;"));
+    }
+
+    /// <summary>While the keys are unknown there is nothing to compare structurally, so it answers as itself.</summary>
+    [Fact]
+    public void Defers_AssignabilityWhileTheKeysAreUnknown()
+    {
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                interface AsMut<T> { mut [K from keyof(T)]: T[K]; }
+                fn widen<T>(value: AsMut<T>): unknown -> value;
+                """
+            )
+        );
     }
 
     [Fact]

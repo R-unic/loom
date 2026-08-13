@@ -481,13 +481,21 @@ public sealed partial class TypeChecker
             _diagnostics.Error(
                 interfaceDeclaration.ColonTypeListClause,
                 InternalCodes.InvalidMappedType,
-                $"Type '{interfaceDeclaration.Name.Text}' maps over another type's keys, so it cannot also inherit members."
+                $"Mapped type '{interfaceDeclaration.Name.Text}' cannot have base types.",
+                "every member it has comes from the keys it maps over"
             );
 
-        var mapped = ResolveMappedType(mappedDeclaration);
-        return typeParameters == null
-            ? mapped.Resolve() ?? mapped
-            : new GenericType(interfaceDeclaration, typeParameters, mapped);
+        // Published before its keys and member type are resolved, so a body naming the type it belongs to -
+        // 'interface Rec<T> { [K from "a"]: Rec<T> }' - finds this entry rather than an unbound name. Same
+        // order the ordinary interface path above uses, and for the same reason.
+        var mapped = new MappedType(VisitMappedTypeDeclaration(mappedDeclaration), PrimitiveType.Never, PrimitiveType.Never, mappedDeclaration.MutKeyword != null);
+        Type published = typeParameters == null ? mapped : new GenericType(interfaceDeclaration, typeParameters, mapped);
+        BindType(interfaceDeclaration, published);
+
+        mapped.Source = Visit(mappedDeclaration.SourceType);
+        mapped.ValueType = Visit(mappedDeclaration.ColonTypeClause);
+
+        return typeParameters == null ? mapped.Resolve() ?? mapped : published;
     }
 
     private ObjectIndexer? ResolveInterfaceIndexer(List<InterfaceType> constraints, IndexerDeclaration? indexerDeclaration)

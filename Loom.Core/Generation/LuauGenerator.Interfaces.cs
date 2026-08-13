@@ -134,29 +134,19 @@ public sealed partial class LuauGenerator
     ///     Luau has no way to say it - but it is the closest shape there is, and every concrete use resolves
     ///     to real properties before it reaches here anyway (see <see cref="LuauTypeRenderer" />).
     /// </summary>
+    /// <remarks>
+    ///     The binder needs no substituting here: Luau's indexer has no name to bind, so a use of it inside
+    ///     the member type emits the key set it ranges over - see <c>VisitTypeName</c>.
+    /// </remarks>
     private LuauNode GenerateMappedTypeAlias(InterfaceDeclaration interfaceDeclaration, MappedTypeDeclaration mapped)
     {
-        var binder = new TypeAliasSubstitution(mapped.Name.Text, Visit<LuauType>(mapped.SourceType));
-        var indexer = new TableTypeIndexer(mapped.MutKeyword == null ? LuauVisibility.Read : null, binder.Source, (LuauType)binder.Substitute(Visit(mapped.ColonTypeClause)));
-        return new TypeAlias(interfaceDeclaration.Name.Text, GenerateTypeParameters(interfaceDeclaration.TypeParameters), new TableType(indexer, []));
-    }
+        var indexer = new TableTypeIndexer(
+            mapped.MutKeyword == null ? LuauVisibility.Read : null,
+            Visit<LuauType>(mapped.SourceType),
+            Visit<LuauType>(mapped.ColonTypeClause)
+        );
 
-    /// <summary>
-    ///     Replaces the mapped type's binder with the key set it ranges over, since Luau's indexer has no
-    ///     name to bind: <c>[K from keyof(T)]: T[K]</c> is written there as <c>index&lt;T, keyof&lt;T&gt;&gt;</c>.
-    /// </summary>
-    private sealed record TypeAliasSubstitution(string BinderName, LuauType Source)
-    {
-        public LuauNode Substitute(LuauNode type) =>
-            type switch
-            {
-                Luau.AST.TypeName { TypeArguments.Count: 0 } named when named.Name == BinderName => Source,
-                Luau.AST.TypeName named => new Luau.AST.TypeName(named.Name, named.TypeArguments.ConvertAll(argument => (LuauType)Substitute(argument))),
-                Luau.AST.OptionalType optional => new Luau.AST.OptionalType((LuauType)Substitute(optional.Inner)),
-                Luau.AST.UnionType union => new Luau.AST.UnionType(union.Types.ConvertAll(t => (LuauType)Substitute(t))),
-                IntersectionType intersection => new IntersectionType(intersection.Types.ConvertAll(t => (LuauType)Substitute(t))),
-                _ => type
-            };
+        return new TypeAlias(interfaceDeclaration.Name.Text, GenerateTypeParameters(interfaceDeclaration.TypeParameters), new TableType(indexer, []));
     }
 
     /// <summary>

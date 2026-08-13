@@ -133,6 +133,16 @@ internal static class ConditionalTypeEvaluator
     private static bool Distribute(ConditionalType conditional, Type subject, out Type? distributed)
     {
         distributed = null;
+
+        // 'never' is the union with no members, so there is nothing to run the arms against and nothing to
+        // union back up. Falling through to the arms instead would match the first of them, since 'never' is
+        // assignable to everything.
+        if (Type.IsNever(subject))
+        {
+            distributed = PrimitiveType.Never;
+            return true;
+        }
+
         if (TypeSimplifier.Expanded(subject) is not UnionType union)
             return false;
 

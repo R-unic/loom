@@ -261,7 +261,8 @@ public sealed partial class Resolver
                 _diagnostics.Error(
                     extra,
                     InternalCodes.InvalidMappedType,
-                    $"Type '{interfaceSymbol.Name}' maps over another type's keys, so it may not declare members of its own."
+                    $"Mapped type '{interfaceSymbol.Name}' cannot declare members of its own.",
+                    "every member it has comes from the keys it maps over"
                 );
 
             return false;

@@ -240,8 +240,6 @@ public sealed partial class TypeChecker
         return BindType(typeMatch, Resolve(new Types.ConditionalType(subject, arms, typeMatch.EachKeyword != null)));
     }
 
-    public override Type VisitTypeMatchArm(TypeMatchArm typeMatchArm) => BindType(typeMatchArm, Visit(typeMatchArm.Result));
-
     private static Type Resolve(Types.ConditionalType conditional) => ConditionalTypeEvaluator.TryEvaluate(conditional) ?? conditional;
 
     /// <summary>
@@ -261,25 +259,15 @@ public sealed partial class TypeChecker
         return new ConditionalArm(Visit(pattern), Visit(result), binders);
     }
 
-    public override Type VisitMappedTypeDeclaration(MappedTypeDeclaration mappedTypeDeclaration) => MappedTypeBinder(mappedTypeDeclaration);
-
     /// <summary>
     ///     A mapped type's binder stands for one key at a time, so it is a type parameter like any other -
     ///     bound to the declaration node the resolver declared its name against, which is how <c>T[K]</c> in
     ///     the member type reaches it.
     /// </summary>
-    private Types.TypeParameter MappedTypeBinder(MappedTypeDeclaration mappedTypeDeclaration) =>
+    public override Types.TypeParameter VisitMappedTypeDeclaration(MappedTypeDeclaration mappedTypeDeclaration) =>
         _semanticModel.GetType(mappedTypeDeclaration) is Types.TypeParameter existing
             ? existing
             : BindType(mappedTypeDeclaration, new Types.TypeParameter(mappedTypeDeclaration.Name.Text));
-
-    private MappedType ResolveMappedType(MappedTypeDeclaration mappedTypeDeclaration)
-    {
-        var binder = MappedTypeBinder(mappedTypeDeclaration);
-        var source = Visit(mappedTypeDeclaration.SourceType);
-        var valueType = Visit(mappedTypeDeclaration.ColonTypeClause);
-        return new MappedType(binder, source, valueType, mappedTypeDeclaration.MutKeyword != null);
-    }
 
     public override Types.TypeParameter VisitTypeParameter(TypeParameter typeParameter)
     {

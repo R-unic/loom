@@ -101,8 +101,8 @@ public sealed partial class Parser
         _diagnostics.Error(
             subject,
             InternalCodes.InvalidTypePredicateSubject,
-            "A type predicate's subject must be a parameter name.",
-            "add '? ... : ...' to write a conditional type instead"
+            "Type predicate subject must be a parameter name.",
+            "add '? ... : ...' after the type to write a conditional type instead"
         );
 
         return new NullTypeExpression(isKeyword);
@@ -116,7 +116,7 @@ public sealed partial class Parser
         var arms = Bracketed(ParseTypeMatchArms);
         var rightBrace = Expect(SyntaxKind.RBrace);
         if (arms.Count == 0)
-            _diagnostics.Error(matchKeyword, InternalCodes.EmptyMatch, "A type-level 'match' must have at least one arm.");
+            _diagnostics.Error(matchKeyword, InternalCodes.EmptyMatch, "Type-level 'match' needs at least one arm.");
 
         return new TypeMatch(matchKeyword, eachKeyword, subject, leftBrace, rightBrace, arms);
     }
