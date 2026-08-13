@@ -41,6 +41,16 @@
     </ItemGroup>
 
     <!--
+        The lowering helpers are internal because nothing outside the compiler has any business calling
+        them, not because they are too small to be worth testing on their own: LuauIdentifiers decides
+        whether a pipeline stage may be fused, and reaching it only through a fused pipeline tests the
+        decision by its consequences rather than directly.
+    -->
+    <ItemGroup>
+        <InternalsVisibleTo Include="Loom.Testing"/>
+    </ItemGroup>
+
+    <!--
         Intrinsic .loom sources are embedded rather than read off disk at runtime: Intrinsics.cs
         used to resolve a path relative to AppContext.BaseDirectory and scan it with
         Directory.GetFiles, which silently returns nothing in sandboxed hosts with no real
