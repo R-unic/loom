@@ -103,8 +103,11 @@ public sealed class InterfaceType(
 
     public override Type PropertyKeyUnion()
     {
+        // Each constraint's own PropertyKeyUnion, not its ObjectType's: recursively, the way Properties and
+        // Indexers reach through a chain of inheritance. Stopping one level short left the keys of a
+        // multi-level chain out of the union while its values and its property lookups still had them.
         var baseType = ObjectType.PropertyKeyUnion();
-        var constraintTypes = Constraints.Select(constraint => constraint.ObjectType.PropertyKeyUnion());
+        var constraintTypes = Constraints.Select(constraint => constraint.PropertyKeyUnion());
         var unionTypes = new List<Type>([baseType, ..constraintTypes]);
         return TypeSimplifier.Simplify(new UnionType(unionTypes));
     }

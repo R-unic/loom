@@ -530,3 +530,51 @@ ExpressionStatement(
     )
   )
 )
+ExpressionStatement(
+  Expression: Invocation(
+    Expression: Identifier(
+      Name: Token(Identifier, "foo")
+      Token(Identifier, "foo")
+    )
+    TypeArguments: null
+    Arguments(
+      LeftParen: Token(LParen, "(")
+      RightParen: Token(RParen, ")")
+      ArgumentList: [
+        SpreadElement(
+          DotDot: Token(DotDot, "..")
+          Expression: Identifier(
+            Name: Token(Identifier, "a")
+            Token(Identifier, "a")
+          )
+        )
+      ]
+    )
+  )
+)
+ExpressionStatement(
+  Expression: Invocation(
+    Expression: Identifier(
+      Name: Token(Identifier, "foo")
+      Token(Identifier, "foo")
+    )
+    TypeArguments: null
+    Arguments(
+      LeftParen: Token(LParen, "(")
+      RightParen: Token(RParen, ")")
+      ArgumentList: [
+        Literal(
+          Token(NumberLiteral, "1")
+          Value: 1
+        )
+        SpreadElement(
+          DotDot: Token(DotDot, "..")
+          Expression: Identifier(
+            Name: Token(Identifier, "a")
+            Token(Identifier, "a")
+          )
+        )
+      ]
+    )
+  )
+)

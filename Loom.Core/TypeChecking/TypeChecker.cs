@@ -183,6 +183,30 @@ public sealed partial class TypeChecker
         return BindType(arrayLiteral, type);
     }
 
+    public override Type VisitSpreadElement(SpreadElement spreadElement) =>
+        BindType(spreadElement, SpreadedElementType(spreadElement, Visit(spreadElement.Expression)));
+
+    /// <summary>
+    ///     A spread is typed as what it contributes <em>per element</em>, not as the array it reads from, so
+    ///     everything that maps a position to a type - an array literal's element union, an argument against
+    ///     the parameter it lands on, a type parameter inferred from that argument - reads a spread the same
+    ///     way it reads an ordinary one. A spread also copies, so the operand's own mutability never reaches
+    ///     the result and only its element type survives.
+    /// </summary>
+    private Type SpreadedElementType(SpreadElement spreadElement, Type operandType)
+    {
+        if (TypeSimplifier.Expanded(operandType) is Types.ArrayType arrayType)
+            return arrayType.ElementType;
+
+        _diagnostics.Error(
+            spreadElement,
+            InternalCodes.InvalidSpreadOperand,
+            $"Only an array may be spread, got '{operandType}'."
+        );
+
+        return Types.PrimitiveType.Unknown;
+    }
+
     public override Type VisitTupleExpression(TupleExpression tupleExpression) =>
         BindType(tupleExpression, new Types.TupleType(tupleExpression.Expressions.ConvertAll(Visit)));
 

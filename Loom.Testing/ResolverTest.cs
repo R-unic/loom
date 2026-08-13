@@ -59,6 +59,22 @@ public class ResolverTest
     [InlineData("fn Vector3(): number -> 1;\nprint(Vector3());")]
     public void Allows_ADeclaration_ToShadowAnIntrinsic(string source) => Utility.AssertNoErrors(Utility.GetSemanticModel(source).Diagnostics);
 
+    /// <remarks>
+    ///     A spread has no name of its own, so what has to hold is that the resolver reaches through it to
+    ///     the operand - a spread of an undeclared name is an unresolved name, not a silently skipped node.
+    /// </remarks>
+    [Theory]
+    [InlineData("let xs = [1]; let ys = [..xs];")]
+    [InlineData("let xs = [1]; let ys = [0, ..xs];")]
+    [InlineData("fn take(..ns: number[]): void { } let xs = [1]; take(..xs);")]
+    public void Resolves_TheOperandOfASpread(string source) => Utility.AssertNoErrors(Utility.GetSemanticModel(source).Diagnostics);
+
+    [Theory]
+    [InlineData("let ys = [..missing];")]
+    [InlineData("fn take(..ns: number[]): void { } take(..missing);")]
+    public void ThrowsFor_SpreadOfAnUndeclaredName(string source) =>
+        Utility.AssertDiagnostic(Utility.GetSemanticModel(source).Diagnostics, InternalCodes.CannotFindName, "Cannot find name 'missing'.");
+
     [Fact]
     public void Resolves_AnIntrinsic_ThatNothingShadows() =>
         Utility.AssertNoErrors(Utility.GetSemanticModel("let v: Vector3 = Vector3.zero;\nprint(v.x);").Diagnostics);

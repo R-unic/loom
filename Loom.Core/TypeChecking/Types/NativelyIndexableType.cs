@@ -15,6 +15,33 @@ public abstract class NativelyIndexableType : Type
     public virtual IEnumerable<ObjectIndexer> Indexers => Indexer is { } indexer ? [indexer] : [];
 
     public abstract Type PropertyKeyUnion();
+    public Type PropertyUnion() => TypeSimplifier.Simplify(new UnionType(Properties.ConvertAll(p => p.ValueType)));
+
+    /// <summary>Every key this type accepts: its property names, plus each indexer's key type.</summary>
+    /// <remarks>
+    ///     Over <see cref="Indexers" /> rather than <see cref="Indexer" />, so an interface merged from
+    ///     several single-key constraints answers with all of their keys and not just the first one's -
+    ///     the difference between <c>keyof(MessageData)</c> naming every message and naming one of them.
+    /// </remarks>
+    public Type KeyUnion() => UnionOfMembers(PropertyKeyUnion(), Indexers.Select(indexer => indexer.KeyType));
+
+    /// <summary>Every value this type holds: its property types, plus each indexer's value type.</summary>
+    /// <inheritdoc cref="KeyUnion" path="/remarks" />
+    public Type ValueUnion() => UnionOfMembers(PropertyUnion(), Indexers.Select(indexer => indexer.ValueType));
+
+    private static Type UnionOfMembers(Type propertyType, IEnumerable<Type> indexerTypes)
+    {
+        List<Type> types = [..indexerTypes];
+        if (types.Count == 0)
+            return propertyType;
+
+        if (propertyType is UnionType propertyUnion)
+            types.AddRange(propertyUnion.Types);
+        else
+            types.Add(propertyType);
+
+        return TypeSimplifier.Simplify(new UnionType(types));
+    }
 
     public ObjectProperty? GetProperty(string name) => FindProperty(name);
 
@@ -61,6 +88,22 @@ public abstract class NativelyIndexableType : Type
 
         if (Indexers.FirstOrDefault(i => indexType.IsAssignableTo(i.KeyType)) is { } assignable)
             return (assignable, "");
+
+        // A union of keys - what KeyUnion answers over an interface merged from single-key constraints -
+        // reaches every member it unions, so the value type is every one of theirs. The checks above are
+        // each looking for one member that covers the whole index, and no single-key indexer ever does.
+        if (indexType is UnionType indexUnion)
+        {
+            var reached = indexUnion.Types.ConvertAll(member => GetTypeAtIndex(member).BodyType);
+            if (reached.TrueForAll(body => body != null))
+                return (new ObjectIndexer(
+                    // Mutable only where every member reached is: the index may turn out to be any one of
+                    // them, so one immutable member is enough to make a write through the union unsound.
+                    reached.TrueForAll(body => body!.IsMutable),
+                    indexType,
+                    TypeSimplifier.Simplify(new UnionType(reached.ConvertAll(body => body!.ValueType)))
+                ), "");
+        }
 
         return Indexer == null
             ? (null, "")

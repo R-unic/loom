@@ -1049,6 +1049,169 @@ public class TypeCheckerTest
         Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type 'string?' is not assignable to type 'bool'.");
     }
 
+    private const string MergedMapping = """
+        enum Message { ShootGun, Reload }
+
+        interface ShootGunPacket { velocity: number }
+        interface ReloadPacket { ammo: number }
+
+        declare interface ShootGunEntry { [Message["ShootGun"]]: ShootGunPacket; }
+        declare interface ReloadEntry { [Message["Reload"]]: ReloadPacket; }
+        declare interface MessageData: ShootGunEntry, ReloadEntry;
+
+        """;
+
+    [Fact]
+    public void Checks_KeyOf_UnionsEveryInheritedIndexersKey()
+    {
+        var type = Utility.GetLastStatementType($"{MergedMapping}declare let key: keyof(MessageData);\nkey");
+
+        Assert.Equal("0 | 1", type.ToString());
+    }
+
+    /// <remarks>
+    ///     Properties and indexers both reach through a whole chain of inheritance, so keys have to as well -
+    ///     they used to stop one level short, leaving 'keyof' over a grandparent's property empty.
+    /// </remarks>
+    [Fact]
+    public void Checks_KeyOf_ReachesThroughAMultiLevelInheritanceChain()
+    {
+        var type = Utility.GetLastStatementType("interface A { x: number }\ninterface B: A { }\ninterface C: B { }\ndeclare let key: keyof(C);\nkey");
+
+        Assert.Equal("\"x\"", type.ToString());
+    }
+
+    [Fact]
+    public void Checks_IndexingByAUnionOfKeys_UnionsTheValuesTheyReach()
+    {
+        var type = Utility.GetLastStatementType($"{MergedMapping}declare let value: MessageData[keyof(MessageData)];\nvalue");
+
+        Assert.Equal("ShootGunPacket | ReloadPacket", type.ToString());
+    }
+
+    /// <remarks>
+    ///     Asserted by what the key is <em>not</em> assignable to: the key used to come back as 'never', which
+    ///     goes into anything, so a loop that accepted every narrower type was the shape of the bug.
+    /// </remarks>
+    [Fact]
+    public void Checks_ForOverAMergedMapping_BindsEveryInheritedKey()
+    {
+        const string source = $$"""
+            {{MergedMapping}}declare let data: MessageData;
+            declare fn take_any(key: keyof(MessageData)): void;
+            declare fn take_one(key: Message["ShootGun"]): void;
+
+            for key, value : data {
+                take_any(key);
+                take_one(key);
+            }
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+
+        Assert.Single(diagnostics.Set, d => d.Severity == DiagnosticSeverity.Error);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '0 | 1' is not assignable to type '0'.");
+    }
+
+    /// <inheritdoc cref="Checks_ForOverAMergedMapping_BindsEveryInheritedKey" />
+    [Fact]
+    public void Checks_ForOverAMergedMapping_BindsEveryInheritedValue()
+    {
+        const string source = $$"""
+            {{MergedMapping}}declare let data: MessageData;
+            declare fn take_any(packet: ShootGunPacket | ReloadPacket): void;
+            declare fn take_one(packet: ShootGunPacket): void;
+
+            for key, value : data {
+                take_any(value);
+                take_one(value);
+            }
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+
+        Assert.Single(diagnostics.Set, d => d.Severity == DiagnosticSeverity.Error);
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "Type 'ShootGunPacket | ReloadPacket' is not assignable to type 'ShootGunPacket'."
+        );
+    }
+
+    /// <remarks>
+    ///     A union index may turn out to be any one of its members, so a write through it is only sound when
+    ///     every indexer it reaches is mutable.
+    /// </remarks>
+    [Fact]
+    public void ThrowsFor_WritingThroughAUnionIndex_WhereOneIndexerIsImmutable()
+    {
+        const string source = """
+            enum M { A, B }
+            interface P { v: number }
+            declare interface ReadEntry { [M["A"]]: P; }
+            declare interface WriteEntry { mut [M["B"]]: P; }
+            declare interface Mixed: ReadEntry, WriteEntry;
+            declare let mixed: Mixed;
+            declare let key: keyof(Mixed);
+            declare let packet: P;
+            mixed[key] = packet;
+            """;
+
+        Utility.AssertDiagnostic(Utility.GetTypeCheckerDiagnostics(source), InternalCodes.AssignToImmutable, "Cannot assign to immutable index '0 | 1'.");
+    }
+
+    [Fact]
+    public void Checks_WritingThroughAUnionIndex_WhereEveryIndexerIsMutable() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                enum M { A, B }
+                interface P { v: number }
+                declare interface FirstEntry { mut [M["A"]]: P; }
+                declare interface SecondEntry { mut [M["B"]]: P; }
+                declare interface Both: FirstEntry, SecondEntry;
+                declare let both: Both;
+                declare let key: keyof(Both);
+                declare let packet: P;
+                both[key] = packet;
+                """
+            )
+        );
+
+    /// <remarks>
+    ///     A type parameter in target position used to be rejected outright, leaving the declared return type
+    ///     as 'never' - assignable to whatever the caller annotated, so every such call silently type-checked.
+    /// </remarks>
+    [Fact]
+    public void Checks_IndexedReturnType_ThroughATypeParameterTarget()
+    {
+        const string declaration = "interface Named { a: number, b: string }\ndeclare fn pick<T, K>(key: K): T[K];\n";
+
+        Assert.Equal("number", Utility.GetLastStatementType($"{declaration}pick::<Named, \"a\">(\"a\")").ToString());
+        Assert.Equal("ShootGunPacket", Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, Message[\"ShootGun\"]>(Message.ShootGun)").ToString());
+        Assert.Equal(
+            "ShootGunPacket | ReloadPacket",
+            Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, keyof(MessageData)>(Message.ShootGun)").ToString()
+        );
+    }
+
+    /// <remarks>
+    ///     A substituted index that is still a type parameter leaves 'T[K]' unresolved, so it keeps naming the
+    ///     value that goes with that key rather than collapsing to whichever indexer answered first.
+    /// </remarks>
+    [Fact]
+    public void Checks_IndexedReturnType_StaysDeferred_WhileTheIndexIsStillAParameter()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            $$"""
+              {{MergedMapping}}declare fn pick<T, K>(key: K): T[K];
+              fn get_packet<K: Message>(message: K): MessageData[K] -> pick::<MessageData, K>(message);
+              """
+        );
+
+        Utility.AssertNoErrors(diagnostics);
+    }
+
     [Fact]
     public void ThrowsFor_KeyOf_OnPrimitive()
     {
@@ -6843,6 +7006,168 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_SpreadElement_ContributesElementType()
+    {
+        var type = Utility.GetLastStatementType("""let xs = ["a"]; ["b", ..xs]""");
+        var array = Assert.IsType<ArrayType>(type);
+        Assert.False(array.IsMutable);
+
+        var primitive = Assert.IsType<PrimitiveType>(array.ElementType);
+        Assert.Equal(PrimitiveTypeKind.String, primitive.Kind);
+    }
+
+    [Fact]
+    public void Checks_SpreadElement_UnionsWithTheOtherElements()
+    {
+        var type = Utility.GetLastStatementType("""let xs = [1, 2]; ["a", ..xs]""");
+        var array = Assert.IsType<ArrayType>(type);
+
+        Assert.Equal("(string | number)[]", array.ToString());
+    }
+
+    [Fact]
+    public void Checks_SpreadOfMutableArray_IntoImmutableArray()
+    {
+        var type = Utility.GetLastStatementType("let xs = mut [1, 2]; [..xs]");
+        var array = Assert.IsType<ArrayType>(type);
+
+        Assert.False(array.IsMutable);
+        Assert.Equal(PrimitiveTypeKind.Number, Assert.IsType<PrimitiveType>(array.ElementType).Kind);
+    }
+
+    [Fact]
+    public void Checks_SpreadOfImmutableArray_IntoMutableArray()
+    {
+        var type = Utility.GetLastStatementType("let xs = [1, 2]; let ys: number[mut] = mut [..xs]; ys");
+        var array = Assert.IsType<ArrayType>(type);
+
+        Assert.True(array.IsMutable);
+    }
+
+    [Fact]
+    public void Checks_AnnotatedSpreadArrayLiteral()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("""let xs: number[] = [1]; let ys: (number | string)[] = ["a", ..xs];""");
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadOfNonArray()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = 1; let xs = [..x];");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidSpreadOperand, "Only an array may be spread, got '1'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_AnnotatedSpreadArrayLiteral_ElementMismatch()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("""let names = ["a"]; let xs: number[] = [1, ..names];""");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "Type '(number | string)[]' is not assignable to type 'number[]'.\n    Type 'string[]' is not assignable to type 'number[]'.\n        Type 'string' is not assignable to type 'number'."
+        );
+    }
+
+    [Fact]
+    public void Checks_SpreadArgument_AgainstRestParameter()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn sum(..ns: number[]): number -> ns.length;
+            let xs = [1, 2];
+            sum(..xs);
+            sum(1, ..xs);
+            sum(..xs, 3);
+            sum(..xs, ..xs);
+            """
+        );
+
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void Checks_SpreadArgument_InfersTypeParameterFromItsElementType()
+    {
+        var type = Utility.GetLastStatementType("fn first<T>(..items: T[]): T? -> items[1]; let xs = [1, 2]; first(..xs)");
+
+        Assert.Equal("number?", type.ToString());
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadArgument_ElementTypeMismatch()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn sum(..ns: number[]): number -> ns.length;
+            let names = ["a"];
+            sum(..names);
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "Type 'string[]' is not assignable to type 'number[]'.\n    Type 'string' is not assignable to type 'number'."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadArgument_WithoutRestParameter()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn add(a: number, b: number): number -> a + b;
+            let xs = [1, 2];
+            add(..xs);
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InvalidSpreadArgument,
+            "Only a rest parameter may be given a spread argument.",
+            "this function takes a fixed number of arguments, so pass them one at a time"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadArgument_BeforeAFixedParameterIsFilled()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn labelled(label: string, ..ns: number[]): number -> ns.length;
+            let xs = [1, 2];
+            labelled(..xs);
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InvalidSpreadArgument,
+            "A spread argument must come after every fixed parameter, and 1 of them is still unfilled."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_SpreadArgument_IntoTupleRestParameter()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            fn point(..coordinates: (number, string)): number -> 1;
+            let xs = [1, 2];
+            point(..xs);
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InvalidSpreadArgument,
+            "Rest parameter of type '(number, string)' expects an exact number of arguments, so it cannot be given a spread argument."
+        );
+    }
+
+    [Fact]
     public void Checks_NumberLiterals()
     {
         var type = Utility.GetLastStatementType("69");
@@ -7601,6 +7926,58 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(x: number); abc += fn(x: string) { };");
         Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type 'number' is not assignable to type 'string'.");
+    }
+
+    /// <remarks>
+    ///     Issue #206. A rest parameter lives on the declaration, not on <c>Event&lt;T1..T8&gt;</c>, which is
+    ///     positional - so the array it declares used to arrive as one ordinary parameter and a handler
+    ///     naming the arguments individually was rejected.
+    /// </remarks>
+    [Fact]
+    public void Checks_VariadicEventConnect_HandlerMayNameEachArgument() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                event abc(..data: unknown[]);
+                abc += fn(a, b, c) { print(a, b, c); };
+                abc += fn(only) { print(only); };
+                abc += fn() { };
+                """
+            )
+        );
+
+    [Fact]
+    public void Checks_VariadicEventConnect_HandlerParametersInferTheRestElementType() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics("event abc(label: string, ..rest: number[]); abc += fn(label, first) { let l: string = label; let f: number = first; };")
+        );
+
+    [Fact]
+    public void ThrowsFor_VariadicEventConnect_HandlerParameterMismatchesTheRestElementType()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(..data: number[]); abc += fn(a) { let s: string = a; };");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type 'number' is not assignable to type 'string'.");
+    }
+
+    [Fact]
+    public void Checks_VariadicEventFire_AcceptsAnyArgumentCountAndASpread() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                event abc(label: string, ..rest: number[]);
+                let ns = [1, 2];
+                abc("hi");
+                abc("hi", 1, 2);
+                abc("hi", ..ns);
+                """
+            )
+        );
+
+    [Fact]
+    public void ThrowsFor_VariadicEventFire_ArgumentMismatchesTheRestElementType()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(..data: number[]); abc(1, \"no\");");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"no\"' is not assignable to type 'number'.");
     }
 
     [Fact]

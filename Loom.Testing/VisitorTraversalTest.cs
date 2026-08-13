@@ -406,6 +406,17 @@ public class VisitorTraversalTest
         );
 
     [Fact]
+    public void SpreadElement_VisitsOperand() =>
+        AssertVisitOrder(
+            "[1, ..a]",
+            "ExpressionStatement",
+            "ArrayLiteral",
+            "Literal",
+            "SpreadElement",
+            "Identifier"
+        );
+
+    [Fact]
     public void InterpolatedStringLiteral_VisitsHoleExpressions() =>
         AssertVisitOrder(
             """$"a {1} b {2}";""",

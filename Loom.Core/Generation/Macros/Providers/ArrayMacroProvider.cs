@@ -288,14 +288,9 @@ internal sealed class ArrayMacroProvider : IMacroProvider
     private static LuauExpression GenerateToSet(LuauState state, LuauExpression array)
     {
         var result = state.PushToVariable(ResultName, new Table([]));
-        var elementName = state.Scope.AddIdentifier(ElementName);
-        state.Prereq(
-            new ForStatement(
-                [DiscardName, elementName],
-                array,
-                new Chunk([new ExpressionStatement(new BinaryOperator(new ElementAccess(result, new Identifier(elementName)), "=", new BooleanLiteral(true)))])
-            )
-        );
+        var body = new List<LuauStatement>();
+        AddElementsToSet(state, body, result, array);
+        state.Prereq(body.ToArray());
 
         return result;
     }

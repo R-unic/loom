@@ -997,6 +997,65 @@ public class ParserTest
         Assert.Equal(3, arrayLiteral.Expressions.Count);
     }
 
+    [Theory]
+    [InlineData("[..a];", 1, 0)]
+    [InlineData("[1, ..a];", 2, 1)]
+    [InlineData("[..a, 1];", 2, 0)]
+    [InlineData("[..a, ..b];", 2, 0)]
+    public void Parses_SpreadElements(string source, int elementCount, int spreadIndex)
+    {
+        var tree = Utility.GetAST(source);
+        var statement = Assert.IsType<ExpressionStatement>(Assert.Single(tree.Statements));
+        var arrayLiteral = Assert.IsType<ArrayLiteral>(statement.Expression);
+
+        Assert.Equal(elementCount, arrayLiteral.Expressions.Count);
+        var spread = Assert.IsType<SpreadElement>(arrayLiteral.Expressions[spreadIndex]);
+        Assert.Equal(SyntaxKind.DotDot, spread.DotDot.Kind);
+        Assert.IsType<Identifier>(spread.Expression);
+    }
+
+    [Theory]
+    [InlineData("f(..a);", 1, 0)]
+    [InlineData("f(1, ..a);", 2, 1)]
+    [InlineData("f(..a, 1);", 2, 0)]
+    public void Parses_SpreadArguments(string source, int argumentCount, int spreadIndex)
+    {
+        var tree = Utility.GetAST(source);
+        var invocation = Assert.Single(tree.GetDescendants<Invocation>());
+
+        Assert.Equal(argumentCount, invocation.Arguments.ArgumentList.Count);
+        var spread = Assert.IsType<SpreadElement>(invocation.Arguments.ArgumentList[spreadIndex]);
+        Assert.IsType<Identifier>(spread.Expression);
+    }
+
+    [Theory]
+    [InlineData("let x = [..];", "']'")]
+    [InlineData("let x = [1, ..];", "']'")]
+    [InlineData("f(..);", "')'")]
+    public void ThrowsFor_SpreadWithNoOperand(string source, string got) =>
+        Utility.AssertDiagnostic(Utility.GetParserDiagnostics(source), InternalCodes.UnexpectedToken, $"Expected expression, got {got}.");
+
+    [Fact]
+    public void Parses_SpreadOfRange_AsOneOperand()
+    {
+        var tree = Utility.GetAST("[..a..b];");
+        var statement = Assert.IsType<ExpressionStatement>(Assert.Single(tree.Statements));
+        var arrayLiteral = Assert.IsType<ArrayLiteral>(statement.Expression);
+
+        var spread = Assert.IsType<SpreadElement>(Assert.Single(arrayLiteral.Expressions));
+        Assert.IsType<RangeLiteral>(spread.Expression);
+    }
+
+    [Fact]
+    public void Parses_MutSpreadArrayLiteral()
+    {
+        var tree = Utility.GetAST("let x = mut [..a];");
+        var arrayLiteral = Assert.Single(tree.GetDescendants<ArrayLiteral>());
+
+        Assert.NotNull(arrayLiteral.MutKeyword);
+        Assert.IsType<SpreadElement>(Assert.Single(arrayLiteral.Expressions));
+    }
+
     [Fact]
     public void Parses_MutEvent_StillProducesMutEventError()
     {

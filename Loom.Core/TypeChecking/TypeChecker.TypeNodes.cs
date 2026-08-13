@@ -57,8 +57,9 @@ public sealed partial class TypeChecker
             return BindType(keyOf, Types.PrimitiveType.Never);
         }
 
-        var objectType = targetType is InterfaceType interfaceType ? interfaceType.ObjectType : (ObjectType)targetType;
-        var type = objectType.KeyUnion();
+        // The interface itself, not its own ObjectType: unwrapping it drops every base it inherits from, and
+        // an interface merged from single-key constraints keeps all of its keys there and none of its own.
+        var type = ((NativelyIndexableType)targetType).KeyUnion();
         return BindType(keyOf, type);
     }
 
@@ -98,17 +99,21 @@ public sealed partial class TypeChecker
         if (targetType is InstantiatedType instantiated)
             targetType = instantiated.Expand();
 
+        // Ahead of the guard below, because a type parameter is neither an object nor an interface and is
+        // not meant to be one yet - what it stands for is known only once the generic is instantiated, and
+        // resolving the index is SubstituteIndexedType's to do there. Answering 'never' here instead made
+        // 'fn pick<T, K>(key: K): T[K]' return never for every call, which is assignable to whatever the
+        // caller annotated and so said nothing.
+        if (indexedType.EnumerateDescendants<TypeName>().Any(n => _semanticModel.GetType(n) is Types.TypeParameter))
+            return BindType(indexedType, new Types.IndexedType(targetType, indexType));
+
         if (targetType is not (ObjectType or InterfaceType))
         {
             _diagnostics.Error(indexedType, InternalCodes.InvalidAccess, $"Type '{indexType}' cannot be used to index type '{targetType}'.");
             return BindType(indexedType, Types.PrimitiveType.Never);
         }
 
-        var type = indexedType.EnumerateDescendants<TypeName>().Any(n => _semanticModel.GetType(n) is Types.TypeParameter)
-            ? new Types.IndexedType(targetType, indexType)
-            : GetTypeAtIndex(indexedType, targetType, indexType);
-
-        return BindType(indexedType, type);
+        return BindType(indexedType, GetTypeAtIndex(indexedType, targetType, indexType));
     }
 
     public override Type VisitArrayType(ArrayType arrayType) => BindType(arrayType, new Types.ArrayType(Visit(arrayType.ElementType), arrayType.MutKeyword != null));

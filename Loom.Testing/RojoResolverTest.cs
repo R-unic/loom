@@ -237,6 +237,22 @@ public sealed class RojoResolverTest : IDisposable
         return resolver;
     }
 
+    /// <remarks>
+    ///     A hand-editable file, so a malformed one reads as no manifest the way a malformed
+    ///     <c>loom-config.toml</c> does - it used to come out of the CLI as an unhandled JsonReaderException.
+    /// </remarks>
+    [Theory]
+    [InlineData("{ \"name\": \"C:\\Users\\me\", \"tree\": {} }")]
+    [InlineData("{ not json at all")]
+    [InlineData("")]
+    public void Returns_Null_For_A_Malformed_Project_File(string content)
+    {
+        var dir = ProjectDir("malformed_" + content.Length);
+        Write(dir, RojoResolver.ProjectFileName, content);
+
+        Assert.Null(RojoResolver.FromProjectDirectory(dir));
+    }
+
     private string ProjectDir(string name)
     {
         var dir = Path.Combine(_root, name);

@@ -1,0 +1,24 @@
+fn sum(..ns: number[]): number {
+    mut total = 0;
+    for n : ns
+        total += n;
+
+    return total;
+}
+
+let xs = [1, 2, 3];
+let alone = sum(..xs);
+let after_fixed = sum(10, 20, ..xs);
+let before_more = sum(..xs, 100);
+let two_spreads = sum(..xs, ..xs);
+
+fn labelled(label: string, ..ns: number[]): number -> ns.length;
+let counted = labelled("hi", ..xs);
+
+fn count_of<T>(..items: T[]): number -> items.length;
+let generic = count_of(..xs);
+fn forward(..args: number[]): number -> count_of(..args);
+let forwarded = forward(..xs);
+
+let members = Set.of(..xs);
+let mixed_members = Set.of(9, ..xs);

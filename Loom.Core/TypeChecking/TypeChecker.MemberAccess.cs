@@ -246,8 +246,9 @@ public sealed partial class TypeChecker
         type switch
         {
             Types.ArrayType array => array.ElementType,
-            InterfaceType interfaceType => GetObjectValueType(interfaceType.ObjectType),
-            ObjectType objectType => objectType.ValueUnion(),
+            // The interface itself, not its own ObjectType: unwrapping it drops every base it inherits from,
+            // and an interface merged from single-key constraints keeps all of its values there.
+            InterfaceType or ObjectType => ((NativelyIndexableType)type).ValueUnion(),
             _ => Types.PrimitiveType.Never
         };
 

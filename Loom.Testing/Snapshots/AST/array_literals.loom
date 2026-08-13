@@ -7,3 +7,7 @@ let x = [1 + 2, 3 * 4];
 let x = [foo(), bar()];
 let x = mut [];
 let x = mut [1, 2, 3];
+let x = [..a];
+let x = [1, ..a];
+let x = [..a, 1, ..b];
+let x = mut [..a];

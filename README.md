@@ -80,6 +80,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Reassignment & Chained Assignment](#reassignment--chained-assignment)
   - [Functions](#functions)
   - [Arrays](#arrays)
+  - [Spread Elements](#spread-elements)
+    - [Spreading into a call](#spreading-into-a-call)
   - [Destructuring](#destructuring)
   - [Tuples](#tuples)
   - [nameof](#nameof)
@@ -94,6 +96,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [`after` Statements](#after-statements)
   - [`every` Statements](#every-statements)
   - [For Loops](#for-loops)
+  - [Iterators](#iterators)
   - [Ternary Operator](#ternary-operator)
   - [keyof](#keyof)
   - [Sets](#sets)
@@ -119,6 +122,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Events](#events)
   - [Exports](#exports)
   - [Imports & Modules](#imports--modules)
+  - [Realms](#realms)
   - [`in` operator](#in-operator)
   - [`type_is`](#type_is)
   - [Operator Overloading](#operator-overloading)
@@ -173,6 +177,12 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - **Batteries included** - Comes with a set of built-in compile-time macros included with data types such as [Array.join()](#arrayjoin),
   [Range.clamp()](#rangeclamp), or [String Methods](#string-methods), fully-typed standard libraries like `math`, and Roblox-specific
   [Instance Helpers](#instance-helpers)
+- **Spread elements** – `[69, ..rest]` builds a new array out of an existing one, so a prepend, append or concatenation is an expression rather than a
+  sequence of mutations, and `f(..rest)` passes one as separate arguments to a rest parameter. See [example](#spread-elements).
+- **Iterators** – A type that implements `Iterator<T>` drives a `for` loop itself, deciding what "the next one" means and carrying its own position. See
+  [example](#iterators).
+- **Realms** – `[realms]` says which directories run on the client and which on the server, and an import that crosses that boundary is an error rather than
+  a runtime surprise. `[server]`/`[client]` narrow a single declaration inside a shared module. See [example](#realms).
 - **Destructuring** – Bind array elements or object fields straight out of a value, including renaming a field on bind. See [example](#destructuring).
 - **Tuple types** – Fixed-arity, positional types with their own literal, indexing, destructuring, and `match` pattern syntax, plus a `Tuple` generic
   constraint for variadic-tuple rest parameters. See [example](#tuples).
@@ -427,6 +437,134 @@ const arr: { number } = {1, 2, 3}
 const x = 69
 arr[1] = x
 ```
+---
+### Spread Elements
+
+`..` inside an array literal copies another array's elements into the one being built. Since arrays are immutable by default, this is how a
+prepend, an append or a concatenation is written: the operand is never touched, and what you get back is a new array.
+
+```rs
+let base = [1, 2, 3];
+let prepended = [0, ..base];
+let appended = [..base, 4];
+let joined = [..base, ..base];
+let copied = [..base];
+```
+
+```luau
+const base = {1, 2, 3}
+const _result = {0}
+local _count = 1
+const _length = #base
+table.move(base, 1, _length, _count + 1, _result)
+_count += _length
+const prepended = _result
+const _result_1 = table.clone(base)
+local _count_1 = #_result_1
+_count_1 += 1
+_result_1[_count_1] = 4
+const appended = _result_1
+const _result_2 = table.clone(base)
+local _count_2 = #_result_2
+const _length_1 = #base
+table.move(base, 1, _length_1, _count_2 + 1, _result_2)
+_count_2 += _length_1
+const joined = _result_2
+const copied = table.clone(base)
+```
+
+A spread copies, so the operand's mutability never reaches the result: a `mut` array spreads into an immutable one and an immutable array spreads
+into a `mut` one. The element type is the union of everything the literal contributes, spreads included.
+
+```rs
+let numbers = mut [1, 2];
+let names = ["a"];
+
+let widened = [..numbers, "b"];       ## (number | string)[]
+let mutable = mut [0, ..numbers];     ## number[mut]
+let annotated: string[] = [..names];  ## string[]
+```
+
+Only an array may be spread — anything else is an error rather than an implicit conversion:
+
+```rs
+let x = 69;
+let xs = [..x];
+##          ^ Only an array may be spread, got '69'.
+```
+
+---
+
+### Spreading into a call
+
+`..` also works at a call site, passing an array's elements as separate arguments — the other half of the `..args` a
+[rest parameter](#functions) collects them with, so forwarding one function's arguments to another is just spreading them
+back out.
+
+```rs
+fn sum(..ns: number[]): number {
+    mut total = 0;
+    for n : ns
+        total += n;
+
+    return total;
+}
+
+let xs = [1, 2, 3];
+let alone = sum(..xs);
+let after_fixed = sum(10, 20, ..xs);
+let before_more = sum(..xs, 100);
+```
+
+```luau
+const function sum(...: number): number
+  local ns = {...}
+  local total = 0
+  for _, n in ns do
+    total += n
+  end
+  return total
+end
+const xs = {1, 2, 3}
+const alone = sum(table.unpack(xs))
+const after_fixed = sum(10, 20, table.unpack(xs))
+const _result = table.clone(xs)
+local _count = #_result
+_count += 1
+_result[_count] = 100
+const before_more = sum(table.unpack(_result))
+```
+
+`table.unpack` only expands in last position, so a spread with anything after it builds the whole tail as one array first —
+the same lowering an array literal uses — and unpacks that.
+
+A generic rest parameter infers from the element type, so `..` carries the type through a forwarding function unchanged:
+
+```rs
+fn count_of<T>(..items: T[]): number -> items.length;
+fn forward(..args: number[]): number -> count_of(..args);
+```
+
+**A spread argument must land in the rest parameter.** A rest parameter is the only place a count nobody knows until runtime
+can go — everything from it on arrives as one array, so how many elements the spread carries changes nothing about which
+parameter anything lands on. A fixed parameter has to know which argument it is being handed:
+
+```rs
+fn add(a: number, b: number): number -> a + b;
+add(..xs);
+##  ^ Only a rest parameter may be given a spread argument.
+##    hint: this function takes a fixed number of arguments, so pass them one at a time
+
+fn labelled(label: string, ..ns: number[]): number -> ns.length;
+labelled(..xs);
+##       ^ A spread argument must come after every fixed parameter, and 1 of them is still unfilled.
+
+fn point(..coordinates: (number, string)): number -> 1;
+point(..xs);
+##    ^ Rest parameter of type '(number, string)' expects an exact number of arguments,
+##      so it cannot be given a spread argument.
+```
+
 ---
 ## Destructuring
 
@@ -1001,6 +1139,85 @@ for n in 10, 1, -1 do
 	print(n)
 end
 ```
+
+---
+
+Over a keyed collection, one name binds the *value* and the key is discarded. Name the key by taking two.
+
+```rs
+interface Scores { alice: number, bob: number }
+let scores = new Scores { alice: 1, bob: 2 };
+
+for score : scores
+    print(score)
+
+for name, score : scores
+    print(name, score)
+```
+
+```luau
+type Scores = {
+  read alice: number,
+  read bob: number,
+}
+const scores = { alice = 1, bob = 2 }
+for _, score in scores do
+  print(score)
+end
+for name, score in scores do
+  print(name, score)
+end
+```
+---
+### Iterators
+
+A type that implements the built-in `Iterator<T>` trait can be looped over directly. The loop calls `next` until it answers `none`, so the iterator
+carries its own position and decides for itself what "the next one" means — which a loop counting on its behalf cannot do.
+
+```rs
+interface Countdown { mut remaining: number }
+
+implement Iterator<number> for Countdown {
+    fn next(): number? {
+        if remaining <= 0 {
+            return none;
+        }
+
+        remaining -= 1;
+        return remaining + 1;
+    }
+}
+
+for value : new Countdown { remaining: 3 }
+    print(value);
+```
+
+```luau
+type Countdown = {
+  remaining: number,
+} & Iterator<number>
+local Iterator_number_for_Countdown = {}
+Iterator_number_for_Countdown.__index = Iterator_number_for_Countdown
+Iterator_number_for_Countdown = Iterator_number_for_Countdown :: Countdown
+function Iterator_number_for_Countdown.next(self: Countdown): number?
+  if self.remaining <= 0 then
+    return nil
+  end
+  self.remaining -= 1
+  return self.remaining + 1
+end
+const _iterator = setmetatable({ remaining = 3 }, Iterator_number_for_Countdown) :: Countdown
+for value in function()
+  return _iterator:next()
+end do
+  print(value)
+end
+```
+
+This lowers to Luau's generic `for` over a function alone: given no state or control variable, Luau calls that function once per step and stops at the
+first `nil`, which is exactly what `next` answering `none` means. The receiver is bound to a name before the loop, since re-evaluating an expression
+that *produces* an iterator would produce a fresh one every step and never finish.
+
 ---
 ### Ternary Operator
 
@@ -1263,6 +1480,27 @@ is an error: yielding there blocks every thread that requires it.
 
 `async` is part of the function *type*, so an `async fn` cannot be passed where a plain `fn` is expected - `map`
 will not silently take a callback that yields.
+
+### `[no_yield]`
+
+Luau raises rather than suspends when a thread yields across a C-call boundary — inside a metamethod, or inside a callback Luau invokes itself such as
+`table.sort`'s comparator. A function that stands in one of those places says so with `[no_yield]`, and awaiting inside it becomes an error instead of a
+crash at whichever call first happened to yield.
+
+```rs
+[no_yield]
+fn compare(a: number, b: number): bool {
+    let value = await fetch(a);
+    ##          ^ 'compare' is marked '[no_yield]', so it cannot await.
+    return value < b;
+}
+```
+
+Marking a function both `async` and `[no_yield]` is rejected too: one of the two was meant, and nothing in the signature can say which. A function
+expression runs on a thread of its own, so it does not inherit the promise from the function it is written inside.
+
+The compiler applies the same rule by itself wherever it already knows the answer: a trait method carrying `[luau_metamethod]` may not be `async`,
+because Luau invokes a metamethod across that same boundary. See [Operator Overloading](#operator-overloading).
 
 ### Yielding Roblox API calls
 
@@ -1933,6 +2171,41 @@ handler_conn:Disconnect();
 
 ---
 
+An event may end in a rest parameter, in which case it fires with any number of trailing arguments and a handler names as many
+of them as it cares about. This is what Roblox's own `RemoteEvent` looks like, so it is the ordinary case rather than a corner:
+
+```rs
+event abc(..data: unknown[]);
+event labelled(label: string, ..rest: number[]);
+
+abc += fn(a, b, c) { print(a, b, c); };
+labelled += fn(label, first) { print(label, first); };
+
+let ns = [1, 2];
+abc(1, "two", true);
+labelled("hi", ..ns);
+```
+
+```luau
+const abc: Loom.Event<...unknown> = Loom.Event.new()
+const labelled: Loom.Event<string, ...number> = Loom.Event.new()
+abc:Connect(function(a, b, c)
+  print(a, b, c)
+end)
+labelled:Connect(function(label, first)
+  print(label, first)
+end)
+const ns = {1, 2}
+abc:Fire(1, "two", true)
+labelled:Fire("hi", table.unpack(ns))
+```
+
+The handler's parameters infer from what the rest parameter holds — `a`, `b` and `c` are `unknown`, `first` is `number` — and the
+rest parameter reaches Luau as a variadic type pack (`...unknown`) rather than the array it is written as, so the emitted `Connect`
+still type-checks. Firing takes a [spread](#spreading-into-a-call) like any other rest parameter.
+
+---
+
 ## Exports
 
 ```rs
@@ -2046,6 +2319,67 @@ importing project's `[dependencies]` is importable. A dependency's compiled Luau
 
 ---
 
+## Realms
+
+`[realms]` in `loom-config.toml` maps directories under the source directory to `shared`, `client` or `server`. A project that declares none has one
+realm and no boundary anything can cross.
+
+```toml
+[files]
+source_directory = "src"
+
+[realms]
+client = "client"
+server = "server"
+net = "shared"
+"net/server" = "server"
+```
+
+A file takes the realm of the *longest* directory naming it, so a realm declared inside another narrows it rather than being shadowed by it: `net` is
+shared while `net/server` is not.
+
+An import that crosses a realm boundary is an error. Replication is what makes this an error rather than a convention — a server module is never
+delivered to the client, so client code importing one names something that is not there at runtime, and server code importing a client module ships
+code it should not have. Shared is importable from either side, which is what makes it shared.
+
+```rs
+// src/client/hud.loom
+import { save_profile } from "../server/profiles";
+##                           ^ A client module cannot import a server one.
+##                             hint: move what both realms need into a shared directory,
+##                                   or declare this module's directory as 'server'
+```
+
+A dependency declares where its own code runs: which realm a file is in is answered by its own root, so a consumer laying its directories out
+differently does not overrule it.
+
+### `[server]` and `[client]`
+
+A shared module is importable from either side, but a declaration inside one may still belong to a single realm. `[server]` and `[client]` narrow one
+declaration below whatever `[realms]` says about the directory it is written in.
+
+```rs
+// src/net/remotes.loom  (shared)
+export fn describe(id: number): string -> $"player {id}";
+
+[server]
+export fn grant_admin(id: number): void {
+    admins.push(id);
+}
+```
+
+```rs
+// src/client/hud.loom
+import { grant_admin } from "../net/remotes";
+##       ^ 'grant_admin' is server-only, so client code cannot import it.
+```
+
+The attribute says who may *reach* a declaration; the directory keeps the stronger guarantee. A shared module replicates in full, so marking a
+declaration inside one does not stop its code reaching the client — only a server directory does that. It applies to functions, interfaces, properties
+and events, and is checked where an imported name binds to what it names, since everything in one file shares that file's realm.
+
+---
+
 ## `type_is`
 
 Narrow an `unknown` to a concrete type at runtime.
@@ -2108,6 +2442,18 @@ const start = setmetatable({ position = 69 }, Add_Location_for_Location) :: Loca
 const finish = setmetatable({ position = 420 }, Add_Location_for_Location) :: Location
 const result1 = start + finish
 const result2 = start:add(finish)
+```
+
+A metamethod cannot be `async`. Luau invokes it itself, across a C-call boundary where a yielding thread raises rather than suspends, so an operator that
+awaits does not block — it fails, at whichever call first reached the yield, with an error naming neither the operator nor the type it belongs to. It is
+the rule [`[no_yield]`](#no_yield) states by hand, applied where the compiler already knows the answer.
+
+```rs
+trait Add<T> {
+    [luau_metamethod("__add")]
+    async fn add(other: T): T;
+    ## ^ 'add' is a metamethod, so it cannot be 'async'.
+}
 ```
 
 ---

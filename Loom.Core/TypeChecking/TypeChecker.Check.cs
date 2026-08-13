@@ -23,6 +23,7 @@ public sealed partial class TypeChecker
         return expression switch
         {
             Parenthesized parenthesized => BindType(parenthesized, Check(parenthesized.Expression, expected, state, out constraint)),
+            SpreadElement spreadElement => CheckSpreadElement(spreadElement, expected, state, out constraint),
             ArrayLiteral arrayLiteral when expected is ArrayType arrayType => CheckArrayLiteral(arrayLiteral, arrayType, state),
             TupleExpression tupleExpression when expected is Types.TupleType tupleType => CheckTupleExpression(tupleExpression, tupleType, state),
             MatchExpression matchExpression => CheckMatchExpression(matchExpression, expected, state),
@@ -56,7 +57,10 @@ public sealed partial class TypeChecker
             var parameter = parameterList[i];
             var declaredType = MaybeVisit(parameter.ColonTypeClause);
             var initializerType = MaybeVisit(parameter.EqualsValueClause);
-            var contextualType = i < expected.ParameterTypes.Count ? expected.ParameterTypes[i] : null;
+            // ParameterTypeAt rather than an index, so a parameter past the expected function's fixed ones
+            // infers from what its rest parameter holds - a handler naming three of the arguments a variadic
+            // event fires has three parameters to infer and one array type to infer them all from.
+            var contextualType = expected.ParameterTypeAt(i);
             var type = declaredType ?? contextualType ?? initializerType;
             if (type == null)
             {
@@ -150,6 +154,20 @@ public sealed partial class TypeChecker
                 value = 0;
                 return false;
         }
+    }
+
+    /// <summary>
+    ///     Checks a spread against the type of one element of wherever it is spreading into: an array of that
+    ///     element type is what the operand has to be.
+    /// </summary>
+    /// <remarks>
+    ///     Immutable, because the copy is what lands in the result - a <c>mut</c> operand spreads into an
+    ///     immutable array and an immutable one spreads into a <c>mut</c> array.
+    /// </remarks>
+    private Type CheckSpreadElement(SpreadElement spreadElement, Type expected, FlowState state, out TypeSolver.TypeConstraint? constraint)
+    {
+        var operandType = Check(spreadElement.Expression, new ArrayType(expected, false), state, out constraint);
+        return BindType(spreadElement, SpreadedElementType(spreadElement, operandType));
     }
 
     private ArrayType CheckArrayLiteral(ArrayLiteral arrayLiteral, ArrayType expected, FlowState state)

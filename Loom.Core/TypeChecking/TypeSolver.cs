@@ -375,9 +375,10 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
         // unification has to answer the same question IsAssignableTo does, or a call site would accept
         // through inference what a declared type rejects
+        var restAbsorbsParameters = FunctionType.RestAbsorbsParameters(a.HasRestParameter, b.HasRestParameter);
         if (a.TypeParameters.Count != b.TypeParameters.Count
             || a.RequiredParameterTypes.Count < b.RequiredParameterTypes.Count
-            || a.ParameterTypes.Count > b.ParameterTypes.Count
+            || !restAbsorbsParameters && a.ParameterTypes.Count > b.ParameterTypes.Count
             || a.IsAsync != b.IsAsync)
             return ReportTypeMismatch(a, b, span, trace: trace);
 
@@ -394,7 +395,15 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         var aReturnType = SubstituteTypeParameters(aMapping, a.ReturnType);
         var bReturnType = SubstituteTypeParameters(bMapping, b.ReturnType);
         for (var i = 0; i < aParamTypes.Count; i++)
-            CombineUnify(aParamTypes[i], bParamTypes[i], span, ref success, ref updated, childTrace);
+        {
+            if (FunctionType.CounterpartParameterType(bParamTypes, b.HasRestParameter, a.HasRestParameter, i) is not { } bParamType)
+            {
+                success = ReportTypeMismatch(a, b, span, trace: trace);
+                break;
+            }
+
+            CombineUnify(aParamTypes[i], bParamType, span, ref success, ref updated, childTrace);
+        }
 
         CombineUnify(aReturnType, bReturnType, span, ref success, ref updated, childTrace);
 

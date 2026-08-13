@@ -1,0 +1,14 @@
+event abc(..data: unknown[]);
+event labelled(label: string, ..rest: number[]);
+
+abc += fn(a, b, c) {
+    print(a, b, c);
+};
+
+labelled += fn(label, first) {
+    print(label, first);
+};
+
+let ns = [1, 2];
+abc(1, "two", true);
+labelled("hi", ..ns);

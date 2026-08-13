@@ -823,4 +823,31 @@ public class LuauRenderingTest
 
     [Fact]
     public void Renders_NilLiteral() => Assert.Equal("nil", new NilLiteral().Render());
+
+    [Fact]
+    public void Renders_Spread_AsTableUnpack() => Assert.Equal("table.unpack(xs)", new Spread(new Identifier("xs")).Render());
+
+    [Fact]
+    public void Renders_Spread_InFinalArgumentPosition() =>
+        Assert.Equal(
+            "f(1, table.unpack(xs))",
+            new Call(new Identifier("f"), [new NumberLiteral(1), new Spread(new Identifier("xs"))]).Render()
+        );
+
+    [Fact]
+    public void Renders_Spread_OfANonName() =>
+        Assert.Equal(
+            "table.unpack(table.clone(xs))",
+            new Spread(LuauFactory.TableCall("clone", [new Identifier("xs")])).Render()
+        );
+
+    [Fact]
+    public void Renders_VariadicTypePack() => Assert.Equal("...number", new VariadicTypePack(PrimitiveType.Number).Render());
+
+    [Fact]
+    public void Renders_VariadicTypePack_AsATrailingTypeArgument() =>
+        Assert.Equal(
+            "Event<string, ...number>",
+            new TypeName("Event", [PrimitiveType.String, new VariadicTypePack(PrimitiveType.Number)]).Render()
+        );
 }

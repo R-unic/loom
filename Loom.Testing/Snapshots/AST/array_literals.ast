@@ -238,3 +238,102 @@ VariableDeclaration(
   ColonTypeClause: null
   Name: Token(Identifier, "x")
 )
+VariableDeclaration(
+  EqualsValueClause(
+    EqualsToken: Token(Equals, "=")
+    Value: ArrayLiteral(
+      MutKeyword: null
+      LeftBracket: Token(LBracket, "[")
+      RightBracket: Token(RBracket, "]")
+      Expressions: [
+        SpreadElement(
+          DotDot: Token(DotDot, "..")
+          Expression: Identifier(
+            Name: Token(Identifier, "a")
+            Token(Identifier, "a")
+          )
+        )
+      ]
+    )
+  )
+  ColonTypeClause: null
+  Name: Token(Identifier, "x")
+)
+VariableDeclaration(
+  EqualsValueClause(
+    EqualsToken: Token(Equals, "=")
+    Value: ArrayLiteral(
+      MutKeyword: null
+      LeftBracket: Token(LBracket, "[")
+      RightBracket: Token(RBracket, "]")
+      Expressions: [
+        Literal(
+          Token(NumberLiteral, "1")
+          Value: 1
+        )
+        SpreadElement(
+          DotDot: Token(DotDot, "..")
+          Expression: Identifier(
+            Name: Token(Identifier, "a")
+            Token(Identifier, "a")
+          )
+        )
+      ]
+    )
+  )
+  ColonTypeClause: null
+  Name: Token(Identifier, "x")
+)
+VariableDeclaration(
+  EqualsValueClause(
+    EqualsToken: Token(Equals, "=")
+    Value: ArrayLiteral(
+      MutKeyword: null
+      LeftBracket: Token(LBracket, "[")
+      RightBracket: Token(RBracket, "]")
+      Expressions: [
+        SpreadElement(
+          DotDot: Token(DotDot, "..")
+          Expression: Identifier(
+            Name: Token(Identifier, "a")
+            Token(Identifier, "a")
+          )
+        )
+        Literal(
+          Token(NumberLiteral, "1")
+          Value: 1
+        )
+        SpreadElement(
+          DotDot: Token(DotDot, "..")
+          Expression: Identifier(
+            Name: Token(Identifier, "b")
+            Token(Identifier, "b")
+          )
+        )
+      ]
+    )
+  )
+  ColonTypeClause: null
+  Name: Token(Identifier, "x")
+)
+VariableDeclaration(
+  EqualsValueClause(
+    EqualsToken: Token(Equals, "=")
+    Value: ArrayLiteral(
+      MutKeyword: Token(MutKeyword, "mut")
+      LeftBracket: Token(LBracket, "[")
+      RightBracket: Token(RBracket, "]")
+      Expressions: [
+        SpreadElement(
+          DotDot: Token(DotDot, "..")
+          Expression: Identifier(
+            Name: Token(Identifier, "a")
+            Token(Identifier, "a")
+          )
+        )
+      ]
+    )
+  )
+  ColonTypeClause: null
+  Name: Token(Identifier, "x")
+)

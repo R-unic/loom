@@ -28,11 +28,28 @@ public sealed partial class LuauGenerator
         if (_semanticModel.GetDeclarationSymbol(eventDeclaration) is { } eventSymbol && IsSharedEvent(new EventTarget(null, eventSymbol)))
             GetConnectionStore(new EventTarget(null, eventSymbol));
 
-        var parameterTypes = eventDeclaration.Parameters?.ParameterList.ConvertAll(p => Visit(p.ColonTypeClause!.Type)) ?? [];
-        var eventType = LuauFactory.QualifyRuntimeType(new TypeName("Event", parameterTypes));
+        var eventType = LuauFactory.QualifyRuntimeType(new TypeName("Event", EventTypeArguments(eventDeclaration.Parameters)));
         LuauExpression initializer = LuauFactory.RuntimeLibraryCall(["Event", "new"], []);
 
         return new ConstVariable(eventDeclaration.Name.Text, eventType, initializer);
+    }
+
+    /// <summary>
+    ///     The runtime <c>Event&lt;T...&gt;</c>'s type arguments for <paramref name="parameters" />. A rest
+    ///     parameter becomes a variadic pack rather than the array it declares: the handler takes any number
+    ///     of the elements, and passing the array type would have Luau expect a single table.
+    /// </summary>
+    private List<LuauType> EventTypeArguments(Parameters? parameters)
+    {
+        var parameterList = parameters?.ParameterList ?? [];
+        return parameterList.ConvertAll(parameter =>
+            {
+                var type = Visit(parameter.ColonTypeClause!.Type);
+                return parameter.DotDot != null && type is TableType { Indexer.ValueType: { } elementType }
+                    ? new VariadicTypePack(elementType)
+                    : type;
+            }
+        );
     }
 
     public override LuauNode VisitAssignmentOperator(AssignmentOperator assignmentOperator) =>

@@ -56,6 +56,31 @@ public sealed class FunctionType(
     /// <inheritdoc cref="ParameterTypeAt(List{Type}, bool, int)" />
     public Type? ParameterTypeAt(int index) => ParameterTypeAt(ParameterTypes, HasRestParameter, index);
 
+    /// <summary>
+    ///     Whether a target's rest parameter answers for however many parameters the source names - what lets
+    ///     <c>fn(a, b, c)</c> handle an event declared <c>event fired(..values: unknown[])</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Only when the source has no rest parameter of its own. Where both do, the last parameter is the
+    ///     rest array on either side and the two compare directly; reading one of them through
+    ///     <see cref="ParameterTypeAt" /> would compare an array against what it holds.
+    /// </remarks>
+    public static bool RestAbsorbsParameters(bool sourceHasRestParameter, bool targetHasRestParameter) =>
+        targetHasRestParameter && !sourceHasRestParameter;
+
+    /// <summary>
+    ///     The target parameter type that the source's parameter at <paramref name="index" /> is compared
+    ///     against, or null where the target has none there.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="IsAssignableTo" /> and <see cref="TypeSolver.UnifyFunctionTypes" /> answer the same
+    ///     question and must not diverge, so which parameter faces which lives here rather than in either.
+    /// </remarks>
+    public static Type? CounterpartParameterType(List<Type> targetParameterTypes, bool targetHasRestParameter, bool sourceHasRestParameter, int index) =>
+        RestAbsorbsParameters(sourceHasRestParameter, targetHasRestParameter)
+            ? ParameterTypeAt(targetParameterTypes, targetHasRestParameter, index)
+            : index < targetParameterTypes.Count ? targetParameterTypes[index] : null;
+
     private static List<Type> GetRequiredParameterTypes(List<Type> parameterTypes, bool hasRestParameter)
     {
         var fixedParameterTypes = hasRestParameter ? parameterTypes.Take(parameterTypes.Count - 1).ToList() : parameterTypes;
@@ -98,10 +123,15 @@ public sealed class FunctionType(
             return true;
 
         if (other is not FunctionType functionType
-            || ParameterTypes.Count > functionType.ParameterTypes.Count
             || TypeParameters.Count != functionType.TypeParameters.Count
-            || HasRestParameter != functionType.HasRestParameter
             || IsAsync != functionType.IsAsync)
+            return false;
+
+        // Absorbed, the source may name as many parameters as it likes; failing that the two must agree on
+        // having a rest parameter, and the source may take fewer arguments than are passed but never require
+        // ones that are not.
+        if (!RestAbsorbsParameters(HasRestParameter, functionType.HasRestParameter)
+            && (HasRestParameter != functionType.HasRestParameter || ParameterTypes.Count > functionType.ParameterTypes.Count))
             return false;
 
         for (var i = 0; i < TypeParameters.Count; i++)
@@ -111,7 +141,8 @@ public sealed class FunctionType(
 
         // parameters are contravariant: what the target may be called with has to be something this one accepts
         for (var i = 0; i < ParameterTypes.Count; i++)
-            if (!functionType.ParameterTypes[i].IsAssignableTo(ParameterTypes[i]))
+            if (CounterpartParameterType(functionType.ParameterTypes, functionType.HasRestParameter, HasRestParameter, i) is not { } targetParameterType
+                || !targetParameterType.IsAssignableTo(ParameterTypes[i]))
                 return false;
 
         return ReturnType.IsAssignableTo(functionType.ReturnType);

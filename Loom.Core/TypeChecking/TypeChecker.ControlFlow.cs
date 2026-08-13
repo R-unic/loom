@@ -71,14 +71,13 @@ public sealed partial class TypeChecker
             // type and handed the loop a value of another, with nothing in between to notice.
             case InterfaceType or ObjectType:
             {
-                var objectType = collectionType is InterfaceType interfaceType ? interfaceType.ObjectType : (ObjectType)collectionType;
                 if (@for.Names.Count == 1)
                 {
                     BindType(@for.Names[0], elementType);
                     break;
                 }
 
-                BindType(@for.Names[0], objectType.KeyUnion());
+                BindType(@for.Names[0], ((NativelyIndexableType)collectionType).KeyUnion());
                 BindType(@for.Names[1], elementType);
                 break;
             }
