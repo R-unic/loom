@@ -2171,6 +2171,41 @@ handler_conn:Disconnect();
 
 ---
 
+An event may end in a rest parameter, in which case it fires with any number of trailing arguments and a handler names as many
+of them as it cares about. This is what Roblox's own `RemoteEvent` looks like, so it is the ordinary case rather than a corner:
+
+```rs
+event abc(..data: unknown[]);
+event labelled(label: string, ..rest: number[]);
+
+abc += fn(a, b, c) { print(a, b, c); };
+labelled += fn(label, first) { print(label, first); };
+
+let ns = [1, 2];
+abc(1, "two", true);
+labelled("hi", ..ns);
+```
+
+```luau
+const abc: Loom.Event<...unknown> = Loom.Event.new()
+const labelled: Loom.Event<string, ...number> = Loom.Event.new()
+abc:Connect(function(a, b, c)
+  print(a, b, c)
+end)
+labelled:Connect(function(label, first)
+  print(label, first)
+end)
+const ns = {1, 2}
+abc:Fire(1, "two", true)
+labelled:Fire("hi", table.unpack(ns))
+```
+
+The handler's parameters infer from what the rest parameter holds — `a`, `b` and `c` are `unknown`, `first` is `number` — and the
+rest parameter reaches Luau as a variadic type pack (`...unknown`) rather than the array it is written as, so the emitted `Connect`
+still type-checks. Firing takes a [spread](#spreading-into-a-call) like any other rest parameter.
+
+---
+
 ## Exports
 
 ```rs
