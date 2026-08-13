@@ -11,8 +11,18 @@ permissions:
   contents: read
 
 jobs:
+  # Every OS the compiler is published for, because the bugs this catches are the ones that only
+  # exist on one of them: a drive letter that round-trips in a different case, a path separator, a
+  # filesystem that compares names case-insensitively. Coverage is collected on one leg rather than
+  # all three - it is the same code either way, and Coveralls takes a single submission.
   test:
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
@@ -20,17 +30,25 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Run tests
+        if: matrix.os != 'ubuntu-latest'
+        run: dotnet test -c Release
+
       - name: Install ReportGenerator
+        if: matrix.os == 'ubuntu-latest'
         run: dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.*
 
       - name: Configure PATH for tools
+        if: matrix.os == 'ubuntu-latest'
         run: echo "/home/runner/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Run tests and generate coverage
+        if: matrix.os == 'ubuntu-latest'
         run: |
           dotnet test -c Release --collect:"XPlat Code Coverage" --settings Loom.Testing/coverlet.runsettings
 
       - name: Convert coverage to LCOV
+        if: matrix.os == 'ubuntu-latest'
         run: |
           reportgenerator -reports:"**/TestResults/**/*.cobertura.xml" -targetdir:"coverage" -reporttypes:lcov
         env:
@@ -38,6 +56,7 @@ jobs:
           DOTNET_CLI_TELEMETRY_OPTOUT: true
 
       - name: Report coverage
+        if: matrix.os == 'ubuntu-latest'
         continue-on-error: true
         uses: coverallsapp/github-action@v2.3.4
         with:
