@@ -51,6 +51,16 @@ public sealed partial class LuauGenerator
             return UnknownType;
         }
 
+        // A branching type has no Luau alias to name - what it works out to goes here instead. A mapped one
+        // does (see GenerateMappedTypeAlias), so it keeps its name and Luau's own 'keyof'/'index' do the work.
+        if (NamesConditionalAlias(symbol))
+            return RenderResolvedType(typeName);
+
+        // Luau's indexer binds no name for its key, so a mapped type's binder emits the key set it ranges
+        // over wherever it is used - which is what turns '[K from keyof(T)]: T[K][]' into '{ index<T, keyof<T>> }'.
+        if (symbol.Declaration is MappedTypeDeclaration mapped)
+            return Visit(mapped.SourceType);
+
         // 'Array<T, L>' is transparent sugar for 'T[]' - L only matters to the serializer, which reads
         // it straight off the type argument, so it never has anything to reach Luau with. Nothing named
         // 'Array' exists there, unlike 'T[]' itself.
@@ -73,6 +83,10 @@ public sealed partial class LuauGenerator
         return constraint != null ? new Luau.AST.IntersectionType([luauTypeName, constraint]) : luauTypeName;
     }
 
+    private bool NamesConditionalAlias(Symbol symbol) =>
+        symbol.Declaration is Parsing.AST.TypeAlias
+        && _semanticModel.GetType(symbol.Declaration) is TypeChecking.Types.ConditionalType or TypeChecking.Types.GenericType { UnderlyingType: TypeChecking.Types.ConditionalType };
+
     private static bool IsLoomRuntimeType(Symbol symbol) =>
         symbol is { IsIntrinsic: true, File.Name: "runtime.loom" or "None.loom" or "PluginSecurity.loom" } && _loomRuntimeTypeNames.Contains(symbol.Name);
 
@@ -87,6 +101,40 @@ public sealed partial class LuauGenerator
             functionType.Parameters?.ParameterList.ConvertAll(p => Visit(p.ColonTypeClause!)) ?? [],
             Visit(functionType.ReturnType)
         );
+
+    public override LuauNode VisitConditionalType(Parsing.AST.ConditionalType conditionalType) => RenderResolvedType(conditionalType);
+    public override LuauNode VisitTypeMatch(TypeMatch typeMatch) => RenderResolvedType(typeMatch);
+
+    /// <summary>
+    ///     What a branching type worked out to, written out in its place. Luau can express the answer but
+    ///     not the question, so a use whose subject was concrete emits the answer directly and needs no type
+    ///     function at all.
+    /// </summary>
+    /// <remarks>
+    ///     Where the subject is still a type parameter at emission there is no answer yet, and the fallback
+    ///     is <c>unknown</c> - not <c>any</c>, which would silence every check downstream of it, where
+    ///     <c>unknown</c> makes the consumer narrow. It is warned about rather than done quietly, since what
+    ///     falls through here is precision the program was written expecting.
+    /// </remarks>
+    private LuauNode RenderResolvedType(TypeExpression node)
+    {
+        var type = _semanticModel.GetType(node);
+        if (LuauTypeRenderer.Render(type, _loomRuntimeTypeNames) is { } rendered)
+            return rendered;
+
+        // Inside a generic type's own declaration there is nothing to say: it is written over a parameter
+        // by definition, and its uses are where the precision is either kept or lost. Reporting it here
+        // would fire on every such declaration and name no use the author could do anything about.
+        if (!node.IsDescendantOf<Parsing.AST.TypeAlias>() && !node.IsDescendantOf<InterfaceDeclaration>())
+            _diagnostics.Warn(
+                node,
+                InternalCodes.UnresolvedTypeInOutput,
+                $"Type '{type}' is still generic here and is emitted as 'unknown'.",
+                "instantiate it with concrete type arguments to keep the precise type"
+            );
+
+        return UnknownType;
+    }
 
     public override LuauNode VisitTypeOf(TypeOf typeOf) => new TypeOfType(Visit(typeOf.Expression));
     public override LuauNode VisitTypePredicateType(TypePredicateType typePredicateType) => Luau.AST.PrimitiveType.Boolean;

@@ -52,6 +52,10 @@ public static class DeclarationDisplay
             // substituted the parameters away, which turns 'T[]' into the alias's own instantiation
             TypeAlias alias => $"type {symbol.Name}{Render(alias.TypeParameters)} = {alias.EqualsTypeClause.Type}",
             Parameter parameter => $"{(parameter.DotDot == null ? "" : "..")}{symbol.Name}: {TypeText(type)}",
+            // A binder reads as the pattern position it was written in, not as what it resolved to: inside
+            // the arm it stands for whatever the subject had there, and that differs per instantiation.
+            InferType binder => $"let {symbol.Name}{(binder.ColonTypeClause == null ? "" : $": {binder.ColonTypeClause.Type}")}",
+            MappedTypeDeclaration mapped => $"{symbol.Name} from {mapped.SourceType}",
             DeclareVariableSignature variable => $"{variable.Keyword.Text} {symbol.Name}: {TypeText(type)}",
             PropertyDeclaration property => $"{(property.MutKeyword == null ? "" : "mut ")}{symbol.Name}: {TypeText(type)}",
             _ => FallbackSignature(symbol, type)

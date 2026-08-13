@@ -179,6 +179,12 @@ public sealed partial class Parser(LexerResult lexerResult)
 
     private Token Current() => lexerResult.Tokens[_position];
 
+    private Token? Peek(int offset)
+    {
+        var index = _position + offset;
+        return index >= 0 && index < lexerResult.Tokens.Count ? lexerResult.Tokens[index] : null;
+    }
+
     private SyntaxKind PeekKind(int offset)
     {
         var index = _position + offset;

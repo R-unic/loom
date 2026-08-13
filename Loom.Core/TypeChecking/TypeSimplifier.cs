@@ -47,10 +47,14 @@ public static class TypeSimplifier
             InstantiatedType instantiated => expand ? Normalize(instantiated.Expand(), true) : type,
             GenericType generic => Normalize(generic.UnderlyingType, expand),
             IndexedType indexed => ResolveIndex(indexed.Target, indexed.Index) ?? type,
+            MappedType mapped => mapped.Resolve() ?? type,
+            ConditionalType conditional => ConditionalTypeEvaluator.TryEvaluate(conditional) ?? type,
             _ => type
         };
 
-        cache.Add(type, simplified);
+        // AddOrUpdate rather than Add: a conditional whose arms name the alias it belongs to can re-enter
+        // this for the very type being normalised, and Add throws on a key already present.
+        cache.AddOrUpdate(type, simplified);
         return simplified;
     }
 

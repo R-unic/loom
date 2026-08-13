@@ -93,6 +93,9 @@ public sealed partial class LuauGenerator
         if (symbol is not InterfaceSymbol interfaceSymbol)
             return new NoOpStatement();
 
+        if (interfaceDeclaration.Body?.Members.OfType<MappedTypeDeclaration>().FirstOrDefault() is { } mapped)
+            return GenerateMappedTypeAlias(interfaceDeclaration, mapped);
+
         var indexer = interfaceDeclaration.Body?.Members.OfType<IndexerDeclaration>().FirstOrDefault();
         var propertyDeclarations = interfaceDeclaration.Body?.Members.OfType<PropertyDeclaration>() ?? [];
         var eventDeclarations = interfaceDeclaration.Body?.Members.OfType<EventDeclaration>() ?? [];
@@ -123,6 +126,27 @@ public sealed partial class LuauGenerator
                 )
                 : tableType
         );
+    }
+
+    /// <summary>
+    ///     A mapped type becomes a Luau indexer keyed on the whole key set: <c>{ [keyof&lt;T&gt;]: index&lt;T,
+    ///     keyof&lt;T&gt;&gt; }</c>. That is less than Loom knows - which key has which type is lost, since
+    ///     Luau has no way to say it - but it is the closest shape there is, and every concrete use resolves
+    ///     to real properties before it reaches here anyway (see <see cref="LuauTypeRenderer" />).
+    /// </summary>
+    /// <remarks>
+    ///     The binder needs no substituting here: Luau's indexer has no name to bind, so a use of it inside
+    ///     the member type emits the key set it ranges over - see <c>VisitTypeName</c>.
+    /// </remarks>
+    private LuauNode GenerateMappedTypeAlias(InterfaceDeclaration interfaceDeclaration, MappedTypeDeclaration mapped)
+    {
+        var indexer = new TableTypeIndexer(
+            mapped.MutKeyword == null ? LuauVisibility.Read : null,
+            Visit<LuauType>(mapped.SourceType),
+            Visit<LuauType>(mapped.ColonTypeClause)
+        );
+
+        return new TypeAlias(interfaceDeclaration.Name.Text, GenerateTypeParameters(interfaceDeclaration.TypeParameters), new TableType(indexer, []));
     }
 
     /// <summary>

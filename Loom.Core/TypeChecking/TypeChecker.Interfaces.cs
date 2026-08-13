@@ -129,6 +129,9 @@ public sealed partial class TypeChecker
         }
 
         var typeParameters = interfaceDeclaration.TypeParameters?.ParameterList.ConvertAll(VisitTypeParameter);
+        if (interfaceDeclaration.Body?.Members.OfType<MappedTypeDeclaration>().FirstOrDefault() is { } mappedDeclaration)
+            return BindType(interfaceDeclaration, PublishMappedType(interfaceDeclaration, typeParameters, mappedDeclaration));
+
         // Expanded, since a base written as an instantiation ('interface Click: IAction<"Click">') is only
         // an InterfaceType once expanded, and anything that is not one is dropped on the next line.
         var constraints = interfaceDeclaration.ColonTypeListClause?.Types
@@ -465,6 +468,34 @@ public sealed partial class TypeChecker
                 signatures = null;
                 return false;
         }
+    }
+
+    /// <summary>
+    ///     A mapped interface publishes the <see cref="MappedType" /> itself rather than an
+    ///     <see cref="InterfaceType" /> wrapped around one: its members are not written down anywhere, so
+    ///     there is nothing to put in an object body until the keys arrive.
+    /// </summary>
+    private Type PublishMappedType(InterfaceDeclaration interfaceDeclaration, List<Types.TypeParameter>? typeParameters, MappedTypeDeclaration mappedDeclaration)
+    {
+        if (interfaceDeclaration.ColonTypeListClause != null)
+            _diagnostics.Error(
+                interfaceDeclaration.ColonTypeListClause,
+                InternalCodes.InvalidMappedType,
+                $"Mapped type '{interfaceDeclaration.Name.Text}' cannot have base types.",
+                "every member it has comes from the keys it maps over"
+            );
+
+        // Published before its keys and member type are resolved, so a body naming the type it belongs to -
+        // 'interface Rec<T> { [K from "a"]: Rec<T> }' - finds this entry rather than an unbound name. Same
+        // order the ordinary interface path above uses, and for the same reason.
+        var mapped = new MappedType(VisitMappedTypeDeclaration(mappedDeclaration), PrimitiveType.Never, PrimitiveType.Never, mappedDeclaration.MutKeyword != null);
+        Type published = typeParameters == null ? mapped : new GenericType(interfaceDeclaration, typeParameters, mapped);
+        BindType(interfaceDeclaration, published);
+
+        mapped.Source = Visit(mappedDeclaration.SourceType);
+        mapped.ValueType = Visit(mappedDeclaration.ColonTypeClause);
+
+        return typeParameters == null ? mapped.Resolve() ?? mapped : published;
     }
 
     private ObjectIndexer? ResolveInterfaceIndexer(List<InterfaceType> constraints, IndexerDeclaration? indexerDeclaration)

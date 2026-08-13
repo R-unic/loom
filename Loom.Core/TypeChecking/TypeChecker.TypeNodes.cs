@@ -206,6 +206,69 @@ public sealed partial class TypeChecker
 
     private static bool IsTupleMarkerSymbol(Symbol symbol) => symbol is { IsIntrinsic: true, Name: "Tuple", File.Name: "loom.loom" };
 
+    public override Type VisitWildcardType(WildcardType wildcardType) => BindType(wildcardType, Types.PrimitiveType.Unknown);
+
+    /// <summary>
+    ///     The binder a <c>let</c> in a type pattern stands for. Bound to its own declaration node so a use
+    ///     of the name inside the arm resolves to this very instance - which is what
+    ///     <see cref="ConditionalArm.Binders" /> matching by reference relies on.
+    /// </summary>
+    public override Type VisitInferType(InferType inferType)
+    {
+        if (_semanticModel.GetType(inferType) is Types.TypeParameter existing)
+            return existing;
+
+        var constraint = MaybeVisit(inferType.ColonTypeClause);
+        return BindType(inferType, new Types.TypeParameter(inferType.Name.Text, constraint));
+    }
+
+    public override Type VisitConditionalType(Parsing.AST.ConditionalType conditionalType)
+    {
+        var subject = Visit(conditionalType.CheckType);
+        var thenArm = BuildConditionalArm(conditionalType.TargetType, conditionalType.ThenType);
+
+        // The 'else' is the same arm list with a pattern nothing fails - which is what makes the two-armed
+        // form and the n-armed one the same type, rather than two that have to be evaluated separately.
+        var elseArm = new ConditionalArm(Types.PrimitiveType.Unknown, Visit(conditionalType.ElseType), []);
+        return BindType(conditionalType, Resolve(new Types.ConditionalType(subject, [thenArm, elseArm], false)));
+    }
+
+    public override Type VisitTypeMatch(TypeMatch typeMatch)
+    {
+        var subject = Visit(typeMatch.Subject);
+        var arms = typeMatch.Arms.ConvertAll(arm => BuildConditionalArm(arm.Pattern, arm.Result));
+        return BindType(typeMatch, Resolve(new Types.ConditionalType(subject, arms, typeMatch.EachKeyword != null)));
+    }
+
+    private static Type Resolve(Types.ConditionalType conditional) => ConditionalTypeEvaluator.TryEvaluate(conditional) ?? conditional;
+
+    /// <summary>
+    ///     The binders are visited ahead of the pattern so the arm's result can name one: a use resolves
+    ///     through the symbol to the <see cref="InferType" /> declaration's bound type, which has to exist
+    ///     by then.
+    /// </summary>
+    private ConditionalArm BuildConditionalArm(TypeExpression pattern, TypeExpression result)
+    {
+        var binders = pattern.EnumerateDescendants<InferType>()
+            .Prepend(pattern as InferType)
+            .OfType<InferType>()
+            .Select(Visit)
+            .OfType<Types.TypeParameter>()
+            .ToList();
+
+        return new ConditionalArm(Visit(pattern), Visit(result), binders);
+    }
+
+    /// <summary>
+    ///     A mapped type's binder stands for one key at a time, so it is a type parameter like any other -
+    ///     bound to the declaration node the resolver declared its name against, which is how <c>T[K]</c> in
+    ///     the member type reaches it.
+    /// </summary>
+    public override Types.TypeParameter VisitMappedTypeDeclaration(MappedTypeDeclaration mappedTypeDeclaration) =>
+        _semanticModel.GetType(mappedTypeDeclaration) is Types.TypeParameter existing
+            ? existing
+            : BindType(mappedTypeDeclaration, new Types.TypeParameter(mappedTypeDeclaration.Name.Text));
+
     public override Types.TypeParameter VisitTypeParameter(TypeParameter typeParameter)
     {
         var defaultType = MaybeVisit(typeParameter.EqualsTypeClause);
