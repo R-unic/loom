@@ -166,6 +166,9 @@ public sealed partial class LuauGenerator
             return new ForStatement(names, collectionExpression, body);
         }
 
+        if (IteratesItself(collectionType))
+            return new ForStatement(names, IteratorCall(collectionExpression), body);
+
         if (!collectionType.Equals(IntrinsicTypes.Range))
             return collectionType is ObjectType or InterfaceType
                 ? new ForStatement(names.Count == 1 ? ["_", names[0]] : names, collectionExpression, body)
@@ -196,6 +199,32 @@ public sealed partial class LuauGenerator
 
         return new NumericForStatement(names[0], start, end, incrementBy, body);
     }
+
+    /// <summary>Whether the collection implements <c>Iterator&lt;T&gt;</c> and so drives the loop itself.</summary>
+    private static bool IteratesItself(TypeChecking.Types.Type collectionType) =>
+        collectionType is InterfaceType { IteratedElementType: not null };
+
+    /// <summary>
+    ///     Wraps a stateful iterator as the function Luau's generic <c>for</c> wants. Given only a function,
+    ///     Luau calls it once per step and stops at the first <c>nil</c> — which is exactly what <c>next</c>
+    ///     answering <c>none</c> means, so no state or control variable is needed and the iterator keeps its
+    ///     own position.
+    /// </summary>
+    /// <remarks>
+    ///     The collection is bound before the loop rather than indexed per step: it is the receiver of every
+    ///     <c>next</c> call, and re-evaluating an expression that produced an iterator would produce a
+    ///     different one each time and never finish.
+    /// </remarks>
+    private LuauExpression IteratorCall(LuauExpression collectionExpression)
+    {
+        var iterator = _state.PushToVariable(IteratorLocalName, collectionExpression);
+        var next = new Call(new Luau.AST.PropertyAccess(iterator, [IteratorMethodName]), [], true);
+
+        return new AnonymousFunction(null, [], null, new Chunk([new Luau.AST.Return(next)]));
+    }
+
+    private const string IteratorMethodName = "next";
+    private const string IteratorLocalName = "_iterator";
 
     private LuauNode GenerateAssignment(AssignmentOperator assignmentOperator)
     {

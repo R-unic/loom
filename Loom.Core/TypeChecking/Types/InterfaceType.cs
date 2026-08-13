@@ -35,6 +35,20 @@ public sealed class InterfaceType(
 
     public HashSet<string> TraitMethodNames { get; init; } = traitMethodNames ?? [];
 
+    /// <summary>
+    ///     The element type this yields when iterated, for a type implementing <c>Iterator&lt;T&gt;</c>, or
+    ///     null when it iterates the ordinary way - by its own keys and values.
+    /// </summary>
+    /// <remarks>
+    ///     Carried on the type the same way <see cref="Metamethods" /> is, and for the same reason: a trait
+    ///     implementation is written outside the interface's own declaration, so it reaches neither
+    ///     <see cref="Constraints" /> - which is what the interface inherits from - nor the property list.
+    ///     <see cref="TraitMethodNames" /> is no good either, being populated only where a value is
+    ///     constructed: a type reaching a loop through a function's return type would answer "not an
+    ///     iterator" and be walked field by field, which is a wrong loop rather than a rejected one.
+    /// </remarks>
+    public Type? IteratedElementType { get; init; }
+
     /// <summary>Metamethod name (e.g. "__add") to member name, merged from this interface's own properties plus every trait it implements.</summary>
     public Dictionary<string, string> Metamethods { get; init; } = metamethods ?? [];
     public override ObjectIndexer? Indexer

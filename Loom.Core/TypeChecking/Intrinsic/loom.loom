@@ -55,6 +55,13 @@ declare sealed interface MutSetStatic {
 declare let Set: SetStatic;
 declare let MutSet: MutSetStatic;
 
+### Produces a sequence one element at a time. Implementing this makes a type usable directly in a
+### 'for' loop: the loop calls 'next' until it answers none, so the iterator carries its own position
+### and decides for itself what "the next one" means.
+trait Iterator<T> {
+    fn next(): T?;
+}
+
 enum AttributeTargets {
     Function = 1 << 0,
     Interface = 1 << 1,
