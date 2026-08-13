@@ -497,4 +497,80 @@ public class AsyncAwaitTest
         Assert.Contains("Loom.future_all(", luau, StringComparison.Ordinal);
         Assert.Contains("Loom.await(", luau, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    ///     Luau raises rather than suspends when a thread yields across a C-call boundary, so a function
+    ///     standing in one says so and the compiler holds it to that.
+    /// </summary>
+    [Fact]
+    public void AwaitingInsideANoYieldFunctionIsReported()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            [no_yield]
+            fn compare(): number {
+                return await load();
+            }
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetAnalysisDiagnostics(source),
+            InternalCodes.YieldInNoYieldContext,
+            "'compare' is marked '[no_yield]', so it cannot await."
+        );
+    }
+
+    /// <remarks>The attribute is what makes this an error - an ordinary function awaiting is a different one.</remarks>
+    [Fact]
+    public void AwaitingInsideANoYieldFunctionOutranksTheAsyncDiagnostic()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            [no_yield]
+            fn compare(): number {
+                return await load();
+            }
+            """;
+
+        var diagnostics = Utility.GetAnalysisDiagnostics(source);
+
+        Assert.DoesNotContain(diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.AwaitOutsideAsyncFunction);
+    }
+
+    [Fact]
+    public void AFunctionCannotBeBothAsyncAndNoYield()
+    {
+        const string source = """
+            [no_yield]
+            async fn compare(): number -> 1;
+            """;
+
+        Utility.AssertDiagnostic(
+            Utility.GetAnalysisDiagnostics(source),
+            InternalCodes.YieldInNoYieldContext,
+            "'compare' is both 'async' and '[no_yield]'."
+        );
+    }
+
+    /// <remarks>
+    ///     A function expression runs on a thread of its own, which is what exempts it from needing 'async'
+    ///     at all - so it does not inherit the surrounding function's promise not to yield either.
+    /// </remarks>
+    [Fact]
+    public void AwaitingInsideAFunctionExpressionWithinANoYieldFunctionIsAllowed()
+    {
+        const string source = """
+            async fn load(): number -> 1;
+
+            [no_yield]
+            fn compare(): number {
+                let handler = fn(): number -> await load();
+                return 1;
+            }
+            """;
+
+        Utility.AssertNoErrors(Utility.GetAnalysisDiagnostics(source));
+    }
 }

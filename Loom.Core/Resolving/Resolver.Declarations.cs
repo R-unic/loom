@@ -13,6 +13,16 @@ public sealed partial class Resolver
         if (!DeclareVariable(functionDeclaration, new FunctionSymbol(functionDeclaration, name)))
             return false;
 
+        // 'async' is the signature saying this yields, and [no_yield] is the signature saying it must not.
+        // One of the two was meant, and nothing here can say which.
+        if (functionDeclaration.AsyncKeyword != null && NoYieldContext(functionDeclaration) != null)
+            _diagnostics.Error(
+                functionDeclaration.AsyncKeyword,
+                InternalCodes.YieldInNoYieldContext,
+                $"'{name}' is both 'async' and '[no_yield]'.",
+                "an async function yields by definition - drop whichever of the two was not meant"
+            );
+
         ResolveFunctionBody(functionDeclaration, () => base.VisitFunctionDeclaration(functionDeclaration));
         return true;
     }

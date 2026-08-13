@@ -110,6 +110,13 @@ declare fn wraps_errors: void;
 [attribute_usage(AttributeTargets.Function | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
 declare fn deprecated(message: string?): void;
 
+### Declares that this function runs somewhere yielding is not allowed - a metamethod, or a callback
+### Luau invokes across a C-call boundary such as table.sort's comparator. Awaiting inside one is an
+### error, and so is marking it 'async': both mean the thread would yield where Luau raises rather
+### than suspends. Metadata only: it wraps nothing at runtime.
+[attribute_usage(AttributeTargets.Function | AttributeTargets.Property), metadata_only]
+declare fn no_yield: void;
+
 ### Narrows which realm may use this declaration, below whatever [realms] says about the directory
 ### it is written in. A shared module still replicates in full - marking a declaration inside one
 ### does not stop its code reaching the client - so this says who may *reach* it, and the guarantee
