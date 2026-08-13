@@ -55,6 +55,13 @@ declare sealed interface MutSetStatic {
 declare let Set: SetStatic;
 declare let MutSet: MutSetStatic;
 
+### Produces a sequence one element at a time. Implementing this makes a type usable directly in a
+### 'for' loop: the loop calls 'next' until it answers none, so the iterator carries its own position
+### and decides for itself what "the next one" means.
+trait Iterator<T> {
+    fn next(): T?;
+}
+
 enum AttributeTargets {
     Function = 1 << 0,
     Interface = 1 << 1,
@@ -109,6 +116,25 @@ declare fn wraps_errors: void;
 ### since Roblox's metadata supplies none. Metadata only.
 [attribute_usage(AttributeTargets.Function | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
 declare fn deprecated(message: string?): void;
+
+### Declares that this function runs somewhere yielding is not allowed - a metamethod, or a callback
+### Luau invokes across a C-call boundary such as table.sort's comparator. Awaiting inside one is an
+### error, and so is marking it 'async': both mean the thread would yield where Luau raises rather
+### than suspends. Metadata only: it wraps nothing at runtime.
+### Only on a function: what it forbids is awaiting inside a body, and a property declares a
+### signature rather than a body, so permitting it there would accept the attribute and enforce nothing.
+[attribute_usage(AttributeTargets.Function), metadata_only]
+declare fn no_yield: void;
+
+### Narrows which realm may use this declaration, below whatever [realms] says about the directory
+### it is written in. A shared module still replicates in full - marking a declaration inside one
+### does not stop its code reaching the client - so this says who may *reach* it, and the guarantee
+### that server code is never delivered at all remains the directory's to make. Metadata only.
+[attribute_usage(AttributeTargets.Function | AttributeTargets.Interface | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
+declare fn server: void;
+### Narrows this declaration to client code. See 'server'. Metadata only.
+[attribute_usage(AttributeTargets.Function | AttributeTargets.Interface | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
+declare fn client: void;
 
 ## Serialization attributes. See TypeChecker.Serialization.cs for the co-requirement rules
 ## these carry: 'packed' requires 'serializable', every property attribute requires its

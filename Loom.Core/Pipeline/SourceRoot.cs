@@ -39,6 +39,34 @@ public sealed class SourceRoot(LoomConfig config, IEnumerable<SourceFile>? files
     public bool Contains(string absolutePath) => PathComparison.IsUnder(absolutePath, SourceDirectory);
 
     /// <summary>
+    ///     Which realm <paramref name="absolutePath" /> runs in, by the <c>[realms]</c> directory naming it.
+    ///     <see cref="Realm.Shared" /> when none does, so a project that declares no realms has one realm and
+    ///     no boundary anything can cross.
+    /// </summary>
+    /// <remarks>
+    ///     The longest directory wins, so a realm declared inside another narrows it rather than being
+    ///     shadowed by it: <c>net</c> may be shared while <c>net/server</c> is not.
+    /// </remarks>
+    public Realm RealmOf(string absolutePath)
+    {
+        var realm = Realm.Shared;
+        var matched = -1;
+        foreach (var (directory, declared) in Config.Realms)
+        {
+            // The manifest spells a nested directory with '/' whatever the platform, which Path.Combine
+            // keeps verbatim - so on a system that separates with '\' the combined path matches nothing.
+            var full = Path.Combine(SourceDirectory, directory.Replace('/', Path.DirectorySeparatorChar));
+            if (directory.Length <= matched || !PathComparison.IsUnder(absolutePath, full))
+                continue;
+
+            realm = declared;
+            matched = directory.Length;
+        }
+
+        return realm;
+    }
+
+    /// <summary>
     ///     Names <paramref name="file" /> the way a diagnostic should: relative to this root, qualified by the
     ///     package the root publishes so that a file of a dependency is not mistaken for one of the reader's own.
     /// </summary>

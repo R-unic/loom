@@ -1,0 +1,25 @@
+## A type that says how to iterate itself. The loop calls 'next' until it answers none, so the
+## iterator carries its own position rather than the loop counting on its behalf.
+interface Countdown { mut remaining: number }
+
+implement Iterator<number> for Countdown {
+    fn next(): number? {
+        if remaining <= 0 {
+            return none;
+        }
+
+        remaining -= 1;
+        return remaining + 1;
+    }
+}
+
+let counter = new Countdown { remaining: 3 };
+for value : counter {
+    print(value);
+}
+
+## The receiver is bound before the loop, since re-evaluating an expression that produces an
+## iterator would produce a fresh one every step and never finish.
+for other : new Countdown { remaining: 2 } {
+    print(other);
+}

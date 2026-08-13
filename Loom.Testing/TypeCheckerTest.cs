@@ -1746,6 +1746,28 @@ public class TypeCheckerTest
             )
         );
 
+    /// <remarks>
+    ///     Luau invokes a metamethod itself, across a C-call boundary, where a yielding thread raises rather
+    ///     than suspends - so an operator that awaits does not block, it fails at whichever call first
+    ///     reached the yield.
+    /// </remarks>
+    [Fact]
+    public void Reports_AsyncMetamethod()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Location { position: number }
+
+            trait Add<T> {
+                [luau_metamethod("__add")]
+                async fn add(other: T): T;
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.YieldInNoYieldContext, "'add' is a metamethod, so it cannot be 'async'.");
+    }
+
     [Fact]
     public void Allows_BinaryOperator_ViaTraitMetamethod()
     {
@@ -3749,6 +3771,43 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics("interface Data { a: number; b: string } for v : new Data { a: 1, b: 'hi' } { v }");
         Utility.AssertNoErrors(diagnostics);
     }
+
+    /// <summary>
+    ///     One name over a keyed collection binds the value, which is what the generator emits - it puts a
+    ///     discard where the key would go. Binding the key here promised a name of one type and handed the
+    ///     loop a value of another, and nothing in between was in a position to notice.
+    /// </summary>
+    [Fact]
+    public void Reports_ForLoopOverObjectValues_BoundToTheWrongType() =>
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                interface Data { a: number, b: number }
+
+                for v : new Data { a: 1, b: 2 } {
+                    let promised: string = v;
+                }
+                """
+            ),
+            InternalCodes.TypeMismatch,
+            "Type 'number' is not assignable to type 'string'."
+        );
+
+    /// <remarks>Two names still bind the key first, the way the two-name emit does.</remarks>
+    [Fact]
+    public void Checks_ForLoopOverObjectEntries_BindsTheKeyFirst() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                interface Data { a: number, b: number }
+
+                for key, value : new Data { a: 1, b: 2 } {
+                    let name: string = key;
+                    let amount: number = value;
+                }
+                """
+            )
+        );
 
     /// <remarks>
     ///     '+' is not one of Loom's unary operators (only '-', '~' and '!' are), so it never reaches the

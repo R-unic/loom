@@ -339,4 +339,61 @@ public class ConfigReaderTest
         Assert.Equal("^1.2", config.Dependencies[PackageName.Parse("serio")].ToString());
         Assert.Equal("^0.4 (dev)", config.Dependencies[PackageName.Parse("runit")].ToString());
     }
+
+    [Fact]
+    public void Realms_ReadEachDirectory()
+    {
+        var config = ReadValid("[realms]\nclient = \"client\"\nserver = \"server\"\nnet = \"shared\"\n");
+
+        Assert.Equal(Realm.Client, config.Realms["client"]);
+        Assert.Equal(Realm.Server, config.Realms["server"]);
+        Assert.Equal(Realm.Shared, config.Realms["net"]);
+    }
+
+    /// <remarks>Two spellings of one directory are one entry, or a lookup finds whichever was written.</remarks>
+    [Theory]
+    [InlineData("\"net/server\"")]
+    [InlineData("\"net\\\\server\"")]
+    [InlineData("\"/net/server/\"")]
+    public void Realms_NormalizeTheDirectoryTheyAreKeyedBy(string written)
+    {
+        var config = ReadValid($"[realms]\n{written} = \"server\"\n");
+
+        Assert.Equal(Realm.Server, config.Realms["net/server"]);
+    }
+
+    [Fact]
+    public void Realms_RejectAnUnknownRealm() =>
+        Assert.Contains("expected \"shared\", \"client\" or \"server\"", ReadInvalid("[realms]\nclient = \"clientside\"\n").ToString());
+
+    [Fact]
+    public void Realms_RejectANonStringRealm() =>
+        Assert.Contains("must name a realm", ReadInvalid("[realms]\nclient = 3\n").ToString());
+
+    /// <remarks>
+    ///     A separator on its own normalises to nothing, which would otherwise key the source directory itself
+    ///     and put every file in one realm by accident. Rooted paths are rejected by the same guard, but only
+    ///     a drive letter is rooted on every OS this runs on, so what is asserted here is the portable case.
+    /// </remarks>
+    [Theory]
+    [InlineData("\"\"")]
+    [InlineData("\"/\"")]
+    public void Realms_RejectADirectoryThatNamesNothing(string written) =>
+        Assert.Contains("non-empty path relative to the source directory", ReadInvalid($"[realms]\n{written} = \"client\"\n").ToString());
+
+    [Fact]
+    public void Realms_RejectTheSameDirectoryTwice() =>
+        Assert.Contains("more than once", ReadInvalid("[realms]\n\"net/server\" = \"server\"\n\"net\\\\server\" = \"client\"\n").ToString());
+
+    /// <remarks>
+    ///     Answered without Path.IsPathRooted, which reads a drive letter as rooted on Windows and as an
+    ///     ordinary directory name everywhere else - so the same manifest would be rejected on one CI leg
+    ///     and read as a directory called 'C:' on the next.
+    /// </remarks>
+    [Fact]
+    public void Realms_RejectADriveLetterOnEveryPlatform() =>
+        Assert.Contains("relative to the source directory", ReadInvalid("[realms]\n\"C:/game/client\" = \"client\"\n").ToString());
+
+    [Fact]
+    public void Realms_DefaultToNone() => Assert.Empty(ReadValid("project_type = \"game\"\n").Realms);
 }

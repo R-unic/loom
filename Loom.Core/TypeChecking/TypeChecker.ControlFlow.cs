@@ -26,17 +26,24 @@ public sealed partial class TypeChecker
         if (collectionType is InstantiatedType i)
             collectionType = i.Expand();
 
+        // What a type parameter can be iterated as is whatever its constraint promised, so the loop reads
+        // through to that rather than at the parameter - which satisfies nothing and is assignable to
+        // nothing, and would otherwise reject every generic function that takes something to walk.
+        if (collectionType is Types.TypeParameter { Constraint: { } constraint })
+            collectionType = TypeSimplifier.Expanded(constraint);
+
         _semanticModel.TypeSolver.AddConstraint(collectionType, ObjectType.Empty, @for.CollectionExpression);
         var isRange = collectionType.Equals(IntrinsicTypes.Range);
-        var elementType = isRange ? Types.PrimitiveType.Number : GetObjectValueType(collectionType);
-        var maxNames = isRange ? 1 : 2;
+        var iteratedElement = IteratorElementType(collectionType);
+        var elementType = isRange ? Types.PrimitiveType.Number : iteratedElement ?? GetObjectValueType(collectionType);
+        var maxNames = isRange || iteratedElement != null ? 1 : 2;
         if (@for.Names.Count > maxNames)
         {
             _diagnostics.NotImplemented(
                 @for.Names[maxNames],
-                isRange
-                    ? "Iterating over a range only produces one value, so only one name is permitted."
-                    : "Functional iterators are not supported yet, so more than two names is not permitted."
+                isRange ? "Iterating over a range only produces one value, so only one name is permitted."
+                : iteratedElement != null ? "An iterator's 'next' answers one value, so only one name is permitted."
+                : "Functional iterators are not supported yet, so more than two names is not permitted."
             );
 
             return BindType(@for, Types.PrimitiveType.Never);
@@ -47,19 +54,32 @@ public sealed partial class TypeChecker
             case var _ when collectionType.Equals(IntrinsicTypes.Range):
                 BindType(@for.Names[0], elementType);
                 break;
+
+            // Ahead of the object case: an iterator is an interface, and walking its own fields is not
+            // what a type that says how to iterate itself meant.
+            case var _ when iteratedElement != null:
+                BindType(@for.Names[0], elementType);
+                break;
             case Types.ArrayType:
                 BindType(@for.Names[0], elementType);
                 if (@for.Names.Count > 1)
                     BindType(@for.Names[1], Types.PrimitiveType.Number);
 
                 break;
+            // One name over a keyed collection binds the value, not the key - which is what the generator
+            // emits, placing a discard where the key would go. Binding the key here promised a name of one
+            // type and handed the loop a value of another, with nothing in between to notice.
             case InterfaceType or ObjectType:
             {
                 var objectType = collectionType is InterfaceType interfaceType ? interfaceType.ObjectType : (ObjectType)collectionType;
-                BindType(@for.Names[0], objectType.KeyUnion());
-                if (@for.Names.Count > 1)
-                    BindType(@for.Names[1], elementType);
+                if (@for.Names.Count == 1)
+                {
+                    BindType(@for.Names[0], elementType);
+                    break;
+                }
 
+                BindType(@for.Names[0], objectType.KeyUnion());
+                BindType(@for.Names[1], elementType);
                 break;
             }
         }
@@ -78,6 +98,9 @@ public sealed partial class TypeChecker
 
         return BindType(after, Visit(after.Body));
     }
+
+    private static Type? IteratorElementType(Type collectionType) =>
+        collectionType is InterfaceType interfaceType ? interfaceType.IteratedElementType : null;
 
     public override Type VisitEvery(Every every)
     {

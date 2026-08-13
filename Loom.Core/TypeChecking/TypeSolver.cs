@@ -92,7 +92,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 interfaceType.Constraints.ConvertAll(Map).OfType<InterfaceType>().ToList(),
                 (ObjectType)Map(interfaceType.ObjectType),
                 interfaceType.TraitMethodNames
-            ) { Metamethods = interfaceType.Metamethods },
+            ) { Metamethods = interfaceType.Metamethods, IteratedElementType = interfaceType.IteratedElementType },
             ObjectType objectType => new ObjectType(
                 objectType.Indexer != null
                     ? new ObjectIndexer(objectType.Indexer.IsMutable, Map(objectType.Indexer.KeyType), Map(objectType.Indexer.ValueType))

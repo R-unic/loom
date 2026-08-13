@@ -164,6 +164,21 @@ public sealed partial class Resolver
         if (schedulerAncestor != null && (enclosingFunction == null || FirstSchedulerAncestor(enclosingFunction) != schedulerAncestor))
             return base.VisitAwait(await);
 
+        // Checked ahead of whether the function is async, because a [no_yield] one may not be: the
+        // attribute says the thread would yield where Luau raises rather than suspends, and 'async' is
+        // no more allowed there than 'await' is.
+        if (NoYieldContext(enclosingFunction) is { } noYield)
+        {
+            _diagnostics.Error(
+                await,
+                InternalCodes.YieldInNoYieldContext,
+                $"'{noYield}' is marked '[no_yield]', so it cannot await.",
+                "Luau raises rather than suspends when a thread yields across a C-call boundary - do the waiting before the call, and hand this one the answer"
+            );
+
+            return false;
+        }
+
         switch (enclosingFunction)
         {
             case FunctionExpression or FunctionDeclaration { AsyncKeyword: not null }:
@@ -190,6 +205,21 @@ public sealed partial class Resolver
                 return false;
         }
     }
+
+    /// <summary>
+    ///     The name of the nearest enclosing function declared <c>[no_yield]</c>, or null when nothing between
+    ///     here and the top forbids yielding.
+    /// </summary>
+    /// <remarks>
+    ///     A function expression stops the walk. Its body runs on a thread of its own - which is what makes it
+    ///     exempt from needing 'async' at all - so a [no_yield] function is not a context an anonymous one
+    ///     inherits, any more than it inherits the obligation to propagate.
+    /// </remarks>
+    private static string? NoYieldContext(Node? enclosingFunction) =>
+        enclosingFunction is FunctionDeclaration { Attributes: { } attributes } declaration
+        && attributes.AttributeList.Exists(attribute => attribute.Name == "no_yield")
+            ? declaration.Name.Text
+            : null;
 
     /// <summary>
     ///     The nearest deferred-execution body (an 'after' or 'every' statement) wrapping <paramref name="node" />,

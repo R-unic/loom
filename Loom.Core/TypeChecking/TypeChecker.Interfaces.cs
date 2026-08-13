@@ -80,7 +80,8 @@ public sealed partial class TypeChecker
         var selfType = new InterfaceType(nonGenericInterfaceType.Name, nonGenericInterfaceType.Constraints, objectType)
         {
             TraitMethodNames = traitProperties.ConvertAll(property => property.Name).ToHashSet(),
-            Metamethods = nonGenericInterfaceType.Metamethods
+            Metamethods = nonGenericInterfaceType.Metamethods,
+            IteratedElementType = nonGenericInterfaceType.IteratedElementType
         };
 
         return BindType(selfExpression, selfType);
@@ -138,7 +139,11 @@ public sealed partial class TypeChecker
             ?? [];
 
         var objectType = new ObjectType(null, []);
-        var interfaceType = new InterfaceType(name, constraints, objectType) { Metamethods = CollectMetamethods(interfaceSymbol) };
+        var interfaceType = new InterfaceType(name, constraints, objectType)
+        {
+            Metamethods = CollectMetamethods(interfaceSymbol),
+            IteratedElementType = CollectIteratedElementType(interfaceSymbol)
+        };
         Type publishedType = typeParameters == null
             ? interfaceType
             : new GenericType(interfaceDeclaration, typeParameters, interfaceType);
@@ -237,7 +242,8 @@ public sealed partial class TypeChecker
         var boundType = new InterfaceType(interfaceType.Name, interfaceType.Constraints, objectType)
         {
             TraitMethodNames = traitMethodNames,
-            Metamethods = interfaceType.Metamethods
+            Metamethods = interfaceType.Metamethods,
+            IteratedElementType = interfaceType.IteratedElementType
         };
 
         return BindType(node, boundType);
@@ -266,7 +272,7 @@ public sealed partial class TypeChecker
         }
 
         var substitutedObject = SubstituteObjectType(node, underlying.ObjectType, substitution);
-        substituted = new InterfaceType(underlying.Name, underlying.Constraints, substitutedObject) { Metamethods = underlying.Metamethods };
+        substituted = new InterfaceType(underlying.Name, underlying.Constraints, substitutedObject) { Metamethods = underlying.Metamethods, IteratedElementType = underlying.IteratedElementType };
         return true;
     }
 
@@ -288,10 +294,31 @@ public sealed partial class TypeChecker
             }
 
             if (signature.TryGetIntrinsicAttribute(_semanticModel, "luau_metamethod", out var metamethodAttribute))
+            {
                 ValidateMetamethodAttribute(metamethodAttribute);
+                CheckMetamethodDoesNotYield(signature);
+            }
         }
 
         return properties;
+    }
+
+    /// <summary>
+    ///     A metamethod is invoked by Luau itself, across a C-call boundary, where a yielding thread raises
+    ///     rather than suspends. So an operator that awaits does not block - it fails, at whichever call
+    ///     first reached the yield, with an error naming neither the operator nor the type it belongs to.
+    /// </summary>
+    private void CheckMetamethodDoesNotYield(DeclareFunctionSignature signature)
+    {
+        if (signature.AsyncKeyword == null)
+            return;
+
+        _diagnostics.Error(
+            signature.AsyncKeyword,
+            InternalCodes.YieldInNoYieldContext,
+            $"'{signature.Name.Text}' is a metamethod, so it cannot be 'async'.",
+            "Luau invokes it across a C-call boundary, where yielding raises - await before the operator runs and give it the result"
+        );
     }
 
     private void ValidateMetamethodAttribute(AttributeSymbol attribute)
@@ -309,6 +336,23 @@ public sealed partial class TypeChecker
                 $"'{metamethodName}' is not a supported metamethod. Supported metamethods: {string.Join(", ", _supportedMetamethods)}."
             );
     }
+
+    /// <summary>
+    ///     The element type an interface yields when iterated, taken from the <c>Iterator&lt;T&gt;</c> it
+    ///     implements. Collected from the symbol onto the canonical type exactly as
+    ///     <see cref="CollectMetamethods" /> is, and for the same reason: an <c>implement</c> block sits
+    ///     outside the interface's own declaration, so nothing about it reaches the declaration's types.
+    /// </summary>
+    private Type? CollectIteratedElementType(InterfaceSymbol interfaceSymbol)
+    {
+        foreach (var implementation in interfaceSymbol.FullImplementations)
+            if (implementation.TraitName.Name.Text == IteratorTraitName && implementation.TraitName.TypeArguments?.ArgumentsList is [{ } element])
+                return Visit(element);
+
+        return null;
+    }
+
+    private const string IteratorTraitName = "Iterator";
 
     private static Dictionary<string, string> CollectMetamethods(InterfaceSymbol interfaceSymbol)
     {
@@ -359,6 +403,17 @@ public sealed partial class TypeChecker
             if (property.TryGetIntrinsicAttribute(_semanticModel, "luau_metamethod", out var metamethodAttribute))
             {
                 ValidateMetamethodAttribute(metamethodAttribute);
+
+                // Same rule as a trait's metamethod: Luau invokes it across a C-call boundary, and a
+                // declare interface is the one other place a metamethod may be written.
+                if (valueType is FunctionType { IsAsync: true })
+                    _diagnostics.Error(
+                        metamethodAttribute.Attribute,
+                        InternalCodes.YieldInNoYieldContext,
+                        $"'{name}' is a metamethod, so it cannot be 'async'.",
+                        "Luau invokes it across a C-call boundary, where yielding raises - await before the operator runs and give it the result"
+                    );
+
                 if (valueType is FunctionType && !property.IsDescendantOf<Declare>())
                     _diagnostics.Error(
                         metamethodAttribute.Attribute,

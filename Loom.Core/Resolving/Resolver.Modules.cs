@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
@@ -187,6 +188,12 @@ public sealed partial class Resolver
 
         if (HasDuplicateSymbol(import, name, SymbolNamespace.Value, $"Variable '{name}' is already declared in this scope."))
             return true;
+
+        // A namespace import brings the whole module into reach rather than a chosen list, so every
+        // export has to be reachable - naming one this realm may not have is what a named import would
+        // have been rejected for, and the form it is written in does not change who may call it.
+        foreach (var export in moduleModel.Exports)
+            ReportRealmNarrowing(import, export.Name, export.Symbol);
 
         // the symbol stands for the required table, so unlike a named import it is declared on this node
         var symbol = new VariableSymbol(import, name);
@@ -400,8 +407,15 @@ public sealed partial class Resolver
             return false;
         }
 
+        // Only for an import that brings something to run. A type-only import is erased, so there is
+        // nothing of the other realm left at runtime for the boundary to be protecting.
         if (!import.IsTypeOnly)
+        {
+            foreach (var export in exports)
+                ReportRealmNarrowing(specifier, name, export.Symbol);
+
             return exports.All(export => DeclareImportedSymbol(import, specifier, export.Symbol, module, moduleModel));
+        }
 
         var typeExports = exports.FindAll(export => export.Symbol.IsTypeSymbol);
         if (typeExports.Count != 0)
@@ -416,6 +430,44 @@ public sealed partial class Resolver
 
         return false;
     }
+
+    /// <summary>
+    ///     Reports importing a declaration whose <c>[server]</c> or <c>[client]</c> attribute narrows it below
+    ///     the realm doing the importing. The module itself was importable — a shared module is — but a
+    ///     declaration inside it may still be one side's alone.
+    /// </summary>
+    /// <remarks>
+    ///     Checked where an imported name binds to what it names, rather than at each use of it: crossing
+    ///     modules is the only way to reach another realm's declaration, since everything in one file shares
+    ///     that file's realm. So the import is both the first place this is knowable and the whole of it.
+    /// </remarks>
+    private void ReportRealmNarrowing(Node specifier, string name, Symbol export)
+    {
+        if (RealmAttributeOf(export) is not { } declared)
+            return;
+
+        var importing = compilationUnit.Roots.RealmOf(parserResult.Tree.File);
+        if (declared == importing)
+            return;
+
+        _diagnostics.Error(
+            specifier,
+            InternalCodes.RealmBoundaryCrossed,
+            $"'{name}' is {declared.ToString().ToLowerInvariant()}-only, so {importing.ToString().ToLowerInvariant()} code cannot import it.",
+            $"move it into a {declared.ToString().ToLowerInvariant()} module, or drop the attribute if both realms are meant to reach it"
+        );
+    }
+
+    /// <summary>
+    ///     The realm a declaration's own attributes narrow it to, or null when they narrow it to none. Read
+    ///     off the declaration rather than <see cref="Symbol.Attributes" />, which only some symbol kinds
+    ///     carry - the attribute is written on the declaration whatever kind it turns out to declare.
+    /// </summary>
+    private static Realm? RealmAttributeOf(Symbol symbol) =>
+        symbol.Declaration is not IWithAttributes { Attributes: { } attributes } ? null
+        : attributes.AttributeList.Exists(attribute => attribute.Name == "server") ? Realm.Server
+        : attributes.AttributeList.Exists(attribute => attribute.Name == "client") ? Realm.Client
+        : null;
 
     /// <summary>
     ///     Binds the exporting module's own symbol instance into this scope under the local name. The instance
