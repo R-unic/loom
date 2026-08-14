@@ -89,7 +89,8 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
                     ReturnType = typeCheckerResult.ReturnType,
                     SemanticModel = semanticModel,
                     Tree = parsedFile.Tree,
-                    Tokens = parsedFile.LexerResult.Tokens
+                    Tokens = parsedFile.LexerResult.Tokens,
+                    TokensWithTrivia = parsedFile.LexerResult.TokensWithTrivia
                 };
             }
         );

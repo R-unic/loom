@@ -22,4 +22,12 @@ public sealed class CompiledFile(SourceFile sourceFile)
     public required SemanticModel SemanticModel { get; init; }
     public required Tree Tree { get; init; }
     public required IReadOnlyList<Token> Tokens { get; init; }
+
+    /// <summary>
+    ///     Every token the lexer produced, comments and whitespace included, in source order. The parser
+    ///     never sees these - <see cref="Tokens" /> is what it was built from - but a caller describing the
+    ///     file as written rather than as parsed needs the trivia back, and re-lexing to get it would run the
+    ///     lexer a second time over text the pipeline has already read.
+    /// </summary>
+    public required IReadOnlyList<Token> TokensWithTrivia { get; init; }
 }
