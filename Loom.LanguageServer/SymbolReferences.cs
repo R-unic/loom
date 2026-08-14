@@ -75,6 +75,9 @@ public static class SymbolReferences
 
     private static void Collect(List<SymbolReference> references, Symbol symbol, SourceFile file, SemanticModel semanticModel)
     {
+        if (!CouldMention(file, symbol))
+            return;
+
         foreach (var node in Walk(semanticModel.Tree))
             switch (node)
             {
@@ -97,6 +100,15 @@ public static class SymbolReferences
 
         CollectSpecifiers(references, symbol, file, semanticModel);
     }
+
+    /// <summary>
+    ///     Whether the file could hold a reference at all, which is decided by scanning its text rather than
+    ///     its tree. Every reference this collects is a token spelled exactly like the symbol - <see cref="Add" />
+    ///     drops the ones that are not, since a differently spelled token is an alias the file chose for
+    ///     itself - so a file whose text never contains that name has nothing to walk for. Most of a project's
+    ///     files are that file, and the walk they were getting was the whole cost of finding a reference.
+    /// </summary>
+    private static bool CouldMention(SourceFile file, Symbol symbol) => file.SourceText.Contains(symbol.Name, StringComparison.Ordinal);
 
     /// <summary>
     ///     An import or export list names the symbol at its source, which is the name a rename has to follow.

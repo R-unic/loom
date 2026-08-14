@@ -90,6 +90,31 @@ public class ReferencesAndRenameTest
             ("util/math.loom", "export fn double(n: number): number { return n * 2; }")
         );
 
+    /// <remarks>
+    ///     A module whose text never spells the name is skipped without being walked, so a module that does
+    ///     spell it without referring to it is what decides whether that shortcut is a filter or a search.
+    /// </remarks>
+    [Fact]
+    public async Task References_LeaveOutAModuleThatOnlyNamesTheSymbolInCommentsAndStrings() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                var locations = await new ReferencesHandler(store).Handle(
+                    new ReferenceParams
+                    {
+                        TextDocument = new TextDocumentIdentifier(uri), Position = new Position(0, 11), Context = new ReferenceContext { IncludeDeclaration = true }
+                    },
+                    TestContext.Current.CancellationToken
+                );
+
+                var found = locations!.ToArray();
+                Assert.Single(found);
+                Assert.EndsWith("main.loom", found[0].Uri.Path, StringComparison.Ordinal);
+            },
+            "export fn double(n: number): number { return n * 2; }",
+            ("other.loom", "## double is described but never called\nlet note = \"double\";")
+        );
+
     [Fact]
     public async Task Rename_RewritesTheDeclarationAndEveryUse()
     {
