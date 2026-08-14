@@ -192,6 +192,96 @@ public class LanguageServerStructureTest
             ("other.loom", Other)
         );
 
+    /// <remarks>
+    ///     Each step of expand-selection has to be a step: an entry the same size as the one before it is a
+    ///     keypress that appears to do nothing, which is what a syntax tree full of single-child wrappers
+    ///     produces if they are all reported.
+    /// </remarks>
+    [Fact]
+    public async Task SelectionRanges_GrowStrictlyOutwardFromThePosition() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                var ranges = await new SelectionRangeHandler(store).Handle(
+                    new SelectionRangeParams
+                    {
+                        TextDocument = new TextDocumentIdentifier(uri), Positions = new Container<Position>(new Position(33, 8))
+                    },
+                    TestContext.Current.CancellationToken
+                );
+
+                var innermost = Assert.Single(ranges!);
+                var steps = 0;
+                for (var range = innermost; range.Parent != null; range = range.Parent)
+                {
+                    steps++;
+                    Assert.True(Contains(range.Parent.Range, range.Range), "each step has to contain the one before it");
+                    Assert.NotEqual(range.Range, range.Parent.Range);
+                }
+
+                Assert.True(steps > 2, "a position inside a loop inside a function should expand more than twice");
+            },
+            Source,
+            ("other.loom", Other)
+        );
+
+    [Fact]
+    public async Task SelectionRanges_AnswerOnePerPositionAsked() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                var ranges = await new SelectionRangeHandler(store).Handle(
+                    new SelectionRangeParams
+                    {
+                        TextDocument = new TextDocumentIdentifier(uri), Positions = new Container<Position>(new Position(33, 8), new Position(36, 10))
+                    },
+                    TestContext.Current.CancellationToken
+                );
+
+                Assert.Equal(2, ranges!.Count());
+            },
+            Source,
+            ("other.loom", Other)
+        );
+
+    /// <remarks>Where a relative specifier lands depends on which root the importing file belongs to, so the editor cannot follow one on its own.</remarks>
+    [Fact]
+    public async Task DocumentLinks_PointAModuleSpecifierAtTheFileItNames() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                var links = await new DocumentLinkHandler(store).Handle(
+                    new DocumentLinkParams { TextDocument = new TextDocumentIdentifier(uri) },
+                    TestContext.Current.CancellationToken
+                );
+
+                var link = Assert.Single(links!);
+                Assert.EndsWith("other.loom", link.Target!.Path, StringComparison.Ordinal);
+                Assert.Equal(0, link.Range.Start.Line);
+            },
+            Source,
+            ("other.loom", Other)
+        );
+
+    [Fact]
+    public async Task DocumentLinks_LeaveOutASpecifierThatResolvesToNothing() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                var links = await new DocumentLinkHandler(store).Handle(
+                    new DocumentLinkParams { TextDocument = new TextDocumentIdentifier(uri) },
+                    TestContext.Current.CancellationToken
+                );
+
+                Assert.Empty(links!);
+            },
+            "import { nothing } from \"./no-such-module\";\nlet x = 1;"
+        );
+
+    private static bool Contains(Range outer, Range inner) =>
+        (outer.Start.Line < inner.Start.Line || outer.Start.Line == inner.Start.Line && outer.Start.Character <= inner.Start.Character)
+        && (outer.End.Line > inner.End.Line || outer.End.Line == inner.End.Line && outer.End.Character >= inner.End.Character);
+
     [Fact]
     public async Task PrepareRename_AcceptsALocalAndRefusesAnImportedName() =>
         await Utility.WithLspProjectAsync(
