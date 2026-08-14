@@ -410,6 +410,78 @@ public class CompilationUnitTest
                 Utility.AssertNoErrors(fixedResult);
             }
         );
+    /// <remarks>
+    ///     A re-parsed file misses the import cache, which is the whole of how an edit to its import list is
+    ///     noticed - hitting the cache here would keep resolving the imports it used to have.
+    /// </remarks>
+    [Fact]
+    public void Recompile_WhenAFilesImportsChange_ResolvesTheNewOnes() =>
+        Utility.WithTempProject(
+            [("math.loom", "export let value: number = 1;"), ("main.loom", "import { value } from \"./math\"\nlet doubled: number = value;")],
+            (unit, first) =>
+            {
+                Utility.AssertNoErrors(first);
+                var mainFile = unit.SourceFiles.First(file => file.Name == "main.loom");
+
+                var second = unit.Recompile(
+                    new Dictionary<string, string> { [mainFile.AbsolutePath] = "import { value } from \"./nowhere\"\nlet doubled: number = value;" }
+                );
+
+                Utility.AssertDiagnostic(second.Diagnostics, InternalCodes.ModuleNotFound, "Could not find module './nowhere'.");
+            }
+        );
+
+    /// <remarks>
+    ///     A cycle is a fact about the whole graph rather than about one file's imports, so it is the one
+    ///     thing the import cache must not keep: the file that closed the cycle is re-parsed and re-resolved,
+    ///     but the other files in it are not, and a cycle reported into their kept diagnostics would outlive
+    ///     the import that caused it.
+    /// </remarks>
+    [Fact]
+    public void Recompile_AfterACycleIsBroken_StopsReportingIt() =>
+        Utility.WithTempProject(
+            [
+                ("a.loom", "import { b } from \"./b\"\nexport let a: number = b;"),
+                // the second import is what gives 'b' import diagnostics of its own, and so a kept bag for a
+                // cycle to be written into: a file with nothing wrong with its imports has no bag to spoil
+                ("b.loom", "import { a } from \"./a\"\nimport { z } from \"./nowhere\"\nexport let b: number = 1;")
+            ],
+            (unit, first) =>
+            {
+                Assert.Contains(first.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.CircularModuleDependency);
+                var aFile = unit.SourceFiles.First(file => file.Name == "a.loom");
+
+                // the edit is to 'a', so 'b' - the file the cycle was reported against - is answered from the
+                // import cache, and is the one that would go on reporting a cycle that is no longer there
+                unit.Recompile(new Dictionary<string, string> { [aFile.AbsolutePath] = "export let a: number = 1;" });
+
+                foreach (var file in unit.SourceFiles)
+                    Assert.DoesNotContain(
+                        unit.ModuleGraph!.GetDiagnostics(file)?.Set ?? [],
+                        diagnostic => diagnostic.Code == InternalCodes.CircularModuleDependency
+                    );
+            }
+        );
+
+    /// <remarks>What a file's own imports resolved to is kept between builds, so it has to be handed back as well as skipped.</remarks>
+    [Fact]
+    public void Recompile_KeepsTheImportDiagnosticsOfAFileItDidNotReparse() =>
+        Utility.WithTempProject(
+            [("broken.loom", "import { thing } from \"./nowhere\"\nlet x = 1;"), ("main.loom", "let y = 1;")],
+            (unit, first) =>
+            {
+                Utility.AssertDiagnostic(first.Diagnostics, InternalCodes.ModuleNotFound, "Could not find module './nowhere'.");
+                var brokenFile = unit.SourceFiles.First(file => file.Name == "broken.loom");
+                var mainFile = unit.SourceFiles.First(file => file.Name == "main.loom");
+
+                unit.Recompile(new Dictionary<string, string> { [mainFile.AbsolutePath] = "let y = 2;" });
+
+                var kept = unit.ModuleGraph!.GetDiagnostics(brokenFile);
+                Assert.NotNull(kept);
+                Assert.Contains(kept!.Set, diagnostic => diagnostic.Code == InternalCodes.ModuleNotFound);
+            }
+        );
+
     #endregion Recompile
 
     #region Failed

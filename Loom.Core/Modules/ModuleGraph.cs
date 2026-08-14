@@ -14,6 +14,7 @@ namespace Loom.Core.Modules;
 public sealed class ModuleGraph
 {
     private readonly ModuleDiagnostics _diagnostics;
+    private readonly ModuleDiagnostics _cycleDiagnostics;
     private readonly Dictionary<NodeId, SourceFile> _resolvedModules;
 
     private enum VisitState
@@ -37,6 +38,9 @@ public sealed class ModuleGraph
 
         public DiagnosticBag? Get(SourceFile file) => _bags.GetValueOrDefault(file);
 
+        /// <summary>Adopts a bag built elsewhere, which is how a file's cached resolution diagnostics get back in.</summary>
+        public void Put(SourceFile file, DiagnosticBag bag) => _bags[file] = bag;
+
         public DiagnosticBag Of(SourceFile file)
         {
             if (!_bags.TryGetValue(file, out var bag))
@@ -46,15 +50,48 @@ public sealed class ModuleGraph
         }
     }
 
+    /// <summary>
+    ///     What one build worked out about each file's imports, kept so that editing one file does not cost a
+    ///     re-resolution of every other file's. Resolving imports is most of what building the graph costs,
+    ///     and on an incremental compile almost every file's answer is the one it gave last time.
+    /// </summary>
+    /// <remarks>
+    ///     Keyed by the parse rather than by the file: re-parsing produces a new <see cref="ParsedFile" />,
+    ///     which misses the cache and is resolved again, while every file that was not re-parsed hits it. What
+    ///     an entry cannot survive is the set of files changing - an import that resolved to nothing may now
+    ///     resolve, and one that resolved may now be gone - but that cannot happen behind the cache's back:
+    ///     <see cref="CompilationUnit" /> answers a file appearing or vanishing with a full compile, which
+    ///     re-parses everything and so misses on every entry. An edge is stored as a path rather than as the
+    ///     <see cref="ParsedFile" /> it pointed at, since that file may since have been re-parsed into a new
+    ///     one, and a stale target would order and invalidate the wrong instance.
+    /// </remarks>
+    public sealed class Cache
+    {
+        private Dictionary<ParsedFile, ResolvedImports> _entries = new(ReferenceEqualityComparer.Instance);
+
+        internal ResolvedImports? Get(ParsedFile parsedFile) => _entries.GetValueOrDefault(parsedFile);
+
+        /// <summary>Keeps exactly what this build used, which is what drops the entries of files it re-parsed.</summary>
+        internal void Keep(Dictionary<ParsedFile, ResolvedImports> used) => _entries = used;
+    }
+
+    /// <summary>One file's imports as resolved, and whatever resolving them had to report.</summary>
+    internal sealed record ResolvedImports(List<CachedEdge> Edges, DiagnosticBag? Diagnostics);
+
+    /// <summary>An import that resolved, named by where it landed rather than by what was parsed there at the time.</summary>
+    internal sealed record CachedEdge(Node ModuleReference, string TargetPath);
+
     private ModuleGraph(
         List<ParsedFile> order,
         Dictionary<NodeId, SourceFile> resolvedModules,
         ModuleDiagnostics diagnostics,
+        ModuleDiagnostics cycleDiagnostics,
         Dictionary<SourceFile, List<SourceFile>> dependents)
     {
         Order = order;
         _resolvedModules = resolvedModules;
         _diagnostics = diagnostics;
+        _cycleDiagnostics = cycleDiagnostics;
         Dependents = dependents;
     }
 
@@ -67,49 +104,68 @@ public sealed class ModuleGraph
     public SourceFile? GetResolvedModule(Node moduleReference) => _resolvedModules.GetValueOrDefault(moduleReference.Id);
 
     /// <summary>Module diagnostics belonging to <paramref name="file" />, reported at its import sites.</summary>
-    public DiagnosticBag? GetDiagnostics(SourceFile file) => _diagnostics.Get(file);
+    /// <remarks>
+    ///     Two bags rather than one, because they are cached differently: what a file's own imports resolved to
+    ///     is a fact about that file, and is kept between builds; a cycle is a fact about the whole graph, and
+    ///     is worked out afresh every time, so that one going away takes its diagnostic with it.
+    /// </remarks>
+    public DiagnosticBag? GetDiagnostics(SourceFile file)
+    {
+        var resolution = _diagnostics.Get(file);
+        var cycles = _cycleDiagnostics.Get(file);
+        if (resolution == null || cycles == null)
+            return resolution ?? cycles;
+
+        return DiagnosticBag.Concat([resolution, cycles]);
+    }
 
     /// <param name="diagnosticOptionsOf">Reporting behavior per file, the unit's for every file when unspecified.</param>
-    public static ModuleGraph Build(List<ParsedFile> parsedFiles, SourceRootSet roots, Func<SourceFile, DiagnosticOptions>? diagnosticOptionsOf = null)
+    /// <param name="cache">What the previous build worked out, reused for every file that has not been re-parsed since.</param>
+    public static ModuleGraph Build(
+        List<ParsedFile> parsedFiles,
+        SourceRootSet roots,
+        Func<SourceFile, DiagnosticOptions>? diagnosticOptionsOf = null,
+        Cache? cache = null)
     {
+        var optionsOf = diagnosticOptionsOf ?? (_ => DiagnosticOptions.Default);
         var resolver = new ModuleResolver(parsedFiles.ConvertAll(parsedFile => parsedFile.File), roots);
         var parsedFilesByFile = new Dictionary<SourceFile, ParsedFile>();
-        foreach (var parsedFile in parsedFiles)
-            parsedFilesByFile.TryAdd(parsedFile.File, parsedFile);
-
-        var resolvedModules = new Dictionary<NodeId, SourceFile>();
-        var diagnostics = new ModuleDiagnostics(diagnosticOptionsOf ?? (_ => DiagnosticOptions.Default));
-        var dependencies = new Dictionary<SourceFile, List<ModuleEdge>>();
+        var parsedFilesByPath = new Dictionary<string, ParsedFile>(PathComparison.Comparer);
         foreach (var parsedFile in parsedFiles)
         {
-            var edges = new List<ModuleEdge>();
-            foreach (var (node, specifier, path) in ModuleReferencesOf(parsedFile))
+            parsedFilesByFile.TryAdd(parsedFile.File, parsedFile);
+            parsedFilesByPath.TryAdd(parsedFile.File.AbsolutePath, parsedFile);
+        }
+
+        var resolvedModules = new Dictionary<NodeId, SourceFile>();
+        var diagnostics = new ModuleDiagnostics(optionsOf);
+        var dependencies = new Dictionary<SourceFile, List<ModuleEdge>>();
+        var used = new Dictionary<ParsedFile, ResolvedImports>(ReferenceEqualityComparer.Instance);
+
+        foreach (var parsedFile in parsedFiles)
+        {
+            var imports = Reusable(cache?.Get(parsedFile), parsedFilesByPath)
+                ?? ResolveImports(parsedFile, resolver, parsedFilesByFile, roots, optionsOf(parsedFile.File));
+
+            used[parsedFile] = imports;
+            if (imports.Diagnostics != null)
+                diagnostics.Put(parsedFile.File, imports.Diagnostics);
+
+            var edges = new List<ModuleEdge>(imports.Edges.Count);
+            foreach (var edge in imports.Edges)
             {
-                var target = ResolveModuleReference(
-                    resolver,
-                    parsedFile,
-                    node,
-                    specifier,
-                    path,
-                    parsedFilesByFile,
-                    diagnostics
-                );
-
-                if (target == null)
-                    continue;
-
-                // The edge is still recorded: the import resolved, and dropping it here would bury the realm
-                // error under "cannot find name" for everything the module publishes.
-                ReportRealmViolation(parsedFile.File, target.File, specifier, roots, diagnostics);
-
-                resolvedModules[node.Id] = target.File;
-                edges.Add(new ModuleEdge(node, target));
+                var target = parsedFilesByPath[edge.TargetPath];
+                resolvedModules[edge.ModuleReference.Id] = target.File;
+                edges.Add(new ModuleEdge(edge.ModuleReference, target));
             }
 
             dependencies[parsedFile.File] = edges;
         }
 
-        var order = Sort(parsedFiles, dependencies, roots, diagnostics);
+        cache?.Keep(used);
+
+        var cycleDiagnostics = new ModuleDiagnostics(optionsOf);
+        var order = Sort(parsedFiles, dependencies, roots, cycleDiagnostics);
         var dependents = new Dictionary<SourceFile, List<SourceFile>>();
         foreach (var (file, edges) in dependencies)
             foreach (var edge in edges)
@@ -120,7 +176,53 @@ public sealed class ModuleGraph
                 importers.Add(file);
             }
 
-        return new ModuleGraph(order, resolvedModules, diagnostics, dependents);
+        return new ModuleGraph(order, resolvedModules, diagnostics, cycleDiagnostics, dependents);
+    }
+
+    /// <summary>
+    ///     The cached entry, if every file it points at is still one of this build's. A target that has gone
+    ///     means the set of files changed without the cache being told, and the whole entry is then worth
+    ///     nothing - resolving again is cheap next to answering with a module that is not there.
+    /// </summary>
+    private static ResolvedImports? Reusable(ResolvedImports? cached, Dictionary<string, ParsedFile> parsedFilesByPath)
+    {
+        if (cached == null)
+            return null;
+
+        foreach (var edge in cached.Edges)
+            if (!parsedFilesByPath.ContainsKey(edge.TargetPath))
+                return null;
+
+        return cached;
+    }
+
+    /// <summary>
+    ///     Resolves one file's imports, reporting whatever it finds into a bag of that file's own. Nothing
+    ///     here reads the rest of the graph, which is what makes the answer worth keeping between builds.
+    /// </summary>
+    private static ResolvedImports ResolveImports(
+        ParsedFile parsedFile,
+        ModuleResolver resolver,
+        Dictionary<SourceFile, ParsedFile> parsedFilesByFile,
+        SourceRootSet roots,
+        DiagnosticOptions options)
+    {
+        DiagnosticBag? bag = null;
+        var edges = new List<CachedEdge>();
+        foreach (var (node, specifier, path) in ModuleReferencesOf(parsedFile))
+        {
+            var target = ResolveModuleReference(resolver, parsedFile, node, specifier, path, parsedFilesByFile, ref bag, options);
+            if (target == null)
+                continue;
+
+            // The edge is still recorded: the import resolved, and dropping it here would bury the realm
+            // error under "cannot find name" for everything the module publishes.
+            ReportRealmViolation(parsedFile.File, target.File, specifier, roots, ref bag, options);
+
+            edges.Add(new CachedEdge(node, target.File.AbsolutePath));
+        }
+
+        return new ResolvedImports(edges, bag);
     }
 
     /// <summary>
@@ -134,7 +236,8 @@ public sealed class ModuleGraph
         SourceFile imported,
         Node moduleReference,
         SourceRootSet roots,
-        ModuleDiagnostics diagnostics)
+        ref DiagnosticBag? bag,
+        DiagnosticOptions options)
     {
         var from = roots.RealmOf(importing);
         var to = roots.RealmOf(imported);
@@ -142,8 +245,8 @@ public sealed class ModuleGraph
             return;
 
         Report(
-            diagnostics,
-            importing,
+            ref bag,
+            options,
             moduleReference,
             InternalCodes.RealmBoundaryCrossed,
             $"A {Describe(from)} module cannot import a {Describe(to)} one.",
@@ -186,13 +289,14 @@ public sealed class ModuleGraph
         Literal moduleSpecifier,
         string? specifier,
         Dictionary<SourceFile, ParsedFile> parsedFilesByFile,
-        ModuleDiagnostics diagnostics)
+        ref DiagnosticBag? bag,
+        DiagnosticOptions options)
     {
         if (parsedFile.File.IsDeclaration)
         {
             Report(
-                diagnostics,
-                parsedFile.File,
+                ref bag,
+                options,
                 moduleReference,
                 InternalCodes.ImportInDeclarationFile,
                 "Declaration files cannot import modules.",
@@ -213,8 +317,8 @@ public sealed class ModuleGraph
 
             case ModuleResolutionStatus.UnsupportedSpecifier:
                 Report(
-                    diagnostics,
-                    parsedFile.File,
+                    ref bag,
+                options,
                     moduleSpecifier,
                     InternalCodes.UnsupportedModuleSpecifier,
                     $"Module '{specifier}' is neither a relative path nor a package name.",
@@ -227,8 +331,8 @@ public sealed class ModuleGraph
 
             case ModuleResolutionStatus.PackageNotFound:
                 Report(
-                    diagnostics,
-                    parsedFile.File,
+                    ref bag,
+                options,
                     moduleSpecifier,
                     InternalCodes.PackageNotFound,
                     $"Cannot find package '{resolution.Package}'.",
@@ -239,8 +343,8 @@ public sealed class ModuleGraph
 
             case ModuleResolutionStatus.UndeclaredDependency:
                 Report(
-                    diagnostics,
-                    parsedFile.File,
+                    ref bag,
+                options,
                     moduleSpecifier,
                     InternalCodes.UndeclaredDependency,
                     $"Package '{resolution.Package}' is not a dependency of this project.",
@@ -251,8 +355,8 @@ public sealed class ModuleGraph
 
             case ModuleResolutionStatus.SelfImport:
                 Report(
-                    diagnostics,
-                    parsedFile.File,
+                    ref bag,
+                options,
                     moduleSpecifier,
                     InternalCodes.SelfImport,
                     "A module cannot import itself."
@@ -262,8 +366,8 @@ public sealed class ModuleGraph
 
             case ModuleResolutionStatus.OutsideSourceDirectory:
                 Report(
-                    diagnostics,
-                    parsedFile.File,
+                    ref bag,
+                options,
                     moduleSpecifier,
                     InternalCodes.ModuleOutsideSourceDirectory,
                     $"Module '{specifier}' is outside the source directory."
@@ -274,8 +378,8 @@ public sealed class ModuleGraph
             case ModuleResolutionStatus.NotFound:
             default:
                 Report(
-                    diagnostics,
-                    parsedFile.File,
+                    ref bag,
+                options,
                     moduleSpecifier,
                     InternalCodes.ModuleNotFound,
                     $"Could not find module '{specifier}'.",
@@ -354,4 +458,18 @@ public sealed class ModuleGraph
         string message,
         string? hint = null) =>
         diagnostics.Of(file).Error(node, code, message, hint);
+
+    /// <summary>
+    ///     Reports into the bag of the file being resolved, making one only if there turns out to be something
+    ///     to put in it - most files import nothing that is wrong with them, and a bag each would be an
+    ///     allocation per file per build to hold nothing.
+    /// </summary>
+    private static void Report(
+        ref DiagnosticBag? bag,
+        DiagnosticOptions options,
+        Node node,
+        string code,
+        string message,
+        string? hint = null) =>
+        (bag ??= new DiagnosticBag(options: options)).Error(node, code, message, hint);
 }

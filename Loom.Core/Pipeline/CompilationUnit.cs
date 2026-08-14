@@ -98,6 +98,14 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     /// </summary>
     public ModuleGraph? ModuleGraph { get; private set; }
 
+    /// <summary>
+    ///     What the last build worked out about each file's imports. An incremental compile re-parses only the
+    ///     files that changed, so every other file's entry is still the answer - which is what keeps the graph
+    ///     from being resolved from scratch on every keystroke. A file appearing or vanishing routes through
+    ///     <see cref="Compile()" />, which re-parses everything and so leaves nothing of the cache standing.
+    /// </summary>
+    private readonly ModuleGraph.Cache _moduleGraphCache = new();
+
     private readonly Dictionary<string, (Compiler Compiler, ParsedFile Parsed)> _parsedByPath = new(_pathComparer);
     private readonly Dictionary<string, (CompiledFile CompiledFile, TimeSpan AnalyzeDuration)> _compiledByPath = new(_pathComparer);
 
@@ -375,7 +383,7 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     {
         try
         {
-            return ModuleGraph.Build(parsedFiles.ConvertAll(parsed => parsed.ParsedFile), Roots, DiagnosticOptionsFor);
+            return ModuleGraph.Build(parsedFiles.ConvertAll(parsed => parsed.ParsedFile), Roots, DiagnosticOptionsFor, _moduleGraphCache);
         }
         catch (Exception e)
         {
