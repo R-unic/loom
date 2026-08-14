@@ -11,19 +11,70 @@ namespace Loom.LanguageServer;
 /// <summary>A file the editor reported as changed on disk, and whether it is still there.</summary>
 public sealed record WatchedFile(string Path, bool Exists);
 
+/// <summary>One project the server has compiled, and the files its last compile produced.</summary>
+public sealed record CompiledProject(CompilationUnit Unit, IReadOnlyList<CompiledFile> Files);
+
 /// <summary>
 ///     Everything a request about one open document is answered from. The unit comes along because a symbol's
 ///     origin - which package, which module, whether it is ambient at all - is a fact about the whole compile
 ///     rather than about the file the cursor is in.
 /// </summary>
-public sealed record DocumentState(CompiledFile File, CompilationUnit Unit, CompletionSnapshot Completions)
+/// <param name="Modules">
+///     The unit's modules, indexed once per compile and shared by everything answering from this state.
+///     Building one walks every file of the project, and it holds the <see cref="SourceFile" /> instances
+///     of the compile it was built for - which is exactly this state's lifetime, and no longer.
+/// </param>
+public sealed record DocumentState(CompiledFile File, CompilationUnit Unit, ModuleResolver Modules)
 {
     /// <summary>
-    ///     The unit's modules, indexed once per compile and shared by everything answering from this state.
-    ///     Building one walks every file of the project, and it holds the <see cref="SourceFile" /> instances
-    ///     of the compile it was built for - which is exactly this state's lifetime, and no longer.
+    ///     The store's own compile lock, threaded in so the deferred build below still runs under it. Every
+    ///     mutation of <see cref="Unit" />'s shared state (<c>Globals</c>, <c>AnalyzedModules</c>) happens
+    ///     under this same lock; without it, a request answered from an older state could read those
+    ///     collections while a concurrent compile of another open document is clearing and repopulating them.
+    ///     Defaults to a lock of its own rather than being required, since a record this public cannot carry a
+    ///     required member the store's lock is not meant to be part of the public surface of.
     /// </summary>
-    public required ModuleResolver Modules { get; init; }
+    internal Lock CompilationLock { get; init; } = new();
+
+    /// <summary>What may be written at each offset of this file.</summary>
+    /// <remarks>
+    ///     Built the first time something asks rather than with the compile, because completion is the only
+    ///     request that reads it and every request moves the state. Building it costs about as much again as
+    ///     the incremental compile that produced the state, and more as the project grows - the names other
+    ///     modules export are collected across the whole unit - so a hover, a highlight or a diagnostic
+    ///     publish was paying a completion's price to answer a question that looks at none of it.
+    ///     <para>
+    ///         Still one snapshot per state: a state describes one compile, so what it offers cannot change
+    ///         under a request that already read it, and the next compile builds a state to replace this one.
+    ///     </para>
+    /// </remarks>
+    public CompletionSnapshot Completions
+    {
+        get
+        {
+            if (field != null)
+                return field;
+
+            lock (CompilationLock)
+                return field ??= Build(File, Unit, Modules);
+        }
+    }
+
+    /// <remarks>
+    ///     A snapshot that cannot be built is empty rather than fatal: the compiler bug behind it would
+    ///     otherwise take down every request the document answers, not just the completions.
+    /// </remarks>
+    private static CompletionSnapshot Build(CompiledFile file, CompilationUnit unit, ModuleResolver modules)
+    {
+        try
+        {
+            return CompletionSnapshotBuilder.Build(file, unit, modules);
+        }
+        catch (Exception)
+        {
+            return CompletionSnapshot.Empty;
+        }
+    }
 }
 
 public sealed class DocumentStore
@@ -127,6 +178,27 @@ public sealed class DocumentStore
 
     /// <summary>Whether the document has edits the last compile did not see.</summary>
     public bool IsDirty(DocumentUri uri) => _documents.TryGetValue(uri, out var document) && document.IsDirty;
+
+    /// <summary>
+    ///     Every file of every project the server has compiled, for the questions asked about the workspace
+    ///     rather than about one document.
+    /// </summary>
+    /// <remarks>
+    ///     A project enters the store when a document is opened from it, so this covers what the user has
+    ///     been in rather than everything on disk - a workspace may hold projects nothing has ever opened,
+    ///     and compiling them to answer a search would compile the disk. Files that were already compiled
+    ///     are not recompiled here: the answer describes the last compile of each project, which is the same
+    ///     text every other answer describes.
+    /// </remarks>
+    public IReadOnlyList<CompiledFile> CompiledFiles() => Projects().SelectMany(project => project.Files).ToArray();
+
+    /// <inheritdoc cref="CompiledFiles" />
+    /// <remarks>Grouped by project for the questions that need the unit as well as the file - what a specifier resolves to is decided by the roots it is written in.</remarks>
+    public IReadOnlyList<CompiledProject> Projects()
+    {
+        lock (_compilationLock)
+            return _results.Select(entry => new CompiledProject(entry.Key, entry.Value.Files)).ToArray();
+    }
 
     /// <summary>
     ///     Takes in changes made to files outside the editor - a branch switch, a generator, another tool - and
@@ -274,7 +346,7 @@ public sealed class DocumentStore
 
             var file = result.Files.Find(compiled => FilePaths.Same(compiled.SourceFile.AbsolutePath, open.Path));
             if (file != null)
-                _state[openUri] = new DocumentState(file, unit, BuildCompletions(file, unit, modules)) { Modules = modules };
+                _state[openUri] = new DocumentState(file, unit, modules) { CompilationLock = _compilationLock };
         }
     }
 
@@ -309,18 +381,6 @@ public sealed class DocumentStore
     }
 
     private CompilationUnit? UnitOf(OpenDocument document) => document.Unit ??= GetOrCreateUnit(document.Path);
-
-    private static CompletionSnapshot BuildCompletions(CompiledFile file, CompilationUnit unit, ModuleResolver modules)
-    {
-        try
-        {
-            return CompletionSnapshotBuilder.Build(file, unit, modules);
-        }
-        catch (Exception)
-        {
-            return CompletionSnapshot.Empty;
-        }
-    }
 
     private CompilationUnit? GetOrCreateUnit(string absolutePath)
     {
