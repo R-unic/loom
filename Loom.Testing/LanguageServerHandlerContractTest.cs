@@ -45,6 +45,27 @@ public class LanguageServerHandlerContractTest
         yield return ("DocumentSymbol", async (s, u, _) => await new DocumentSymbolHandler(s).Handle(new DocumentSymbolParams { TextDocument = new TextDocumentIdentifier(u) }, Cancel));
         yield return ("InlayHint", async (s, u, _) => await new InlayHintHandler(s).Handle(new InlayHintParams { TextDocument = new TextDocumentIdentifier(u), Range = WholeFile }, Cancel));
         yield return ("CodeAction", async (s, u, _) => await new CodeActionHandler(s).Handle(new CodeActionParams { TextDocument = new TextDocumentIdentifier(u), Range = WholeFile, Context = new CodeActionContext() }, Cancel));
+        yield return ("SemanticTokens", async (s, u, _) => await new SemanticTokensHandler(s).Handle(new SemanticTokensParams { TextDocument = new TextDocumentIdentifier(u) }, Cancel));
+        yield return ("DocumentLink", async (s, u, _) => await new DocumentLinkHandler(s).Handle(new DocumentLinkParams { TextDocument = new TextDocumentIdentifier(u) }, Cancel));
+        yield return (
+            "CodeLens",
+            async (s, u, _) => await new CodeLensHandler(s, new ServerSettings()).Handle(new CodeLensParams { TextDocument = new TextDocumentIdentifier(u) }, Cancel)
+        );
+        yield return (
+            "SelectionRange",
+            async (s, u, p) => await new SelectionRangeHandler(s).Handle(
+                new SelectionRangeParams { TextDocument = new TextDocumentIdentifier(u), Positions = new Container<Position>(p) },
+                Cancel
+            )
+        );
+        yield return (
+            "CallHierarchyPrepare",
+            async (s, u, p) => await new CallHierarchyPrepareHandler(s).Handle(new CallHierarchyPrepareParams { TextDocument = new TextDocumentIdentifier(u), Position = p }, Cancel)
+        );
+        yield return (
+            "TypeHierarchyPrepare",
+            async (s, u, p) => await new TypeHierarchyPrepareHandler(s).Handle(new TypeHierarchyPrepareParams { TextDocument = new TextDocumentIdentifier(u), Position = p }, Cancel)
+        );
     }
 
     private static CancellationToken Cancel => TestContext.Current.CancellationToken;
@@ -77,6 +98,8 @@ public class LanguageServerHandlerContractTest
         {
             null => 0,
             CompletionList completions => completions.Count(),
+            // a token list is always returned; what says the handler found nothing is that it holds no tokens
+            SemanticTokens tokens => tokens.Data.Count(),
             System.Collections.IEnumerable items => items.Cast<object>().Count(),
             _ => 1
         };
@@ -122,13 +145,17 @@ public class LanguageServerHandlerContractTest
     private static object Construct(Type type)
     {
         var store = new DocumentStore();
-        var constructor = type.GetConstructors().Single();
+        // a handler testable the way DiagnosticPublisher is - a real dependency alongside a delegate a test
+        // can supply instead - declares more than one constructor; either produces something this test can
+        // call CreateRegistrationOptions on, so which one is picked does not matter here
+        var constructor = type.GetConstructors()[0];
         var arguments = constructor.GetParameters()
             .Select(object? (parameter) =>
                 {
                     if (parameter.ParameterType == typeof(DocumentStore)) return store;
                     if (parameter.ParameterType == typeof(DiagnosticPublisher)) return new DiagnosticPublisher(static _ => { });
                     if (parameter.ParameterType == typeof(Debouncer)) return new Debouncer(TimeSpan.Zero);
+                    if (parameter.ParameterType == typeof(ServerSettings)) return new ServerSettings();
 
                     return null;
                 }
