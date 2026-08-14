@@ -131,6 +131,29 @@ public class DocumentSymbolHandlerTest
         );
     }
 
+    /// <remarks>
+    ///     Rendering a declaration resolves and formats its type, which is most of what an outline costs. The
+    ///     outline view shows the result beside each name; the workspace symbol search, which asks for every
+    ///     file's outline on every keystroke, has nowhere to put it.
+    /// </remarks>
+    [Fact]
+    public async Task Of_WithoutDescriptions_NamesTheSameDeclarationsWithoutRenderingTheirSignatures() =>
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                var described = DocumentOutline.Of(state.File);
+                var bare = DocumentOutline.Of(state.File, describe: false);
+
+                Assert.Equal(described.Select(symbol => symbol.Name), bare.Select(symbol => symbol.Name));
+                Assert.Equal(described.Select(symbol => symbol.Kind), bare.Select(symbol => symbol.Kind));
+                Assert.Contains(described, symbol => !string.IsNullOrEmpty(symbol.Detail));
+                Assert.All(bare, symbol => Assert.True(string.IsNullOrEmpty(symbol.Detail)));
+                return Task.CompletedTask;
+            },
+            "interface Player { name: string; }\nfn main(): void { }\nlet count = 1;"
+        );
+
     private static async Task<DocumentSymbol[]> OutlineAsync(string source)
     {
         var symbols = Array.Empty<DocumentSymbol>();

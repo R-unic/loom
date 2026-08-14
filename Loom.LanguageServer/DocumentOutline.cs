@@ -16,41 +16,53 @@ namespace Loom.LanguageServer;
 /// </summary>
 public static class DocumentOutline
 {
-    public static IReadOnlyList<DocumentSymbol> Of(CompiledFile file) =>
-        file.Tree.Statements.Select(statement => ToSymbol(statement, file.SemanticModel, LspSymbolKind.Function)).OfType<DocumentSymbol>().ToArray();
+    /// <param name="describe">
+    ///     Whether each entry carries the signature its declaration reads as. Off for a caller with nowhere
+    ///     to show one: rendering a declaration means resolving and formatting its type, which across a whole
+    ///     project is most of what building the outline costs, and the workspace symbol search that asks for
+    ///     every file's outline on every keystroke has no field to put the answer in.
+    /// </param>
+    public static IReadOnlyList<DocumentSymbol> Of(CompiledFile file, bool describe = true) =>
+        file.Tree.Statements
+            .Select(statement => ToSymbol(statement, new Outline(file.SemanticModel, describe), LspSymbolKind.Function))
+            .OfType<DocumentSymbol>()
+            .ToArray();
+
+    /// <summary>What every entry of one outline is built against: the file's own model, and how much to say about each name.</summary>
+    private sealed record Outline(SemanticModel Model, bool Describe);
 
     /// <param name="functionKind">
     ///     What a function-shaped declaration is called in this position - a free <c>Function</c> at the top
     ///     level, a <c>Method</c> inside an interface, trait, or implementation.
     /// </param>
-    private static DocumentSymbol? ToSymbol(Statement statement, SemanticModel semanticModel, LspSymbolKind functionKind)
+    private static DocumentSymbol? ToSymbol(Statement statement, Outline outline, LspSymbolKind functionKind)
     {
         switch (statement)
         {
             // 'export' and 'declare' wrap the declaration that carries the name; the outline entry keeps the
             // wrapper's range, so selecting it in the outline selects the whole statement as written
             case ExportDeclaration export:
-                return Rerange(ToSymbol(export.Declaration, semanticModel, functionKind), export);
+                return Rerange(ToSymbol(export.Declaration, outline, functionKind), export);
             case Declare declare:
-                return Rerange(ToSymbol(declare.Signature, semanticModel, functionKind), declare);
+                return Rerange(ToSymbol(declare.Signature, outline, functionKind), declare);
             case InterfaceDeclaration @interface:
-                return Build(@interface, @interface.Name, LspSymbolKind.Interface, semanticModel, Members(@interface.Body?.Members, semanticModel));
+                return Build(@interface, @interface.Name, LspSymbolKind.Interface, outline, Members(@interface.Body?.Members, outline));
             case TraitDeclaration trait:
-                return Build(trait, trait.Name, LspSymbolKind.Interface, semanticModel, Members(trait.Body.Members, semanticModel));
+                return Build(trait, trait.Name, LspSymbolKind.Interface, outline, Members(trait.Body.Members, outline));
             case EnumDeclaration @enum:
-                return Build(@enum, @enum.Name, LspSymbolKind.Enum, semanticModel, @enum.Members.ConvertAll(member => EnumMemberSymbol(member, semanticModel)));
+                return Build(@enum, @enum.Name, LspSymbolKind.Enum, outline, @enum.Members.ConvertAll(member => EnumMemberSymbol(member, outline)));
             case Implement implement:
-                return ImplementSymbol(implement, semanticModel);
+                return ImplementSymbol(implement, outline);
             case TypeAlias alias:
-                return Build(alias, alias.Name, LspSymbolKind.Struct, semanticModel, []);
+                return Build(alias, alias.Name, LspSymbolKind.Struct, outline, []);
             case EventDeclaration @event:
-                return Build(@event, @event.Name, LspSymbolKind.Event, semanticModel, []);
+                return Build(@event, @event.Name, LspSymbolKind.Event, outline, []);
             case DeclareFunctionSignature function:
-                return Build(function, function.Name, functionKind, semanticModel, []);
+                return Build(function, function.Name, functionKind, outline, []);
             case DeclareVariableSignature variable:
-                return Build(variable, variable.Name, VariableKind(variable), semanticModel, []);
+                return Build(variable, variable.Name, VariableKind(variable), outline, []);
             case PropertyDeclaration property:
-                return Build(property, property.Name, PropertyKind(property), semanticModel, []);
+                return Build(property, property.Name, PropertyKind(property), outline, []);
             case IndexerDeclaration indexer:
                 return IndexerSymbol(indexer);
             default:
@@ -58,10 +70,10 @@ public static class DocumentOutline
         }
     }
 
-    private static List<DocumentSymbol> Members(IEnumerable<Statement>? members, SemanticModel semanticModel) =>
-        members?.Select(member => ToSymbol(member, semanticModel, LspSymbolKind.Method)).OfType<DocumentSymbol>().ToList() ?? [];
+    private static List<DocumentSymbol> Members(IEnumerable<Statement>? members, Outline outline) =>
+        members?.Select(member => ToSymbol(member, outline, LspSymbolKind.Method)).OfType<DocumentSymbol>().ToList() ?? [];
 
-    private static DocumentSymbol ImplementSymbol(Implement implement, SemanticModel semanticModel) =>
+    private static DocumentSymbol ImplementSymbol(Implement implement, Outline outline) =>
         new()
         {
             Name = implement.TraitName.Name.Text,
@@ -69,14 +81,14 @@ public static class DocumentOutline
             Kind = LspSymbolKind.Interface,
             Range = Conversion.ToRange(implement.LocationSpan),
             SelectionRange = Conversion.ToRange(implement.TraitName.Name.GetLocation()),
-            Children = new Container<DocumentSymbol>(Members(implement.Body.Implementations, semanticModel))
+            Children = new Container<DocumentSymbol>(Members(implement.Body.Implementations, outline))
         };
 
-    private static DocumentSymbol EnumMemberSymbol(EnumMember member, SemanticModel semanticModel) =>
+    private static DocumentSymbol EnumMemberSymbol(EnumMember member, Outline outline) =>
         new()
         {
             Name = member.Name.Text,
-            Detail = ConstantText(member, semanticModel),
+            Detail = ConstantText(member, outline),
             Kind = LspSymbolKind.EnumMember,
             Range = Conversion.ToRange(member.LocationSpan),
             SelectionRange = Conversion.ToRange(member.Name.GetLocation())
@@ -97,14 +109,14 @@ public static class DocumentOutline
         Node declaration,
         Token name,
         LspSymbolKind kind,
-        SemanticModel semanticModel,
+        Outline outline,
         List<DocumentSymbol> children)
     {
-        var symbol = semanticModel.GetDeclarationSymbol(declaration);
+        var symbol = outline.Model.GetDeclarationSymbol(declaration);
         return new DocumentSymbol
         {
             Name = name.Text,
-            Detail = symbol == null ? "" : DeclarationDisplay.CompletionDetail(symbol, TypeOf(semanticModel, declaration)),
+            Detail = symbol == null || !outline.Describe ? "" : DeclarationDisplay.CompletionDetail(symbol, TypeOf(outline, declaration)),
             Kind = kind,
             Tags = symbol != null && DeclarationDisplay.DeprecationOf(symbol) != null ? new Container<SymbolTag>(SymbolTag.Deprecated) : null,
             Range = Conversion.ToRange(declaration.LocationSpan),
@@ -126,14 +138,14 @@ public static class DocumentOutline
     private static LspSymbolKind PropertyKind(PropertyDeclaration property) =>
         property.ColonTypeClause.Type is AstFunctionType ? LspSymbolKind.Method : LspSymbolKind.Property;
 
-    private static string ConstantText(EnumMember member, SemanticModel semanticModel) =>
-        TypeOf(semanticModel, member) is { } type ? $" = {type}" : "";
+    private static string ConstantText(EnumMember member, Outline outline) =>
+        outline.Describe && TypeOf(outline, member) is { } type ? $" = {type}" : "";
 
-    private static Type? TypeOf(SemanticModel semanticModel, Node node)
+    private static Type? TypeOf(Outline outline, Node node)
     {
         try
         {
-            return semanticModel.GetType(node);
+            return outline.Model.GetType(node);
         }
         catch (Exception)
         {
