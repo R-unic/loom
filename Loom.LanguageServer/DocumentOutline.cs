@@ -51,7 +51,7 @@ public static class DocumentOutline
                 return Build(trait, trait.Name, LspSymbolKind.Interface, outline, Members(trait.Body.Members, outline));
             case EnumDeclaration @enum:
                 return Build(@enum, @enum.Name, LspSymbolKind.Enum, outline, @enum.Members.ConvertAll(member => EnumMemberSymbol(member, outline)));
-            case Implement implement:
+            case Implement implement when implement.TraitName.Name.Text.Length > 0:
                 return ImplementSymbol(implement, outline);
             case TypeAlias alias:
                 return Build(alias, alias.Name, LspSymbolKind.Struct, outline, []);
@@ -105,13 +105,24 @@ public static class DocumentOutline
             SelectionRange = Conversion.ToRange(indexer.LocationSpan)
         };
 
-    private static DocumentSymbol Build(
+    /// <summary>
+    ///     Null for a declaration whose name the parser had to synthesize - typing just <c>let</c> leaves a
+    ///     <c>VariableDeclaration</c> with no identifier yet, and the token standing in for it is empty. The
+    ///     outline is read while the file is mid-edit more than any other request, so this is the ordinary
+    ///     case rather than a rare one; an empty name reaching the client fails LSP's own validation
+    ///     (<c>DocumentSymbol.name</c> must be non-empty), which takes the whole outline down with it rather
+    ///     than just leaving one entry out.
+    /// </summary>
+    private static DocumentSymbol? Build(
         Node declaration,
         Token name,
         LspSymbolKind kind,
         Outline outline,
         List<DocumentSymbol> children)
     {
+        if (name.Text.Length == 0)
+            return null;
+
         var symbol = outline.Model.GetDeclarationSymbol(declaration);
         return new DocumentSymbol
         {

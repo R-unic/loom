@@ -117,6 +117,30 @@ public class DocumentSymbolHandlerTest
     [Fact]
     public async Task Handle_LeavesOutStatementsThatDeclareNothing() => Assert.Empty(await OutlineAsync("print(\"hi\");"));
 
+    /// <remarks>
+    ///     Typing just 'let' - the ordinary state of the line while it is still being written - leaves the
+    ///     parser with no identifier to give the declaration; it synthesizes an empty one rather than
+    ///     failing outright. LSP requires DocumentSymbol.name to be non-empty, so surfacing that empty name
+    ///     used to fail the whole outline request in VS Code rather than just omitting the one entry.
+    /// </remarks>
+    [Fact]
+    public async Task Handle_OmitsADeclarationWhoseNameIsNotYetTyped()
+    {
+        var symbols = await OutlineAsync("fn before(): void { }\nlet");
+
+        Assert.Equal(["before"], symbols.Select(symbol => symbol.Name));
+        Assert.All(symbols, symbol => Assert.False(string.IsNullOrEmpty(symbol.Name)));
+    }
+
+    /// <inheritdoc cref="Handle_OmitsADeclarationWhoseNameIsNotYetTyped" />
+    [Fact]
+    public async Task Handle_OmitsAnIncompleteImplementBlock()
+    {
+        var symbols = await OutlineAsync("interface User { name: string; }\nimplement");
+
+        Assert.Equal(["User"], symbols.Select(symbol => symbol.Name));
+    }
+
     [Fact]
     public async Task Handle_ForAnUnknownDocument_ReturnsNothing()
     {
