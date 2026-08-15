@@ -56,8 +56,6 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     /// <seealso cref="DiagnosticBag.AttributedTo" />
     public string? PackageAttributionOf(SourceFile file)
     {
-        // a unit spanning one project has no dependencies to attribute anything to, so it need not ask which
-        // root owns the file - the question every file of every compile would otherwise be paying for
         if (DiagnosticOptions.ReportDependencyDiagnostics || Roots.Count == 1)
             return null;
 
@@ -99,10 +97,10 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
     public ModuleGraph? ModuleGraph { get; private set; }
 
     /// <summary>
-    ///     What the last build worked out about each file's imports. An incremental compile re-parses only the
+    ///     What the last build worked out about each file's imports. An incremental compile reparses only the
     ///     files that changed, so every other file's entry is still the answer - which is what keeps the graph
     ///     from being resolved from scratch on every keystroke. A file appearing or vanishing routes through
-    ///     <see cref="Compile()" />, which re-parses everything and so leaves nothing of the cache standing.
+    ///     <see cref="Compile()" />, which reparses everything and so leaves nothing of the cache standing.
     /// </summary>
     private readonly ModuleGraph.Cache _moduleGraphCache = new();
 
@@ -118,9 +116,6 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
         AnalyzedModules.Clear();
 
         var failures = new List<FailedFile>();
-
-        // phase one: every file is lexed and parsed before any of them is analyzed, so module
-        // dependencies can be read off the parsed trees and analyzed in the order they require
         var parsedFiles = ParseAll(failures);
         var compilers = new Dictionary<SourceFile, Compiler>();
         foreach (var (compiler, parsedFile) in parsedFiles)
@@ -135,9 +130,7 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
             {
                 Failures = failures, Elapsed = stopwatch.Elapsed
             };
-
-        // phase two: declaration files first — their top-level symbols become globals that every
-        // other file resolves against. Both groups keep the graph's dependency order.
+        
         var compiledDeclarationFiles = analyzeAll(parsedFile => parsedFile.File.IsDeclaration);
         PopulateGlobals(compiledDeclarationFiles);
 
@@ -201,7 +194,7 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
                 Roots.Replace(new SourceFile(path, content));
 
         if (_compiledByPath.Count == 0
-            || changedAbsolutePaths.Any(path => !_parsedByPath.ContainsKey(path) || (resolveContent(path) == null && !File.Exists(path))))
+            || changedAbsolutePaths.Any(path => !_parsedByPath.ContainsKey(path) || resolveContent(path) == null && !File.Exists(path)))
             return Compile();
 
         var stopwatch = Stopwatch.StartNew();
@@ -238,10 +231,7 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
             {
                 Failures = failures, Elapsed = stopwatch.Elapsed
             };
-
-        // the comparer has to be carried over rather than left to default: what goes in here is compared
-        // against a parsed file's own spelling of its path, and an ordinal compare answers "not changed"
-        // for a file whose drive letter reached us in the other case
+        
         var dirty = new HashSet<string>(changedAbsolutePaths, _pathComparer);
         var reanalyzed = new List<SourceFile>();
         var timeSaved = TimeSpan.Zero;
@@ -325,7 +315,6 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
         var path = parsedFile.File.AbsolutePath;
         if (compiledFile == null)
         {
-            // the file has no semantic model to hand its importers, so it stays out of the unit
             failures.Add(new FailedFile(parsedFile.File, compiler.Diagnostics));
             _compiledByPath.Remove(path);
             return null;
@@ -387,7 +376,6 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
         }
         catch (Exception e)
         {
-            // no file to blame: the graph is the unit's, not any one file's
             var diagnostics = new DiagnosticBag(options: DiagnosticOptions);
             diagnostics.CompilerError(SourceFile.Empty, $"The compiler threw an exception building the module graph!\n{e.Message}\n{e.StackTrace}");
             failures.AddRange(

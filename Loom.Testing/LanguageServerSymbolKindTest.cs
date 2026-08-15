@@ -1,5 +1,4 @@
 using Loom.LanguageServer;
-using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Loom.Testing;
@@ -76,8 +75,7 @@ public class LanguageServerSymbolKindTest
     [InlineData(13, 4, "name")]
     [InlineData(21, 6, "fired")]
     [InlineData(23, 5, "Alias")]
-    public async Task Hover_DescribesEachDeclarationKind(int line, int character, string expected) =>
-        Assert.Contains(expected, await HoverAsync(line, character));
+    public async Task Hover_DescribesEachDeclarationKind(int line, int character, string expected) => Assert.Contains(expected, await HoverAsync(line, character));
 
     /// <remarks>
     ///     A name that arrived through an import is described by where it came from, not just by its type -
@@ -109,7 +107,7 @@ public class LanguageServerSymbolKindTest
                 );
 
                 Assert.NotNull(target);
-                Assert.Contains(target!, location => location.Location!.Uri.GetFileSystemPath().EndsWith("other.loom", StringComparison.Ordinal));
+                Assert.Contains(target, location => location.Location!.Uri.GetFileSystemPath().EndsWith("other.loom", StringComparison.Ordinal));
             },
             Source,
             ("other.loom", Other)
@@ -131,8 +129,8 @@ public class LanguageServerSymbolKindTest
                 );
 
                 Assert.NotNull(references);
-                Assert.NotEmpty(references!);
-                Assert.All(references!, location => Assert.Equal(uri, location.Uri));
+                Assert.NotEmpty(references);
+                Assert.All(references, location => Assert.Equal(uri, location.Uri));
             },
             Source,
             ("other.loom", Other)
@@ -165,7 +163,7 @@ public class LanguageServerSymbolKindTest
                 );
 
                 Assert.NotNull(highlights);
-                Assert.NotEmpty(highlights!);
+                Assert.NotEmpty(highlights);
             },
             Source,
             ("other.loom", Other)

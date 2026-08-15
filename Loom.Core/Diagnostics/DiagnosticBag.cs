@@ -31,17 +31,14 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
     public void NotImplemented(Node node, string? feature = null, string? hint = null) => NotImplemented(node.LocationSpan, feature, hint);
     public void NotImplemented(Token token, string? feature = null, string? hint = null) => NotImplemented(token.GetLocation(), feature, hint);
 
-    public void NotImplemented(LocationSpan span, string? feature = null, string? hint = null) =>
+    private void NotImplemented(LocationSpan span, string? feature = null, string? hint = null) =>
         Error(span, InternalCodes.NotImplemented, feature ?? "This feature is not yet implemented.", hint);
 
-    public object? CompilerError(Node node, string message) => CompilerError(node.LocationSpan, message);
-    public object? CompilerError(SourceFile file, string message) => CompilerError(LocationSpan.Empty(file), message);
+    public void CompilerError(Node node, string message) => CompilerError(node.LocationSpan, message);
+    public void CompilerError(SourceFile file, string message) => CompilerError(LocationSpan.Empty(file), message);
 
-    public object? CompilerError(LocationSpan span, string message)
-    {
+    private void CompilerError(LocationSpan span, string message) =>
         Error(span, InternalCodes.CompilerError, message, "this is a compiler bug! please report an issue.");
-        return null;
-    }
 
     /// <summary>
     ///     This bag as the consumer of <paramref name="package" /> should see it: nothing at all when the
@@ -55,6 +52,7 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
     ///     they are looking at. Reporting one error per file rather than all of them keeps a package that fails
     ///     in a big way from burying the reader's own diagnostics.
     /// </remarks>
+    /// <param name="package"></param>
     /// <param name="reportingOptions">
     ///     Options the attributed error is reported with, the file's own when unspecified. The caller hands its
     ///     own here so that a build set to fail fast still stops on a package that failed, even though the
@@ -110,7 +108,7 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
 
     public override string ToString() => string.Join('\n', InSourceOrder());
 
-    internal void Report(LocationSpan span, DiagnosticSeverity severity, string? code, string message, string? hint) =>
+    private void Report(LocationSpan span, DiagnosticSeverity severity, string? code, string message, string? hint) =>
         Report(new Diagnostic(span, severity, code, message, hint));
 
     private void Report(Diagnostic diagnostic)

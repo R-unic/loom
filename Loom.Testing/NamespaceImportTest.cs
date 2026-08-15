@@ -82,20 +82,26 @@ public class NamespaceImportTest
         );
 
     [Fact]
-    public void Warns_WhenTheNamespaceIsNeverUsed() =>
+    public void Warns_WhenTheNamespaceIsNeverUsed()
+    {
         WithImportingModule(
             "import * as math from \"./math\"\nlet x = 1;\nprint(x);",
-            static (result, bindings) =>
-            {
-                Assert.Equal(0, bindings.Count(binding => binding.IsUsed));
-                Utility.AssertDiagnostic(
-                    result.Diagnostics,
-                    InternalCodes.UnusedImport,
-                    "'math' is imported but never used.",
-                    "remove the import"
-                );
-            }
+            assert
         );
+
+        return;
+
+        static void assert(CompilationResult result, List<NamespaceImportBinding> bindings)
+        {
+            Assert.Equal(0, bindings.Count(binding => binding.IsUsed));
+            Utility.AssertDiagnostic(
+                result.Diagnostics,
+                InternalCodes.UnusedImport,
+                "'math' is imported but never used.",
+                "remove the import"
+            );
+        }
+    }
 
     [Fact]
     public void Reports_ANamespaceName_CollidingWithALocalDeclaration() =>

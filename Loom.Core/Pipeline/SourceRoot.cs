@@ -14,8 +14,8 @@ public sealed class SourceRoot(LoomConfig config, IEnumerable<SourceFile>? files
     public LoomConfig Config { get; } = config;
 
     /// <summary>
-    ///     Every <c>.loom</c> file under <see cref="SourceDirectory" />, or the files <paramref name="files" />
-    ///     supplied. Mutable because hosts without a real file system — the intrinsic bootstrap, the playground
+    ///     Every <c>.loom</c> file under <see cref="SourceDirectory" />, or the files supplied.
+    ///     Mutable because hosts without a real file system — the intrinsic bootstrap, the playground
     ///     — hand the root its files instead of having them loaded from disk; passing them here means the
     ///     directory is never read at all, which is what a host that has no such directory needs.
     /// </summary>

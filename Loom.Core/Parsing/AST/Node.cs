@@ -44,16 +44,13 @@ public abstract class Node
     private static T[] WithoutNulls<T>(IReadOnlyList<T?> items)
         where T : class
     {
-        var count = 0;
-        for (var i = 0; i < items.Count; i++)
-            if (items[i] != null)
-                count++;
-
+        var count = items.OfType<T>().Count();
         if (count == 0)
             return [];
 
         var result = new T[count];
         var next = 0;
+        // ReSharper disable once ForCanBeConvertedToForeach
         for (var i = 0; i < items.Count; i++)
             if (items[i] is { } item)
                 result[next++] = item;

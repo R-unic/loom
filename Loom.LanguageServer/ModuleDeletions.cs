@@ -1,5 +1,4 @@
 using Loom.Core.Modules;
-using Loom.Core.Pipeline;
 using Loom.Core.Text;
 
 namespace Loom.LanguageServer;

@@ -1,6 +1,5 @@
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
-using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
 using AstFunctionType = Loom.Core.Parsing.AST.FunctionType;

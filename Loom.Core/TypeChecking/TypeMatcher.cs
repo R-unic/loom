@@ -36,14 +36,13 @@ internal sealed class TypeMatcher(IReadOnlyList<TypeParameter> binders, TypePara
     ///     of what a NonNullable is written to catch.
     /// </summary>
     private static bool Matches(Type subject, Type pattern) =>
-        (Type.IsNone(pattern) && Type.IsNone(subject)) || subject.IsAssignableTo(pattern);
+        Type.IsNone(pattern) && Type.IsNone(subject) || subject.IsAssignableTo(pattern);
 
     private bool Match(Type subject, Type pattern)
     {
         if (pattern is TypeParameter parameter && IsBinder(parameter))
             return Bind(parameter, subject);
 
-        // Everything below walks structure, which only a pattern with a binder somewhere inside it needs.
         if (!ContainsBinder(pattern))
             return Matches(subject, pattern);
 
@@ -61,51 +60,25 @@ internal sealed class TypeMatcher(IReadOnlyList<TypeParameter> binders, TypePara
         }
     }
 
-    private bool MatchStructure(Type subject, Type pattern)
-    {
-        switch (subject, pattern)
+    private bool MatchStructure(Type subject, Type pattern) =>
+        (subject, pattern) switch
         {
-            case (OptionalType s, OptionalType p):
-                return Match(s.NonNullableType, p.NonNullableType);
-
-            case (ArrayType s, ArrayType p):
-                return Match(s.ElementType, p.ElementType);
-
-            case (TupleType s, TupleType p):
-                return MatchInOrder(s.ElementTypes, p.ElementTypes);
-
-            case (FunctionType s, FunctionType p):
-                return MatchFunction(s, p);
-
-            // Compared as instantiations before either is expanded: 'Future<let V>' is asking which generic
-            // the subject is, and expanding it first throws away the only thing that could answer.
-            case (InstantiatedType s, InstantiatedType p) when s.GenericType.Equals(p.GenericType):
-                return MatchInOrder(s.Arguments, p.Arguments);
-
-            case (InstantiatedType s, _):
-                return Match(s.Expand(), pattern);
-
-            case (UnionType s, UnionType p):
-                return MatchUnion(s, p);
-
-            // Objects have no case of their own because no pattern can reach one: an object type is only
-            // ever written as an interface name, and a name is an instantiation or an interface - handled
-            // above - never a body with a binder loose inside it.
-            default:
-                return Matches(subject, pattern);
-        }
-    }
+            (OptionalType s, OptionalType p) => Match(s.NonNullableType, p.NonNullableType),
+            (ArrayType s, ArrayType p) => Match(s.ElementType, p.ElementType),
+            (TupleType s, TupleType p) => MatchInOrder(s.ElementTypes, p.ElementTypes),
+            (FunctionType s, FunctionType p) => MatchFunction(s, p),
+            (InstantiatedType s, InstantiatedType p) when s.GenericType.Equals(p.GenericType) => MatchInOrder(s.Arguments, p.Arguments),
+            (InstantiatedType s, _) => Match(s.Expand(), pattern),
+            (UnionType s, UnionType p) => MatchUnion(s, p),
+            _ => Matches(subject, pattern)
+        };
 
     private bool MatchInOrder(List<Type> subjects, List<Type> patterns)
     {
         if (subjects.Count != patterns.Count)
             return false;
 
-        for (var i = 0; i < subjects.Count; i++)
-            if (!Match(subjects[i], patterns[i]))
-                return false;
-
-        return true;
+        return !subjects.Where((t, i) => !Match(t, patterns[i])).Any();
     }
 
     /// <summary>
@@ -159,10 +132,8 @@ internal sealed class TypeMatcher(IReadOnlyList<TypeParameter> binders, TypePara
     {
         if (subject.IsAsync != pattern.IsAsync)
             return false;
-
-        // A rest parameter is one of the parameter types, so a signature claiming one without any is
-        // malformed rather than variadic - reading the last of an empty list is the only other option.
-        var hasRest = pattern.HasRestParameter && pattern.ParameterTypes.Count > 0;
+        
+        var hasRest = pattern is { HasRestParameter: true, ParameterTypes.Count: > 0 };
         var fixedCount = hasRest ? pattern.ParameterTypes.Count - 1 : pattern.ParameterTypes.Count;
         if (subject.ParameterTypes.Count < fixedCount || !hasRest && subject.ParameterTypes.Count != fixedCount)
             return false;
@@ -213,9 +184,7 @@ internal sealed class TypeMatcher(IReadOnlyList<TypeParameter> binders, TypePara
     {
         if (_hasBinder.TryGetValue(type, out var known))
             return known;
-
-        // Seeded before the walk so a type that reaches itself answers 'no' rather than recurring forever;
-        // whatever the walk finds below replaces it.
+        
         _hasBinder[type] = false;
         if (type is TypeParameter parameter && IsBinder(parameter))
             return _hasBinder[type] = true;

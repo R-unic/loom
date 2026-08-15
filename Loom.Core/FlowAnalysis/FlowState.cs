@@ -42,7 +42,7 @@ public sealed class FlowState(
 
     /// <summary>Returns a new state with any narrowing on <paramref name="address" /> removed.</summary>
     public FlowState WithoutNarrowedType(FlowAddress address) =>
-        NarrowedTypes.ContainsKey(address) ? new(DefinitelyInitialized, MaybeInitialized, IsUnreachable, NarrowedTypes.Remove(address)) : this;
+        NarrowedTypes.ContainsKey(address) ? new FlowState(DefinitelyInitialized, MaybeInitialized, IsUnreachable, NarrowedTypes.Remove(address)) : this;
 
     /// <summary>Batch form of <see cref="WithInitialized(Symbol)" /> for parameter lists, tuple patterns, etc.</summary>
     public FlowState WithInitialized(IEnumerable<Symbol> symbols)
@@ -100,9 +100,9 @@ public sealed class FlowState(
             NarrowedTypes = from.NarrowedTypes.ToBuilder();
         }
 
-        public ImmutableHashSet<Symbol>.Builder DefinitelyInitialized { get; }
-        public ImmutableHashSet<Symbol>.Builder MaybeInitialized { get; }
-        public bool IsUnreachable { get; set; }
+        private ImmutableHashSet<Symbol>.Builder DefinitelyInitialized { get; }
+        private ImmutableHashSet<Symbol>.Builder MaybeInitialized { get; }
+        private bool IsUnreachable { get; }
         public ImmutableDictionary<FlowAddress, Type>.Builder NarrowedTypes { get; }
 
         public FlowState ToImmutable() =>

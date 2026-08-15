@@ -54,8 +54,8 @@ public sealed partial class TypeChecker
         // Deferred rather than rejected, the same way VisitIndexedType defers 'T[K]': what an unconstrained
         // parameter stands for is known only once the generic is instantiated, and SubstituteKeyOfType
         // resolves it there. Answering 'never' here made every 'keyof(T)' over a bare parameter empty.
-        if (targetType is Types.TypeParameter or Types.TypeVariable or Types.IndexedType or Types.KeyOfType)
-            return BindType(keyOf, new Types.KeyOfType(targetType));
+        if (targetType is Types.TypeParameter or TypeVariable or Types.IndexedType or KeyOfType)
+            return BindType(keyOf, new KeyOfType(targetType));
 
         if (targetType is not (ObjectType or InterfaceType))
         {
@@ -125,6 +125,7 @@ public sealed partial class TypeChecker
     public override Type VisitArrayType(ArrayType arrayType) => BindType(arrayType, new Types.ArrayType(Visit(arrayType.ElementType), arrayType.MutKeyword != null));
     public override Type VisitTupleType(Parsing.AST.TupleType tupleType) => BindType(tupleType, new Types.TupleType(tupleType.Types.ConvertAll(Visit)));
     public override Type VisitOptionalType(OptionalType optionalType) => BindType(optionalType, new Types.OptionalType(Visit(optionalType.NonNullableType)));
+
     public override Type VisitPrimitiveType(PrimitiveType primitiveType)
     {
         if (primitiveType.Width is { } width)
@@ -174,6 +175,7 @@ public sealed partial class TypeChecker
 
         return new SizedStringType(sized.NumberType);
     }
+
     public override Type VisitLiteralType(LiteralType literalType) => BindType(literalType, new Types.LiteralType(literalType.Value));
 
     public override Type VisitTypeName(TypeName typeName)
@@ -263,9 +265,8 @@ public sealed partial class TypeChecker
     ///     the member type reaches it.
     /// </summary>
     public override Types.TypeParameter VisitMappedTypeDeclaration(MappedTypeDeclaration mappedTypeDeclaration) =>
-        _semanticModel.GetType(mappedTypeDeclaration) is Types.TypeParameter existing
-            ? existing
-            : BindType(mappedTypeDeclaration, new Types.TypeParameter(mappedTypeDeclaration.Name.Text));
+        _semanticModel.GetType(mappedTypeDeclaration) as Types.TypeParameter
+        ?? BindType(mappedTypeDeclaration, new Types.TypeParameter(mappedTypeDeclaration.Name.Text));
 
     public override Types.TypeParameter VisitTypeParameter(TypeParameter typeParameter)
     {

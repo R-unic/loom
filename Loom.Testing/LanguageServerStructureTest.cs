@@ -1,5 +1,4 @@
 using Loom.LanguageServer;
-using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -127,8 +126,8 @@ public class LanguageServerStructureTest
                 );
 
                 Assert.NotNull(folds);
-                Assert.NotEmpty(folds!);
-                Assert.All(folds!, fold => Assert.True(fold.EndLine > fold.StartLine, "a fold has to span more than the line it starts on"));
+                Assert.NotEmpty(folds);
+                Assert.All(folds, fold => Assert.True(fold.EndLine > fold.StartLine, "a fold has to span more than the line it starts on"));
             },
             Source,
             ("other.loom", Other)
@@ -149,7 +148,7 @@ public class LanguageServerStructureTest
                 );
 
                 Assert.NotNull(hints);
-                Assert.NotEmpty(hints!);
+                Assert.NotEmpty(hints);
             },
             Source,
             ("other.loom", Other)
@@ -170,7 +169,7 @@ public class LanguageServerStructureTest
                     TestContext.Current.CancellationToken
                 );
 
-                Assert.True(hints == null || !hints.Any());
+                Assert.True((hints?.Equals(null) ?? false) || (!hints?.Any() ?? false));
             },
             Source,
             ("other.loom", Other)
@@ -212,6 +211,7 @@ public class LanguageServerStructureTest
 
                 var innermost = Assert.Single(ranges!);
                 var steps = 0;
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
                 for (var range = innermost; range.Parent != null; range = range.Parent)
                 {
                     steps++;

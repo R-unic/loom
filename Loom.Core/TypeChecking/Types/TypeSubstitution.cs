@@ -14,9 +14,6 @@ namespace Loom.Core.TypeChecking.Types;
 /// </remarks>
 internal static class TypeSubstitution
 {
-    // FunctionType needs its own case (unlike every other composite type) because a nested function's own
-    // type parameters must be filtered out of its declaration once substitution binds them, not merely have
-    // their usages replaced - TypeSolver.Transform's generic per-child recursion has no way to know that.
     public static Type Apply(Type type, TypeParameterSubstitution substitution) =>
         type switch
         {
@@ -35,17 +32,14 @@ internal static class TypeSubstitution
     /// <remarks>
     ///     A function that declares a parameter of its own shadows the enclosing generic's: in
     ///     <c>interface Box&lt;T&gt; { map: fn&lt;T&gt;(other: T): T }</c> the two Ts are separate bindings,
-    ///     and since <see cref="TypeParameter.Equals" /> is name-blind they are indistinguishable to the
+    ///     and since <see cref="TypeParameter.Equals(Type?)" /> is name-blind they are indistinguishable to the
     ///     substitution. Binding the inner one to whatever <c>Box</c> was instantiated with typed
     ///     <c>b.map::&lt;string&gt;("hi")</c> as <c>number</c> - the call's own argument had nothing left to
     ///     bind. A function that merely <em>uses</em> the enclosing parameter does not declare it, so it is
     ///     not in this list and is substituted as usual.
     /// </remarks>
-    private static Type SubstituteFunctionType(FunctionType functionType, TypeParameterSubstitution substitution)
+    private static FunctionType SubstituteFunctionType(FunctionType functionType, TypeParameterSubstitution substitution)
     {
-        // Which of the two a parameter is comes down to identity: the resolver hands the enclosing generic's
-        // own parameter to a function that uses it, and a fresh one to a function that rebinds it. Structural
-        // equality cannot tell them apart, being name-blind, so the instance is the only thing that can.
         var shadowed = functionType.TypeParameters.FindAll(parameter => Binder(substitution, parameter) is { } key && !ReferenceEquals(key, parameter));
         if (shadowed.Count > 0)
         {

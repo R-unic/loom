@@ -87,13 +87,16 @@ public sealed partial class LuauGenerator
     ///     rather than a closure over them, so a call site allocates the future and its thread and nothing
     ///     else - no per-site function is built.
     /// </summary>
+    /// <param name="arguments"></param>
     /// <param name="wrapsErrors">
     ///     Whether the callee raises rather than returning, in which case the raise has to become the
     ///     <c>Result</c> its type already promises instead of rejecting the future. That has to happen on
     ///     the future's own thread, which is why the runtime has a second entry point for it rather than
     ///     this reusing <see cref="GenerateWrappedCall" />.
     /// </param>
-    private LuauExpression GenerateFutureCall(Invocation invocation, LuauExpression callee, List<LuauExpression> arguments, bool wrapsErrors)
+    /// <param name="invocation"></param>
+    /// <param name="callee"></param>
+    private Call GenerateFutureCall(Invocation invocation, LuauExpression callee, List<LuauExpression> arguments, bool wrapsErrors)
     {
         List<LuauExpression> callArguments = [callee, ..arguments];
 

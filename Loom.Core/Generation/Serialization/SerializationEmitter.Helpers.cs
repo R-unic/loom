@@ -21,8 +21,8 @@ internal sealed partial class SerializationEmitter
     private sealed class Cursor(int startingByteOffset)
     {
         public int BitOffset;
-        public int ByteOffset = startingByteOffset;
         public bool IsDynamic;
+        private int _byteOffset = startingByteOffset;
 
         /// <summary>
         ///     Fixed-width advances taken since the local was last written to. A run of them is a constant
@@ -33,12 +33,12 @@ internal sealed partial class SerializationEmitter
         /// </summary>
         private int _pending;
 
-        public bool HasPending => _pending != 0;
-
         public LuauExpression Position =>
-            !IsDynamic ? new NumberLiteral(ByteOffset)
-            : _pending == 0 ? new Identifier(OffsetLocal)
-            : Add(new Identifier(OffsetLocal), new NumberLiteral(_pending));
+            !IsDynamic
+                ? new NumberLiteral(_byteOffset)
+                : _pending == 0
+                    ? new Identifier(OffsetLocal)
+                    : Add(new Identifier(OffsetLocal), new NumberLiteral(_pending));
 
         /// <summary>
         ///     Writes the folded advances out to the local, leaving it holding the true position. Callers
@@ -62,14 +62,13 @@ internal sealed partial class SerializationEmitter
         /// </summary>
         public LuauExpression? BitBase;
 
-        public LuauExpression BitPosition =>
-            BitBase == null ? new NumberLiteral(BitOffset) : Add(BitBase, new NumberLiteral(BitOffset));
+        public LuauExpression BitPosition => BitBase == null ? new NumberLiteral(BitOffset) : Add(BitBase, new NumberLiteral(BitOffset));
 
-        public void Advance(List<LuauStatement> body, int bytes)
+        public void Advance(int bytes)
         {
             if (!IsDynamic)
             {
-                ByteOffset += bytes;
+                _byteOffset += bytes;
                 return;
             }
 
@@ -93,7 +92,7 @@ internal sealed partial class SerializationEmitter
             if (IsDynamic)
                 return;
 
-            body.Add(new LocalVariable(OffsetLocal, null, new NumberLiteral(ByteOffset)));
+            body.Add(new LocalVariable(OffsetLocal, null, new NumberLiteral(_byteOffset)));
             IsDynamic = true;
         }
     }
@@ -150,7 +149,7 @@ internal sealed partial class SerializationEmitter
     private static string RelativePath(string path, string enclosing) =>
         path.StartsWith(enclosing + ".", StringComparison.Ordinal) ? path[(enclosing.Length + 1)..] : path;
 
-    private static PropertyAccess Access(LuauExpression source, string path) => new PropertyAccess(source, [..path.Split('.')]);
+    private static PropertyAccess Access(LuauExpression source, string path) => new(source, [..path.Split('.')]);
 
     /// <summary>
     ///     Last segment of a path, as a usable Luau identifier. Element paths carry brackets - <c>names[]</c>,
@@ -184,7 +183,7 @@ internal sealed partial class SerializationEmitter
         return name.ToString();
     }
 
-    /// <summary>Names one component of a multi-part value - a Vector3's X, a CFrame's quaternion terms.</summary>
+    /// <summary>Names one component of a multipart value - a Vector3's X, a CFrame's quaternion terms.</summary>
     private static string ComponentName(string path, string component) => $"{LeafName(path)}_{component.ToLowerInvariant()}";
 
     private static string SubscriptName(string subscript) =>
@@ -208,20 +207,29 @@ internal sealed partial class SerializationEmitter
         };
 
     private static LuauExpression Add(LuauExpression left, LuauExpression right) =>
-        IsNumber(left, 0) ? right : IsNumber(right, 0) ? left : new BinaryOperator(Operand(left), "+", Operand(right));
+        IsNumber(left, 0)
+            ? right
+            : IsNumber(right, 0)
+                ? left
+                : new BinaryOperator(Operand(left), "+", Operand(right));
 
     /// <summary>
-    ///     Parenthesises an if-expression used as an operand. Luau binds it loosely enough that the else
+    ///     Parenthesizes an if-expression used as an operand. Luau binds it loosely enough that the else
     ///     branch swallows whatever follows, so a sum of several would nest instead of adding up.
     /// </summary>
-    private static LuauExpression Operand(LuauExpression expression) =>
-        expression is IfExpression ? new Parenthesized(expression) : expression;
-    private static BinaryOperator Subtract(LuauExpression left, LuauExpression right) => new BinaryOperator(left, "-", right);
+    private static LuauExpression Operand(LuauExpression expression) => expression is IfExpression ? new Parenthesized(expression) : expression;
+
+    private static BinaryOperator Subtract(LuauExpression left, LuauExpression right) => new(left, "-", right);
+
     private static LuauExpression Multiply(LuauExpression left, LuauExpression right) =>
         IsNumber(left, 0) || IsNumber(right, 0)
             ? _zero
-            : IsNumber(left, 1) ? right : IsNumber(right, 1) ? left : new BinaryOperator(left, "*", right);
+            : IsNumber(left, 1)
+                ? right
+                : IsNumber(right, 1)
+                    ? left
+                    : new BinaryOperator(left, "*", right);
 
     private static bool IsNumber(LuauExpression expression, double value) => expression is NumberLiteral literal && literal.Value.Equals(value);
-    private static BinaryOperator Divide(LuauExpression left, LuauExpression right) => new BinaryOperator(left, "/", right);
+    private static BinaryOperator Divide(LuauExpression left, LuauExpression right) => new(left, "/", right);
 }

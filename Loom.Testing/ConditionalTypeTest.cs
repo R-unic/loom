@@ -127,10 +127,7 @@ public class ConditionalTypeTest
     ///     keyword and an ordinary name.
     /// </summary>
     [Fact]
-    public void Reports_ABinderOutsideAPattern()
-    {
-        Assert.NotEmpty(Utility.GetParserDiagnostics("type X = let R;").Set);
-    }
+    public void Reports_ABinderOutsideAPattern() => Assert.NotEmpty(Utility.GetParserDiagnostics("type X = let R;").Set);
 
     /// <summary>
     ///     Without the <c>?</c> this is the predicate form, whose subject is a parameter name - so anything
@@ -172,10 +169,7 @@ public class ConditionalTypeTest
 
     /// <summary>Two arms may reuse a name: each one's binders belong to that arm alone.</summary>
     [Fact]
-    public void Allows_TwoArmsToReuseABinderName()
-    {
-        Utility.AssertNoErrors(Utility.GetAnalysisDiagnostics("type X<T> = match T { (let E)[] -> E, Future<let E> -> E, _ -> never };"));
-    }
+    public void Allows_TwoArmsToReuseABinderName() => Utility.AssertNoErrors(Utility.GetAnalysisDiagnostics("type X<T> = match T { (let E)[] -> E, Future<let E> -> E, _ -> never };"));
 
     [Fact]
     public void Answers_TheTernaryFormOnceItsSubjectIsConcrete()
@@ -258,10 +252,7 @@ public class ConditionalTypeTest
     ///     about its shape, and the name it was reached through is not part of that.
     /// </summary>
     [Fact]
-    public void Binds_ThroughASubjectWrittenAsAnotherAlias()
-    {
-        Assert.Equal("number", TypeOfAlias(Utilities, "ElementOf<Array<number>>"));
-    }
+    public void Binds_ThroughASubjectWrittenAsAnotherAlias() => Assert.Equal("number", TypeOfAlias(Utilities, "ElementOf<Array<number>>"));
 
     /// <summary>
     ///     A union's members have no order anybody wrote, so a pattern finds each member a partner rather
@@ -270,9 +261,7 @@ public class ConditionalTypeTest
     [Fact]
     public void Binds_AUnionMember_WhicheverOrderItIsWrittenIn()
     {
-        const string source = """
-            type Other<T> = match T { number | let R -> R, _ -> never };
-            """;
+        const string source = "type Other<T> = match T { number | let R -> R, _ -> never };";
 
         Assert.Equal("string", TypeOfAlias(source, "Other<number | string>"));
         Assert.Equal("string", TypeOfAlias(source, "Other<string | number>"));
@@ -283,9 +272,7 @@ public class ConditionalTypeTest
     [Fact]
     public void Requires_ARepeatedBinderToAgree()
     {
-        const string source = """
-            type Same<T> = match T { fn(a: let A, b: let A): unknown -> A, _ -> never };
-            """;
+        const string source = "type Same<T> = match T { fn(a: let A, b: let A): unknown -> A, _ -> never };";
 
         Assert.Equal("number", TypeOfAlias(source, "Same<fn(a: number, b: number): void>"));
         Assert.Equal("never", TypeOfAlias(source, "Same<fn(a: number, b: string): void>"));
@@ -340,9 +327,7 @@ public class ConditionalTypeTest
     [Fact]
     public void Rejects_ARestBinderWhoseConstraintTheWholePackCannotMeet()
     {
-        const string source = """
-            type Ps<T> = match T { fn(..let P: number): unknown -> P, _ -> never };
-            """;
+        const string source = "type Ps<T> = match T { fn(..let P: number): unknown -> P, _ -> never };";
 
         Assert.Equal("never", TypeOfAlias(source, "Ps<fn(a: number): void>"));
     }
@@ -351,9 +336,7 @@ public class ConditionalTypeTest
     [Fact]
     public void Rejects_AParameterThatDoesNotFitTheRestElement()
     {
-        const string source = """
-            type NumericReturn<T> = T is fn(..number[]): let X ? X : never;
-            """;
+        const string source = "type NumericReturn<T> = T is fn(..number[]): let X ? X : never;";
 
         Assert.Equal("bool", TypeOfAlias(source, "NumericReturn<fn(a: number, b: number): bool>"));
         Assert.Equal("never", TypeOfAlias(source, "NumericReturn<fn(a: string): bool>"));
@@ -361,10 +344,7 @@ public class ConditionalTypeTest
 
     /// <summary>Nothing to distribute over when the subject is not a union - <c>each</c> then means nothing at all.</summary>
     [Fact]
-    public void Distributes_OverANonUnion_AsItself()
-    {
-        Assert.Equal("number", TypeOfAlias(Utilities, "Exclude<number, string>"));
-    }
+    public void Distributes_OverANonUnion_AsItself() => Assert.Equal("number", TypeOfAlias(Utilities, "Exclude<number, string>"));
 
     /// <summary>An intersection is unknown while any part of it is, the same way a union is.</summary>
     [Fact]
@@ -385,24 +365,15 @@ public class ConditionalTypeTest
 
     /// <summary>A union pattern describes the whole union, so one with a different number of members is a different type.</summary>
     [Fact]
-    public void Rejects_AUnionPatternOfADifferentWidth()
-    {
-        Assert.Equal("never", TypeOfAlias("type Other<T> = match T { number | let R -> R, _ -> never };", "Other<number | string | bool>"));
-    }
+    public void Rejects_AUnionPatternOfADifferentWidth() => Assert.Equal("never", TypeOfAlias("type Other<T> = match T { number | let R -> R, _ -> never };", "Other<number | string | bool>"));
 
     /// <summary>An arm list with no catch-all narrows to nothing when nothing matches.</summary>
     [Fact]
-    public void Answers_Never_WhenNoArmMatches()
-    {
-        Assert.Equal("never", TypeOfAlias("type OnlyNumber<T> = match T { number -> true };", "OnlyNumber<string>"));
-    }
+    public void Answers_Never_WhenNoArmMatches() => Assert.Equal("never", TypeOfAlias("type OnlyNumber<T> = match T { number -> true };", "OnlyNumber<string>"));
 
     /// <summary>Distributing runs the arms once per member, and <c>never</c> is the union with no members.</summary>
     [Fact]
-    public void Distributes_OverNever_AsNever()
-    {
-        Assert.Equal("never", TypeOfAlias(Utilities, "Exclude<never, string>"));
-    }
+    public void Distributes_OverNever_AsNever() => Assert.Equal("never", TypeOfAlias(Utilities, "Exclude<never, string>"));
 
     [Fact]
     public void Distributes_OverAUnion_OnlyWithEach()
@@ -419,9 +390,7 @@ public class ConditionalTypeTest
     [Fact]
     public void Answers_AUnionAsOneWholeType_WithoutEach()
     {
-        const string source = """
-            type IsNumber<T> = T is number ? true : false;
-            """;
+        const string source = "type IsNumber<T> = T is number ? true : false;";
 
         Assert.Equal("true", TypeOfAlias(source, "IsNumber<number>"));
         Assert.Equal("false", TypeOfAlias(source, "IsNumber<number | string>"));
@@ -500,9 +469,7 @@ public class ConditionalTypeTest
     [Fact]
     public void Honours_AConstrainedBinder()
     {
-        const string source = """
-            type NumericElement<T> = T is (let E: number)[] ? E : never;
-            """;
+        const string source = "type NumericElement<T> = T is (let E: number)[] ? E : never;";
 
         Assert.Equal("number", TypeOfAlias(source, "NumericElement<number[]>"));
         Assert.Equal("never", TypeOfAlias(source, "NumericElement<string[]>"));
@@ -779,9 +746,7 @@ public class ConditionalTypeTest
     {
         var diagnostics = Utility.GetGeneratorDiagnostics(
             Utilities
-            + """
-              fn identity<T>(value: ReturnType<T>): ReturnType<T> -> value;
-              """,
+            + "fn identity<T>(value: ReturnType<T>): ReturnType<T> -> value;",
             true
         );
 

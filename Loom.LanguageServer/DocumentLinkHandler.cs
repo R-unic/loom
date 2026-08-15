@@ -1,6 +1,5 @@
 using Loom.Core.Modules;
 using Loom.Core.Parsing.AST;
-using Loom.Core.Pipeline;
 using Loom.Core.Text;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -23,12 +22,9 @@ public sealed class DocumentLinkHandler(DocumentStore documents) : DocumentLinkH
             return Task.FromResult<DocumentLinkContainer?>(null);
 
         var links = new List<DocumentLink>();
-        foreach (var statement in state.File.Tree.Statements)
+        foreach (var specifier in state.File.Tree.Statements.Select(SpecifierOf))
         {
-            var specifier = SpecifierOf(statement);
-            if (specifier == null || Target(state, specifier.Value as string) is not { } target)
-                continue;
-
+            if (specifier == null || Target(state, specifier.Value as string) is not { } target) continue;
             links.Add(new DocumentLink { Range = Conversion.ToRange(specifier.LocationSpan), Target = target });
         }
 

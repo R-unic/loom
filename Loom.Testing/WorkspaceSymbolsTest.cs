@@ -81,8 +81,18 @@ public class WorkspaceSymbolsTest
     public async Task Answers_NothingForAnEmptyQuery() => Assert.Empty(await SearchAsync(""));
 
     [Fact]
-    public async Task Answers_NothingWhenNoProjectHasBeenOpened() =>
-        Assert.Empty(WorkspaceSymbols.Matching(new DocumentStore().CompiledFiles(), "helper"));
+    public Task Answers_NothingWhenNoProjectHasBeenOpened()
+    {
+        try
+        {
+            Assert.Empty(WorkspaceSymbols.Matching(new DocumentStore().CompiledFiles(), "helper"));
+            return Task.CompletedTask;
+        }
+        catch (Exception exception)
+        {
+            return Task.FromException(exception);
+        }
+    }
 
     private static async Task<IReadOnlyList<WorkspaceSymbol>> SearchAsync(string query)
     {

@@ -55,66 +55,35 @@ internal static class LuauTypeRenderer
 
     private static LuauType? RenderCore(Type type, IReadOnlySet<string> runtimeTypeNames, HashSet<Type> visiting)
     {
-        LuauType? RenderChild(Type child) => Render(child, runtimeTypeNames, visiting);
-
-        switch (type)
+        return type switch
         {
-            case LiteralType literal:
-                return literal.Value switch
-                {
-                    string s => new StringLiteralType(s),
-                    bool b => new BooleanLiteralType(b),
-                    long or int or double => Luau.AST.PrimitiveType.Number,
-                    _ => Luau.AST.PrimitiveType.Nil
-                };
+            LiteralType literal => literal.Value switch
+            {
+                string s => new StringLiteralType(s),
+                bool b => new BooleanLiteralType(b),
+                long or int or double => Luau.AST.PrimitiveType.Number,
+                _ => Luau.AST.PrimitiveType.Nil
+            },
+            SizedNumberType => Luau.AST.PrimitiveType.Number,
+            SizedStringType => Luau.AST.PrimitiveType.String,
+            PrimitiveType primitive => new Luau.AST.PrimitiveType(LuauOperatorMap.PrimitiveTypeKind(primitive.Kind)),
+            OptionalType optional => renderChild(optional.NonNullableType) is { } inner ? new Luau.AST.OptionalType(inner) : null,
+            ArrayType array => renderChild(array.ElementType) is { } element ? TableType.Array(element) : null,
+            TupleType tuple => RenderAll(tuple.ElementTypes, renderChild) is { } elements ? TableType.Array(new Luau.AST.UnionType(elements)) : null,
+            UnionType union => RenderAll(union.Types, renderChild) is { } members ? new Luau.AST.UnionType(members) : null,
+            IntersectionType intersection => RenderAll(intersection.Types, renderChild) is { } parts ? new Luau.AST.IntersectionType(parts) : null,
+            FunctionType function => RenderFunction(function, renderChild),
+            InstantiatedType instantiated => RenderInstantiated(instantiated, runtimeTypeNames, renderChild),
+            InterfaceType interfaceType => Named(interfaceType.Name, null, runtimeTypeNames),
+            TypeParameter parameter => new TypeName(parameter.Name),
+            ObjectType objectType => RenderObject(objectType, renderChild),
+            _ => null
+        };
 
-            case SizedNumberType:
-                return Luau.AST.PrimitiveType.Number;
-
-            case SizedStringType:
-                return Luau.AST.PrimitiveType.String;
-
-            case PrimitiveType primitive:
-                return new Luau.AST.PrimitiveType(LuauOperatorMap.PrimitiveTypeKind(primitive.Kind));
-
-            case OptionalType optional:
-                return RenderChild(optional.NonNullableType) is { } inner ? new Luau.AST.OptionalType(inner) : null;
-
-            case ArrayType array:
-                return RenderChild(array.ElementType) is { } element ? TableType.Array(element) : null;
-
-            case TupleType tuple:
-                return RenderAll(tuple.ElementTypes, RenderChild) is { } elements ? TableType.Array(new Luau.AST.UnionType(elements)) : null;
-
-            case UnionType union:
-                return RenderAll(union.Types, RenderChild) is { } members ? new Luau.AST.UnionType(members) : null;
-
-            case IntersectionType intersection:
-                return RenderAll(intersection.Types, RenderChild) is { } parts ? new Luau.AST.IntersectionType(parts) : null;
-
-            case FunctionType function:
-                return RenderFunction(function, RenderChild);
-
-            case InstantiatedType instantiated:
-                return RenderInstantiated(instantiated, runtimeTypeNames, RenderChild);
-
-            case InterfaceType interfaceType:
-                return Named(interfaceType.Name, null, runtimeTypeNames);
-
-            case TypeParameter parameter:
-                return new Luau.AST.TypeName(parameter.Name);
-
-            case ObjectType objectType:
-                return RenderObject(objectType, RenderChild);
-
-            // Everything still deferred - a conditional whose subject is a parameter, a keyof over one, a
-            // mapped type whose keys have not arrived. The caller reports these rather than guessing.
-            default:
-                return null;
-        }
+        LuauType? renderChild(Type child) => Render(child, runtimeTypeNames, visiting);
     }
 
-    private static LuauType? RenderObject(ObjectType objectType, Func<Type, LuauType?> renderChild)
+    private static TableType? RenderObject(ObjectType objectType, Func<Type, LuauType?> renderChild)
     {
         TableTypeIndexer? indexer = null;
         if (objectType.Indexer != null)
@@ -139,7 +108,7 @@ internal static class LuauTypeRenderer
         return new TableType(indexer, properties);
     }
 
-    private static LuauType? RenderFunction(FunctionType function, Func<Type, LuauType?> renderChild)
+    private static Luau.AST.FunctionType? RenderFunction(FunctionType function, Func<Type, LuauType?> renderChild)
     {
         if (RenderAll(function.ParameterTypes, renderChild) is not { } parameterTypes || renderChild(function.ReturnType) is not { } returnType)
             return null;
@@ -164,7 +133,7 @@ internal static class LuauTypeRenderer
 
     private static LuauType Named(string name, List<LuauType>? arguments, IReadOnlySet<string> runtimeTypeNames)
     {
-        var typeName = new Luau.AST.TypeName(name, arguments);
+        var typeName = new TypeName(name, arguments);
         return runtimeTypeNames.Contains(name) ? LuauFactory.QualifyRuntimeType(typeName) : typeName;
     }
 

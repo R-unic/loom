@@ -17,9 +17,6 @@ public class ModuleDeletionTest
             (store, directory) =>
             {
                 var broken = ModuleDeletions.Broken(store.Projects(), [Path.Combine(directory, "util", "math.loom")]);
-
-                // both main, which imports it by a path through 'util', and its neighbour inside 'util' -
-                // math.loom is 'the' file every other fixture file was written to depend on
                 Assert.Equal(2, broken.Count);
                 Assert.Contains(broken, entry => entry.ImportingPath.EndsWith("main.loom", StringComparison.Ordinal) && entry.Specifier == "./util/math");
                 Assert.Contains(broken, entry => entry.ImportingPath.EndsWith("helpers.loom", StringComparison.Ordinal) && entry.Specifier == "./math");
@@ -139,14 +136,14 @@ public class ModuleDeletionTest
         Directory.CreateDirectory(Path.Combine(sourceDirectory, "util"));
         try
         {
-            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
-            File.WriteAllText(Path.Combine(sourceDirectory, "util", "math.loom"), "export fn double(n: number): number -> n * 2;");
-            File.WriteAllText(Path.Combine(sourceDirectory, "util", "helpers.loom"), "import { double } from \"./math\"\nexport let four = double(2);");
-            File.WriteAllText(Path.Combine(sourceDirectory, "unused.loom"), "let alone = 1;");
+            await File.WriteAllTextAsync(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            await File.WriteAllTextAsync(Path.Combine(sourceDirectory, "util", "math.loom"), "export fn double(n: number): number -> n * 2;");
+            await File.WriteAllTextAsync(Path.Combine(sourceDirectory, "util", "helpers.loom"), "import { double } from \"./math\"\nexport let four = double(2);");
+            await File.WriteAllTextAsync(Path.Combine(sourceDirectory, "unused.loom"), "let alone = 1;");
 
             var mainPath = Path.Combine(sourceDirectory, "main.loom");
-            var mainSource = "import { double } from \"./util/math\"\nlet four = double(2);";
-            File.WriteAllText(mainPath, mainSource);
+            const string mainSource = "import { double } from \"./util/math\"\nlet four = double(2);";
+            await File.WriteAllTextAsync(mainPath, mainSource);
 
             var store = new DocumentStore();
             store.Open(DocumentUri.FromFileSystemPath(mainPath), mainSource);

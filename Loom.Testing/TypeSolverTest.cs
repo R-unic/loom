@@ -338,26 +338,26 @@ public class TypeSolverTest
 
     public static TheoryData<FunctionType, FunctionType> FunctionPairs()
     {
-        FunctionType Fn(List<LoomType> parameters, LoomType returnType, bool hasRest = false, bool isAsync = false) =>
-            new([], parameters, returnType, hasRest, isAsync);
-
         var data = new TheoryData<FunctionType, FunctionType>();
         var shapes = new List<FunctionType>
         {
-            Fn([], PrimitiveType.Void),
-            Fn([PrimitiveType.Number], PrimitiveType.Void),
-            Fn([PrimitiveType.Number, PrimitiveType.String], PrimitiveType.Void),
-            Fn([PrimitiveType.Number], PrimitiveType.Number),
-            Fn([new ArrayType(PrimitiveType.Number, false)], PrimitiveType.Void, hasRest: true),
-            Fn([PrimitiveType.String, new ArrayType(PrimitiveType.Number, false)], PrimitiveType.Void, hasRest: true),
-            Fn([PrimitiveType.Number], PrimitiveType.Void, isAsync: true)
+            fn([], PrimitiveType.Void),
+            fn([PrimitiveType.Number], PrimitiveType.Void),
+            fn([PrimitiveType.Number, PrimitiveType.String], PrimitiveType.Void),
+            fn([PrimitiveType.Number], PrimitiveType.Number),
+            fn([new ArrayType(PrimitiveType.Number, false)], PrimitiveType.Void, hasRest: true),
+            fn([PrimitiveType.String, new ArrayType(PrimitiveType.Number, false)], PrimitiveType.Void, hasRest: true),
+            fn([PrimitiveType.Number], PrimitiveType.Void, isAsync: true)
         };
 
         foreach (var source in shapes)
-        foreach (var target in shapes)
-            data.Add(source, target);
+            foreach (var target in shapes)
+                data.Add(source, target);
 
         return data;
+
+        FunctionType fn(List<LoomType> parameters, LoomType returnType, bool hasRest = false, bool isAsync = false) =>
+            new([], parameters, returnType, hasRest, isAsync);
     }
 
     [Fact]
@@ -425,8 +425,8 @@ public class TypeSolverTest
         Assert.NotEmpty(diagnostics.Errors().Set);
     }
 
+    /// <summary>Same direction as <see cref="Core.TypeChecking.Types.Type.IsAssignableTo" />: an immutable property cannot satisfy a mutable one.</summary>
     [Fact]
-    /// <summary>Same direction as <see cref="Type.IsAssignableTo" />: an immutable property cannot satisfy a mutable one.</summary>
     public void Unify_ObjectTypes_MutabilityMismatch()
     {
         var diagnostics = CreateDiagnostics();
@@ -465,7 +465,7 @@ public class TypeSolverTest
     }
 
     /// <summary>
-    ///     Unification answers the same question as <see cref="Type.IsAssignableTo" /> and has to give the
+    ///     Unification answers the same question as <see cref="Core.TypeChecking.Types.Type.IsAssignableTo" /> and has to give the
     ///     same answer: only asking for a mutable indexer you were not given is a mismatch. Handing a mutable
     ///     indexer to something that only reads through it is not.
     /// </summary>

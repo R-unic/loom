@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
-using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 
 namespace Loom.Core.TypeChecking;

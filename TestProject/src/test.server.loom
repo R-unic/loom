@@ -1,23 +1,4 @@
-let replicated = get_service::<ReplicatedStorage>();
-let remote = replicated.find_first_child::<RemoteEvent>("re")!;
+type Nullable<T: unknown[]> = T is (let E)[] ? (E?)[] : never;
+type NumberOptionalArray = Nullable<number[]>;
 
-export enum Message {
-  Hello
-}
-
-[serializable, packed]
-export interface HelloPacket {
-  id: u8;
-  message: string<u8>;
-}
-
-declare sealed interface MessageData {
-  [Message["Hello"]]: HelloPacket;
-}
-
-export fn on<K: Message>(message: K, handler: fn(data: MessageData[K]): void): void {
-  let message_serializer = serializer_of::<MessageData, K>(message);
-
-
-  remote.on_server_event += fn(_, __) {};
-}
+let x: NumberOptionalArray = [1, none, 69, none];

@@ -1,6 +1,5 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
-using Loom.Core.Text;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
 
 namespace Loom.Core.TypeChecking;
@@ -26,14 +25,9 @@ public sealed partial class TypeChecker
 
     private void CheckDecoratorAttribute(Attribute attribute, string valueName, Type valueType)
     {
-        if (_resolvingHoisted.Count > 0)
-            return;
-
-        if (IsIntrinsicAttribute(attribute))
-            return;
-
-        if (_semanticModel.GetType(attribute) is not Types.FunctionType decoratorType)
-            return;
+        if (_resolvingHoisted.Count > 0) return;
+        if (IsIntrinsicAttribute(attribute)) return;
+        if (_semanticModel.GetType(attribute) is not Types.FunctionType decoratorType) return;
 
         if (decoratorType.ParameterTypes.Count < 2)
         {
@@ -49,7 +43,6 @@ public sealed partial class TypeChecker
         var thunkType = new Types.FunctionType([], [], valueType);
         var nameType = new Types.LiteralType(valueName);
         var argumentTypes = new List<Type> { thunkType, nameType };
-
         var substitution = decoratorType.TypeParameters.Count == 0
             ? null
             : TypeInferrer.InferFunctionTypeArguments(decoratorType, argumentTypes);
@@ -86,9 +79,8 @@ public sealed partial class TypeChecker
         if (IsIntrinsicAttribute(attribute))
             return;
 
-        foreach (var argument in attribute.Arguments.ArgumentList)
-            if (!_semanticModel.IsCompileTimeConstant(argument))
-                _diagnostics.Error(argument, InternalCodes.DecoratorArgumentNotConstant, "Decorator arguments must be compile-time constants.");
+        foreach (var argument in attribute.Arguments.ArgumentList.Where(argument => !_semanticModel.IsCompileTimeConstant(argument)))
+            _diagnostics.Error(argument, InternalCodes.DecoratorArgumentNotConstant, "Decorator arguments must be compile-time constants.");
 
         var boundType = _semanticModel.GetType(attribute);
         var resultType = !attribute.IsInvoked && boundType is Types.FunctionType functionType ? functionType.ReturnType : boundType;
@@ -102,13 +94,13 @@ public sealed partial class TypeChecker
             return;
 
         var referencedSymbol = _semanticModel.GetSymbol(attribute.Expression);
-        if (referencedSymbol == null)
-            return;
-
-        if (referencedSymbol is { Name: "attribute_usage", IsIntrinsic: true } && currentTarget != AttributeTargetsFlag.Function)
+        switch (referencedSymbol)
         {
-            _diagnostics.Error(attribute, InternalCodes.AttributeUsageNotOnFunction, "'attribute_usage' may only be applied to a function declaration.");
-            return;
+            case null:
+                return;
+            case { Name: "attribute_usage", IsIntrinsic: true } when currentTarget != AttributeTargetsFlag.Function:
+                _diagnostics.Error(attribute, InternalCodes.AttributeUsageNotOnFunction, "'attribute_usage' may only be applied to a function declaration.");
+                return;
         }
 
         int? allowedFlagsValue;

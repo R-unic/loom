@@ -23,16 +23,16 @@ public sealed record ClassifiedToken(Token Token, SemanticTokenType Type, IReadO
 ///     nor a name the file declares in the ordinary way.
 /// </summary>
 /// <remarks>
-///     Every token is classified rather than only the interesting ones. A client whose grammar already colours
+///     Every token is classified rather than only the interesting ones. A client whose grammar already colors
 ///     the file merges these over it and loses nothing; a client with no grammar for Loom at all - which is
 ///     every client until one ships - would otherwise be handed a file of plain text with the identifiers
-///     coloured in.
+///     colored in.
 /// </remarks>
 public static class SemanticTokenClassifier
 {
     /// <summary>
     ///     The types and modifiers this server will ever send, in the order their indices refer to. The client
-    ///     is told this once, at registration, and every token afterwards is a pair of offsets into it.
+    ///     is told this once, at registration, and every token afterward is a pair of offsets into it.
     /// </summary>
     public static readonly SemanticTokensLegend Legend = new()
     {
@@ -72,7 +72,7 @@ public static class SemanticTokenClassifier
 
     /// <summary>
     ///     Punctuation that separates rather than computes. Nothing is sent for these: they carry no meaning a
-    ///     client could colour differently, and an editor's own bracket matching already reads them.
+    ///     client could color differently, and an editor's own bracket matching already reads them.
     /// </summary>
     private static readonly HashSet<SyntaxKind> _delimiters =
     [
@@ -104,30 +104,27 @@ public static class SemanticTokenClassifier
 
     /// <summary>
     ///     What the lexer alone can say about a token. An identifier that reached here resolved to nothing -
-    ///     it is misspelled, or its declaration failed to compile - and is coloured as a plain variable rather
+    ///     it is misspelled, or its declaration failed to compile - and is colored as a plain variable rather
     ///     than left blank, so a file mid-edit does not flicker between highlighted and not.
     /// </summary>
     private static SemanticTokenType? FromSyntax(SyntaxKind kind)
     {
-        if (kind is SyntaxKind.Comment or SyntaxKind.BlockComment or SyntaxKind.DocComment)
-            return SemanticTokenType.Comment;
-
-        if (kind is SyntaxKind.StringLiteral or SyntaxKind.InterpolatedStringStart or SyntaxKind.InterpolatedStringText or SyntaxKind.InterpolatedStringEnd)
-            return SemanticTokenType.String;
-
-        if (kind == SyntaxKind.NumberLiteral)
-            return SemanticTokenType.Number;
-
-        if (kind is SyntaxKind.TrueLiteral or SyntaxKind.FalseLiteral or SyntaxKind.NoneLiteral)
-            return SemanticTokenType.Keyword;
+        switch (kind)
+        {
+            case SyntaxKind.Comment or SyntaxKind.BlockComment or SyntaxKind.DocComment:
+                return SemanticTokenType.Comment;
+            case SyntaxKind.StringLiteral or SyntaxKind.InterpolatedStringStart or SyntaxKind.InterpolatedStringText or SyntaxKind.InterpolatedStringEnd:
+                return SemanticTokenType.String;
+            case SyntaxKind.NumberLiteral:
+                return SemanticTokenType.Number;
+            case SyntaxKind.TrueLiteral or SyntaxKind.FalseLiteral or SyntaxKind.NoneLiteral:
+                return SemanticTokenType.Keyword;
+        }
 
         if (SyntaxFacts.GetKeywordText(kind) != null)
             return SemanticTokenType.Keyword;
 
-        if (kind == SyntaxKind.Identifier)
-            return SemanticTokenType.Variable;
-
-        return SemanticTokenType.Operator;
+        return kind == SyntaxKind.Identifier ? SemanticTokenType.Variable : SemanticTokenType.Operator;
     }
 
     /// <summary>
@@ -141,11 +138,9 @@ public static class SemanticTokenClassifier
         var semanticModel = file.SemanticModel;
         var classifications = new Dictionary<int, (SemanticTokenType, IReadOnlyList<SemanticTokenModifier>)>();
 
-        foreach (var node in file.Tree.EnumerateDescendants().Prepend<Node>(file.Tree))
+        foreach (var node in file.Tree.EnumerateDescendants().Prepend(file.Tree))
             switch (node)
             {
-                // an attribute is written as an invocation, so its name would otherwise classify as whatever
-                // the declaration behind it is - a function, most of the time
                 case AstAttribute attribute:
                     Record(classifications, attribute.Expression.LastToken(), SemanticTokenType.Decorator, _none);
                     break;
@@ -191,15 +186,14 @@ public static class SemanticTokenClassifier
     }
 
     /// <summary>
-    ///     Which of the symbols one name stands for decides its colour. An interface or an enum declares a
+    ///     Which of the symbols one name stands for decides its color. An interface or an enum declares a
     ///     type and a value under the same name, and it is the type half a reader is looking at - the value
     ///     half is what makes <c>new Packet { … }</c> resolve, not something the name is ever written as.
     /// </summary>
-    private static Symbol? Best(IReadOnlyList<Symbol> symbols)
+    private static Symbol? Best(List<Symbol> symbols)
     {
-        foreach (var symbol in symbols)
-            if (symbol.IsTypeSymbol)
-                return symbol;
+        foreach (var symbol in symbols.Where(symbol => symbol.IsTypeSymbol))
+            return symbol;
 
         return symbols.Count > 0 ? symbols[0] : null;
     }
@@ -262,16 +256,12 @@ public static class SemanticTokenClassifier
         SemanticTokenType type,
         IReadOnlyList<SemanticTokenModifier> modifiers)
     {
-        // a declaration is visited before the names under it, and a name resolved from the tree beats one
-        // guessed from a receiver's type, so the first answer for a position is the one kept
         if (name is { Span.Length: > 0 })
             classifications.TryAdd(name.Span.Position, (type, modifiers));
     }
 
     private static SemanticTokenType TypeOf(Symbol symbol)
     {
-        // a type parameter is declared as an ordinary type, but it stands for whatever a use site passes -
-        // which is the distinction a reader wants drawn against the concrete types beside it
         if (symbol.Declaration is AstTypeParameter)
             return SemanticTokenType.TypeParameter;
 
@@ -294,9 +284,7 @@ public static class SemanticTokenClassifier
         var modifiers = new List<SemanticTokenModifier>(3);
         if (isDeclaration)
             modifiers.Add(SemanticTokenModifier.Declaration);
-
-        // immutability is the default in Loom, so this marks the ordinary case rather than the exception -
-        // which is the point: what a reader needs picked out is the binding that can be written through
+        
         if (symbol is { IsMutable: false, Kind: LoomSymbolKind.Variable or LoomSymbolKind.Parameter or LoomSymbolKind.Property })
             modifiers.Add(SemanticTokenModifier.Readonly);
 

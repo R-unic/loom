@@ -29,11 +29,7 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
         {
             var text = state.File.SourceFile.SourceText;
             var range = TextSpan.FromStartEnd(IncrementalText.ToOffset(text, request.Range.Start), IncrementalText.ToOffset(text, request.Range.End));
-
             var uri = request.TextDocument.Uri;
-
-            // computed once per diagnostic and shared: the range-filtered list and FixAll both ask "what
-            // fixes this", and a diagnostic in range is exactly the case both would otherwise redo
             var fixesByDiagnostic = state.File.Diagnostics.Set.ToDictionary(diagnostic => diagnostic, diagnostic => FixesFor(diagnostic, state, uri).ToArray());
 
             var actions = fixesByDiagnostic
@@ -47,7 +43,6 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
 
             return Task.FromResult<CommandOrCodeActionContainer?>(new CommandOrCodeActionContainer(actions));
         }
-        // a cancelled request must not answer: the client asked for this one to stop, not to come back empty
         catch (OperationCanceledException)
         {
             throw;
@@ -77,11 +72,11 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
     /// </summary>
     private static bool IsWanted(CodeAction action, Container<CodeActionKind>? only)
     {
-        if (only is not { } kinds || !kinds.Any())
+        if (only is null || !only.Any())
             return true;
 
         var kind = action.Kind.ToString();
-        return kinds.Any(wanted => kind == wanted.ToString() || kind.StartsWith(wanted + ".", StringComparison.Ordinal));
+        return only.Any(wanted => kind == wanted.ToString() || kind.StartsWith(wanted + ".", StringComparison.Ordinal));
     }
 
     private static IEnumerable<CodeAction> FixesFor(LoomDiagnostic diagnostic, DocumentState state, DocumentUri uri) =>
@@ -126,7 +121,7 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
     ///     'async' and '[no_yield]' on the same declaration disagree about whether it yields, and nothing here
     ///     knows which one the author meant - so both ways out are offered rather than one chosen for them.
     /// </summary>
-    private static IEnumerable<CodeAction> YieldInNoYieldContextFixes(LoomDiagnostic diagnostic, DocumentState state, DocumentUri uri)
+    private static List<CodeAction> YieldInNoYieldContextFixes(LoomDiagnostic diagnostic, DocumentState state, DocumentUri uri)
     {
         if (NodeOf(diagnostic, state.File) is not FunctionDeclaration { AsyncKeyword: { } asyncKeyword } function)
             return [];
@@ -151,29 +146,19 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
     private static IEnumerable<CodeAction> RedundantCodeFixes(LoomDiagnostic diagnostic, DocumentState state, DocumentUri uri)
     {
         var file = state.File.SourceFile;
-        switch (NodeOf(diagnostic, state.File))
+        return NodeOf(diagnostic, state.File) switch
         {
-            // a body that only returns says in three lines what '->' says in one, which is what the compiler
-            // has already told the reader to do
-            case IFunctionLike { Body: Block { Statements: [Return { Expression: { } returned }] } body }:
-                return [Fix("Use an expression body", uri, Replace(file, body.Span, $"-> {TextOf(file, returned.Span)};"), diagnostic)];
-            case NullForgiving forgiving:
-                return [Fix("Remove the redundant '!'", uri, Delete(file, forgiving.Bang.Span), diagnostic)];
-            // only '??', never '??=': the compound form is the whole assignment, and deleting its right-hand
-            // side would leave a statement that assigns nothing
-            case BinaryOperator { Operator.Kind: SyntaxKind.QuestionQuestion } coalesce:
-                return
-                [
-                    Fix(
-                        "Remove the redundant '??'",
-                        uri,
-                        Delete(file, TextSpan.FromStartEnd(coalesce.Left.Span.End, coalesce.Right.Span.End)),
-                        diagnostic
-                    )
-                ];
-            default:
-                return [];
-        }
+            IFunctionLike { Body: Block { Statements: [Return { Expression: { } returned }] } body } =>
+            [
+                Fix("Use an expression body", uri, Replace(file, body.Span, $"-> {TextOf(file, returned.Span)};"), diagnostic)
+            ],
+            NullForgiving forgiving => [Fix("Remove the redundant '!'", uri, Delete(file, forgiving.Bang.Span), diagnostic)],
+            BinaryOperator { Operator.Kind: SyntaxKind.QuestionQuestion } coalesce =>
+            [
+                Fix("Remove the redundant '??'", uri, Delete(file, TextSpan.FromStartEnd(coalesce.Left.Span.End, coalesce.Right.Span.End)), diagnostic)
+            ],
+            _ => []
+        };
     }
 
     private static IEnumerable<CodeAction> RemoveUnreachableFix(LoomDiagnostic diagnostic, DocumentState state, DocumentUri uri) =>
@@ -208,12 +193,12 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
                 continue;
             }
 
-            foreach (var node in group)
-                edits.Add(
-                    node is ImportSpecifier specifier && specifier.Parent is ImportDeclaration declaration
-                        ? Delete(file, WithSeparator(declaration.Specifiers, specifier))
-                        : Delete(file, WholeLine(node))
-                );
+            edits.AddRange(
+                group.Select(node => node is ImportSpecifier { Parent: ImportDeclaration declaration } specifier
+                    ? Delete(file, WithSeparator(declaration.Specifiers, specifier))
+                    : Delete(file, WholeLine(node))
+                )
+            );
         }
 
         return [Action("Remove unused imports", CodeActionKind.SourceOrganizeImports, uri, edits, [])];
@@ -311,7 +296,7 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
     {
         var file = state.File.SourceFile;
         var node = NodeFinder.FindAt(state.File.Tree, diagnostic.Span.Start.Position);
-        if (node is not ImportSpecifier specifier || specifier.Parent is not ImportDeclaration import)
+        if (node is not ImportSpecifier { Parent: ImportDeclaration import } specifier)
             return node is ImportDeclaration whole ? [Fix("Remove unused import", uri, Delete(file, WholeLine(whole)), diagnostic)] : [];
 
         if (import.Specifiers.Count == 1)

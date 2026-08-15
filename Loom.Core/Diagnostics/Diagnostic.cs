@@ -30,7 +30,7 @@ public sealed record Diagnostic(LocationSpan Span, DiagnosticSeverity Severity, 
     public bool Equals(Diagnostic? other) =>
         other is not null
         && (ReferenceEquals(this, other)
-            || (Span.Equals(other.Span) && Severity == other.Severity && Code == other.Code && Message == other.Message && Hint == other.Hint));
+            || Span.Equals(other.Span) && Severity == other.Severity && Code == other.Code && Message == other.Message && Hint == other.Hint);
 
     public override int GetHashCode() => HashCode.Combine(Span, Severity, Code, Message, Hint);
 

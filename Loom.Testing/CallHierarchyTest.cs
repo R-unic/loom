@@ -59,7 +59,7 @@ public class CallHierarchyTest
         await WithHandlersAsync(
             async (prepare, incoming, _, uri) =>
             {
-                var item = Assert.Single((await PrepareAsync(prepare, uri, line: 0, character: 3))!); // helper
+                var item = Assert.Single((await PrepareAsync(prepare, uri, line: 0, character: 3))!);
                 var calls = (await incoming.Handle(new CallHierarchyIncomingCallsParams { Item = item }, Cancel))!.ToArray();
 
                 Assert.Equal(["greet", "main", "middle"], calls.Select(call => call.From.Name).Order());
@@ -93,7 +93,7 @@ public class CallHierarchyTest
                 var calls = await incoming.Handle(new CallHierarchyIncomingCallsParams { Item = item }, Cancel);
 
                 var fromMain = Assert.Single(calls!, call => call.From.Name == "main");
-                Assert.Single(fromMain.FromRanges!);
+                Assert.Single(fromMain.FromRanges);
             }
         );
 

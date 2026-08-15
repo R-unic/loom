@@ -16,6 +16,7 @@ namespace Loom.LanguageServer;
 /// </summary>
 public static class DocumentOutline
 {
+    /// <param name="file"></param>
     /// <param name="describe">
     ///     Whether each entry carries the signature its declaration reads as. Off for a caller with nowhere
     ///     to show one: rendering a declaration means resolving and formatting its type, which across a whole
@@ -31,44 +32,29 @@ public static class DocumentOutline
     /// <summary>What every entry of one outline is built against: the file's own model, and how much to say about each name.</summary>
     private sealed record Outline(SemanticModel Model, bool Describe);
 
+    /// <param name="outline"></param>
     /// <param name="functionKind">
     ///     What a function-shaped declaration is called in this position - a free <c>Function</c> at the top
     ///     level, a <c>Method</c> inside an interface, trait, or implementation.
     /// </param>
-    private static DocumentSymbol? ToSymbol(Statement statement, Outline outline, LspSymbolKind functionKind)
-    {
-        switch (statement)
+    /// <param name="statement"></param>
+    private static DocumentSymbol? ToSymbol(Statement statement, Outline outline, LspSymbolKind functionKind) =>
+        statement switch
         {
-            // 'export' and 'declare' wrap the declaration that carries the name; the outline entry keeps the
-            // wrapper's range, so selecting it in the outline selects the whole statement as written
-            case ExportDeclaration export:
-                return Rerange(ToSymbol(export.Declaration, outline, functionKind), export);
-            case Declare declare:
-                return Rerange(ToSymbol(declare.Signature, outline, functionKind), declare);
-            case InterfaceDeclaration @interface:
-                return Build(@interface, @interface.Name, LspSymbolKind.Interface, outline, Members(@interface.Body?.Members, outline));
-            case TraitDeclaration trait:
-                return Build(trait, trait.Name, LspSymbolKind.Interface, outline, Members(trait.Body.Members, outline));
-            case EnumDeclaration @enum:
-                return Build(@enum, @enum.Name, LspSymbolKind.Enum, outline, @enum.Members.ConvertAll(member => EnumMemberSymbol(member, outline)));
-            case Implement implement when implement.TraitName.Name.Text.Length > 0:
-                return ImplementSymbol(implement, outline);
-            case TypeAlias alias:
-                return Build(alias, alias.Name, LspSymbolKind.Struct, outline, []);
-            case EventDeclaration @event:
-                return Build(@event, @event.Name, LspSymbolKind.Event, outline, []);
-            case DeclareFunctionSignature function:
-                return Build(function, function.Name, functionKind, outline, []);
-            case DeclareVariableSignature variable:
-                return Build(variable, variable.Name, VariableKind(variable), outline, []);
-            case PropertyDeclaration property:
-                return Build(property, property.Name, PropertyKind(property), outline, []);
-            case IndexerDeclaration indexer:
-                return IndexerSymbol(indexer);
-            default:
-                return null;
-        }
-    }
+            ExportDeclaration export => Rerange(ToSymbol(export.Declaration, outline, functionKind), export),
+            Declare declare => Rerange(ToSymbol(declare.Signature, outline, functionKind), declare),
+            InterfaceDeclaration @interface => Build(@interface, @interface.Name, LspSymbolKind.Interface, outline, Members(@interface.Body?.Members, outline)),
+            TraitDeclaration trait => Build(trait, trait.Name, LspSymbolKind.Interface, outline, Members(trait.Body.Members, outline)),
+            EnumDeclaration @enum => Build(@enum, @enum.Name, LspSymbolKind.Enum, outline, @enum.Members.ConvertAll(member => EnumMemberSymbol(member, outline))),
+            Implement implement when implement.TraitName.Name.Text.Length > 0 => ImplementSymbol(implement, outline),
+            TypeAlias alias => Build(alias, alias.Name, LspSymbolKind.Struct, outline, []),
+            EventDeclaration @event => Build(@event, @event.Name, LspSymbolKind.Event, outline, []),
+            DeclareFunctionSignature function => Build(function, function.Name, functionKind, outline, []),
+            DeclareVariableSignature variable => Build(variable, variable.Name, VariableKind(variable), outline, []),
+            PropertyDeclaration property => Build(property, property.Name, PropertyKind(property), outline, []),
+            IndexerDeclaration indexer => IndexerSymbol(indexer),
+            _ => null
+        };
 
     private static List<DocumentSymbol> Members(IEnumerable<Statement>? members, Outline outline) =>
         members?.Select(member => ToSymbol(member, outline, LspSymbolKind.Method)).OfType<DocumentSymbol>().ToList() ?? [];

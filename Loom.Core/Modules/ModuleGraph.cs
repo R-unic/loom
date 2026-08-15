@@ -56,13 +56,13 @@ public sealed class ModuleGraph
     ///     and on an incremental compile almost every file's answer is the one it gave last time.
     /// </summary>
     /// <remarks>
-    ///     Keyed by the parse rather than by the file: re-parsing produces a new <see cref="ParsedFile" />,
-    ///     which misses the cache and is resolved again, while every file that was not re-parsed hits it. What
+    ///     Keyed by the parse rather than by the file: reparsing produces a new <see cref="ParsedFile" />,
+    ///     which misses the cache and is resolved again, while every file that was not reparsed hits it. What
     ///     an entry cannot survive is the set of files changing - an import that resolved to nothing may now
     ///     resolve, and one that resolved may now be gone - but that cannot happen behind the cache's back:
     ///     <see cref="CompilationUnit" /> answers a file appearing or vanishing with a full compile, which
-    ///     re-parses everything and so misses on every entry. An edge is stored as a path rather than as the
-    ///     <see cref="ParsedFile" /> it pointed at, since that file may since have been re-parsed into a new
+    ///     reparses everything and so misses on every entry. An edge is stored as a path rather than as the
+    ///     <see cref="ParsedFile" /> it pointed at, since that file may since have been reparsed into a new
     ///     one, and a stale target would order and invalidate the wrong instance.
     /// </remarks>
     public sealed class Cache
@@ -71,7 +71,7 @@ public sealed class ModuleGraph
 
         internal ResolvedImports? Get(ParsedFile parsedFile) => _entries.GetValueOrDefault(parsedFile);
 
-        /// <summary>Keeps exactly what this build used, which is what drops the entries of files it re-parsed.</summary>
+        /// <summary>Keeps exactly what this build used, which is what drops the entries of files it reparsed.</summary>
         internal void Keep(Dictionary<ParsedFile, ResolvedImports> used) => _entries = used;
     }
 
@@ -119,8 +119,10 @@ public sealed class ModuleGraph
         return DiagnosticBag.Concat([resolution, cycles]);
     }
 
+    /// <param name="parsedFiles"></param>
+    /// <param name="roots"></param>
     /// <param name="diagnosticOptionsOf">Reporting behavior per file, the unit's for every file when unspecified.</param>
-    /// <param name="cache">What the previous build worked out, reused for every file that has not been re-parsed since.</param>
+    /// <param name="cache">What the previous build worked out, reused for every file that has not been reparsed since.</param>
     public static ModuleGraph Build(
         List<ParsedFile> parsedFiles,
         SourceRootSet roots,

@@ -445,7 +445,7 @@ public class GenericTypesTest
     }
 
     /// <summary>
-    ///     Arguments are matched by reference, not by <see cref="Type.Equals" />: two interfaces that merely
+    ///     Arguments are matched by reference, not by <see cref="Core.TypeChecking.Types.Type.Equals(Core.TypeChecking.Types.Type?)" />: two interfaces that merely
     ///     look alike are different types, and fusing their instantiations would let one compilation's type
     ///     reach another through a process-cached intrinsic definition.
     /// </summary>

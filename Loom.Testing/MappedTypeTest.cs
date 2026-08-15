@@ -270,8 +270,7 @@ public class MappedTypeTest
 
     /// <summary>While the keys are unknown there is nothing to compare structurally, so it answers as itself.</summary>
     [Fact]
-    public void Defers_AssignabilityWhileTheKeysAreUnknown()
-    {
+    public void Defers_AssignabilityWhileTheKeysAreUnknown() =>
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(
                 """
@@ -280,7 +279,6 @@ public class MappedTypeTest
                 """
             )
         );
-    }
 
     [Fact]
     public void MappedType_IsAssignableTo_ItsExpandedForm()

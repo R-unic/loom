@@ -61,7 +61,7 @@ public sealed class MappedType(TypeParameter binder, Type source, Type valueType
     /// </remarks>
     public Type? Resolve() => _resolved ??= BuildResolved();
 
-    private Type? BuildResolved()
+    private ObjectType? BuildResolved()
     {
         if (ResolvedKeys() is not { } keys)
             return null;

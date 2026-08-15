@@ -1,5 +1,4 @@
 using Loom.Core.Parsing.AST;
-using Loom.Core.Text;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
 
 namespace Loom.Core.Resolving.Symbols;

@@ -33,9 +33,9 @@ internal sealed partial class SerializationEmitter(SerializationSchema schema, L
     public static string DeserializeName(string interfaceName) => $"{interfaceName}_deserialize_binary";
     public static string SerializerName(string interfaceName) => $"{interfaceName}_serializer";
     public static string SerializerMapName(string interfaceName) => $"{interfaceName}_serializer_map";
-    public static string BufferConstantName(string member) => $"buffer_{member}";
     public static string DiffName(string interfaceName) => $"{interfaceName}_diff_binary";
     public static string ApplyDiffName(string interfaceName) => $"{interfaceName}_apply_diff_binary";
+    private static string BufferConstantName(string member) => $"buffer_{member}";
     private static string DiffWriteHelperName(string interfaceName) => $"{interfaceName}_diff_binary_write";
     private static string DiffAttemptHelperName(string interfaceName) => $"{interfaceName}_diff_binary_attempt";
     private static string DiffReadHelperName(string interfaceName) => $"{interfaceName}_apply_diff_binary_read";
@@ -104,7 +104,7 @@ internal sealed partial class SerializationEmitter(SerializationSchema schema, L
         return new Identifier(BufferConstantName(member));
     }
 
-    private Call BufferCall(string member, List<LuauExpression> arguments) => new Call(Buffer(member), arguments);
+    private Call BufferCall(string member, List<LuauExpression> arguments) => new(Buffer(member), arguments);
 
     /// <summary>
     ///     Unions whose tag is already resolved, by path, naming the local holding it. The prologue puts

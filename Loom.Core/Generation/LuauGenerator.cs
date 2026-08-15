@@ -49,7 +49,7 @@ public sealed partial class LuauGenerator
         _diagnostics = new DiagnosticBag(options: semanticModel.Diagnostics.Options);
         _runtimeImport = runtimeImport ?? RuntimeImport.Default;
         _macroExpander = new MacroExpander(semanticModel, _state, _diagnostics);
-        _arrayPipeline = new ArrayPipeline(semanticModel, _state, expression => Visit(expression));
+        _arrayPipeline = new ArrayPipeline(semanticModel, _state, Visit);
         _moduleGenerator = new ModuleImportExportGenerator(semanticModel, _diagnostics, moduleRequirePaths);
         _localSafeConnections = new Lazy<HashSet<(EventTarget Target, Symbol Function)>>(
             () => EventConnectionScopeAnalyzer.ComputeLocallySafeConnections(semanticModel)

@@ -115,24 +115,24 @@ public sealed class ModuleResolver
             : ModuleResolution.Failed(ModuleResolutionStatus.OutsideSourceDirectory, package);
     }
 
+    /// <param name="package"></param>
     /// <param name="indexOnly">
     ///     Set when <paramref name="basePath" /> is a directory rather than a module path, as it is for a bare
     ///     package specifier: only the <c>init</c> file inside it can be meant, never a sibling file beside it.
     /// </param>
+    /// <param name="importingFile"></param>
+    /// <param name="basePath"></param>
     private ModuleResolution ResolveAt(SourceFile importingFile, string basePath, PackageName? package = null, bool indexOnly = false)
     {
         SourceFile? caseInsensitiveMatch = null;
         foreach (var candidate in GetCandidatePaths(basePath, indexOnly))
         {
-            if (!_modulesByPath.TryGetValue(candidate, out var file))
-            {
-                caseInsensitiveMatch ??= _modulesByPathIgnoringCase.GetValueOrDefault(candidate);
-                continue;
-            }
+            if (_modulesByPath.TryGetValue(candidate, out var file))
+                return file == importingFile
+                    ? ModuleResolution.Failed(ModuleResolutionStatus.SelfImport, package)
+                    : ModuleResolution.Resolved(file);
 
-            return file == importingFile
-                ? ModuleResolution.Failed(ModuleResolutionStatus.SelfImport, package)
-                : ModuleResolution.Resolved(file);
+            caseInsensitiveMatch ??= _modulesByPathIgnoringCase.GetValueOrDefault(candidate);
         }
 
         return ModuleResolution.NotFound(caseInsensitiveMatch, package);

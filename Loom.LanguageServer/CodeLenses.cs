@@ -1,6 +1,5 @@
 using Loom.Core.Parsing.AST;
 using Loom.Core.Pipeline;
-using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
 
@@ -70,13 +69,12 @@ public static class CodeLenses
         if (trait == null)
             return 0;
 
-        var count = 0;
-        foreach (var model in unit.AnalyzedModules.Values)
-            foreach (var block in model.Tree.EnumerateDescendants<Implement>())
-                if (model.GetSymbol(block.TraitName) == trait)
-                    count++;
-
-        return count;
+        return (
+            from model in unit.AnalyzedModules.Values
+            from block in model.Tree.EnumerateDescendants<Implement>()
+            where model.GetSymbol(block.TraitName) == trait
+            select model
+        ).Count();
     }
 
     /// <summary>The lens text, singular where the count is one - a lens is read at a glance and "1 references" snags.</summary>

@@ -148,12 +148,13 @@ internal sealed partial class SerializationEmitter
 
     private Table EmitTupleDiffRead(TupleField tuple, LuauExpression baselineValue, Cursor cursor, List<LuauStatement> statements)
     {
-        var initializers = new List<TableInitializer>();
-        foreach (var element in tuple.Elements)
-        {
-            var elementBaseline = AccessRelative(baselineValue, element.Path, tuple.Path);
-            initializers.Add(new PropertyTableInitializer(LeafName(element.Path), EmitFieldDiffRead(element, elementBaseline, cursor, statements)));
-        }
+        var initializers = (
+                from element in tuple.Elements
+                let elementBaseline = AccessRelative(baselineValue, element.Path, tuple.Path)
+                select new PropertyTableInitializer(LeafName(element.Path), EmitFieldDiffRead(element, elementBaseline, cursor, statements))
+            )
+            .Cast<TableInitializer>()
+            .ToList();
 
         return new Table(initializers);
     }
@@ -284,10 +285,9 @@ internal sealed partial class SerializationEmitter
             {
                 var initializers = new List<TableInitializer> { new PropertyTableInitializer(union.DiscriminantName!, ToLiteral(variant.Discriminant)) };
                 initializers.AddRange(
-                    (
-                        from variantField in variant.Fields
-                        let fieldBaseline = AccessRelative(baselineValue, variantField.Path, union.Path)
-                        select new PropertyTableInitializer(LeafName(variantField.Path), EmitFieldDiffRead(variantField, fieldBaseline, cursor, statements)))
+                    from variantField in variant.Fields
+                    let fieldBaseline = AccessRelative(baselineValue, variantField.Path, union.Path)
+                    select new PropertyTableInitializer(LeafName(variantField.Path), EmitFieldDiffRead(variantField, fieldBaseline, cursor, statements))
                 );
 
                 return new Table(initializers);
@@ -387,9 +387,6 @@ internal sealed partial class SerializationEmitter
         var leaf = LeafName(map.Path);
         var countName = $"{leaf}_{kind}_count".ToLowerInvariant();
         var count = BindRead(ReadNumber(cursor, map.LengthType, statements, countName), countName, statements);
-
-        // Claimed before the entries are read, exactly as the writer laid it out: the block's origin is
-        // the position the loop starts from, not one an entry's own reads have already moved past.
         var entryBits = kind == MapRunKind.Changed
             ? ReserveElementBits(map.DiffEntryBits, leaf + "_entry", count, cursor, statements)
             : null;

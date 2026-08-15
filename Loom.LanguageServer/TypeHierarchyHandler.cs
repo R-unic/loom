@@ -18,7 +18,7 @@ public sealed class TypeHierarchyPrepareHandler(DocumentStore documents) : TypeH
 
         var offset = IncrementalText.ToOffset(state.File.SourceFile.SourceText, request.Position);
         var item = TypeHierarchy.At(state.File, offset) is { } symbol ? ToItem(symbol) : null;
-        return Task.FromResult<Container<TypeHierarchyItem>?>(item == null ? null : new Container<TypeHierarchyItem>(item));
+        return Task.FromResult(item == null ? null : new Container<TypeHierarchyItem>(item));
     }
 
     internal static TypeHierarchyItem ToItem(TypeSymbol symbol) =>

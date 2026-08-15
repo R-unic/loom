@@ -1,7 +1,6 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
-using Loom.Core.Text;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
 
 namespace Loom.Core.Resolving;
@@ -84,12 +83,7 @@ public sealed partial class Resolver
         traitSymbol.ImplementedBy.Add(interfaceSymbol);
         var success = interfaceSymbol.FullProperties
             .All(property => DeclareVariable(implement, new InjectedPropertyVariableSymbol(implement, property.Name, interfaceSymbol, property.IsMutable)));
-
-        // A bare call to a method from another trait already implemented on this interface resolves the
-        // same way a bare call to one of THIS block's own methods already does (as an ordinary function
-        // symbol), so it compiles through the same self+colon-call codegen path without any changes there.
-        // Only traits implemented earlier in the file are visible here, matching the same source-order
-        // dependency '@.method()' already has for cross-trait access.
+        
         if (success)
         {
             var otherMethods = interfaceSymbol.FullImplementations
@@ -165,9 +159,7 @@ public sealed partial class Resolver
             || DeclareInterface(interfaceDeclaration, isSealed) is not { } symbol
             || !ResolveInterfaceConstraints(interfaceDeclaration.ColonTypeListClause, symbol))
             return false;
-
-        // the body is resolved outside this scope, against the interface's own members rather than its
-        // type parameters
+        
         using (var _ = InScope())
             base.VisitInterfaceDeclaration(interfaceDeclaration);
 
@@ -250,10 +242,7 @@ public sealed partial class Resolver
     {
         if (body == null)
             return true;
-
-        // A mapped type describes the whole body - every member it has comes from the keys it maps over -
-        // so anything written beside it would be describing the same object twice with no rule for which
-        // one wins.
+        
         var mapped = body.Members.OfType<MappedTypeDeclaration>().ToList();
         if (mapped.Count > 0 && body.Members.Count > 1)
         {

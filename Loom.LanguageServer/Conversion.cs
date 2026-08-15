@@ -17,7 +17,7 @@ namespace Loom.LanguageServer;
 
 public static class Conversion
 {
-    /// <summary>Codes whose warning means the code it marks does nothing, which editors grey out rather than underline.</summary>
+    /// <summary>Codes whose warning means the code it marks does nothing, which editors gray out rather than underline.</summary>
     private static readonly HashSet<string> _unnecessaryCodes = [InternalCodes.UnreachableCode, InternalCodes.UnusedImport];
 
     public static Position ToPosition(LoomLocation location) => new(location.Line - 1, location.Character);
@@ -40,7 +40,7 @@ public static class Conversion
             Code = diagnostic.Code == null ? default : new DiagnosticCode(diagnostic.Code),
             Message = diagnostic.Message,
             // the hint says what to do about the message rather than restating it, so it is its own entry:
-            // parenthesised onto the end it read as one long sentence, and the Problems panel showed it as one row
+            // parenthesized onto the end it read as one long sentence, and the Problems panel showed it as one row
             RelatedInformation = ToRelatedInformation(diagnostic),
             Tags = ToTags(diagnostic),
             Source = "loom"

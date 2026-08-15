@@ -130,7 +130,7 @@ internal static class Utility
         return (result, semanticModel, flowAnalyzer);
     }
 
-    public static TypeCheckerResult TypeCheck(string source, ProjectType projectType = ProjectType.Game) => TypeCheck(source, out _, projectType);
+    private static TypeCheckerResult TypeCheck(string source, ProjectType projectType = ProjectType.Game) => TypeCheck(source, out _, projectType);
 
     private static TypeCheckerResult TypeCheck(string source, out DiagnosticBag upstream, ProjectType projectType = ProjectType.Game)
     {
@@ -251,16 +251,16 @@ internal static class Utility
         Directory.CreateDirectory(sourceDirectory);
         try
         {
-            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            await File.WriteAllTextAsync(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
             foreach (var (path, otherSource) in otherFiles)
             {
                 var filePath = Path.Combine(sourceDirectory, path);
                 Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-                File.WriteAllText(filePath, otherSource);
+                await File.WriteAllTextAsync(filePath, otherSource);
             }
 
             var mainPath = Path.Combine(sourceDirectory, "main.loom");
-            File.WriteAllText(mainPath, source);
+            await File.WriteAllTextAsync(mainPath, source);
 
             var store = new DocumentStore();
             var uri = DocumentUri.FromFileSystemPath(mainPath);

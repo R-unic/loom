@@ -52,7 +52,17 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
 
     /// <summary>Stages that consume the chain, so they may only ever be last.</summary>
     private static readonly HashSet<string> _terminals =
-        ["select", "where", "aggregate", "any", "all", "count", "to_set", "select_many", "flatten"];
+    [
+        "select",
+        "where",
+        "aggregate",
+        "any",
+        "all",
+        "count",
+        "to_set",
+        "select_many",
+        "flatten"
+    ];
 
     /// <param name="MeasuresOnly">
     ///     Set where the chain's array is only ever measured, so the terminal counts what it would have
@@ -61,12 +71,13 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     private readonly record struct Stage(string Name, List<Expression> Arguments, bool MeasuresOnly = false)
     {
         /// <summary>Where the callback sits in the argument list, or -1 when the stage takes none.</summary>
-        public int CallbackIndex => Name switch
-        {
-            "select" or "where" or "any" or "all" or "count" or "select_many" => 0,
-            "aggregate" => 1,
-            _ => -1
-        };
+        public int CallbackIndex =>
+            Name switch
+            {
+                "select" or "where" or "any" or "all" or "count" or "select_many" => 0,
+                "aggregate" => 1,
+                _ => -1
+            };
 
         /// <summary>How many arguments the callback is handed, so an over-long lambda is left alone.</summary>
         public int Arity => Name == "aggregate" ? 3 : 2;
@@ -159,7 +170,15 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
 
         var reserved = new HashSet<string> { source.Name };
         var terminal = bound[^1];
-        var answer = OpenTerminal(bound, source, target, reserved, out var result, out var count);
+        var answer = OpenTerminal(
+            bound,
+            source,
+            target,
+            reserved,
+            out var result,
+            out var count
+        );
+
         BindCallbacks(bound, reserved);
 
         var elementName = ElementNameFor(bound, 0, bound[0].Stage.Name == "flatten" ? SegmentName : ElementName);
@@ -197,7 +216,15 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
             position = Renumber(bound, i, statements, position);
         }
 
-        CloseTerminal(terminal, statements, ref current, position, result, count);
+        CloseTerminal(
+            terminal,
+            statements,
+            ref current,
+            position,
+            result,
+            count
+        );
+
         state.Prereq(new ForStatement([indexName, elementName], source, new Chunk(body)));
         expression = answer;
 
@@ -237,10 +264,10 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         if (!LuauIdentifiers.TryCollect(source, mentioned))
             return null;
 
-        foreach (var stage in bound)
-            foreach (var argument in stage.Arguments)
-                if (!LuauIdentifiers.TryCollect(argument, mentioned))
-                    return null;
+        if (bound.SelectMany(stage => stage.Arguments).Any(argument => !LuauIdentifiers.TryCollect(argument, mentioned)))
+        {
+            return null;
+        }
 
         var name = declaration.Name.Text;
         return mentioned.Contains(name) ? null : name;
@@ -248,9 +275,7 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
 
     /// <summary>Whether the chain is the whole of an immutable, unannotated binding's initializer.</summary>
     private static bool IsSoleBinding(Node bindingNode) =>
-        bindingNode.Parent is EqualsValueClause { Parent: VariableDeclaration declaration }
-        && declaration.ColonTypeClause == null
-        && declaration.Keyword.Kind == SyntaxKind.LetKeyword;
+        bindingNode.Parent is EqualsValueClause { Parent: VariableDeclaration { ColonTypeClause: null, Keyword.Kind: SyntaxKind.LetKeyword } };
 
     /// <summary>Marks the terminal as measured, or answers false where measuring it would drop work.</summary>
     private static bool TryMeasureTerminal(List<Stage> stages)
@@ -312,13 +337,13 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
 
         switch (invocation.Expression)
         {
-            case PropertyAccess { Names: [var only] } property when !only.IsOptional:
+            case PropertyAccess { Names: [{ IsOptional: false } only] } property:
             {
                 name = only.Name.Text.Trim();
                 receiver = property.Expression;
                 break;
             }
-            case QualifiedName { Names: [var only] } qualified when !only.IsOptional:
+            case QualifiedName { Names: [{ IsOptional: false } only] } qualified:
             {
                 name = only.Name.Text.Trim();
                 receiver = qualified.Identifier;
@@ -357,8 +382,6 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
                 continue;
             }
 
-            // A stage's own parameters are bound by the stage itself, ahead of its body, so they shadow
-            // anything a stage above it left in scope and are not what this is looking for.
             var references = new HashSet<string>();
             if (LuauIdentifiers.TryCollect(new Chunk([.. inlined.Prelude, new Return(inlined.Value)]), references))
             {
@@ -367,7 +390,6 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
                 continue;
             }
 
-            // A body this cannot read may mention anything, so nothing above it may bind a name.
             for (var j = 0; j < i; j++)
                 bound[j].Inlined = null;
 
@@ -420,9 +442,7 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         {
             if (bound[i].ReadsIndex || i == bound.Count - 1 && bound[i].Stage.WritesAtPosition)
                 return true;
-
-            // A stage that renumbers hands everything below it a position of its own, so what they read
-            // is that one and not this. Whether it renumbers is this same question asked one stage later.
+            
             if (i < bound.Count - 1 && bound[i].Stage.Renumbers)
                 return false;
         }
@@ -448,7 +468,7 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
     ///     Only the one the chain evaluates to takes <paramref name="target" />. A <c>select_many</c>
     ///     declares a running count alongside its result, and that one is nobody's binding.
     /// </remarks>
-    private LuauExpression OpenTerminal(
+    private Identifier OpenTerminal(
         List<BoundStage> bound,
         Identifier source,
         string? target,
@@ -522,8 +542,6 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
 
     private Identifier Declare(string? target, string fallback, HashSet<string> reserved, Func<string, LuauStatement> declaration)
     {
-        // The binding this is standing in for already put its name in scope, so take it as given rather
-        // than allocating it again - AddIdentifier would read the name as taken and hand back a second one.
         var allocated = target ?? state.Scope.AddIdentifier(fallback);
         if (target != null)
             state.Scope.Reserve(target);
@@ -604,9 +622,7 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
             case "count":
             {
                 var condition = ApplyCallback(terminal, statements, ref current, position);
-                statements.Add(
-                    new IfStatement(condition, new Chunk([new ExpressionStatement(new BinaryOperator(count!, "+=", new NumberLiteral(1)))]), [], null)
-                );
+                statements.Add(new IfStatement(condition, new Chunk([new ExpressionStatement(new BinaryOperator(count!, "+=", new NumberLiteral(1)))]), [], null));
 
                 return;
             }
@@ -650,12 +666,11 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         return inlined.Value;
     }
 
-    private LuauExpression ApplyAggregate(BoundStage stage, List<LuauStatement> statements, Identifier carried, LuauExpression current, LuauExpression position)
+    private static LuauExpression ApplyAggregate(BoundStage stage, List<LuauStatement> statements, Identifier carried, LuauExpression current, LuauExpression position)
     {
-        if (stage.Inlined is not { } inlined)
+        if (stage.Inlined is not var (names, luauStatements, luauExpression))
             return new Call(stage.Applied!, [carried, current, position]);
 
-        var names = inlined.ParameterNames;
         if (names.Count > 0)
             BindName(statements, names[0], carried);
 
@@ -665,8 +680,8 @@ internal sealed class ArrayPipeline(SemanticModel semanticModel, LuauState state
         if (names.Count > 2)
             BindName(statements, names[2], position);
 
-        statements.AddRange(inlined.Prelude);
-        return inlined.Value;
+        statements.AddRange(luauStatements);
+        return luauExpression;
     }
 
     private LuauExpression BindElement(BoundStage stage, List<LuauStatement> statements, LuauExpression current)

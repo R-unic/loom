@@ -125,7 +125,7 @@ internal sealed class StringMacroProvider : IMacroProvider
     private static LuauExpression LastCharacters(LuauExpression self, LuauExpression count) =>
         count is not NumberLiteral { Value: var length }
             ? new BinaryOperator(new BinaryOperator(LengthOf(self), "-", count), "+", new NumberLiteral(1))
-            : length == 1
+            : Math.Abs(length - 1) < 1e-8
                 ? LengthOf(self)
                 : new BinaryOperator(LengthOf(self), "-", new NumberLiteral(length - 1));
 

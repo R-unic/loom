@@ -448,7 +448,8 @@ public class CompilationUnitTest
             ],
             (unit, first) =>
             {
-                Assert.Contains(first.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.CircularModuleDependency);
+                var (_, diagnosticBag) = first;
+                Assert.Contains(diagnosticBag.Set, diagnostic => diagnostic.Code == InternalCodes.CircularModuleDependency);
                 var aFile = unit.SourceFiles.First(file => file.Name == "a.loom");
 
                 // the edit is to 'a', so 'b' - the file the cycle was reported against - is answered from the
@@ -478,7 +479,7 @@ public class CompilationUnitTest
 
                 var kept = unit.ModuleGraph!.GetDiagnostics(brokenFile);
                 Assert.NotNull(kept);
-                Assert.Contains(kept!.Set, diagnostic => diagnostic.Code == InternalCodes.ModuleNotFound);
+                Assert.Contains(kept.Set, diagnostic => diagnostic.Code == InternalCodes.ModuleNotFound);
             }
         );
 

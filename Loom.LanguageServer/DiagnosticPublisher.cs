@@ -15,22 +15,18 @@ namespace Loom.LanguageServer;
 ///     Deciding what to publish and reaching the client with it are separate: the first is a state machine
 ///     worth testing on its own, and the second is one call on a connection a test has no way to hold.
 /// </remarks>
-public sealed class DiagnosticPublisher
+public sealed class DiagnosticPublisher(Action<PublishDiagnosticsParams> send)
 {
     private readonly HashSet<DocumentUri> _reported = [];
     private readonly Lock _gate = new();
-    private readonly Action<PublishDiagnosticsParams> _send;
 
     public DiagnosticPublisher(ILanguageServerFacade server)
         : this(published => server.TextDocument.PublishDiagnostics(published)) { }
 
-    public DiagnosticPublisher(Action<PublishDiagnosticsParams> send) => _send = send;
-
     /// <summary>Publishes the result's diagnostics, and clears every file that had some and no longer does.</summary>
     public void Publish(CompilationResult? result)
     {
-        if (result == null)
-            return;
+        if (result == null) return;
 
         foreach (var (uri, diagnostics) in Next(result))
             Send(uri, diagnostics);
@@ -92,7 +88,7 @@ public sealed class DiagnosticPublisher
     {
         try
         {
-            _send(new PublishDiagnosticsParams { Uri = uri, Diagnostics = diagnostics });
+            send(new PublishDiagnosticsParams { Uri = uri, Diagnostics = diagnostics });
         }
         catch (Exception)
         {

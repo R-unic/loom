@@ -174,26 +174,30 @@ public static partial class ConfigReader
         realm = Realm.Shared;
         switch (name.Trim().ToLowerInvariant())
         {
-            case "shared": realm = Realm.Shared; return true;
-            case "client": realm = Realm.Client; return true;
-            case "server": realm = Realm.Server; return true;
+            case "shared":
+                realm = Realm.Shared;
+                return true;
+            case "client":
+                realm = Realm.Client;
+                return true;
+            case "server":
+                realm = Realm.Server;
+                return true;
             default: return false;
         }
     }
 
     /// <summary>One spelling of a directory, so two ways of writing the same one are one entry.</summary>
-    public static string NormalizeRealmDirectory(string directory) =>
-        directory.Replace('\\', '/').Trim().Trim('/');
+    private static string NormalizeRealmDirectory(string directory) => directory.Replace('\\', '/').Trim().Trim('/');
 
     /// <summary>
-    ///     Whether a normalised directory names somewhere absolute. Asked without <see cref="Path.IsPathRooted(string)" />,
+    ///     Whether a normalized directory names somewhere absolute. Asked without <see cref="Path.IsPathRooted(string)" />,
     ///     which answers by the platform it is running on: a drive letter is rooted on Windows and an
     ///     ordinary directory name everywhere else, so the same manifest would be rejected on one machine
     ///     and read as a directory called <c>C:</c> on the next.
     /// </summary>
     /// <remarks>A leading separator is already gone by here, which is what leaves a drive letter to check for.</remarks>
-    private static bool IsRooted(string normalized) =>
-        normalized.Length >= 2 && normalized[1] == ':' && char.IsAsciiLetter(normalized[0]);
+    private static bool IsRooted(string normalized) => normalized is [_, ':', ..] && char.IsAsciiLetter(normalized[0]);
 
     private static void ReadDependencies(LoomConfig config, List<ConfigDiagnostic> diagnostics)
     {

@@ -12,12 +12,12 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class MoreCodeActionFixesTest
 {
-    private static readonly (string Path, string Source) Math = ("util/math.loom", "export fn double(n: number): number -> n * 2;");
+    private static readonly (string Path, string Source) _math = ("util/math.loom", "export fn double(n: number): number -> n * 2;");
 
     [Fact]
     public async Task Handle_ForATypeOnlyImportOfAValue_OffersToDropTheKeyword()
     {
-        var actions = await ActionsAsync("import type { double } from \"./util/math\";\nlet x = 1;", 0, 15, Math);
+        var actions = await ActionsAsync("import type { double } from \"./util/math\";\nlet x = 1;", 0, 15, _math);
         var action = Assert.Single(actions, entry => entry.Title == "Remove 'type' from the import");
 
         var edit = Assert.Single(Assert.Single(action.Edit!.Changes!).Value);
@@ -28,7 +28,7 @@ public class MoreCodeActionFixesTest
     [Fact]
     public async Task Handle_ForATypeOnlyImportOfAValue_LeavesOneSpaceBetweenTheKeywords()
     {
-        var actions = await ActionsAsync("import type { double } from \"./util/math\";\nlet x = 1;", 0, 15, Math);
+        var actions = await ActionsAsync("import type { double } from \"./util/math\";\nlet x = 1;", 0, 15, _math);
         var action = Assert.Single(actions, entry => entry.Title == "Remove 'type' from the import");
         var edit = Assert.Single(Assert.Single(action.Edit!.Changes!).Value);
 
@@ -39,7 +39,7 @@ public class MoreCodeActionFixesTest
     [Fact]
     public async Task Handle_ForATypeOnlyExportOfAValue_OffersToDropTheKeyword()
     {
-        var actions = await ActionsAsync("export type { double } from \"./util/math\";", 0, 15, Math);
+        var actions = await ActionsAsync("export type { double } from \"./util/math\";", 0, 15, _math);
         var action = Assert.Single(actions, entry => entry.Title == "Remove 'type' from the export");
         var edit = Assert.Single(Assert.Single(action.Edit!.Changes!).Value);
 
@@ -116,7 +116,7 @@ public class MoreCodeActionFixesTest
         for (var i = 0; i < position.Line; i++)
             offset += lines[i].Length + 1;
 
-        return offset + (int)position.Character;
+        return offset + position.Character;
     }
 
     private static async Task<CodeAction[]> ActionsAsync(string source, int line, int character, params (string Path, string Source)[] otherFiles)

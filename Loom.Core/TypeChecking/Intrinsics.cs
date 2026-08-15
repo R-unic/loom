@@ -7,7 +7,6 @@ using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 using IWithAttributes = Loom.Core.Parsing.AST.IWithAttributes;
-using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Core.TypeChecking;

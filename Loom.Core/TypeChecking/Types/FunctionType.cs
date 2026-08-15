@@ -63,7 +63,7 @@ public sealed class FunctionType(
     /// <remarks>
     ///     Only when the source has no rest parameter of its own. Where both do, the last parameter is the
     ///     rest array on either side and the two compare directly; reading one of them through
-    ///     <see cref="ParameterTypeAt" /> would compare an array against what it holds.
+    ///     <see cref="ParameterTypeAt(int)" /> would compare an array against what it holds.
     /// </remarks>
     public static bool RestAbsorbsParameters(bool sourceHasRestParameter, bool targetHasRestParameter) =>
         targetHasRestParameter && !sourceHasRestParameter;

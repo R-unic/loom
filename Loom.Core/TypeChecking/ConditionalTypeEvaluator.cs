@@ -26,9 +26,7 @@ internal static class ConditionalTypeEvaluator
 {
     private const int MaxNestingDepth = 50;
     private const int MaxTailIterations = 1000;
-
-    // State of the evaluation that is running rather than of the type graph, so each thread gets its own -
-    // the language server compiles more than one document at a time.
+    
     [ThreadStatic] private static int _depth;
     [ThreadStatic] private static bool _overflowed;
 
@@ -102,12 +100,8 @@ internal static class ConditionalTypeEvaluator
         foreach (var arm in conditional.Arms)
         {
             var bindings = new TypeParameterSubstitution();
-            if (!TypeMatcher.TryMatch(subject, arm.Pattern, arm.Binders, bindings))
-                continue;
+            if (!TypeMatcher.TryMatch(subject, arm.Pattern, arm.Binders, bindings)) continue;
 
-            // A binder inside a part of the pattern that was answered by assignability rather than walked
-            // into never got bound. Nothing is known about it, which is exactly what 'unknown' says - and
-            // leaving it free would put a parameter of the pattern into the type the arm hands back.
             foreach (var binder in arm.Binders)
                 bindings.TryAdd(binder, PrimitiveType.Unknown);
 
@@ -119,8 +113,6 @@ internal static class ConditionalTypeEvaluator
             return null;
         }
 
-        // Nothing matched. 'never' rather than a diagnostic: an arm list with no catch-all is a narrowing,
-        // and the caller finds out by way of the type it gets back not being usable.
         return PrimitiveType.Never;
     }
 
@@ -133,10 +125,6 @@ internal static class ConditionalTypeEvaluator
     private static bool Distribute(ConditionalType conditional, Type subject, out Type? distributed)
     {
         distributed = null;
-
-        // 'never' is the union with no members, so there is nothing to run the arms against and nothing to
-        // union back up. Falling through to the arms instead would match the first of them, since 'never' is
-        // assignable to everything.
         if (Type.IsNever(subject))
         {
             distributed = PrimitiveType.Never;
@@ -147,9 +135,8 @@ internal static class ConditionalTypeEvaluator
             return false;
 
         var results = new List<Type>();
-        foreach (var member in union.Types)
+        foreach (var evaluated in union.Types.Select(member => TryEvaluate(new ConditionalType(member, conditional.Arms, false))))
         {
-            var evaluated = TryEvaluate(new ConditionalType(member, conditional.Arms, false));
             if (evaluated == null)
                 return true;
 

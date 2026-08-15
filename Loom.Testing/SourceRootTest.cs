@@ -60,13 +60,10 @@ public class SourceRootTest
                 var main = unit.SourceFiles.First(file => file.Name == "main.loom");
                 var package = unit.SourceFiles.First(file => file.Name == "init.loom");
 
-                Assert.Equal(2, unit.SourceFiles.Count());
+                Assert.Equal(2, unit.SourceFiles.Count);
                 Assert.Same(unit.Roots.Entry, unit.Roots.Of(main));
                 Assert.Same(unit.Roots[1], unit.Roots.Of(package));
                 Assert.Same(workspace.Package, unit.Roots.ConfigOf(package));
-
-                // a file under no root at all - an intrinsic, a lone file handed to the unit - reads the
-                // entry project's settings, which is what it read when a unit had a single root
                 Assert.Same(unit.Roots.Entry, unit.Roots.Of(Utility.TestFile("let x = 1;")));
             }
         );
@@ -368,10 +365,8 @@ public class SourceRootTest
                 var result = unit.Compile();
                 Utility.AssertDiagnostic(result.Diagnostics, InternalCodes.CannotFindName, "Cannot find name 'physics_step'.");
 
-                // the package's own files still see it, and no name of the package's leaked into the app
                 var main = unit.SourceFiles.First(file => file.Name == "main.loom");
                 var package = unit.SourceFiles.First(file => file.Name == "init.loom");
-
                 Assert.Contains(unit.Globals.Of(package).Keys, symbol => symbol.Name == "physics_step");
                 Assert.Empty(unit.Globals.Of(main));
             },
@@ -457,8 +452,6 @@ public class SourceRootTest
                 var attributed = Assert.Single(result.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.PackageFailedToCompile);
                 Assert.StartsWith("Package 'math' failed to compile: Cannot find name 'missing'.", attributed.Message);
                 Assert.Equal("init.loom", attributed.Span.File.Name);
-
-                // the consumer's own diagnostic is theirs, reported exactly as raised
                 Utility.AssertDiagnostic(result.Diagnostics, InternalCodes.CannotFindName, "Cannot find name 'also_missing'.");
             },
             appFiles: [("main.loom", "print(also_missing);")],

@@ -1,4 +1,3 @@
-using Loom.Core.Pipeline;
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -8,7 +7,7 @@ namespace Loom.Testing;
 /// <summary>
 ///     The document lifecycle - open, change, close - and the reload the client's file watcher drives. These
 ///     handlers own no answers of their own; what they own is when a compile happens and what the client is
-///     told afterwards, so each case drives the handler and reads what reached the publisher.
+///     told afterward, so each case drives the handler and reads what reached the publisher.
 /// </summary>
 [Collection("Assembly")]
 public class LanguageServerLifecycleTest
@@ -86,7 +85,7 @@ public class LanguageServerLifecycleTest
 
     /// <remarks>
     ///     A client keeps whatever it was last sent, so a closed file's errors would sit in the Problems panel
-    ///     against a document nothing is analyzing any more.
+    ///     against a document nothing is analyzing anymore.
     /// </remarks>
     [Fact]
     public async Task Close_ClearsTheFilesDiagnostics() =>
@@ -143,7 +142,7 @@ public class LanguageServerLifecycleTest
 
     /// <remarks>
     ///     A file changed on disk that the editor has no buffer for - a branch switch, a generator - has to
-    ///     reach the compile, or every request afterwards is answered against text that is gone.
+    ///     reach the compile, or every request afterward is answered against text that is gone.
     /// </remarks>
     [Fact]
     public async Task WatchedFiles_RecompilesAFileChangedOnDisk() =>
@@ -151,7 +150,7 @@ public class LanguageServerLifecycleTest
             async (store, uri) =>
             {
                 var otherPath = Path.Combine(Path.GetDirectoryName(uri.GetFileSystemPath())!, "other.loom");
-                File.WriteAllText(otherPath, "export let value: number = \"no\";");
+                await File.WriteAllTextAsync(otherPath, "export let value: number = \"no\";");
 
                 var publisher = DiagnosticPublisherTest.Recording(out var sent);
                 using var debouncer = new Debouncer(_noDelay);

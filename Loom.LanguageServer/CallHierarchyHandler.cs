@@ -80,7 +80,7 @@ public sealed class CallHierarchyPrepareHandler(DocumentStore documents) : CallH
 
         var offset = IncrementalText.ToOffset(state.File.SourceFile.SourceText, request.Position);
         var item = CallHierarchy.At(state.File, offset) is { } symbol ? ToItem(symbol) : null;
-        return Task.FromResult<Container<CallHierarchyItem>?>(item == null ? null : new Container<CallHierarchyItem>(item));
+        return Task.FromResult(item == null ? null : new Container<CallHierarchyItem>(item));
     }
 
     internal static CallHierarchyItem ToItem(FunctionSymbol symbol) =>
@@ -145,7 +145,7 @@ public sealed class CallHierarchyOutgoingCallsHandler(DocumentStore documents)
         CallHierarchyCalls.HandleAsync(
             documents,
             request.Item,
-            (symbol, unit) => CallHierarchy.OutgoingCalls(symbol, unit),
+            CallHierarchy.OutgoingCalls,
             edge => new CallHierarchyOutgoingCall { To = CallHierarchyPrepareHandler.ToItem(edge.Symbol), FromRanges = CallHierarchyCalls.RangesOf(edge) }
         );
 }

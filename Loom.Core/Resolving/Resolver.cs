@@ -4,7 +4,6 @@ using Loom.Core.Parsing;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Pipeline;
 using Loom.Core.Resolving.Symbols;
-using Loom.Core.TypeChecking;
 
 namespace Loom.Core.Resolving;
 
@@ -159,7 +158,7 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
         return new ScopeHandle(this, scope);
     }
 
-    /// <summary>Pops the scope <see cref="InScope" /> pushed. Use its <see cref="Scope" /> to reach the scope itself.</summary>
+    /// <summary>Pops the scope <see cref="InScope()" /> pushed. Use its <see cref="Scope" /> to reach the scope itself.</summary>
     private readonly ref struct ScopeHandle(Resolver resolver, ResolverScope scope)
     {
         public ResolverScope Scope { get; } = scope;

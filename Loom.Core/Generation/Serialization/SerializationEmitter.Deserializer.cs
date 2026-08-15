@@ -14,10 +14,13 @@ internal sealed partial class SerializationEmitter
         var body = new List<LuauStatement>();
         var readCursor = new Cursor(schema.HeaderBytes);
         var reads = new List<LuauStatement>();
-        var initializers = new List<TableInitializer>();
-
-        foreach (var serializationField in schema.Fields)
-            initializers.Add(new PropertyTableInitializer(LeafName(serializationField.Path), EmitRead(serializationField, readCursor, reads)));
+        var initializers = schema.Fields
+            .Select(TableInitializer (serializationField) => new PropertyTableInitializer(
+                    LeafName(serializationField.Path),
+                    EmitRead(serializationField, readCursor, reads)
+                )
+            )
+            .ToList();
 
         if (!schema.IsEmpty)
         {
@@ -28,7 +31,6 @@ internal sealed partial class SerializationEmitter
         if (schema.HasBlobs)
         {
             body.Add(new ConstVariable(BlobsLocal, null, new PropertyAccess(new Identifier(SerializedParameter), ["blobs"])));
-
             body.Add(
                 new IfStatement(
                     new BinaryOperator(new Identifier(BlobsLocal), "==", new NilLiteral()),
@@ -43,14 +45,7 @@ internal sealed partial class SerializationEmitter
 
         body.AddRange(reads);
         body.Add(
-            new Return(
-                new Table(
-                    [
-                        new PropertyTableInitializer("ok", new BooleanLiteral(true)),
-                        new PropertyTableInitializer("value", new Table(initializers))
-                    ]
-                )
-            )
+            new Return(new Table([new PropertyTableInitializer("ok", new BooleanLiteral(true)), new PropertyTableInitializer("value", new Table(initializers))]))
         );
 
         return new Function(
@@ -146,12 +141,7 @@ internal sealed partial class SerializationEmitter
         if (offset != null)
             initializers.Add(new PropertyTableInitializer("offset", new NumberLiteral(offset.Value)));
 
-        return new Table(
-            [
-                new PropertyTableInitializer("ok", new BooleanLiteral(false)),
-                new PropertyTableInitializer("error", new Table(initializers))
-            ]
-        );
+        return new Table([new PropertyTableInitializer("ok", new BooleanLiteral(false)), new PropertyTableInitializer("error", new Table(initializers))]);
     }
 
     /// <summary>
@@ -191,9 +181,9 @@ internal sealed partial class SerializationEmitter
     /// <summary>Rebuilds a flattened struct as the table its properties belonged to.</summary>
     private Table EmitStructRead(TupleField tupleField, Cursor cursor, List<LuauStatement> statements)
     {
-        var initializers = new List<TableInitializer>();
-        foreach (var element in tupleField.Elements)
-            initializers.Add(new PropertyTableInitializer(LeafName(element.Path), EmitRead(element, cursor, statements)));
+        var initializers = tupleField.Elements
+            .Select(TableInitializer (element) => new PropertyTableInitializer(LeafName(element.Path), EmitRead(element, cursor, statements)))
+            .ToList();
 
         return new Table(initializers);
     }
@@ -217,7 +207,6 @@ internal sealed partial class SerializationEmitter
         var local = ReserveLocal(LeafName(blobField.Path) + "_blob");
         statements.Add(new ConstVariable(local, null, slot));
         statements.Add(new ExpressionStatement(new BinaryOperator(new Identifier(BlobIndexLocal), "+=", _one)));
-
         statements.Add(
             new IfStatement(
                 new BinaryOperator(new Identifier(local), "==", new NilLiteral()),
@@ -254,7 +243,6 @@ internal sealed partial class SerializationEmitter
 
         return new Identifier(local);
     }
-
 
     /// <summary>
     ///     Reads a count-prefixed run of pairs back into a table. Order is not preserved and does not need
@@ -320,9 +308,7 @@ internal sealed partial class SerializationEmitter
         restore();
         cursor.Flush(elementBody);
 
-        elementBody.Add(
-            new ExpressionStatement(new BinaryOperator(new ElementAccess(new Identifier(leaf), new Identifier(loop)), "=", element))
-        );
+        elementBody.Add(new ExpressionStatement(new BinaryOperator(new ElementAccess(new Identifier(leaf), new Identifier(loop)), "=", element)));
 
         statements.Add(new NumericForStatement(loop, _one, count, null, new Chunk(elementBody)));
         return new Identifier(leaf);
@@ -404,19 +390,22 @@ internal sealed partial class SerializationEmitter
     /// </summary>
     private LuauExpression RebuildVariant(UnionField unionField, SerializationVariant variant, Cursor cursor, List<LuauStatement> body)
     {
-        if (unionField.Discrimination == UnionDiscrimination.LiteralValue)
-            return ToLiteral(variant.Discriminant);
-
-        if (unionField.Discrimination == UnionDiscrimination.RuntimeKind)
-            return variant.Fields.Count == 1 ? EmitRead(variant.Fields[0], cursor, body) : new NilLiteral();
-
-        var initializers = new List<TableInitializer>
+        switch (unionField.Discrimination)
         {
-            new PropertyTableInitializer(unionField.DiscriminantName!, ToLiteral(variant.Discriminant))
-        };
+            case UnionDiscrimination.LiteralValue:
+                return ToLiteral(variant.Discriminant);
+            case UnionDiscrimination.RuntimeKind:
+                return variant.Fields.Count == 1 ? EmitRead(variant.Fields[0], cursor, body) : new NilLiteral();
+            
+            case UnionDiscrimination.Discriminant:
+            default:
+                break;
+        }
 
-        foreach (var variantField in variant.Fields)
-            initializers.Add(new PropertyTableInitializer(LeafName(variantField.Path), EmitRead(variantField, cursor, body)));
+        var initializers = new List<TableInitializer> { new PropertyTableInitializer(unionField.DiscriminantName!, ToLiteral(variant.Discriminant)) };
+        initializers.AddRange(
+            variant.Fields.Select(variantField => new PropertyTableInitializer(LeafName(variantField.Path), EmitRead(variantField, cursor, body)))
+        );
 
         return new Table(initializers);
     }
@@ -525,8 +514,12 @@ internal sealed partial class SerializationEmitter
     private Call EmitCFrameRead(CFrameField cframeField, Cursor cursor, List<LuauStatement> statements)
     {
         var leaf = LeafName(cframeField.Path);
-        var arguments = _cFramePositionComponents.ConvertAll(
-            component => ReadNumber(cursor, cframeField.NumberType, statements, ComponentName(cframeField.Path, component))
+        var arguments = _cFramePositionComponents.ConvertAll(component => ReadNumber(
+                cursor,
+                cframeField.NumberType,
+                statements,
+                ComponentName(cframeField.Path, component)
+            )
         );
 
         if (cframeField.Encoding == CFrameEncoding.Compressed)
@@ -555,13 +548,13 @@ internal sealed partial class SerializationEmitter
         var call = BufferCall("read" + numberType.BufferSuffix(), [new Identifier(BufferLocal), cursor.Position]);
         if (!cursor.IsDynamic)
         {
-            cursor.Advance(statements, numberType.ByteCount());
+            cursor.Advance(numberType.ByteCount());
             return call;
         }
 
         var local = ReserveLocal(preferred);
         statements.Add(new ConstVariable(local, null, call));
-        cursor.Advance(statements, numberType.ByteCount());
+        cursor.Advance(numberType.ByteCount());
 
         return new Identifier(local);
     }
@@ -589,23 +582,16 @@ internal sealed partial class SerializationEmitter
     ///     body, so a later sibling loop may reuse the same names - without this the measure pass's
     ///     <c>entries_key</c> pushes the write pass onto a suffixed one nobody can read.
     /// </summary>
-    private IDisposable LoopScope() => new LocalScope(_locals);
+    private LocalScope LoopScope() => new(_locals);
 
-    private sealed class LocalScope : IDisposable
+    private sealed class LocalScope(HashSet<string> locals) : IDisposable
     {
-        private readonly HashSet<string> _locals;
-        private readonly HashSet<string> _outer;
-
-        public LocalScope(HashSet<string> locals)
-        {
-            _locals = locals;
-            _outer = [..locals];
-        }
+        private readonly HashSet<string> _outer = [..locals];
 
         public void Dispose()
         {
-            _locals.Clear();
-            _locals.UnionWith(_outer);
+            locals.Clear();
+            locals.UnionWith(_outer);
         }
     }
 

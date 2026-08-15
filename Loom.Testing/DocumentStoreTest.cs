@@ -143,9 +143,9 @@ public class DocumentStoreTest
         Directory.CreateDirectory(Path.Combine(directory, "src"));
         try
         {
-            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            await File.WriteAllTextAsync(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n", TestContext.Current.CancellationToken);
             var path = Path.Combine(directory, "src", "main.loom");
-            File.WriteAllText(path, "let x = 1;");
+            await File.WriteAllTextAsync(path, "let x = 1;", TestContext.Current.CancellationToken);
 
             var store = new DocumentStore();
             var uri = DocumentUri.FromFileSystemPath(path);
@@ -154,8 +154,6 @@ public class DocumentStoreTest
             var names = Enumerable.Range(0, 24).Select(index => $"a{index}").ToArray();
             var readerFaults = 0;
             using var editsDone = new CancellationTokenSource();
-            // The token rather than the source: a token is a struct, so the reader does not hold the
-            // disposable that this scope owns.
             var stopReading = editsDone.Token;
             var reader = Task.Run(() =>
                 {
@@ -352,10 +350,10 @@ public class DocumentStoreTest
     [Fact]
     public void Close_WithNoUnsavedEdits_LeavesTheProjectAlone() =>
         WithProject(
-            (store, uri, _) =>
+            (store, uri, __) =>
             {
                 store.Close(uri);
-                Assert.False(store.TryGetState(uri, out DocumentState _));
+                Assert.False(store.TryGetState(uri, out _));
             }
         );
 

@@ -520,12 +520,12 @@ public class TypesTest
         Assert.False(numberProp.IsAssignableTo(neverProp));
     }
 
-    [Fact]
     /// <summary>
     ///     'mut' is a capability: giving it up is safe, gaining it is not. Reading it the other way round
     ///     let an immutable property stand in for a mutable one, which hands out write access the source
     ///     never granted.
     /// </summary>
+    [Fact]
     public void ObjectType_Assignability_PropertyMutability()
     {
         var mutableProp = new ObjectType(null, [new ObjectProperty(true, "x", Number)]);

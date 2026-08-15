@@ -749,7 +749,7 @@ internal sealed partial class SerializationEmitter
     private void WriteNumber(Cursor cursor, NumberType numberType, LuauExpression value, List<LuauStatement> body)
     {
         body.Add(new ExpressionStatement(BufferCall("write" + numberType.BufferSuffix(), [new Identifier(BufferLocal), cursor.Position, value])));
-        cursor.Advance(body, numberType.ByteCount());
+        cursor.Advance(numberType.ByteCount());
     }
 
     private Call WriteBits(Cursor cursor, int bitCount, LuauExpression value)

@@ -701,7 +701,7 @@ public sealed partial class LuauGenerator
     public override LuauNode VisitNullForgiving(NullForgiving nullForgiving)
     {
         _semanticModel.RuntimeReferences += 1;
-        LuauExpression expression = Visit(nullForgiving.Expression);
+        var expression = Visit(nullForgiving.Expression);
         return new TypeCast(expression, LuauFactory.QualifyRuntimeType(new Luau.AST.TypeName("NonNullable", [new TypeOfType(expression)])));
     }
 
