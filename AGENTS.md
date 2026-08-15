@@ -120,7 +120,8 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - Nullable + ImplicitUsings enabled everywhere; primary constructors used (e.g. `Compiler(CompilationUnit unit, SourceFile file)`).
 - Big classes split as partial files by concern (`Parser.Expressions.cs`, `TypeChecker.Generics.cs`) — follow that pattern when a stage grows.
 - One AST node / one type kind per file.
-- Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:`/`ref:` (see git log).
+- Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:`/`ref:` (see git log). Commit as you go, title only — no description, no co-author, just `scope: name`.
+- No inline comments; doc comments (`###`) only when necessary.
 - Source files: Loom source uses `.loom` extension; output `.luau`. Indices are 1-based (Luau semantics). Immutability by default (`let` → `const`/local, `mut`
   for mutable).
 - `mut` is a **capability, not a guarantee**. Giving one up is safe, gaining one is not: a mutable member (property, indexer, array element) satisfies an
