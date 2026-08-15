@@ -5883,6 +5883,35 @@ public class TypeCheckerTest
         var diagnostic = diagnostics.Find(d => d.Code == InternalCodes.NoOverloadMatch);
         Assert.NotNull(diagnostic);
     }
+
+    /// <summary>
+    ///     An overload set with more than one generic candidate used to reject every call: candidate
+    ///     selection measured each argument against the candidate's own, still-unbound type parameters
+    ///     directly, and a concrete argument is never assignable to a bare, uninstantiated one. Picking
+    ///     an arity-appropriate candidate should defer that question to the inference
+    ///     <see cref="TypeChecker.CheckGenericInvocation" /> runs once a candidate is chosen, the same way
+    ///     a lone (non-overloaded) generic candidate always has. Issue found writing jecs.d.loom, where
+    ///     every one of <c>World</c>'s <c>get</c>/<c>has</c>/<c>query</c> overloads is generic.
+    /// </summary>
+    [Theory]
+    [InlineData("taker.take(1, 5)", "5?")]
+    [InlineData("taker.take(1, 5, \"hi\")", "(5?, \"hi\"?)")]
+    public void Checks_OverloadedGenericInvocation_ResolvesEachArity(string call, string expected)
+    {
+        var type = Utility.GetLastStatementType(
+            $$"""
+            declare sealed interface Taker {
+                take: fn<A>(entity: number, a: A): A?;
+                take: fn<A, B>(entity: number, a: A, b: B): (A?, B?);
+            }
+
+            declare let taker: Taker;
+            {{call}}
+            """
+        );
+
+        Assert.Equal(expected, TypeSimplifier.Expanded(type).ToString());
+    }
     #endregion Overloaded Interface Members
 
     [Fact]

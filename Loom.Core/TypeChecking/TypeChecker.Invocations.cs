@@ -95,7 +95,14 @@ public sealed partial class TypeChecker
                     && !argumentTypes.Where((argumentType, i) =>
                     {
                         var expected = Types.FunctionType.ParameterTypeAt(candidate.ParameterTypes, candidate.HasRestParameter, i);
-                        return expected != null && !argumentType.IsAssignableTo(expected);
+
+                        // A position naming one of the candidate's own type parameters has nothing to check
+                        // yet - what it would accept depends on the substitution CheckGenericInvocation is
+                        // about to infer for whichever candidate arity picks, not the bare, unbound parameter
+                        // sitting here. Measuring assignability against that rejects every generic candidate
+                        // whose inference would have succeeded, which is the whole overload set whenever more
+                        // than one arity is generic.
+                        return expected != null && !ContainsTypeParameter(expected, candidate.TypeParameters) && !argumentType.IsAssignableTo(expected);
                     }).Any();
             }
         );
@@ -114,6 +121,30 @@ public sealed partial class TypeChecker
         return match.TypeParameters.Count == 0
             ? CheckNonGenericInvocation(invocation, match)
             : CheckGenericInvocation(invocation, match);
+    }
+
+    /// <summary>
+    ///     Whether <paramref name="type" /> mentions any of <paramref name="parameters" /> - the same walk
+    ///     <see cref="TypeMatcher" />'s own <c>ContainsBinder</c> does, for the same reason: nothing general
+    ///     enumerates a type's children except <see cref="TypeSolver.Transform" />.
+    /// </summary>
+    private static bool ContainsTypeParameter(Type type, List<Types.TypeParameter> parameters)
+    {
+        if (type is Types.TypeParameter typeParameter && parameters.Exists(p => ReferenceEquals(p, typeParameter)))
+            return true;
+
+        var found = false;
+        TypeSolver.Transform(
+            type,
+            child =>
+            {
+                found |= ContainsTypeParameter(child, parameters);
+                return child;
+            },
+            simplify: false
+        );
+
+        return found;
     }
 
     private Type CheckNonGenericInvocation(Invocation invocation, Types.FunctionType functionType)
