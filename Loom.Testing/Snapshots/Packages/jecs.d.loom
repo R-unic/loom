@@ -1,0 +1,283 @@
+## Typings for jecs (https://github.com/Ukendio/jecs) - a fast, archetype/SoA Entity Component System
+## for Luau.
+##
+## Covers the public, day-to-day surface: world creation, entity/component/relationship ids, queries
+## (0-4 components, matching the arity jecs itself hand-types 'get' and 'has' to - the wider generic-pack
+## overloads on 'query' are how the library reaches 8, which Loom's generics have no equivalent of), and
+## the observer-style 'added'/'changed'/'removed' hooks. Not covered: the lower-level hook-via-'set'
+## path ('world:set(component, OnAdd, callback)') - 'added'/'changed'/'removed' reach the same hooks
+## through a friendlier surface - and jecs's own internal introspection helpers (bulk_insert,
+## component_record, record, the ECS_* bit-packing functions), which are implementation detail rather
+## than API a consumer calls.
+##
+## Usage: place this file in your project's source directory. A '.d.loom' can only declare ambient
+## names (Loom has no typed-import form for a foreign, non-Loom module yet), so the types below - and
+## the 'jecs' global at the bottom - become visible throughout your project without an import. Prefer
+## typing your own 'require' call directly over the ambient global where you can:
+##
+##   let jecs: JecsStatic = require(path.to.jecs);
+##
+## since it names exactly which module produced the value: 'declare let jecs: JecsStatic' further down
+## is there for projects that would rather reach it as a plain global.
+
+## Marks a Tag - a component with no data - as Entity<TagMarker>.
+declare sealed interface TagMarker;
+
+## A unique identifier in the world. T is the data type this entity carries when used as a component.
+declare sealed interface Entity<T = unknown> {
+    ## Not present at runtime - present only so 'Entity<A>' and 'Entity<B>' are never accidentally
+    ## interchangeable.
+    __phantom: T;
+}
+
+## An entity with no associated data when used as a component.
+type Tag = Entity<TagMarker>;
+
+## A relationship: 'predicate' paired with 'object', built with 'pair'. Used as a component id itself -
+## e.g. 'world:add(entity, pair(ChildOf, parent))'.
+declare sealed interface Pair<P = unknown, O = unknown> {
+    __phantomPredicate: P;
+    __phantomObject: O;
+}
+
+## Anything usable as a component id: a plain component/tag, or a relationship pair.
+type Id<T = unknown> = Entity<T> | Pair<T, unknown> | Pair<TagMarker, T>;
+
+## The columns of component data an archetype stores, keyed by component id - internal shape, exposed
+## only because 'Archetype.columns_map' has to name something.
+declare sealed interface ArchetypeColumns {
+    [Entity]: unknown[];
+}
+
+## Metadata jecs keeps per archetype - the set of entities sharing exactly one combination of component
+## types, stored column-major. Rarely touched directly; exposed for introspection via a query's
+## 'archetypes' method.
+declare sealed interface Archetype {
+    id: number;
+    types: Entity[];
+    [luau_name("type")] type_key: string;
+    entities: Entity[];
+    columns: unknown[][];
+    columns_map: ArchetypeColumns;
+}
+
+## A query over entities with no requested components - every entity, undifferentiated.
+declare sealed interface Query0 {
+    [luau_method] iter: fn: fn(): Entity;
+    [luau_method] with: fn(..ids: Id[]): Query0;
+    [luau_method] without: fn(..ids: Id[]): Query0;
+    [luau_method] archetypes: fn: Archetype[];
+    [luau_method] cached: fn: CachedQuery0;
+    [luau_method] has: fn(entity: Entity): bool;
+}
+
+declare sealed interface CachedQuery0 {
+    [luau_method] iter: fn: fn(): Entity;
+    [luau_method] archetypes: fn(refresh: bool?): Archetype[];
+    [luau_method] has: fn(entity: Entity): bool;
+    [luau_method] fini: fn: void;
+}
+
+## A query over entities with one requested component.
+declare sealed interface Query1<A> {
+    [luau_method] iter: fn: fn(): (Entity, A);
+    [luau_method] with: fn(..ids: Id[]): Query1<A>;
+    [luau_method] without: fn(..ids: Id[]): Query1<A>;
+    [luau_method] archetypes: fn: Archetype[];
+    [luau_method] cached: fn: CachedQuery1<A>;
+    [luau_method] has: fn(entity: Entity): bool;
+}
+
+declare sealed interface CachedQuery1<A> {
+    [luau_method] iter: fn: fn(): (Entity, A);
+    [luau_method] archetypes: fn(refresh: bool?): Archetype[];
+    [luau_method] has: fn(entity: Entity): bool;
+    [luau_method] fini: fn: void;
+}
+
+## A query over entities with two requested components.
+declare sealed interface Query2<A, B> {
+    [luau_method] iter: fn: fn(): (Entity, A, B);
+    [luau_method] with: fn(..ids: Id[]): Query2<A, B>;
+    [luau_method] without: fn(..ids: Id[]): Query2<A, B>;
+    [luau_method] archetypes: fn: Archetype[];
+    [luau_method] cached: fn: CachedQuery2<A, B>;
+    [luau_method] has: fn(entity: Entity): bool;
+}
+
+declare sealed interface CachedQuery2<A, B> {
+    [luau_method] iter: fn: fn(): (Entity, A, B);
+    [luau_method] archetypes: fn(refresh: bool?): Archetype[];
+    [luau_method] has: fn(entity: Entity): bool;
+    [luau_method] fini: fn: void;
+}
+
+## A query over entities with three requested components.
+declare sealed interface Query3<A, B, C> {
+    [luau_method] iter: fn: fn(): (Entity, A, B, C);
+    [luau_method] with: fn(..ids: Id[]): Query3<A, B, C>;
+    [luau_method] without: fn(..ids: Id[]): Query3<A, B, C>;
+    [luau_method] archetypes: fn: Archetype[];
+    [luau_method] cached: fn: CachedQuery3<A, B, C>;
+    [luau_method] has: fn(entity: Entity): bool;
+}
+
+declare sealed interface CachedQuery3<A, B, C> {
+    [luau_method] iter: fn: fn(): (Entity, A, B, C);
+    [luau_method] archetypes: fn(refresh: bool?): Archetype[];
+    [luau_method] has: fn(entity: Entity): bool;
+    [luau_method] fini: fn: void;
+}
+
+## A query over entities with four requested components.
+declare sealed interface Query4<A, B, C, D> {
+    [luau_method] iter: fn: fn(): (Entity, A, B, C, D);
+    [luau_method] with: fn(..ids: Id[]): Query4<A, B, C, D>;
+    [luau_method] without: fn(..ids: Id[]): Query4<A, B, C, D>;
+    [luau_method] archetypes: fn: Archetype[];
+    [luau_method] cached: fn: CachedQuery4<A, B, C, D>;
+    [luau_method] has: fn(entity: Entity): bool;
+}
+
+declare sealed interface CachedQuery4<A, B, C, D> {
+    [luau_method] iter: fn: fn(): (Entity, A, B, C, D);
+    [luau_method] archetypes: fn(refresh: bool?): Archetype[];
+    [luau_method] has: fn(entity: Entity): bool;
+    [luau_method] fini: fn: void;
+}
+
+## A live jecs world: the entity/component store queries, adds, and removals all go through.
+declare sealed interface World {
+    ## Enforces that entities created from here on are allocated within the given id range - used to
+    ## keep server- and client-created entities from colliding over the network.
+    [luau_method] range: fn(rangeBegin: number, rangeEnd: number?): void;
+
+    ## Creates a fresh entity with no components.
+    [luau_method] entity: fn: Tag;
+    ## Re-hydrates a raw entity id (e.g. one received over the network) as a typed Entity.
+    [luau_method] entity: fn(id: number): Entity;
+    ## Re-registers an already-known entity, keeping whatever it was typed as.
+    [luau_method] entity: fn<T>(id: Entity<T>): Entity<T>;
+
+    ## Creates a component - an entity allocated in the first 256 ids for fast access. Prefer this over
+    ## 'entity' for anything used as a component or tag.
+    [luau_method] component: fn<T = unknown>: Entity<T>;
+
+    ## The target of a relationship - e.g. 'world:target(child, ChildOf)' answers the parent. 'index'
+    ## picks which target when the entity has more than one (0-based, defaults to the first).
+    [luau_method] target: fn(entity: Entity, relation: Entity, index: number?): Entity?;
+    ## Every target of a relationship the entity has, oldest first.
+    [luau_method] targets: fn(entity: Entity, relation: Entity): fn(): Entity;
+
+    ## Deletes an entity along with every component and relationship it holds, and every relationship
+    ## that targets it.
+    [luau_method] delete: fn(entity: Entity): void;
+
+    ## Adds a component or tag to the entity with no value. For a data-bearing component, prefer 'set'.
+    [luau_method] add: fn(entity: Entity, component: Id): void;
+    ## Assigns a value to a data-bearing component on the entity, adding the component first if it is
+    ## not already present.
+    [luau_method] set: fn<T>(entity: Entity, component: Id<T>, value: T): void;
+
+    ## Removes empty archetypes and rebuilds the archetype indexes jecs keeps for querying. Not required
+    ## for correctness - only for memory reclaimed from archetypes nothing occupies any more.
+    [luau_method] cleanup: fn: void;
+    ## Removes every component and relationship from the entity without deleting the entity itself.
+    [luau_method] clear: fn(entity: Entity): void;
+    ## Removes a single component or relationship from the entity.
+    [luau_method] remove: fn(entity: Entity, component: Id): void;
+
+    ## The value of one data-bearing component on the entity, or none if the entity does not have it.
+    [luau_method] get: fn<A>(entity: Entity, a: Id<A>): A?;
+    ## The values of up to four data-bearing components on the entity, each none if the entity does not
+    ## have it.
+    [luau_method] get: fn<A, B>(entity: Entity, a: Id<A>, b: Id<B>): (A?, B?);
+    [luau_method] get: fn<A, B, C>(entity: Entity, a: Id<A>, b: Id<B>, c: Id<C>): (A?, B?, C?);
+    [luau_method] get: fn<A, B, C, D>(entity: Entity, a: Id<A>, b: Id<B>, c: Id<C>, d: Id<D>): (A?, B?, C?, D?);
+
+    ## Whether the entity has every one of up to four given components or relationships.
+    [luau_method] has: fn<A>(entity: Entity, a: Id<A>): bool;
+    [luau_method] has: fn<A, B>(entity: Entity, a: Id<A>, b: Id<B>): bool;
+    [luau_method] has: fn<A, B, C>(entity: Entity, a: Id<A>, b: Id<B>, c: Id<C>): bool;
+    [luau_method] has: fn<A, B, C, D>(entity: Entity, a: Id<A>, b: Id<B>, c: Id<C>, d: Id<D>): bool;
+
+    ## The target of the entity's 'ChildOf' relationship, if it has one.
+    [luau_method] parent: fn(entity: Entity): Entity?;
+    ## Whether the world contains the entity - true whether or not it has any components.
+    [luau_method] contains: fn(entity: Entity): bool;
+    ## Whether an entity with this id is alive, ignoring its generation.
+    [luau_method] exists: fn(entity: Entity): bool;
+
+    ## Every entity that has the given component or relationship.
+    [luau_method] each: fn(id: Id): fn(): Entity;
+    ## Every child of the entity - equivalent to 'world:each(pair(ChildOf, entity))'.
+    [luau_method] children: fn(parent: Entity): fn(): Entity;
+
+    ## Every entity in the world, undifferentiated.
+    [luau_method] query: fn: Query0;
+    ## Every entity that has all of the given components, together with their values.
+    [luau_method] query: fn<A>(a: Id<A>): Query1<A>;
+    [luau_method] query: fn<A, B>(a: Id<A>, b: Id<B>): Query2<A, B>;
+    [luau_method] query: fn<A, B, C>(a: Id<A>, b: Id<B>, c: Id<C>): Query3<A, B, C>;
+    [luau_method] query: fn<A, B, C, D>(a: Id<A>, b: Id<B>, c: Id<C>, d: Id<D>): Query4<A, B, C, D>;
+
+    ## Calls 'listener' whenever the component is added to an entity. Returns a function that stops
+    ## listening.
+    [luau_method] added: fn<T>(component: Entity<T>, listener: fn(entity: Entity, id: Id<T>, value: T): void): fn(): void;
+    ## Calls 'listener' whenever the component's value changes on an entity via 'set'.
+    [luau_method] changed: fn<T>(component: Entity<T>, listener: fn(entity: Entity, id: Id<T>, value: T): void): fn(): void;
+    ## Calls 'listener' whenever the component is removed from an entity, including by 'delete'.
+    [luau_method] removed: fn<T>(component: Entity<T>, listener: fn(entity: Entity, id: Id<T>, deleted: bool?): void): fn(): void;
+}
+
+## The module jecs's 'require' returns: world/entity/component/relationship construction, plus the
+## built-in relationship and cleanup tags.
+declare sealed interface JecsStatic {
+    ## Creates a new World.
+    world: fn(debug: bool?): World;
+
+    ## Creates a component - an entity allocated in the first 256 ids for fast access - without a world.
+    ## Rarely needed directly; prefer 'World.component'.
+    component: fn<T = unknown>: Entity<T>;
+    ## Creates a Tag - a component with no data - without a world.
+    tag: fn: Tag;
+
+    ## Builds a relationship id out of two entities - 'pair(ChildOf, parent)', for instance.
+    pair: fn<P, O>(predicate: Entity<P>, object: Entity<O>): Pair<P, O>;
+    ## Whether the given id is a relationship pair rather than a plain entity.
+    [luau_name("IS_PAIR")]
+    is_pair: fn(id: Id): bool;
+    ## The predicate half of a relationship pair.
+    pair_first: fn<P, O>(world: World, pair: Pair<P, O>): Entity<P>;
+    ## The object half of a relationship pair.
+    pair_second: fn<P, O>(world: World, pair: Pair<P, O>): Entity<O>;
+
+    ## Relationship marking the target as this entity's parent.
+    [luau_name("ChildOf")] child_of: Tag;
+    ## Marks an id as usable as a component, distinct from a plain tag-only entity.
+    [luau_name("Component")] component_tag: Tag;
+    ## Matches any target of a relationship - valid only inside a query, never added to an entity.
+    [luau_name("Wildcard")] wildcard: Entity;
+    ## Alias for 'wildcard'.
+    w: Entity;
+    ## Cleanup condition: what to do with this entity when the relationship target is deleted. Paired
+    ## with 'Delete' or 'Remove' - e.g. 'world:add(child, pair(OnDelete, Delete))'.
+    [luau_name("OnDelete")] on_delete: Tag;
+    ## Cleanup condition for when the relationship's target is deleted, mirroring 'on_delete' for the
+    ## target side of a relationship rather than the entity holding it.
+    [luau_name("OnDeleteTarget")] on_delete_target: Tag;
+    ## Cleanup action: delete the entity.
+    [luau_name("Delete")] delete: Tag;
+    ## Cleanup action: remove the relationship, leaving the entity itself alone.
+    [luau_name("Remove")] remove: Tag;
+    ## A string component jecs uses to name entities, for debugging.
+    [luau_name("Name")] name: Entity<string>;
+    ## Marks a relationship as exclusive: adding a new target replaces the old one instead of joining it.
+    [luau_name("Exclusive")] exclusive: Tag;
+    ## Cleanup policy tag used alongside 'OnDelete'/'OnDeleteTarget' to leave the relationship in place.
+    [luau_name("Rest")] rest: Entity;
+}
+
+## Convenience global for projects that would rather reach jecs as a plain name than type their own
+## 'require' call. See the file header for the alternative.
+declare let jecs: JecsStatic;
