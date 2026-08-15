@@ -8944,6 +8944,139 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Allows_Match_QualifiedNamePattern_OnAnEnumMember()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            enum Direction { North, South, East, West }
+            let d: Direction = Direction.North;
+            match d {
+                Direction.North -> "n",
+                _ -> "other",
+            }
+            """
+        );
+
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void Checks_Match_QualifiedNamePattern_IsExhaustiveOverEveryMember()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            enum Direction { North, South, East, West }
+            let d: Direction = Direction.North;
+            match d {
+                Direction.North -> 1,
+                Direction.South -> 2,
+                Direction.East -> 3,
+                Direction.West -> 4,
+            }
+            """
+        );
+
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void ThrowsFor_Match_NonExhaustive_QualifiedNamePatternMissingAMember()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            enum Direction { North, South, East, West }
+            let d: Direction = Direction.North;
+            match d {
+                Direction.North -> 1,
+                Direction.South -> 2,
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.NonExhaustiveMatch,
+            "Match expression is not exhaustive.",
+            "add a wildcard arm ('_ -> ...') or a binding arm to cover the remaining cases."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_Match_QualifiedNamePattern_UnknownMember()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            enum Direction { North, South }
+            let d: Direction = Direction.North;
+            match d {
+                Direction.NotAMember -> 1,
+                _ -> 0,
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InvalidAccess,
+            "Expression of type '\"NotAMember\"' cannot be used to index type '{ North: 0, South: 1 }'. Property 'NotAMember' does not exist on type '{ North: 0, South: 1 }'."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_Match_QualifiedNamePattern_UnknownEnum()
+    {
+        var diagnostics = Utility.GetAnalysisDiagnostics(
+            """
+            match 1 {
+                NotAnEnum.Member -> 1,
+                _ -> 0,
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find name 'NotAnEnum'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_Match_QualifiedNamePattern_NotACompileTimeConstant()
+    {
+        // Full analysis (not just type checking) so this also proves codegen doesn't crash reaching a
+        // pattern the type checker already rejected and bound 'never' instead of a literal.
+        var diagnostics = Utility.GetAnalysisDiagnostics(
+            """
+            interface Box { value: number }
+            declare let box: Box;
+            match 1 {
+                box.value -> 1,
+                _ -> 0,
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.TypeMismatch,
+            "'box.value' cannot be used as a pattern because its value is not a compile-time constant."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_Match_QualifiedNamePattern_IncompatibleWithScrutinee()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            enum Direction { North, South }
+            match "hello" {
+                Direction.North -> "n",
+                _ -> "other",
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Pattern of type '0' cannot match value of type '\"hello\"'.");
+    }
+
+    [Fact]
     public void Allows_Match_AndPattern_TypedPatternWithGuard()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(

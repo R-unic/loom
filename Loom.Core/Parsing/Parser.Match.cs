@@ -115,6 +115,14 @@ public sealed partial class Parser
                 _position = whenPosition;
             }
 
+            // A qualified reference - 'Direction.North' - names one specific value rather than binding a
+            // new one, the same distinction 'when' draws with a type. Built through the same ParseNamedAccess
+            // an ordinary 'Direction.North' expression goes through, so it is exactly as name-resolvable,
+            // renameable, and hoverable as one - the resolver and type checker never know it arrived through
+            // a pattern rather than an expression.
+            if (identifier.Text != "_" && Match(out var dot, SyntaxKind.Dot))
+                return new QualifiedNamePattern((QualifiedName)ParseNamedAccess(dot, new Identifier(identifier)));
+
             var typeArguments = ParseTypeArguments();
             if (typeArguments != null || Current() is { Kind: SyntaxKind.LBrace })
             {

@@ -81,6 +81,9 @@ public sealed partial class TypeChecker
             case LiteralPattern literalPattern:
                 return RemoveCoveredType(remaining, new LiteralType(literalPattern.Value));
 
+            case QualifiedNamePattern qualifiedNamePattern:
+                return RemoveCoveredType(remaining, _semanticModel.GetType(qualifiedNamePattern.Name));
+
             // An attached object sub-pattern with fields (e.g. `p when Point { x: 0 }`) only matches a
             // subset of the type, so it can't be treated as covering the whole pattern type like a bare
             // `p when Point` would - but an empty one (`p when Point { }`) imposes no such constraint, so
@@ -163,6 +166,9 @@ public sealed partial class TypeChecker
             case LiteralPattern literalPattern:
                 CheckLiteralPattern(literalPattern, inputType);
                 break;
+            case QualifiedNamePattern qualifiedNamePattern:
+                CheckQualifiedNamePattern(qualifiedNamePattern, inputType);
+                break;
             case RangePattern rangePattern:
                 CheckRangePattern(rangePattern, inputType);
                 break;
@@ -215,6 +221,40 @@ public sealed partial class TypeChecker
     private void CheckLiteralPattern(LiteralPattern pattern, Type inputType)
     {
         var literalType = new LiteralType(pattern.Value);
+        if (!IsPatternCompatible(literalType, inputType))
+            _diagnostics.Error(
+                pattern,
+                InternalCodes.TypeMismatch,
+                $"Pattern of type '{literalType}' cannot match value of type '{inputType}'."
+            );
+
+        BindType(pattern, literalType);
+    }
+
+    /// <summary>
+    ///     A qualified name pattern matches whatever it names, verbatim - visiting the wrapped
+    ///     <see cref="QualifiedName" /> reuses the same reference resolution and member-access checking a
+    ///     plain expression gets, so an unknown enum or an unknown member is already reported by the time
+    ///     this runs. What is new here is requiring the answer be a compile-time constant: pattern
+    ///     matching compiles to an equality comparison against a literal value (see
+    ///     <c>LuauGenerator.TryCompilePattern</c>), which nothing else here promises.
+    /// </summary>
+    private void CheckQualifiedNamePattern(QualifiedNamePattern pattern, Type inputType)
+    {
+        var referencedType = Visit(pattern.Name);
+        if (referencedType is not LiteralType literalType)
+        {
+            if (Type.IsNotUnknown(referencedType) && Type.IsNotNever(referencedType))
+                _diagnostics.Error(
+                    pattern,
+                    InternalCodes.TypeMismatch,
+                    $"'{pattern.Name}' cannot be used as a pattern because its value is not a compile-time constant."
+                );
+
+            BindType(pattern, Types.PrimitiveType.Never);
+            return;
+        }
+
         if (!IsPatternCompatible(literalType, inputType))
             _diagnostics.Error(
                 pattern,

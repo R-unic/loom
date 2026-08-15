@@ -49,6 +49,7 @@ public abstract class Visitor<T>(Func<Node?, T> defaultValue)
     public virtual T VisitRestPattern(RestPattern restPattern) => Visit(restPattern.Pattern);
     public virtual T VisitTuplePattern(TuplePattern tuplePattern) => VisitList(tuplePattern.Patterns);
     public virtual T VisitNullPattern(NullPattern nullPattern) => DefaultValue(nullPattern);
+    public virtual T VisitQualifiedNamePattern(QualifiedNamePattern qualifiedNamePattern) => Visit(qualifiedNamePattern.Name);
 
     public virtual T VisitImplementBody(ImplementBody implementBody) => VisitList(implementBody.Implementations);
     public virtual T VisitImplement(Implement implement) => CombineResults([Visit(implement.TraitName), Visit(implement.InterfaceName), Visit(implement.Body)]);

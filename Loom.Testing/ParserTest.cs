@@ -251,6 +251,31 @@ public class ParserTest
     }
 
     [Fact]
+    public void Parses_MatchExpression_QualifiedNamePattern()
+    {
+        var tree = Utility.GetAST("match d { Direction.North -> 1, _ -> 0 }");
+        var expressionStatement = Assert.IsType<ExpressionStatement>(Assert.Single(tree.Statements));
+        var match = Assert.IsType<MatchExpression>(expressionStatement.Expression);
+
+        Assert.Equal(2, match.Arms.Count);
+        var pattern = Assert.IsType<QualifiedNamePattern>(match.Arms[0].Pattern);
+        Assert.Equal("Direction", pattern.Name.Identifier.Name.Text);
+        var name = Assert.Single(pattern.Name.Names);
+        Assert.Equal("North", name.Name.Text);
+    }
+
+    /// <remarks>A single identifier with no dot after it still binds a name, same as ever - only a following '.' switches to a qualified reference.</remarks>
+    [Fact]
+    public void Parses_MatchExpression_BareIdentifierPattern_IsUnaffectedByQualifiedNameSupport()
+    {
+        var tree = Utility.GetAST("match d { direction -> direction }");
+        var expressionStatement = Assert.IsType<ExpressionStatement>(Assert.Single(tree.Statements));
+        var match = Assert.IsType<MatchExpression>(expressionStatement.Expression);
+
+        Assert.Equal("direction", Assert.IsType<IdentifierPattern>(Assert.Single(match.Arms).Pattern).Name.Text);
+    }
+
+    [Fact]
     public void Parses_MatchExpression_OrPattern()
     {
         var tree = Utility.GetAST("match n { 2 | 3 | 4 -> true }");

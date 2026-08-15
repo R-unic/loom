@@ -248,6 +248,24 @@ public sealed partial class LuauGenerator
                 isIrrefutable = false;
                 return true;
 
+            // Resolves to the same LiteralType a literal pattern would when CheckQualifiedNamePattern
+            // accepted it, so it compiles to the identical comparison - the value just came from a name
+            // instead of being spelled out. An unresolved name or a non-constant reference already failed
+            // type checking and bound something else (never, most often); this only has to not crash on
+            // its way to a compile the diagnostic already fails.
+            case QualifiedNamePattern qualifiedNamePattern:
+            {
+                if (_semanticModel.GetType(qualifiedNamePattern) is not LiteralType literalType)
+                {
+                    isIrrefutable = false;
+                    return false;
+                }
+
+                conditions.Add(new BinaryOperator(subject, "==", LiteralValueToExpression(literalType.Value)));
+                isIrrefutable = false;
+                return true;
+            }
+
             case NullPattern:
                 conditions.Add(new BinaryOperator(subject, "==", new NilLiteral()));
                 isIrrefutable = false;
