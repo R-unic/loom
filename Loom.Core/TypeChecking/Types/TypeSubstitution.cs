@@ -101,14 +101,53 @@ internal static class TypeSubstitution
         var changed = !ReferenceEquals(subject, conditionalType.Subject);
         var arms = conditionalType.Arms.ConvertAll(arm =>
             {
-                var pattern = Apply(arm.Pattern, substitution);
-                var result = Apply(arm.Result, substitution);
-                changed |= !ReferenceEquals(pattern, arm.Pattern) || !ReferenceEquals(result, arm.Result);
-                return new ConditionalArm(pattern, result, arm.Binders);
+                var (binders, armSubstitution) = SubstituteBinders(arm.Binders, substitution);
+                var pattern = Apply(arm.Pattern, armSubstitution);
+                var result = Apply(arm.Result, armSubstitution);
+                changed |= !ReferenceEquals(pattern, arm.Pattern) || !ReferenceEquals(result, arm.Result) || !ReferenceEquals(binders, arm.Binders);
+                return new ConditionalArm(pattern, result, binders);
             }
         );
 
         return changed ? new ConditionalType(subject, arms, conditionalType.Distributes) : conditionalType;
+    }
+
+    /// <summary>
+    ///     A binder's own constraint can name the enclosing generic's parameter - <c>let Kept: U</c> - and
+    ///     <see cref="TypeSolver.Transform" /> leaves a bare <see cref="TypeParameter" /> alone, so that
+    ///     constraint would otherwise never see this substitution. A binder is identified by reference
+    ///     everywhere else, though (see <see cref="ConditionalArm.Binders" />), so a binder whose constraint
+    ///     actually changes gets rebuilt as a new instance, and every occurrence of the old one - in the
+    ///     pattern and in the result - is remapped to it by extending the substitution with that one pair.
+    /// </summary>
+    private static (IReadOnlyList<TypeParameter> Binders, TypeParameterSubstitution Substitution) SubstituteBinders(
+        IReadOnlyList<TypeParameter> binders, TypeParameterSubstitution substitution)
+    {
+        List<TypeParameter>? rebuilt = null;
+        TypeParameterSubstitution? extended = null;
+
+        for (var i = 0; i < binders.Count; i++)
+        {
+            var binder = binders[i];
+            var constraint = binder.Constraint == null ? null : Apply(binder.Constraint, substitution);
+            if (ReferenceEquals(constraint, binder.Constraint))
+            {
+                rebuilt?.Add(binder);
+                continue;
+            }
+
+            if (rebuilt == null)
+            {
+                rebuilt = new List<TypeParameter>(binders.Take(i));
+                extended = new TypeParameterSubstitution(substitution);
+            }
+
+            var replacement = new TypeParameter(binder.Name, constraint, binder.DefaultType, binder.Variance);
+            rebuilt.Add(replacement);
+            extended![binder] = replacement;
+        }
+
+        return rebuilt == null ? (binders, substitution) : (rebuilt, extended!);
     }
 
     /// <remarks>

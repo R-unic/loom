@@ -383,6 +383,24 @@ public class ConditionalTypeTest
     }
 
     /// <summary>
+    ///     A binder's constraint can itself name the enclosing generic's parameter - <c>let Kept: U</c> -
+    ///     and must narrow per member exactly as the bare <c>U -> U</c> form does. Issue #211.
+    /// </summary>
+    [Fact]
+    public void Binds_AConstrainedLetPattern_NarrowingByTheOuterParameter()
+    {
+        const string source = """
+            type Extract<T, U> = match each T {
+                let Kept: U -> Kept,
+                let _ -> never,
+            };
+            """;
+
+        Assert.Equal("\"y\" | \"z\"", TypeOfAlias(source, "Extract<\"x\" | \"y\" | \"z\", \"y\" | \"z\">"));
+        Assert.Equal("never", TypeOfAlias(source, "Extract<\"x\" | \"y\" | \"z\", \"w\">"));
+    }
+
+    /// <summary>
     ///     Without <c>each</c> the subject is one whole type, so a union is measured against the arms as
     ///     itself rather than a member at a time. That difference is the whole reason <c>each</c> is written
     ///     rather than inferred.

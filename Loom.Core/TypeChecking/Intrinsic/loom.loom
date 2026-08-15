@@ -64,12 +64,10 @@ type Exclude<T, U> = match each T {
 };
 
 ### The complement of 'Exclude': every member of the union 'T' that is assignable to 'U', with the
-### rest replaced by 'never'. Written as a nested conditional inside one unconstrained arm rather
-### than as a second pattern arm typed 'U' - a 'let'-bound arm whose pattern is itself a type
-### parameter does not narrow per member the way a bare one does, so the membership test is done
-### explicitly instead of leaned on the arm pattern to do it.
+### rest replaced by 'never'.
 type Extract<T, U> = match each T {
-    let Kept -> Kept is U ? Kept : never,
+    let Kept: U -> Kept,
+    let _ -> never,
 };
 
 ### The subset of 'T' with the keys in 'K' left out - the complement of 'Pick'. Built from 'Exclude'
