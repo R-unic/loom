@@ -16,6 +16,72 @@ interface MutRecord<K, V> {
 ### type argument rather than always writing the array's length as a 'u32'.
 type Array<T, L: number = u32> = T[];
 
+## Structural type utilities. Every one of these erases completely - they answer a question about a
+## shape at compile time and leave nothing behind for Luau to run - which is why they live beside
+## 'Record' rather than in runtime.loom: a type declared there marks every file using it as needing
+## the runtime import, whether or not the type itself ever touches it.
+
+### Every member of 'T', writable regardless of whether 'T' itself declared it so. The inverse of
+### 'Readonly' - one mapped type toggles the capability on, the other off, and nothing about 'T'
+### decides which: assignability is invariant on a mutable member, so a caller has to say which
+### reading of a structural type it wants.
+interface Mut<T> { mut [K from keyof(T)]: T[K]; }
+
+### Every member of 'T', read-only regardless of whether 'T' declared it 'mut'. A mutable member
+### widens to an immutable one but not back, so this is always a safe view to hand out - useful for
+### a function that only reads its argument and wants to promise it will not write through it.
+interface Readonly<T> { [K from keyof(T)]: T[K]; }
+
+### The subset of 'T' naming only the keys in 'K'. 'K' is constrained to 'keyof(T)' rather than
+### matched against it, so an unknown key is a compile error at the call site instead of silently
+### mapping to nothing.
+interface Pick<T, K: keyof(T)> { [P from K]: T[P]; }
+
+### Every member of 'T' made optional, whatever 'T' itself said. The value clause carries the '?'
+### directly - a mapped type reshapes each member's type as freely as it reshapes mutability.
+interface Partial<T> { [K from keyof(T)]: T[K]?; }
+
+### The return type of a function type, or 'never' for anything that is not one. 'R' is bound from
+### the position a function's own signature never names on the way in - only 'T is fn(...): R'
+### itself can read it back out.
+type ReturnType<T> = T is fn(..unknown[]): let R ? R : never;
+
+### The element type of an array type, or 'never' for anything that is not one.
+type ElementType<T> = T is (let E)[] ? E : never;
+
+### 'T' with 'none' no longer part of it. The '?' has to sit inside the parenthesized target
+### ('(let U?)') rather than after it - a postfix '?' immediately outside a parenthesized target is
+### read as the end of an optional type predicate, not as part of the pattern being matched (see
+### CLAUDE.md's note on '_suppressOptionalSuffix').
+type NonNullable<T> = T is (let U?) ? U : T;
+
+### Every member of the union 'T' that is assignable to 'U' removed, member by member. A member
+### that is not itself a match for 'U' passes through unchanged via the unconstrained second arm;
+### one that is becomes 'never', which a union simplifies away.
+type Exclude<T, U> = match each T {
+    U -> never,
+    let Other -> Other,
+};
+
+### The complement of 'Exclude': every member of the union 'T' that is assignable to 'U', with the
+### rest replaced by 'never'. Written as a nested conditional inside one unconstrained arm rather
+### than as a second pattern arm typed 'U' - a 'let'-bound arm whose pattern is itself a type
+### parameter does not narrow per member the way a bare one does, so the membership test is done
+### explicitly instead of leaned on the arm pattern to do it.
+type Extract<T, U> = match each T {
+    let Kept -> Kept is U ? Kept : never,
+};
+
+### The subset of 'T' with the keys in 'K' left out - the complement of 'Pick'. Built from 'Exclude'
+### over 'T's own keys rather than a mapped type of its own, so the two never answer differently for
+### the same 'T' and 'K'.
+interface Omit<T, K> { [P from Exclude<keyof(T), K>]: T[P]; }
+
+### Every member of 'T' with its optionality stripped, whatever 'T' itself said. The inverse of
+### 'Partial', built the same way 'Partial' is - by reshaping each member's type - rather than by
+### rejecting a 'T' that already had optional members.
+interface Required<T> { [K from keyof(T)]: NonNullable<T[K]>; }
+
 declare interface Set<T> {
     [T]: bool;
     size: number;
