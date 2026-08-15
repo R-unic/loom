@@ -142,6 +142,49 @@ public class TypeInferrerTest
         Assert.Equal(PrimitiveType.Unknown, result[typeParameter]);
     }
 
+    /// <summary>
+    ///     A union parameter member does not have to be a bare type parameter to bind one - the same way
+    ///     <c>Id&lt;T&gt; = Entity&lt;T&gt; | Pair&lt;T, unknown&gt;</c> in jecs.d.loom needs 'T' inferred
+    ///     from an argument shaped like the <em>first</em> arm, not one that is itself a union member.
+    ///     Only the arm structurally shaped like the argument should bind anything; the other, unrelated
+    ///     arm is for a different call entirely.
+    /// </summary>
+    [Fact]
+    public void InferFunctionTypeArguments_UnionParameterWithCompositeMember_InfersFromMatchingArm()
+    {
+        var typeParameter = TypeParameter("T");
+        var wrapped = InterfaceType(ObjectType([ObjectProperty("Value", typeParameter)]));
+        var parameterUnion = new UnionType([wrapped, PrimitiveType.String]);
+        var argument = InterfaceType(ObjectType([ObjectProperty("Value", PrimitiveType.Number)]));
+        var function = FunctionType([typeParameter], [parameterUnion], typeParameter);
+        var result = TypeInferrer.InferFunctionTypeArguments(function, [argument]);
+        Assert.Equal(PrimitiveType.Number, result[typeParameter]);
+    }
+
+    /// <summary>
+    ///     Two different, still-unbound type parameters are equal to each other structurally (type
+    ///     parameter equality is name-blind), so two composite-union parameters that each wrap one of
+    ///     them expand to identical shapes until something is bound. Inferring both from arguments of the
+    ///     same concrete type - jecs.d.loom's <c>world:query(Position, Velocity)</c> where both components
+    ///     happen to be <c>Vector3</c> - used to make the second position look like a pair the first had
+    ///     already visited and infer nothing for it.
+    /// </summary>
+    [Fact]
+    public void InferFunctionTypeArguments_TwoParametersThroughCompositeUnions_BothInferFromTheSameArgumentType()
+    {
+        var a = TypeParameter("A");
+        var b = TypeParameter("B");
+        var aParameter = new UnionType([InterfaceType(ObjectType([ObjectProperty("Value", a)])), PrimitiveType.String]);
+        var bParameter = new UnionType([InterfaceType(ObjectType([ObjectProperty("Value", b)])), PrimitiveType.String]);
+        var function = FunctionType([a, b], [aParameter, bParameter], a);
+
+        var argument = InterfaceType(ObjectType([ObjectProperty("Value", PrimitiveType.Number)]));
+        var result = TypeInferrer.InferFunctionTypeArguments(function, [argument, argument]);
+
+        Assert.Equal(PrimitiveType.Number, result[a]);
+        Assert.Equal(PrimitiveType.Number, result[b]);
+    }
+
     [Fact]
     public void InferFunctionTypeArguments_IntersectionParameterWithUnequalArity_ArgumentIsIntersection_DoesNotBind()
     {

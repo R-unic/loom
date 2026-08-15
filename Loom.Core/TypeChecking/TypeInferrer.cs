@@ -48,7 +48,6 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
             }
 
         var inferred = new TypeParameterSubstitution();
-        var visited = new HashSet<(Type, Type)>();
 
         // Seed from the surrounding expected type (e.g. `let b: Box<number> = new Box { value: [] }`)
         // before the bottom-up pass below, so an initializer value that's contextually ambiguous on its
@@ -58,8 +57,14 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
             for (var i = 0; i < generic.Parameters.Count && i < instantiatedExpected.Arguments.Count; i++)
                 inferred[generic.Parameters[i]] = instantiatedExpected.Arguments[i];
 
+        // A fresh 'visited' per pair: it exists to stop one property's own recursive structure from
+        // looping forever, not to remember what an earlier, unrelated property already walked. Two
+        // properties bound to two different type parameters can easily see the same argument type -
+        // 'new Pair { first: v, second: v }' infers both from the same 'v' - and sharing the set across
+        // them made the second's every position look already visited before it was ever measured, so it
+        // came back 'unknown' instead of unified.
         foreach (var (parameterType, argumentType) in pairs)
-            TryInferTypes(parameterType, argumentType, inferred, visited);
+            TryInferTypes(parameterType, argumentType, inferred, new HashSet<(Type, Type)>());
 
         var substitution = new TypeParameterSubstitution();
         foreach (var typeParameter in generic.Parameters)
@@ -76,17 +81,22 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         Type? contextualType = null)
     {
         var inferred = new TypeParameterSubstitution();
-        var visited = new HashSet<(Type, Type)>();
         if (contextualType != null)
-            TryInferTypes(functionType.ReturnType, contextualType, inferred, visited);
+            TryInferTypes(functionType.ReturnType, contextualType, inferred, new HashSet<(Type, Type)>());
 
         // Every argument against the parameter it actually binds to, which past the fixed parameters is the
         // rest parameter's element type rather than the rest parameter itself. Walking the two lists straight
         // down left `fn make<T>(..values: T[])` called as `make(1, 2)` inferring nothing at all: it compared
         // 'T[]' against '1', which matches no inference rule, and 'T' fell back to 'unknown'.
+        //
+        // Each argument gets its own fresh 'visited' set, for the same reason each initializer pair does in
+        // InferInterfaceTypeArguments above: two differently-named, still-unbound type parameters are equal
+        // to each other structurally, so 'fn take<A, B>(a: Id<A>, b: Id<B>)' called with two same-typed
+        // arguments made the second argument's every position look like one the first had already visited,
+        // and it came back 'unknown' instead of unified.
         for (var i = 0; i < argumentTypes.Count; i++)
             if (functionType.ParameterTypeAt(i) is { } parameterType)
-                TryInferTypes(parameterType, WidensAt(functionType, i) ? argumentTypes[i].Widen() : argumentTypes[i], inferred, visited);
+                TryInferTypes(parameterType, WidensAt(functionType, i) ? argumentTypes[i].Widen() : argumentTypes[i], inferred, new HashSet<(Type, Type)>());
 
         var substitution = new TypeParameterSubstitution();
         foreach (var typeParameter in functionType.TypeParameters)
@@ -166,7 +176,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
                 inferredTypes,
                 visitedPairs
             ),
-            (UnionType parameterUnion, _) => TryInferFromUnion(parameterUnion, argumentType, inferredTypes),
+            (UnionType parameterUnion, _) => TryInferFromUnion(parameterUnion, argumentType, inferredTypes, visitedPairs),
             (IntersectionType parameterIntersection, IntersectionType argumentIntersection) when parameterIntersection.Types.Count
                 == argumentIntersection.Types.Count => MatchIntersectionTypes(parameterIntersection, argumentIntersection, inferredTypes, visitedPairs),
             (IntersectionType parameterIntersection, _) => TryInferFromIntersection(parameterIntersection, argumentType, inferredTypes),
@@ -174,13 +184,35 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         };
     }
 
-    private static bool TryInferFromUnion(UnionType union, Type argumentType, TypeParameterSubstitution inferredTypes)
+    /// <summary>
+    ///     Matches a non-union argument against a union parameter. A bare type parameter member binds
+    ///     directly (`T | none`); a composite member (`Entity&lt;T&gt; | Pair&lt;T, unknown&gt;`) is tried
+    ///     structurally, one member at a time, since only the arm shaped like the argument should ever
+    ///     bind anything - the others are for a different call entirely. Each attempt gets its own scratch
+    ///     substitution so a member that partially matches before failing does not leak a wrong binding
+    ///     into the one that goes on to actually succeed.
+    /// </summary>
+    private static bool TryInferFromUnion(UnionType union, Type argumentType, TypeParameterSubstitution inferredTypes, HashSet<(Type, Type)> visitedPairs)
     {
         if (argumentType is UnionType)
             return false;
 
-        var typeParams = union.Types.OfType<TypeParameter>().ToList();
-        return typeParams.Count == 1 && BindTypeParameter(typeParams[0], argumentType, inferredTypes);
+        foreach (var member in union.Types)
+        {
+            if (member is TypeParameter typeParameter)
+                return BindTypeParameter(typeParameter, argumentType, inferredTypes);
+
+            var trial = new TypeParameterSubstitution(inferredTypes);
+            if (!TryInferTypes(member, argumentType, trial, new HashSet<(Type, Type)>(visitedPairs)))
+                continue;
+
+            foreach (var (parameter, type) in trial)
+                inferredTypes[parameter] = type;
+
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
