@@ -735,6 +735,26 @@ public class TypeCheckerTest
         Assert.Equal(expectedValue, literalType.Value);
     }
 
+    /// <summary>Every arithmetic and bitwise operator an enum member's initializer can fold at compile time, not just the shift <see cref="Checks_BitwiseOr_OnSameEnumMembers_PreservesEnumType" /> already exercises.</summary>
+    [Fact]
+    public void Checks_EnumMemberInitializer_FoldsEveryConstantOperator() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                enum Ops {
+                    Sub = 5 - 2,
+                    Mul = 3 * 2,
+                    Div = 7 / 2,
+                    FloorDiv = 7 // 2,
+                    Pow = 2 ^ 3,
+                    Mod = 7 % 3,
+                    Xor = 5 ~ 3,
+                    UnsignedShift = 16 >>> 2,
+                }
+                """
+            )
+        );
+
     [Fact]
     public void Checks_BitwiseOr_OnSameEnumMembers_PreservesEnumType() =>
         Utility.AssertNoErrors(
