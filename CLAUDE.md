@@ -127,7 +127,7 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - Nullable + ImplicitUsings enabled everywhere; primary constructors used (e.g. `Compiler(CompilationUnit unit, SourceFile file)`).
 - Big classes split as partial files by concern (`Parser.Expressions.cs`, `TypeChecker.Generics.cs`) — follow that pattern when a stage grows.
 - One AST node / one type kind per file.
-- Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:`/`ref:` (see git log). Commit as you go, title only — no description, no co-author, just `scope: name`.
+- Commit style: conventional-commit prefixes `feat:`/`fix:`/`test:`/`docs:`/`ref:`/`perf:`/`chore:`/`style:` (see git log). Commit as you go, title only — no description, no co-author, just `type: name`. The word before the colon is the conventional-commit *type* (what kind of change this is), not the project area or module it touches — `fix: cross-file ambient global type resolution`, not `typechecking: cross-file ambient global type resolution`. Commits already in history using an area as the prefix are fine as they are; this is guidance for new ones, not a cleanup task.
 - No inline comments; doc comments (`###`) only when necessary.
 - Source files: Loom source uses `.loom` extension; output `.luau`. Indices are 1-based (Luau semantics). Immutability by default (`let` → `const`/local, `mut`
   for mutable).
