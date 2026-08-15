@@ -28,6 +28,106 @@ public class VisitorTraversalTest
     }
 
     [Fact]
+    public void Every_VisitsDurationConditionAndBody() =>
+        AssertVisitOrder(
+            "every 1s while true { 1 }",
+            "Every",
+            "Literal",
+            "Literal",
+            "Block",
+            "ExpressionStatement",
+            "Literal"
+        );
+
+    /// <summary>
+    ///     One match exercising every pattern kind the base visitor answers for on its own: wildcard,
+    ///     bare-identifier, literal, or, a typed pattern anded with a guard, range, let, object (with a
+    ///     field), array (with a rest), and tuple. Only that the walk completes matters here - the parser
+    ///     and resolver tests already pin what each pattern means.
+    /// </summary>
+    [Fact]
+    public void Match_VisitsEveryPatternKind()
+    {
+        var recorder = new RecordingVisitor();
+        Assert.True(
+            recorder.Record(
+                Utility.GetAST(
+                    """
+                    match x {
+                        _ -> 1,
+                        n -> n,
+                        1 -> 1,
+                        1 | 2 -> 1,
+                        n when number & n > 0 -> n,
+                        1..5 -> 1,
+                        let y -> y,
+                        { a } -> a,
+                        [a, ..rest] -> a,
+                        (a, b) -> a,
+                    }
+                    """
+                )
+            )
+        );
+
+        Assert.Contains("MatchExpression", recorder.Log);
+        Assert.Contains("WildcardPattern", recorder.Log);
+        Assert.Contains("IdentifierPattern", recorder.Log);
+        Assert.Contains("OrPattern", recorder.Log);
+        Assert.Contains("AndPattern", recorder.Log);
+        Assert.Contains("TypedPattern", recorder.Log);
+        Assert.Contains("RangePattern", recorder.Log);
+        Assert.Contains("LetPattern", recorder.Log);
+        Assert.Contains("ObjectPattern", recorder.Log);
+        Assert.Contains("ArrayPattern", recorder.Log);
+        Assert.Contains("RestPattern", recorder.Log);
+        Assert.Contains("TuplePattern", recorder.Log);
+    }
+
+    [Fact]
+    public void Implement_VisitsTraitInterfaceBodyAndSelfExpression()
+    {
+        var recorder = new RecordingVisitor();
+        Assert.True(
+            recorder.Record(
+                Utility.GetAST(
+                    """
+                    trait Foo { fn bar(): number }
+                    interface X;
+                    implement Foo for X {
+                        fn bar() -> @;
+                    }
+                    """
+                )
+            )
+        );
+
+        Assert.Contains("Implement", recorder.Log);
+        Assert.Contains("ImplementBody", recorder.Log);
+        Assert.Contains("SelfExpression", recorder.Log);
+    }
+
+    [Fact]
+    public void ConditionalType_And_TypeMatch_VisitEveryBranch()
+    {
+        var recorder = new RecordingVisitor();
+        Assert.True(
+            recorder.Record(
+                Utility.GetAST(
+                    """
+                    type A<T> = T is number ? true : false;
+                    type B<T> = match T { number -> true, _ -> false };
+                    """
+                )
+            )
+        );
+
+        Assert.Contains("ConditionalType", recorder.Log);
+        Assert.Contains("TypeMatch", recorder.Log);
+        Assert.Contains("TypeMatchArm", recorder.Log);
+    }
+
+    [Fact]
     public void InterfaceInvocation_VisitsTypeArgumentsAndBody() =>
         AssertVisitOrder(
             "new Foo::<number> { foo: 69, [69]: true, bar }",

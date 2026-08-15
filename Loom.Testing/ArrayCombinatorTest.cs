@@ -118,6 +118,37 @@ public class ArrayCombinatorTest
         Assert.Contains("b[_index] = _callback(_element, _index)", rendered);
     }
 
+    /// <summary>A lambda that returns early out of an 'if' cannot be spliced into the loop body as a single expression, so it is called like any other callback instead.</summary>
+    [Fact]
+    public void DoesNotInlineALambdaThatReturnsEarly()
+    {
+        var rendered = Utility.GetLuauAST(
+                """
+                let a = [1, 2, 3];
+                let b = a.where(fn(n) {
+                    if n > 1 {
+                        return true;
+                    }
+
+                    return false;
+                });
+                """,
+                typeCheck: true
+            )
+            .Render();
+
+        Assert.Contains("function", rendered);
+    }
+
+    /// <summary>More parameters than the callback is ever handed cannot be satisfied by inlining, so it is called like any other callback instead.</summary>
+    [Fact]
+    public void DoesNotInlineALambdaWithMoreParametersThanTheCallbackIsGiven()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.where(fn(n, i, extra) -> n > 1);", typeCheck: true).Render();
+
+        Assert.Contains("function", rendered);
+    }
+
     [Fact]
     public void HoistsTheReceiverSoItIsEvaluatedOnce()
     {

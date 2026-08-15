@@ -87,3 +87,31 @@ public class LocationTest
         Assert.Equal(_testFile, empty.File);
     }
 }
+
+public class LocationSpanTest
+{
+    private static readonly SourceFile _testFile = new("test.loom", "let x: number = 5;\nlet y = x + 10;\nprint(y);");
+
+    [Fact]
+    public void EqualityOperators_CompareByFileStartAndEnd()
+    {
+        var a = new LocationSpan(new Location(_testFile, 0), 3);
+        var b = new LocationSpan(new Location(_testFile, 0), 3);
+        var c = new LocationSpan(new Location(_testFile, 4), 3);
+
+        Assert.True(a == b);
+        Assert.False(a == c);
+        Assert.False(a != b);
+        Assert.True(a != c);
+    }
+
+    [Fact]
+    public void Equals_Object_ComparesLikeTheTypedOverload()
+    {
+        var a = new LocationSpan(new Location(_testFile, 0), 3);
+        var b = new LocationSpan(new Location(_testFile, 0), 3);
+
+        Assert.True(a.Equals((object)b));
+        Assert.False(a.Equals("not a span"));
+    }
+}
