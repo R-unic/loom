@@ -32,17 +32,21 @@ public sealed partial class TypeChecker
         if (collectionType is Types.TypeParameter { Constraint: { } constraint })
             collectionType = TypeSimplifier.Expanded(constraint);
 
-        _semanticModel.TypeSolver.AddConstraint(collectionType, ObjectType.Empty, @for.CollectionExpression);
         var isRange = collectionType.Equals(IntrinsicTypes.Range);
         var iteratedElement = IteratorElementType(collectionType);
+        var functionReturns = iteratedElement == null ? FunctionIteratorReturns(collectionType) : null;
+        if (functionReturns == null)
+            _semanticModel.TypeSolver.AddConstraint(collectionType, ObjectType.Empty, @for.CollectionExpression);
+
         var elementType = isRange ? Types.PrimitiveType.Number : iteratedElement ?? GetObjectValueType(collectionType);
-        var maxNames = isRange || iteratedElement != null ? 1 : 2;
+        var maxNames = isRange || iteratedElement != null ? 1 : functionReturns?.Count ?? 2;
         if (@for.Names.Count > maxNames)
         {
             _diagnostics.NotImplemented(
                 @for.Names[maxNames],
                 isRange ? "Iterating over a range only produces one value, so only one name is permitted."
                 : iteratedElement != null ? "An iterator's 'next' answers one value, so only one name is permitted."
+                : functionReturns != null ? $"This iterator function returns {functionReturns.Count} value(s) per step, so at most {functionReturns.Count} name(s) is permitted."
                 : "Functional iterators are not supported yet, so more than two names is not permitted."
             );
 
@@ -59,6 +63,15 @@ public sealed partial class TypeChecker
             // what a type that says how to iterate itself meant.
             case var _ when iteratedElement != null:
                 BindType(@for.Names[0], elementType);
+                break;
+            // A bare function already meets the "call it, stop at nil" protocol IteratorCall wraps an
+            // Iterator<T> in to satisfy Luau's generic for - which is what lets a native library's own
+            // closure-returning iterator (each/children/query.iter in jecs, for instance) drive the loop
+            // directly, with no adapter.
+            case var _ when functionReturns != null:
+                for (var index = 0; index < @for.Names.Count; index++)
+                    BindType(@for.Names[index], functionReturns[index]);
+
                 break;
             case Types.ArrayType:
                 BindType(@for.Names[0], elementType);
@@ -81,6 +94,14 @@ public sealed partial class TypeChecker
                 BindType(@for.Names[1], elementType);
                 break;
             }
+            // A collection type nothing above recognizes already failed the object constraint above; binding
+            // every name here keeps that the only diagnostic instead of a second, confusing "no symbol" one
+            // when the body goes on to use a name nothing here ever gave a type.
+            default:
+                foreach (var name in @for.Names)
+                    BindType(name, Types.PrimitiveType.Never);
+
+                break;
         }
 
         _loopExitScopes.Push([]);
@@ -100,6 +121,17 @@ public sealed partial class TypeChecker
 
     private static Type? IteratorElementType(Type collectionType) =>
         collectionType is InterfaceType interfaceType ? interfaceType.IteratedElementType : null;
+
+    /// <summary>
+    ///     The values a bare, zero-required-argument function hands the loop each step, positionally - a
+    ///     single type for one value, or a tuple return's elements for several. Null for anything else,
+    ///     including a function that requires arguments: nothing supplies those on a native Lua for's every
+    ///     call, so requiring one is a signature the loop could never actually call correctly.
+    /// </summary>
+    private static List<Type>? FunctionIteratorReturns(Type collectionType) =>
+        collectionType is Types.FunctionType { RequiredParameterTypes.Count: 0 } functionType
+            ? functionType.ReturnType is Types.TupleType tuple ? tuple.ElementTypes : [functionType.ReturnType]
+            : null;
 
     public override Type VisitEvery(Every every)
     {
