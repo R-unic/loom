@@ -394,6 +394,60 @@ public class TypeNarrowerTest
     }
 
     [Fact]
+    public void ComputeBranchStates_InOperator_NonAddressableBase_DoesNotNarrow()
+    {
+        const string source = """
+            interface Obj { field: number? }
+            fn make(): Obj -> none as never as Obj;
+            if "field" in make() { }
+            """;
+
+        var (model, condition) = GetCondition(source);
+        var narrower = new TypeNarrower(model);
+        var current = new FlowState();
+
+        var (trueState, falseState) = narrower.ComputeBranchStates(condition, current);
+        Assert.Equal(current, trueState);
+        Assert.Equal(current, falseState);
+    }
+
+    [Fact]
+    public void ComputeBranchStates_InOperator_UnknownField_DoesNotNarrow()
+    {
+        const string source = """
+            interface Obj { field: number? }
+            let obj = none as never as Obj;
+            if "nonexistent" in obj { }
+            """;
+
+        var (model, condition) = GetCondition(source);
+        var narrower = new TypeNarrower(model);
+        var current = new FlowState();
+
+        var (trueState, falseState) = narrower.ComputeBranchStates(condition, current);
+        Assert.Equal(current, trueState);
+        Assert.Equal(current, falseState);
+    }
+
+    [Fact]
+    public void ComputeBranchStates_IsOperator_NonAddressableSubject_DoesNotNarrow()
+    {
+        const string source = """
+            interface Foo;
+            fn make(): unknown -> none as never as Foo;
+            if make() is Foo { }
+            """;
+
+        var (model, condition) = GetCondition(source);
+        var narrower = new TypeNarrower(model);
+        var current = new FlowState();
+
+        var (trueState, falseState) = narrower.ComputeBranchStates(condition, current);
+        Assert.Equal(current, trueState);
+        Assert.Equal(current, falseState);
+    }
+
+    [Fact]
     public void ComputeBranchStates_ElementAccessEqualsLiteral_TrueNarrowsElement()
     {
         const string source = """
