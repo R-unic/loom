@@ -129,6 +129,23 @@ public class CompilationUnitTest
             (_, result) => Utility.AssertNoErrors(result)
         );
 
+    /// <summary>
+    ///     A global's declared type can itself reference another ambient declaration from the same
+    ///     <c>.d.loom</c> file - the <c>DateTimeStatic</c>-shaped pattern every hand-written package
+    ///     typing leans on. Resolving that reference from a <em>different</em> file used to re-visit the
+    ///     declaring file's node with the consuming file's own semantic model, which had no bindings for
+    ///     it and so reported the referenced type as missing. Issue found writing jecs.d.loom.
+    /// </summary>
+    [Fact]
+    public void ResolvesAGlobalsType_ThroughAnotherGlobal_FromADifferentFile() =>
+        Utility.WithTempProject(
+            [
+                ("ambient.d.loom", "declare sealed interface Foo { bar: number; }\ndeclare let foo: Foo;"),
+                ("main.loom", "print(foo.bar);")
+            ],
+            (_, result) => Utility.AssertNoErrors(result)
+        );
+
     [Fact]
     public void Compiles_EveryFile_WhenAnotherFileHasDiagnostics() =>
         Utility.WithTempProject(

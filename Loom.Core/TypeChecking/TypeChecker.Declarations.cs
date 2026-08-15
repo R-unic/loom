@@ -361,8 +361,24 @@ public sealed partial class TypeChecker
         }
     }
 
-    private Type GetTypeFromSymbol(Symbol symbol) =>
-        symbol is { IsGlobal: true, IsIntrinsic: false } && symbol.File.AbsolutePath != _semanticModel.Tree.File.AbsolutePath
+    /// <summary>
+    ///     A cross-file global's type, preferring whatever <see cref="Resolver.DeclareGlobalSymbols" />
+    ///     already seeded over recomputing it. A global's declaration node belongs to another file's tree,
+    ///     so <see cref="Visit(Node)" />ing it here - the current file's checker, against the current
+    ///     file's <see cref="SemanticModel" /> - would walk symbol references that model was never told
+    ///     about and fail to resolve names its own file resolves without issue. Only when nothing seeded
+    ///     it yet (declaration files that reference each other are still mid-analysis together, before
+    ///     <see cref="Pipeline.CompilationUnit.PopulateGlobals" /> runs) does the risk of that mismatch
+    ///     become the lesser one.
+    /// </summary>
+    private Type GetTypeFromSymbol(Symbol symbol)
+    {
+        var known = _semanticModel.GetType(symbol.Declaration);
+        if (known is not TypeVariable)
+            return known;
+
+        return symbol is { IsGlobal: true, IsIntrinsic: false } && symbol.File.AbsolutePath != _semanticModel.Tree.File.AbsolutePath
             ? Visit(symbol.Declaration)
-            : _semanticModel.GetType(symbol.Declaration);
+            : known;
+    }
 }
