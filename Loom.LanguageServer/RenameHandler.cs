@@ -23,18 +23,27 @@ public sealed class RenameHandler(DocumentStore documents) : IRenameHandler
         try
         {
             var offset = IncrementalText.ToOffset(state.File.SourceFile.SourceText, request.Position);
-            if (SymbolReferences.At(state.File, offset) is not { } symbol || !CanRename(symbol, state.Unit) || !IsWritableName(request.NewName))
+            if (SymbolReferences.At(state.File, offset) is not { } symbol || !IsWritableName(request.NewName))
                 return Task.FromResult<WorkspaceEdit?>(null);
 
+            // CanRename reads state.Unit.Roots and SymbolReferences.Of walks state.Unit.AnalyzedModules - both
+            // cleared and repopulated by a concurrent recompile, so both have to run under the same lock that
+            // guards that mutation
             var changes = new Dictionary<DocumentUri, IEnumerable<TextEdit>>();
-            foreach (var group in SymbolReferences.Of(symbol, state.Unit, cancellationToken).GroupBy(reference => reference.File.AbsolutePath))
+            lock (state.CompilationLock)
             {
-                if (!Path.IsPathRooted(group.Key))
-                    continue;
+                if (!CanRename(symbol, state.Unit))
+                    return Task.FromResult<WorkspaceEdit?>(null);
 
-                changes[DocumentUri.FromFileSystemPath(group.Key)] = group
-                    .Select(reference => new TextEdit { Range = Conversion.ToRange(reference.Name.GetLocation()), NewText = request.NewName })
-                    .ToArray();
+                foreach (var group in SymbolReferences.Of(symbol, state.Unit, cancellationToken).GroupBy(reference => reference.File.AbsolutePath))
+                {
+                    if (!Path.IsPathRooted(group.Key))
+                        continue;
+
+                    changes[DocumentUri.FromFileSystemPath(group.Key)] = group
+                        .Select(reference => new TextEdit { Range = Conversion.ToRange(reference.Name.GetLocation()), NewText = request.NewName })
+                        .ToArray();
+                }
             }
 
             return Task.FromResult(changes.Count == 0 ? null : new WorkspaceEdit { Changes = changes });

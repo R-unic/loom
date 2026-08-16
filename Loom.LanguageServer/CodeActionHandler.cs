@@ -30,7 +30,13 @@ public sealed class CodeActionHandler(DocumentStore documents) : CodeActionHandl
             var text = state.File.SourceFile.SourceText;
             var range = TextSpan.FromStartEnd(IncrementalText.ToOffset(text, request.Range.Start), IncrementalText.ToOffset(text, request.Range.End));
             var uri = request.TextDocument.Uri;
-            var fixesByDiagnostic = state.File.Diagnostics.Set.ToDictionary(diagnostic => diagnostic, diagnostic => FixesFor(diagnostic, state, uri).ToArray());
+
+            // an import quick fix walks state.Unit.AnalyzedModules by way of ImportCatalog.For, which a
+            // concurrent recompile clears and repopulates - .ToArray() forces that walk to happen here,
+            // still under the lock, rather than lazily whenever the dictionary is later enumerated
+            Dictionary<LoomDiagnostic, CodeAction[]> fixesByDiagnostic;
+            lock (state.CompilationLock)
+                fixesByDiagnostic = state.File.Diagnostics.Set.ToDictionary(diagnostic => diagnostic, diagnostic => FixesFor(diagnostic, state, uri).ToArray());
 
             var actions = fixesByDiagnostic
                 .Where(entry => Overlaps(entry.Key, range))

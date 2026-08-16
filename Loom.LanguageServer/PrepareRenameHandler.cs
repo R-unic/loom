@@ -19,7 +19,15 @@ public sealed class PrepareRenameHandler(DocumentStore documents) : PrepareRenam
         try
         {
             var offset = IncrementalText.ToOffset(state.File.SourceFile.SourceText, request.Position);
-            if (SymbolReferences.At(state.File, offset) is not { } symbol || !RenameHandler.CanRename(symbol, state.Unit))
+            if (SymbolReferences.At(state.File, offset) is not { } symbol)
+                return Task.FromResult<RangeOrPlaceholderRange?>(null);
+
+            // CanRename reads state.Unit.Roots, which a concurrent recompile can rebuild mid-check
+            bool canRename;
+            lock (state.CompilationLock)
+                canRename = RenameHandler.CanRename(symbol, state.Unit);
+
+            if (!canRename)
                 return Task.FromResult<RangeOrPlaceholderRange?>(null);
 
             var here = SymbolReferences.In(symbol, state.File).FirstOrDefault(reference => reference.Name.Span.Contains(offset));

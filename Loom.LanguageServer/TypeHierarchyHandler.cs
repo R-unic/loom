@@ -58,10 +58,15 @@ public sealed class TypeHierarchySubtypesHandler(DocumentStore documents) : Type
     public override Task<Container<TypeHierarchyItem>?> Handle(TypeHierarchySubtypesParams request, CancellationToken cancellationToken)
     {
         var symbol = HierarchyData.ResolveType(documents, request.Item.Data);
-        if (symbol == null || HierarchyData.UnitOf(documents, request.Item.Uri) is not { } unit)
+        if (symbol == null || HierarchyData.StateOf(documents, request.Item.Uri) is not { } state)
             return Task.FromResult<Container<TypeHierarchyItem>?>(null);
 
-        var items = TypeHierarchy.Subtypes(symbol, unit).Select(TypeHierarchyPrepareHandler.ToItem);
+        // Subtypes walks state.Unit.AnalyzedModules, which a concurrent recompile clears and repopulates
+        IReadOnlyList<TypeSymbol> subtypes;
+        lock (state.CompilationLock)
+            subtypes = TypeHierarchy.Subtypes(symbol, state.Unit);
+
+        var items = subtypes.Select(TypeHierarchyPrepareHandler.ToItem);
         return Task.FromResult<Container<TypeHierarchyItem>?>(new Container<TypeHierarchyItem>(items));
     }
 }

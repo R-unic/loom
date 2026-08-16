@@ -38,7 +38,9 @@ public sealed class WillRenameFilesHandler(DocumentStore documents) : IJsonRpcRe
             .Select(rename => new ModuleRename(Path.GetFullPath(rename.Old), Path.GetFullPath(rename.New)))
             .ToArray();
 
-        var edits = ModuleRenames.EditsFor(documents.Projects(), renames);
+        // EditsFor reads each project's Unit.SourceFiles/Unit.Roots, which a concurrent recompile mutates in
+        // place - Projects() alone only protects the moment it copies the file list out, not that read
+        var edits = documents.WithProjects(projects => ModuleRenames.EditsFor(projects, renames));
         if (edits.Count == 0)
             return Task.FromResult<WorkspaceEdit?>(null);
 

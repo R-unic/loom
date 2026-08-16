@@ -35,7 +35,9 @@ public sealed class WillDeleteFilesHandler : WillDeleteFileHandlerBase
             .Select(Path.GetFullPath)
             .ToArray();
 
-        var broken = ModuleDeletions.Broken(_documents.Projects(), deletedPaths);
+        // Broken reads each project's Unit.SourceFiles/Unit.Roots, which a concurrent recompile mutates in
+        // place - Projects() alone only protects the moment it copies the file list out, not that read
+        var broken = _documents.WithProjects(projects => ModuleDeletions.Broken(projects, deletedPaths));
         if (broken.Count > 0)
             Warn(broken);
 

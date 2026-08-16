@@ -201,6 +201,19 @@ public sealed class DocumentStore
     }
 
     /// <summary>
+    ///     Runs <paramref name="use" /> against every compiled project under the store's own lock, for a caller
+    ///     that reads a project's <see cref="CompilationUnit" /> - its <c>SourceFiles</c> or <c>Roots</c> -
+    ///     rather than just the files <see cref="Projects" /> already copied out. Those collections are mutated
+    ///     in place by a recompile the same way <c>Globals</c> and <c>AnalyzedModules</c> are, so a read of them
+    ///     has to be inside the same lock as that mutation, not just after <see cref="Projects" /> returns.
+    /// </summary>
+    public T WithProjects<T>(Func<IReadOnlyList<CompiledProject>, T> use)
+    {
+        lock (_compilationLock)
+            return use(_results.Select(entry => new CompiledProject(entry.Key, entry.Value.Files)).ToArray());
+    }
+
+    /// <summary>
     ///     Takes in changes made to files outside the editor - a branch switch, a generator, another tool - and
     ///     recompiles whatever they touched.
     /// </summary>

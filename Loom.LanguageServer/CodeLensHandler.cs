@@ -45,9 +45,14 @@ public sealed class CodeLensHandler(DocumentStore documents, ServerSettings sett
         if (Resolve(request) is not var (target, state, kind))
             return Task.FromResult(request);
 
-        var title = kind == ImplementationsKind
-            ? CodeLenses.Describe(CodeLenses.ImplementationCount(target, state.Unit), "implementation")
-            : CodeLenses.Describe(CodeLenses.ReferenceCount(target, state.Unit, cancellationToken), "reference");
+        // both counts walk state.Unit.AnalyzedModules, which a concurrent recompile clears and repopulates
+        string title;
+        lock (state.CompilationLock)
+        {
+            title = kind == ImplementationsKind
+                ? CodeLenses.Describe(CodeLenses.ImplementationCount(target, state.Unit), "implementation")
+                : CodeLenses.Describe(CodeLenses.ReferenceCount(target, state.Unit, cancellationToken), "reference");
+        }
 
         // no command name: the lens is a count to read, and a client that cannot navigate from one should
         // still show the number rather than a link that does nothing

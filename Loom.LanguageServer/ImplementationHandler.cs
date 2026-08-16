@@ -27,7 +27,14 @@ public sealed class ImplementationHandler(DocumentStore documents) : Implementat
             if (node == null)
                 return Task.FromResult<LocationOrLocationLinks?>(null);
 
-            var locations = Implementations(node, offset, state)
+            // Implementations walks state.Unit.AnalyzedModules for two of its three branches, which a
+            // concurrent recompile clears and repopulates - materialized inside the lock so the walk itself,
+            // not just this call, stays covered by it
+            Node[] implementations;
+            lock (state.CompilationLock)
+                implementations = Implementations(node, offset, state).ToArray();
+
+            var locations = implementations
                 .Select(implemented => Conversion.ToLocation(implemented.LocationSpan))
                 .OfType<Location>()
                 .Select(location => new LocationOrLocationLink(location))

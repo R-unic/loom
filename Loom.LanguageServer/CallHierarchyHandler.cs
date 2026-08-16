@@ -64,9 +64,13 @@ internal static class HierarchyData
         return resolved != null && resolved.Name == name ? resolved : null;
     }
 
-    /// <summary>The unit an item's own file belongs to - every hierarchy item names its file, so this needs nothing else.</summary>
-    public static Core.Pipeline.CompilationUnit? UnitOf(DocumentStore documents, DocumentUri uri) =>
-        documents.TryGetState(uri, out var state) ? state.Unit : null;
+    /// <summary>
+    ///     The state an item's own file belongs to - every hierarchy item names its file, so this needs nothing
+    ///     else. Handed out whole, rather than just its <see cref="DocumentState.Unit" />, so a caller that
+    ///     walks the unit can lock around the walk with <see cref="DocumentState.CompilationLock" />.
+    /// </summary>
+    public static DocumentState? StateOf(DocumentStore documents, DocumentUri uri) =>
+        documents.TryGetState(uri, out var state) ? state : null;
 
     private static Token NameOf(Node declaration) => declaration is NamedDeclaration named ? named.Name : declaration.Tokens[0];
 }
@@ -117,10 +121,15 @@ internal static class CallHierarchyCalls
         Func<FunctionSymbol, Core.Pipeline.CompilationUnit, IReadOnlyList<CallEdge>> edgesOf,
         Func<CallEdge, TCall> toCall)
     {
-        if (HierarchyData.ResolveFunction(documents, item.Data) is not { } symbol || HierarchyData.UnitOf(documents, item.Uri) is not { } unit)
+        if (HierarchyData.ResolveFunction(documents, item.Data) is not { } symbol || HierarchyData.StateOf(documents, item.Uri) is not { } state)
             return Task.FromResult<Container<TCall>?>(null);
 
-        return Task.FromResult<Container<TCall>?>(new Container<TCall>(edgesOf(symbol, unit).Select(toCall)));
+        // edgesOf walks state.Unit.AnalyzedModules, which a concurrent recompile clears and repopulates
+        IReadOnlyList<CallEdge> edges;
+        lock (state.CompilationLock)
+            edges = edgesOf(symbol, state.Unit);
+
+        return Task.FromResult<Container<TCall>?>(new Container<TCall>(edges.Select(toCall)));
     }
 
     public static Container<Range> RangesOf(CallEdge edge) => new(edge.CallSites.Select(token => Conversion.ToRange(token.GetLocation())));

@@ -17,11 +17,17 @@ public sealed class ReferencesHandler(DocumentStore documents) : ReferencesHandl
             if (SymbolReferences.At(state.File, offset) is not { } symbol)
                 return Task.FromResult<LocationContainer?>(null);
 
-            var references = SymbolReferences.Of(symbol, state.Unit, cancellationToken)
-                .Where(reference => request.Context.IncludeDeclaration || !reference.IsDeclaration)
-                .Select(ToLocation)
-                .OfType<Location>()
-                .ToArray();
+            // a concurrent recompile clears and repopulates state.Unit.AnalyzedModules, so walking the whole
+            // unit has to happen under the same lock that guards that mutation
+            Location[] references;
+            lock (state.CompilationLock)
+            {
+                references = SymbolReferences.Of(symbol, state.Unit, cancellationToken)
+                    .Where(reference => request.Context.IncludeDeclaration || !reference.IsDeclaration)
+                    .Select(ToLocation)
+                    .OfType<Location>()
+                    .ToArray();
+            }
 
             return Task.FromResult<LocationContainer?>(new LocationContainer(references));
         }

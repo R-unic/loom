@@ -42,7 +42,13 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
         if (Resolve(request) is not var (symbol, state))
             return Task.FromResult(request);
 
-        var documentation = symbol.Documentation();
+        // Documentation() is the closure CompletionSnapshotBuilder captured over state.Unit - built under
+        // the lock, but invoked here, possibly long after and by a different request, so the read of
+        // state.Unit.Roots it does through SymbolOrigin needs the lock again at the point it actually runs
+        string? documentation;
+        lock (state.CompilationLock)
+            documentation = symbol.Documentation();
+
         return Task.FromResult(
             request with
             {
