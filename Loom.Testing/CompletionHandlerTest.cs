@@ -27,6 +27,37 @@ public class CompletionHandlerTest
         Assert.Equal(CompletionItemKind.Property, Assert.Single(completions, item => item.Label == "name").Kind);
     }
 
+    /// <summary>
+    ///     A constructed value's type already has trait methods merged into its own ObjectType.Properties
+    ///     (BindInterfaceInvocation), unlike the interface's general type - GetMembersOf has to recognize a
+    ///     name that is already there rather than appending the trait's copy of it a second time.
+    /// </summary>
+    [Fact]
+    public async Task Handle_AfterADot_OnAConstructedTraitImplementer_ListsTheTraitMethodOnce()
+    {
+        var completions = await CompleteAsync(
+            """
+            trait Foo {
+              fn bar: void;
+            }
+
+            interface Blah;
+
+            implement Foo for Blah {
+              fn bar {
+                print('69')
+              }
+            }
+
+            let blah = new Blah {};
+            let x = 69;
+            blah.
+            """
+        );
+
+        Assert.Equal("bar", Assert.Single(completions).Label);
+    }
+
     [Fact]
     public async Task Handle_AfterADot_FollowsAChainOfMembers()
     {

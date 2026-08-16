@@ -329,18 +329,23 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
 
     /// <summary>
     ///     Every member <paramref name="interfaceType" /> offers: its own <see cref="InterfaceType.Properties" />,
-    ///     plus one entry per method a trait it implements contributes. <see cref="InterfaceType.Properties" />
-    ///     alone does not have these - a trait implementation sits outside the interface's own declaration, so
-    ///     it never reaches <see cref="ObjectType" /> the way <see cref="TypeChecker" />'s self-type merging
-    ///     (<c>VisitSelfExpression</c>) has to redo per <c>implement</c> block.
+    ///     plus one entry per method a trait it implements contributes that is not already there.
+    ///     <see cref="InterfaceType.Properties" /> does not have these for an interface's general type - a
+    ///     trait implementation sits outside the interface's own declaration, so it never reaches
+    ///     <see cref="ObjectType" /> the way the type checker's construction-site and self-type merging
+    ///     (<c>BindInterfaceInvocation</c>, <c>VisitSelfExpression</c>) redoes per <c>new</c> expression or
+    ///     <c>implement</c> block. Those two, though, bake trait properties directly into the bound type's own
+    ///     <see cref="ObjectType" /> - so a name already present is skipped rather than added a second time.
     /// </summary>
     public IReadOnlyList<ObjectProperty> GetMembersOf(InterfaceType interfaceType)
     {
         if (FindDeclarationSymbol<InterfaceSymbol>(interfaceType.Name) is not { } interfaceSymbol || interfaceSymbol.FullImplementations.Count == 0)
             return interfaceType.Properties;
 
+        var existing = interfaceType.Properties.Select(property => property.Name).ToHashSet();
         var traitProperties = interfaceSymbol.FullImplementations
             .SelectMany(implement => implement.Body.Implementations)
+            .Where(declaration => !existing.Contains(declaration.Name.Text))
             .Select(declaration => new ObjectProperty(false, declaration.Name.Text, GetType(declaration)));
 
         return [..interfaceType.Properties, ..traitProperties];
