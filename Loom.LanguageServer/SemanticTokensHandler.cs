@@ -79,12 +79,20 @@ public sealed class SemanticTokensHandler(DocumentStore documents) : SemanticTok
         return end - start;
     }
 
+    /// <summary>
+    ///     Delta is off: OmniSharp's own <c>SemanticTokensDocument.GetSemanticTokensEdits</c> computes its
+    ///     common-prefix and common-suffix lengths independently, and a run of identical adjacent tokens
+    ///     spanning the edit lets the two scans overlap, driving the slice length negative and throwing
+    ///     <c>ArgumentOutOfRangeException</c> out of library code this project does not own. Unadvertised, a
+    ///     client never sends <c>textDocument/semanticTokens/full/delta</c> and always gets the full array
+    ///     instead - correct either way, just not incremental.
+    /// </summary>
     protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(SemanticTokensCapability capability, ClientCapabilities clientCapabilities) =>
         new()
         {
             DocumentSelector = TextDocumentSelector.ForPattern("**/*.loom"),
             Legend = SemanticTokenClassifier.Legend,
-            Full = new SemanticTokensCapabilityRequestFull { Delta = true },
+            Full = new SemanticTokensCapabilityRequestFull { Delta = false },
             Range = true
         };
 }
