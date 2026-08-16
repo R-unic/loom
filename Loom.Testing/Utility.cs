@@ -60,7 +60,7 @@ internal static class Utility
         if (typeCheck)
         {
             var typeChecker = new TypeChecker(semanticModel, flowAnalyzer);
-            typeChecker.Check();
+            upstream = DiagnosticBag.Concat([upstream, typeChecker.Check().Diagnostics]);
         }
 
         var result = new LuauGenerator(semanticModel).Generate();
