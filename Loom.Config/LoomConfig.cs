@@ -2,8 +2,8 @@ using Tomlyn.Serialization;
 
 namespace Loom.Config;
 
-// Tomlyn constructs this and fills its collections by reflection, so nothing here is instantiated or
-// added to anywhere an inspection can see.
+// Tomlyn constructs this and fills its collections through LoomConfigContext, so nothing here is
+// instantiated or added to anywhere an inspection can see.
 // ReSharper disable file ClassNeverInstantiated.Global
 // ReSharper disable file CollectionNeverUpdated.Global
 public sealed class LoomConfig
@@ -12,9 +12,16 @@ public sealed class LoomConfig
 
     [TomlPropertyName("no_emit")] public bool NoEmit { get; set; }
 
-    [TomlPropertyName("project_type")]
-    [TomlConverter(typeof(ProjectTypeConverter))]
-    public ProjectType ProjectType { get; init; }
+    /// <summary>
+    ///     <c>project_type</c> as written. <see cref="ProjectType" /> is the read form; this one exists because
+    ///     Tomlyn's Native-AOT source generator does not honor a per-member <c>TomlConverter</c>, so the enum is
+    ///     read as text and matched by <see cref="ConfigReader" /> instead. Only <see cref="ConfigReader" /> should
+    ///     need it.
+    /// </summary>
+    [TomlPropertyName("project_type")] public string? ProjectTypeEntry { get; init; }
+
+    /// <summary>The project's kind; <see cref="Config.ProjectType.Game" /> when the manifest names none.</summary>
+    [TomlIgnore] public ProjectType ProjectType { get; set; }
 
     [TomlPropertyName("files")] public FilesConfig Files { get; init; } = new();
 

@@ -1,5 +1,4 @@
 using Loom.Config;
-using Tomlyn;
 using Version = Loom.Config.Version;
 
 namespace Loom.Testing;
@@ -67,19 +66,12 @@ public class ConfigReaderTest
     [InlineData("GAME", ProjectType.Game)]
     [InlineData("library", ProjectType.Library)]
     [InlineData("plugin", ProjectType.Plugin)]
-    public void ProjectTypeConverter_ParsesKnownValues_CaseInsensitive(string toml, ProjectType expected)
-    {
-        var config = TomlSerializer.Deserialize<LoomConfig>($"project_type = \"{toml}\"");
-        Assert.NotNull(config);
-        Assert.Equal(expected, config.ProjectType);
-    }
+    public void ProjectType_ParsesKnownValues_CaseInsensitive(string toml, ProjectType expected) =>
+        Assert.Equal(expected, ReadValid($"project_type = \"{toml}\"\n").ProjectType);
 
     [Fact]
-    public void ProjectTypeConverter_UnknownValue_Throws()
-    {
-        var ex = Assert.Throws<TomlException>(() => TomlSerializer.Deserialize<LoomConfig>("project_type = \"nonsense\""));
-        Assert.Contains("unknown project type 'nonsense'", ex.Message);
-    }
+    public void ProjectType_UnknownValue_ReportsADiagnosticInsteadOfThrowing() =>
+        Assert.Contains("unknown project type 'nonsense'", ReadInvalid("project_type = \"nonsense\"\n").Message);
 
     /// <summary>Reads a manifest the way the compiler does, so validation runs; returns the config and its diagnostics.</summary>
     private static (LoomConfig? Config, IReadOnlyList<ConfigDiagnostic> Diagnostics) Read(string tomlContent)
@@ -273,17 +265,19 @@ public class ConfigReaderTest
         Assert.EndsWith($"{Path.DirectorySeparatorChar}source", config.Files.SourceDirectory);
     }
 
+    /// <remarks>
+    ///     Position tracking only survives for a genuine TOML syntax error: a semantic one, like an invalid
+    ///     'version', is caught by <see cref="ConfigReader" /> after the whole file has already deserialized, so
+    ///     it carries no position (see <see cref="LocateFromDirectory_MalformedManifest_ReportsADiagnosticInsteadOfThrowing" />).
+    /// </remarks>
     [Fact]
     public void LocateFromDirectory_MalformedManifest_ReportsWhereTheProblemIs()
     {
-        var diagnostic = ReadInvalid("[package]\nname = \"tether\"\nversion = \"0.3\"\n");
+        var diagnostic = ReadInvalid("[package\nname = \"tether\"\n");
 
-        Assert.Equal(3, diagnostic.Line);
-        Assert.Equal(11, diagnostic.Column);
-        Assert.StartsWith("(3,11): ", diagnostic.ToString());
-
-        // the converter Tomlyn wrapped the failure in is noise to whoever is editing the manifest.
-        Assert.DoesNotContain("converter", diagnostic.Message);
+        Assert.Equal(1, diagnostic.Line);
+        Assert.Equal(9, diagnostic.Column);
+        Assert.StartsWith("(1,9): ", diagnostic.ToString());
     }
 
     [Fact]

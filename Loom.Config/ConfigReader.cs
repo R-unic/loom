@@ -48,7 +48,7 @@ public static partial class ConfigReader
         LoomConfig? config;
         try
         {
-            config = TomlSerializer.Deserialize<LoomConfig>(File.ReadAllText(path));
+            config = TomlSerializer.Deserialize(File.ReadAllText(path), LoomConfigContext.Default.LoomConfig);
         }
         catch (TomlException exception)
         {
@@ -74,20 +74,17 @@ public static partial class ConfigReader
         return config;
     }
 
-    /// <summary>Checks what the TOML converters cannot: required fields, and the dependency table, which is read here.</summary>
+    /// <summary>
+    ///     Checks what Tomlyn's Native-AOT source generator cannot: required fields, the enum- and
+    ///     identity-shaped fields a per-member <c>TomlConverter</c> would have read (see <see cref="LoomConfig.ProjectTypeEntry" />),
+    ///     and the dependency table, which is read here.
+    /// </summary>
     private static void Validate(LoomConfig config, List<ConfigDiagnostic> diagnostics)
     {
+        ReadProjectType(config, diagnostics);
+
         if (config.Package is { } package)
-        {
-            if (package.Name == null)
-                diagnostics.Add(new ConfigDiagnostic("[package] must specify a 'name'."));
-
-            if (package.Version == null)
-                diagnostics.Add(new ConfigDiagnostic("[package] must specify a 'version'."));
-
-            if (package.Edition != null && !IsEdition(package.Edition))
-                diagnostics.Add(new ConfigDiagnostic($"invalid edition '{package.Edition}'; expected a four-digit year, e.g. \"2026\"."));
-        }
+            ReadPackage(package, diagnostics);
 
         ValidateDirectory(config.Files.SourceDirectory, "source_directory", diagnostics);
         ValidateDirectory(config.Files.OutputDirectory, "output_directory", diagnostics);
@@ -95,6 +92,58 @@ public static partial class ConfigReader
         ReadRealms(config, diagnostics);
         if (config.Registry != null && !IsFetchableUrl(config.Registry.Index))
             diagnostics.Add(new ConfigDiagnostic($"invalid registry index '{config.Registry.Index}'; expected an http or https URL."));
+    }
+
+    private static void ReadProjectType(LoomConfig config, List<ConfigDiagnostic> diagnostics)
+    {
+        if (config.ProjectTypeEntry == null)
+        {
+            config.ProjectType = ProjectType.Game;
+            return;
+        }
+
+        switch (config.ProjectTypeEntry.Trim().ToLowerInvariant())
+        {
+            case "game":
+                config.ProjectType = ProjectType.Game;
+                break;
+            case "library":
+                config.ProjectType = ProjectType.Library;
+                break;
+            case "plugin":
+                config.ProjectType = ProjectType.Plugin;
+                break;
+            default:
+                diagnostics.Add(new ConfigDiagnostic($"unknown project type '{config.ProjectTypeEntry}'."));
+                break;
+        }
+    }
+
+    private static void ReadPackage(PackageConfig package, List<ConfigDiagnostic> diagnostics)
+    {
+        if (package.NameEntry == null)
+            diagnostics.Add(new ConfigDiagnostic("[package] must specify a 'name'."));
+        else if (PackageName.TryParse(package.NameEntry, out var name, out var nameError))
+            package.Name = name;
+        else
+            diagnostics.Add(new ConfigDiagnostic(nameError));
+
+        if (package.VersionEntry == null)
+            diagnostics.Add(new ConfigDiagnostic("[package] must specify a 'version'."));
+        else if (Version.TryParse(package.VersionEntry, out var version, out var versionError))
+            package.Version = version;
+        else
+            diagnostics.Add(new ConfigDiagnostic(versionError));
+
+        if (package.RealmEntry == null)
+            package.Realm = Realm.Shared;
+        else if (TryReadRealm(package.RealmEntry, out var realm))
+            package.Realm = realm;
+        else
+            diagnostics.Add(new ConfigDiagnostic($"unknown realm '{package.RealmEntry}'; expected 'shared', 'client' or 'server'."));
+
+        if (package.Edition != null && !IsEdition(package.Edition))
+            diagnostics.Add(new ConfigDiagnostic($"invalid edition '{package.Edition}'; expected a four-digit year, e.g. \"2026\"."));
     }
 
     /// <summary>
