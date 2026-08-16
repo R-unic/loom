@@ -54,20 +54,19 @@ jobs:
 
       - name: Publish
         shell: bash
-        # PublishAot compiles straight to native code ahead of time, rather than the JIT/ReadyToRun
-        # split the CLI used to run under - one measured build went from ~85 MB to ~10 MB and got
-        # noticeably faster besides, since there is no managed runtime left to start up. This needed
-        # every reflection-based dependency gone first (CommandLineParser's verb discovery, Tomlyn's
-        # POCO mapping, System.Text.Json's default serializer) - see #210. PublishSingleFile is not
-        # passed: AOT output is already one native executable, so it would be redundant. Each target
-        # is built on a runner of its own architecture (see the matrix above), so this compiles
-        # natively rather than cross-compiling.
+        # PublishAot (set by default in Loom.CLI.csproj) compiles straight to native code ahead of
+        # time, rather than the JIT/ReadyToRun split the CLI used to run under - one measured build
+        # went from ~85 MB to ~10 MB and got noticeably faster besides, since there is no managed
+        # runtime left to start up. This needed every reflection-based dependency gone first
+        # (CommandLineParser's verb discovery, Tomlyn's POCO mapping, System.Text.Json's default
+        # serializer) - see #210. PublishSingleFile is not passed: AOT output is already one native
+        # executable, so it would be redundant. Each target is built on a runner of its own
+        # architecture (see the matrix above), so this compiles natively rather than cross-compiling.
         run: |
           dotnet publish Loom.CLI/Loom.CLI.csproj \
             --configuration Release \
             --runtime ${{ matrix.rid }} \
             --self-contained true \
-            -p:PublishAot=true \
             -p:Version=${{ steps.version.outputs.version }} \
             --output publish
 
