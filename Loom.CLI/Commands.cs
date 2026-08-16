@@ -1,24 +1,20 @@
-using CommandLine;
-
 namespace Loom.CLI;
 
-internal abstract class ProjectCommand
+internal readonly record struct BuildOptions(string Directory, bool DependencyDiagnostics);
+
+internal readonly record struct WatchOptions(string Directory, bool DependencyDiagnostics);
+
+internal readonly record struct NewOptions(string Directory);
+
+internal abstract record CliCommand
 {
-    [Value(0, MetaName = "directory", Default = ".", HelpText = "The project directory.")]
-    public string Directory { get; init; } = ".";
+    private CliCommand() { }
+
+    public sealed record RunBuild(BuildOptions Options) : CliCommand;
+
+    public sealed record RunWatch(WatchOptions Options) : CliCommand;
+
+    public sealed record RunNew(NewOptions Options) : CliCommand;
+
+    public sealed record Done(int ExitCode) : CliCommand;
 }
-
-internal abstract class BuildCommand : ProjectCommand
-{
-    [Option('d', "dependency-diagnostics")]
-    public bool DependencyDiagnostics { get; init; }
-}
-
-[Verb("build", HelpText = "Build a Loom project.")]
-internal sealed class BuildOptions : BuildCommand;
-
-[Verb("watch", HelpText = "Build a Loom project and watch for changes.")]
-internal sealed class WatchOptions : BuildCommand;
-
-[Verb("new", HelpText = "Create a new Loom project.")]
-internal sealed class NewOptions : BuildCommand;
