@@ -39,8 +39,22 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
     {
         expression = null;
         _context.Node = invocation;
-        return TryDecomposeInvocationTarget(invocation.Expression, luauCall.Callee, out var provider, out var member)
-            && provider.TryInvocation(_context, member.Trim(), invocation.TypeArguments, luauCall, out expression);
+        if (!TryDecomposeInvocationTarget(invocation.Expression, luauCall.Callee, out var provider, out var member))
+            return false;
+
+        // A provider is written against the arity/shape its intrinsic declares, which the type checker
+        // validates - but a call site that fails that check still reaches here, since diagnostics never
+        // stop the pipeline. Falling back to the plain, unexpanded call is exactly what happens whenever
+        // no provider matches at all, so it is a safe answer for "this one matched but could not expand" too.
+        try
+        {
+            return provider.TryInvocation(_context, member.Trim(), invocation.TypeArguments, luauCall, out expression);
+        }
+        catch (Exception)
+        {
+            expression = null;
+            return false;
+        }
     }
 
     public bool TryGetInvocationMacroReference(
@@ -71,7 +85,17 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         var call = new Call(callee, arguments);
 
         LuauExpression? body = null;
-        var (matched, scope) = state.CaptureIsolatedScope(() => provider.TryInvocation(_context, memberName.Trim(), null, call, out body));
+        bool matched;
+        LuauScope scope;
+        try
+        {
+            (matched, scope) = state.CaptureIsolatedScope(() => provider.TryInvocation(_context, memberName.Trim(), null, call, out body));
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
         if (!matched || body == null)
             return false;
 
@@ -92,7 +116,7 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
             return true;
 
         var targetType = semanticModel.GetType(access.Expression);
-        if (GetProvider(access.IndexExpression) is { } provider && provider.TryElementAccess(_context, luauAccess, targetType, out expression))
+        if (GetProvider(access.IndexExpression) is { } provider && TryElementAccess(provider, luauAccess, targetType, out expression))
             return true;
 
         return semanticModel.GetConstantValue(access.IndexExpression) is string name
@@ -125,7 +149,7 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
                 return false;
         }
 
-        return GetProvider(receiverType) is { } provider && provider.TryProperty(_context, names[^1].Name.Text, receiverTarget, out expression);
+        return GetProvider(receiverType) is { } provider && TryProperty(provider, names[^1].Name.Text, receiverTarget, out expression);
     }
 
     private bool TryDecomposeInvocationTarget(
@@ -219,7 +243,7 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
             return false;
         }
 
-        if (!provider.TryProperty(_context, names[macroIndex].Name.Text, target, out expression))
+        if (!TryProperty(provider, names[macroIndex].Name.Text, target, out expression))
             return false;
 
         if (macroIndex + 1 < names.Count)
@@ -264,10 +288,42 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
     private bool TryGetNamedAccessMacro(Expression objectExpression, string name, LuauExpression target, [MaybeNullWhen(false)] out LuauExpression expression)
     {
         if (GetProvider(objectExpression) is { } provider)
-            return provider.TryProperty(_context, name, target, out expression);
+            return TryProperty(provider, name, target, out expression);
 
         expression = null;
         return false;
+    }
+
+    /// <summary>
+    ///     A provider is written against the shape its intrinsic declares, which the type checker validates -
+    ///     but a call site that fails that check still reaches codegen, since diagnostics never stop the
+    ///     pipeline. Every caller already falls back to leaving the access unexpanded when no provider
+    ///     matches at all, so treating a provider that throws the same way is a safe answer too.
+    /// </summary>
+    private bool TryProperty(IMacroProvider provider, string name, LuauExpression target, [MaybeNullWhen(false)] out LuauExpression expression)
+    {
+        try
+        {
+            return provider.TryProperty(_context, name, target, out expression);
+        }
+        catch (Exception)
+        {
+            expression = null;
+            return false;
+        }
+    }
+
+    private bool TryElementAccess(IMacroProvider provider, Luau.AST.ElementAccess luauAccess, Type targetType, [MaybeNullWhen(false)] out LuauExpression expression)
+    {
+        try
+        {
+            return provider.TryElementAccess(_context, luauAccess, targetType, out expression);
+        }
+        catch (Exception)
+        {
+            expression = null;
+            return false;
+        }
     }
 
     private bool TryGetEnumConstant(Expression expression, [MaybeNullWhen(false)] out LuauExpression constantValue)

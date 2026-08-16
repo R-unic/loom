@@ -1359,4 +1359,26 @@ public class MacroExpanderTest
         Assert.Equal("math", Assert.IsType<Identifier>(callee.Target).Name);
         Assert.Equal(functionName, Assert.Single(callee.Names));
     }
+
+    /// <summary>
+    ///     A provider is written against the arity its intrinsic declares - <c>Range.clamp</c> takes exactly
+    ///     one argument - and <c>CheckArity</c> reports exactly that when a call site gets it wrong. But
+    ///     generation still runs after a type error (nothing in <c>Compiler.Analyze</c> stops it), so a
+    ///     provider that assumed the type checker had already enforced arity - <c>Arguments.Single()</c> -
+    ///     used to throw out of generation instead of leaving the arity diagnostic as the only complaint.
+    /// </summary>
+    [Theory]
+    [InlineData("let r = 1..10; r.clamp();")]
+    [InlineData("let r = 1..10; r.clamp(1, 2);")]
+    [InlineData("Result.ok();")]
+    [InlineData("Result.ok(1, 2);")]
+    [InlineData("let s = [1, 2, 3].to_set(); s.has();")]
+    [InlineData("let s = [1, 2, 3].to_set(); s.has(1, 2);")]
+    public void Generates_AMacroBackedCall_GivenTheWrongArity_WithoutThrowing(string source)
+    {
+        var diagnostics = Utility.GetGeneratorDiagnostics(source, true);
+
+        Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.InvocationArity);
+        Assert.DoesNotContain(diagnostics.Set, d => d.Code == InternalCodes.CompilerError);
+    }
 }
