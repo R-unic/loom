@@ -31,8 +31,8 @@ exclude:
   # off them, and a formatter or a rewriter would read the rest. Roslyn's syntax nodes expose their tokens
   # for the same reason; deleting the ones with no reader yet would make the tree lossy to save nothing.
   #
-  # Bound by name at runtime, never constructed or assigned in code: CommandLineParser builds the verb
-  # classes from argv, Tomlyn writes the config properties, and System.Text.Json writes the API dump ones.
+  # Bound by name at runtime, never constructed or assigned in code Qodana can see: Tomlyn's generated
+  # TomlSerializerContext writes the config properties, and System.Text.Json writes the API dump ones.
   - name: UnusedMember.Global
     paths:
       - Loom.Core/Parsing/AST
@@ -40,12 +40,10 @@ exclude:
   - name: UnusedAutoPropertyAccessor.Global
     paths:
       - Loom.Core/Parsing/AST
-      - Loom.CLI/Commands.cs
       - Loom.Config
       - Loom.TypeGenerator/ApiTypes
   - name: ClassNeverInstantiated.Global
     paths:
-      - Loom.CLI/Commands.cs
       - Loom.TypeGenerator/ApiTypes
   - name: PropertyCanBeMadeInitOnly.Global
     paths:

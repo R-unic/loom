@@ -54,22 +54,20 @@ jobs:
 
       - name: Publish
         shell: bash
-        # PublishTrimmed is deliberately absent: CommandLineParser discovers the build/watch/new
-        # verbs by reflection, and trimming removes them without failing the build - the compiler
-        # then rejects every command it is given. Leave it off unless the CLI stops using it.
-        #
-        # PublishReadyToRun is on because the compiler is a one-shot process: it starts, compiles,
-        # and exits, so it pays first-call JIT for the whole pipeline on every single build and
-        # never gets to amortize it. Precompiling cut a measured build from ~1,240 ms to ~770 ms,
-        # for about 14 MB on the archive. Each target is built on a runner of its own architecture
-        # (see the matrix above), so this precompiles natively rather than cross-generating.
+        # PublishAot compiles straight to native code ahead of time, rather than the JIT/ReadyToRun
+        # split the CLI used to run under - one measured build went from ~85 MB to ~10 MB and got
+        # noticeably faster besides, since there is no managed runtime left to start up. This needed
+        # every reflection-based dependency gone first (CommandLineParser's verb discovery, Tomlyn's
+        # POCO mapping, System.Text.Json's default serializer) - see #210. PublishSingleFile is not
+        # passed: AOT output is already one native executable, so it would be redundant. Each target
+        # is built on a runner of its own architecture (see the matrix above), so this compiles
+        # natively rather than cross-compiling.
         run: |
           dotnet publish Loom.CLI/Loom.CLI.csproj \
             --configuration Release \
             --runtime ${{ matrix.rid }} \
             --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:PublishReadyToRun=true \
+            -p:PublishAot=true \
             -p:Version=${{ steps.version.outputs.version }} \
             --output publish
 
