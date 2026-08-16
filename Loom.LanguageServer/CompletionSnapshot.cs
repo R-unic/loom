@@ -35,6 +35,14 @@ public sealed record CompletionSnapshot
     public IReadOnlyList<TextSpan> AttributeRanges { get; init; } = [];
     public IReadOnlyList<TextSpan> ModuleSpecifierRanges { get; init; } = [];
 
+    /// <summary>
+    ///     The written text of every plain string literal and interpolated-string text segment, excluding its
+    ///     quotes/braces. Nothing is offered there yet - a name typed inside is text, not an identifier, and
+    ///     the one place a string's own content already has a scope of names to offer,
+    ///     <see cref="ModuleSpecifierRanges" />, is checked first and never reaches this.
+    /// </summary>
+    public IReadOnlyList<TextSpan> StringLiteralRanges { get; init; } = [];
+
     public IReadOnlyList<VisibleSymbol> At(int offset)
     {
         if (Narrowest(MemberScopes.Select(scope => new ExclusiveScope(scope.Range, scope.Members)), offset) is { } members)
@@ -48,6 +56,9 @@ public sealed record CompletionSnapshot
 
         if (Contains(ModuleSpecifierRanges, offset))
             return ModuleSpecifiers;
+
+        if (Contains(StringLiteralRanges, offset))
+            return [];
 
         // keywords are not symbols - the lexer gives them their own token kinds - so no scope will ever
         // produce them, yet they are exactly what is being typed half the time
@@ -123,8 +134,34 @@ public static class CompletionSnapshotBuilder
             ImportScopes = CollectImportScopes(descendants, context),
             TypeRanges = CollectTypeRanges(descendants, sourceFile.SourceText),
             AttributeRanges = descendants.OfType<Attributes>().Select(node => BracketRange(node.LeftBracket, node.RightBracket)).ToArray(),
-            ModuleSpecifierRanges = descendants.OfType<ImportDeclaration>().Select(node => node.ModuleSpecifier.Span).ToArray()
+            ModuleSpecifierRanges = descendants.OfType<ImportDeclaration>().Select(node => node.ModuleSpecifier.Span).ToArray(),
+            StringLiteralRanges = CollectStringLiteralRanges(descendants)
         };
+    }
+
+    /// <summary>
+    ///     A plain string literal's span covers its quotes, so the writable content is one character in from
+    ///     each end; an interpolated string's text segments already exclude the backticks and <c>{}</c> braces
+    ///     that bound them, being their own tokens.
+    /// </summary>
+    private static IReadOnlyList<TextSpan> CollectStringLiteralRanges(IReadOnlyList<Node> descendants)
+    {
+        var ranges = new List<TextSpan>();
+        foreach (var node in descendants)
+            switch (node)
+            {
+                case Literal { Value: string } literal:
+                    var span = literal.Span;
+                    ranges.Add(TextSpan.FromStartEnd(span.Position + 1, Math.Max(span.Position + 1, span.End - 1)));
+                    break;
+                case InterpolatedStringLiteral interpolated:
+                    ranges.AddRange(
+                        interpolated.Parts.OfType<InterpolationTextPart>().Select(part => part.Token.Span)
+                    );
+                    break;
+            }
+
+        return ranges;
     }
 
     /// <summary>

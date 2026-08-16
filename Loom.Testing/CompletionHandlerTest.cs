@@ -298,6 +298,39 @@ public class CompletionHandlerTest
             ("util/math.loom", "export fn double(n: number): number { return n * 2; }")
         );
 
+    /// <summary>
+    ///     A name typed inside a plain string literal is text, not an identifier - offering the file's scope
+    ///     there put every declaration and keyword inside the quotes, which is never what a string's own
+    ///     content could mean.
+    /// </summary>
+    [Fact]
+    public async Task Handle_InsideAPlainStringLiteral_OffersNothing() =>
+        Assert.Empty(
+            await CompleteAsync(
+                """
+                fn greet(name: string): void -> print(name);
+
+                fn main(): void {
+                  greet("")
+                }
+                """,
+                3,
+                9
+            )
+        );
+
+    /// <summary>The text either side of an interpolation hole is the same kind of text a plain string's content is.</summary>
+    [Fact]
+    public async Task Handle_InAnInterpolatedStringsTextSegment_OffersNothing() =>
+        Assert.Empty(await CompleteAsync("fn main(): void {\n  let name = $\"hi \n}", 1, 16));
+
+    [Fact]
+    public async Task Handle_InAnInterpolationHole_StillCompletesNormally()
+    {
+        var completions = await CompleteAsync("fn main(): void {\n  let n = 1;\n  let s = $\"{n\n}", 2, 14);
+        Assert.Contains(completions, item => item.Label == "n");
+    }
+
     [Fact]
     public async Task Handle_InsideAnImportList_CompletesTheModulesExportsAndNothingElse() =>
         await Utility.WithLspProjectAsync(
