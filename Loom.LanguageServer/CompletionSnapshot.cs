@@ -6,6 +6,8 @@ using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using AstIndexedType = Loom.Core.Parsing.AST.IndexedType;
+using AstLiteralType = Loom.Core.Parsing.AST.LiteralType;
 using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
 using LoomSymbolKind = Loom.Core.Resolving.Symbols.SymbolKind;
 using Type = Loom.Core.TypeChecking.Types.Type;
@@ -151,8 +153,7 @@ public static class CompletionSnapshotBuilder
             switch (node)
             {
                 case Literal { Value: string } literal:
-                    var span = literal.Span;
-                    ranges.Add(TextSpan.FromStartEnd(span.Position + 1, Math.Max(span.Position + 1, span.End - 1)));
+                    ranges.Add(QuotesExclusive(literal.Span));
                     break;
                 case InterpolatedStringLiteral interpolated:
                     ranges.AddRange(
@@ -163,6 +164,10 @@ public static class CompletionSnapshotBuilder
 
         return ranges;
     }
+
+    /// <summary>A string literal token's span covers its quotes; the writable content is one character in from each end.</summary>
+    private static TextSpan QuotesExclusive(TextSpan span) =>
+        TextSpan.FromStartEnd(span.Position + 1, Math.Max(span.Position + 1, span.End - 1));
 
     /// <summary>
     ///     Names another module exports that this file cannot yet write. Anything already in scope is left out:
@@ -375,6 +380,9 @@ public static class CompletionSnapshotBuilder
                     break;
                 case ElementAccess { IndexExpression: Literal { Value: string } literal } elementAccess:
                     AddScope(scopes, context, literal.Span, TypeOf(context.SemanticModel, elementAccess.Expression));
+                    break;
+                case AstIndexedType { IndexType: AstLiteralType { Value: string } literalType } indexedType:
+                    AddScope(scopes, context, literalType.Span, TypeOf(context.SemanticModel, indexedType.TargetType));
                     break;
             }
 

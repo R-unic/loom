@@ -209,6 +209,32 @@ public class CompletionHandlerTest
         Assert.Equal(["Goodbye", "Hello"], completions.Select(item => item.Label).Order());
     }
 
+    /// <summary>
+    ///     The type-level counterpart of <see cref="Handle_InsideAnEnumIndex_CompletesEnumMembers" />:
+    ///     <c>Player[""]</c> as a type annotation extracts one property's type by name, and the quotes want
+    ///     that name completed the same way an element access's index does.
+    /// </summary>
+    [Fact]
+    public async Task Handle_InsideATypeLevelIndexedTypesLiteralKey_CompletesTheTargetsPropertyNames()
+    {
+        var completions = await CompleteAsync(
+            """
+            interface Player {
+              name: string;
+              score: number;
+            }
+
+            fn main(): void {
+              let chosen: Player[""]
+            }
+            """,
+            line: 6,
+            character: 22
+        );
+
+        Assert.Equal(["name", "score"], completions.Select(item => item.Label).Order());
+    }
+
     [Fact]
     public async Task Handle_FiltersByThePrefixAlreadyTyped()
     {
