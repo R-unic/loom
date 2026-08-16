@@ -140,17 +140,18 @@ public static class SymbolReferences
         Node receiver,
         List<DotName> names)
     {
-        if (symbol is not PropertySymbol)
+        // a plain property, or a trait-implemented method reached the same way a member access reads one
+        if (symbol is not (PropertySymbol or FunctionSymbol))
             return;
 
         var receiverType = TypeOf(semanticModel, receiver);
         foreach (var dotName in names)
         {
             var name = dotName.Name.Text;
-            if (receiverType != null && semanticModel.GetPropertySymbol(receiverType, [name]) == symbol)
+            if (receiverType != null && semanticModel.GetMemberSymbol(receiverType, name) == symbol)
                 Add(references, file, dotName.Name, symbol, isDeclaration: false);
 
-            receiverType = TypeMembers.PropertyType(receiverType, name);
+            receiverType = TypeMembers.PropertyType(receiverType, name, semanticModel);
         }
     }
 
@@ -193,9 +194,9 @@ public static class SymbolReferences
         {
             var name = dotName.Name.Text;
             if (TextSpan.FromStartEnd(dotName.Dot.Span.End, dotName.Name.Span.End).Contains(offset))
-                return receiverType == null ? null : semanticModel.GetPropertySymbol(receiverType, [name]);
+                return receiverType == null ? null : semanticModel.GetMemberSymbol(receiverType, name);
 
-            receiverType = TypeMembers.PropertyType(receiverType, name);
+            receiverType = TypeMembers.PropertyType(receiverType, name, semanticModel);
         }
 
         return null;

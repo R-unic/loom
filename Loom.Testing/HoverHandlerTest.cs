@@ -81,6 +81,39 @@ public class HoverHandlerTest
     [Fact]
     public async Task Handle_OnAMethod_RendersItAsACallRatherThanAProperty() => Assert.Contains("fn floor(x: number): number", await HoverAsync(Source, 20, 15));
 
+    /// <summary>
+    ///     A trait method is a FunctionSymbol on a separate `implement` block rather than a PropertySymbol of
+    ///     the interface, which the member lookup has to consider or a call site describes nothing.
+    /// </summary>
+    [Fact]
+    public async Task Handle_OnATraitMethodCall_DescribesTheImplementation()
+    {
+        var hover = await HoverAsync(
+            """
+            trait ToString {
+                fn to_string: string;
+            }
+
+            interface User {
+                name: string;
+            }
+
+            implement ToString for User {
+                fn to_string -> name
+            }
+
+            fn main(): void {
+              let user = new User { name: "Poppy" };
+              print(user.to_string());
+            }
+            """,
+            14,
+            17
+        );
+
+        Assert.Contains("to_string", hover);
+    }
+
     [Fact]
     public async Task Handle_OnAnIntrinsic_ShowsTheDocCommentTheIntrinsicWasDeclaredWith()
     {

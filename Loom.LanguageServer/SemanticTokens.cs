@@ -226,7 +226,7 @@ public static class SemanticTokenClassifier
         var type = TypeOf(semanticModel, receiver);
         foreach (var dotName in names)
         {
-            var memberType = TypeMembers.PropertyType(type, dotName.Name.Text);
+            var memberType = TypeMembers.PropertyType(type, dotName.Name.Text, semanticModel);
             Record(
                 classifications,
                 dotName.Name,

@@ -21,7 +21,16 @@ public sealed class HoverHandler(DocumentStore documents) : HoverHandlerBase
         {
             var offset = IncrementalText.ToOffset(state.File.SourceFile.SourceText, request.Position);
             var node = NodeFinder.FindAt(state.File.Tree, offset);
-            if (node == null || Describe(node, offset, state) is not { } markdown)
+            if (node == null)
+                return Task.FromResult<Hover?>(null);
+
+            // Describe reaches SymbolOrigin.RootOf, which reads state.Unit.Roots - mutated in place by a
+            // concurrent recompile the same way Globals and AnalyzedModules are, so it needs the same lock
+            string? markdown;
+            lock (state.CompilationLock)
+                markdown = Describe(node, offset, state);
+
+            if (markdown == null)
                 return Task.FromResult<Hover?>(null);
 
             var hover = new Hover
@@ -86,7 +95,7 @@ public sealed class HoverHandler(DocumentStore documents) : HoverHandlerBase
         foreach (var dotName in names)
         {
             var name = dotName.Name.Text;
-            var memberType = TypeMembers.PropertyType(receiverType, name);
+            var memberType = TypeMembers.PropertyType(receiverType, name, semanticModel);
             if (!TextSpan.FromStartEnd(dotName.Dot.Span.End, dotName.Name.Span.End).Contains(offset))
             {
                 receiverType = memberType;
@@ -96,9 +105,10 @@ public sealed class HoverHandler(DocumentStore documents) : HoverHandlerBase
             if (memberType == null)
                 return null;
 
-            // a member of a declared interface has a symbol of its own, carrying the attributes and prose
-            // its declaration was written with; one of a structural type has only its name and type
-            var property = receiverType == null ? null : semanticModel.GetPropertySymbol(receiverType, [name]);
+            // a member of a declared interface, or one a trait it implements contributes, has a symbol of
+            // its own, carrying the attributes and prose its declaration was written with; one of a
+            // structural type has only its name and type
+            var property = receiverType == null ? null : semanticModel.GetMemberSymbol(receiverType, name);
             return property == null
                 ? SymbolMarkdown.DescribeMember(name, memberType)
                 : SymbolMarkdown.Describe(property, memberType, state.File.SourceFile, state.Unit, state.Modules);

@@ -138,6 +138,30 @@ public class NavigationHandlerTest
         Assert.Equal(0, Assert.Single(locations).Range.Start.Line);
     }
 
+    /// <summary>
+    ///     A trait method is a FunctionSymbol declared on a separate `implement` block rather than a
+    ///     PropertySymbol of the interface itself, which the member-access lookup has to consider alongside
+    ///     an interface's own properties or a call site never resolves to anything.
+    /// </summary>
+    [Fact]
+    public async Task Definition_OnATraitMethodCall_GoesToTheImplementation()
+    {
+        var locations = await DefinitionAsync(
+            $$"""
+            {{Traits}}
+
+            fn main(): void {
+              let user = new User { name: "Poppy" };
+              print(user.to_string());
+            }
+            """,
+            14,
+            17
+        );
+
+        Assert.Equal(9, Assert.Single(locations).Range.Start.Line);
+    }
+
     [Fact]
     public async Task Definition_OnAnImportSpecifier_GoesToTheExportedDeclaration() =>
         await Utility.WithLspProjectAsync(

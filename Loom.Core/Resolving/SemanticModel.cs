@@ -299,6 +299,53 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         return interfaceSymbol?.GetPropertiesAtPath(path) ?? [];
     }
 
+    /// <summary>
+    ///     The symbol a single member name resolves to: a plain property, or - when nothing declares one by
+    ///     that name - a trait method the interface implements. <see cref="GetPropertySymbol(Type, IReadOnlyList{string})" />
+    ///     alone only sees an interface's own <see cref="PropertySymbol" />s (<see cref="InterfaceSymbol.FullProperties" />);
+    ///     a name a trait contributes is a <see cref="FunctionSymbol" /> declared on a separate <c>implement</c>
+    ///     block (<see cref="InterfaceSymbol.FullImplementations" />), which this also considers - the same
+    ///     source the type checker's own self-type merging (<c>VisitSelfExpression</c>) reads from.
+    /// </summary>
+    public Symbol? GetMemberSymbol(Type objectType, string name)
+    {
+        if (GetPropertySymbol(objectType, [name]) is { } property)
+            return property;
+
+        objectType = objectType.NonNullable();
+        if (objectType is InstantiatedType instantiated)
+            objectType = instantiated.Expand();
+
+        if (objectType is not InterfaceType interfaceType)
+            return null;
+
+        var interfaceSymbol = FindDeclarationSymbol<InterfaceSymbol>(interfaceType.Name);
+        var declaration = interfaceSymbol?.FullImplementations
+            .SelectMany(implement => implement.Body.Implementations)
+            .FirstOrDefault(function => function.Name.Text == name);
+
+        return declaration == null ? null : GetDeclarationSymbol(declaration);
+    }
+
+    /// <summary>
+    ///     Every member <paramref name="interfaceType" /> offers: its own <see cref="InterfaceType.Properties" />,
+    ///     plus one entry per method a trait it implements contributes. <see cref="InterfaceType.Properties" />
+    ///     alone does not have these - a trait implementation sits outside the interface's own declaration, so
+    ///     it never reaches <see cref="ObjectType" /> the way <see cref="TypeChecker" />'s self-type merging
+    ///     (<c>VisitSelfExpression</c>) has to redo per <c>implement</c> block.
+    /// </summary>
+    public IReadOnlyList<ObjectProperty> GetMembersOf(InterfaceType interfaceType)
+    {
+        if (FindDeclarationSymbol<InterfaceSymbol>(interfaceType.Name) is not { } interfaceSymbol || interfaceSymbol.FullImplementations.Count == 0)
+            return interfaceType.Properties;
+
+        var traitProperties = interfaceSymbol.FullImplementations
+            .SelectMany(implement => implement.Body.Implementations)
+            .Select(declaration => new ObjectProperty(false, declaration.Name.Text, GetType(declaration)));
+
+        return [..interfaceType.Properties, ..traitProperties];
+    }
+
     public Type GetType(Node node) => TypeSolver.GetType(node);
     public Type? GetDeclarationType(Node node) => GetSymbol(node) is { } symbol ? TypeSolver.GetType(symbol.Declaration) : null;
     public T? FindIntrinsicDeclarationSymbol<T>(string name) where T : Symbol => FindDeclarationSymbol<T>(name, s => s.IsIntrinsic);

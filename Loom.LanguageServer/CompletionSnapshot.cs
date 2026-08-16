@@ -350,13 +350,13 @@ public static class CompletionSnapshotBuilder
         foreach (var dotName in names)
         {
             AddScope(scopes, context, WrittenNameRange(dotName), type);
-            type = TypeMembers.PropertyType(type, dotName.Name.Text);
+            type = TypeMembers.PropertyType(type, dotName.Name.Text, context.SemanticModel);
         }
     }
 
     private static void AddScope(List<MemberScope> scopes, FileContext context, TextSpan range, Type? receiver)
     {
-        var members = TypeMembers.Of(receiver);
+        var members = TypeMembers.Of(receiver, context.SemanticModel);
         if (members.Count == 0) return;
 
         scopes.Add(new MemberScope(range, members.Select(property => ToMemberSymbol(property, receiver, context)).ToArray()));
@@ -383,7 +383,7 @@ public static class CompletionSnapshotBuilder
     /// </summary>
     private static string? MemberDocumentation(ObjectProperty property, Type? receiver, FileContext context)
     {
-        if (receiver == null || context.SemanticModel.GetPropertySymbol(receiver, [property.Name]) is not { } symbol)
+        if (receiver == null || context.SemanticModel.GetMemberSymbol(receiver, property.Name) is not { } symbol)
             return null;
 
         return SymbolMarkdown.Describe(symbol, property.ValueType, context.SourceFile, context.Unit, context.Modules);
