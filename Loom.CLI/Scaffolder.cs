@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Pipeline;
@@ -92,7 +93,7 @@ internal static class Scaffolder
     private static string GetRojoProjectContent(string projectName) =>
         $$"""
         {
-          "name": {{JsonSerializer.Serialize(projectName)}},
+          "name": {{JsonSerializer.Serialize(projectName, ScaffolderJsonContext.Default.String)}},
           "globIgnorePaths": ["**/loom-config.toml"],
           "tree": {
             "$className": "DataModel",
@@ -155,3 +156,6 @@ internal static class Scaffolder
         }
     }
 }
+
+[JsonSerializable(typeof(string))]
+internal sealed partial class ScaffolderJsonContext : JsonSerializerContext;
