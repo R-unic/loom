@@ -40,7 +40,7 @@ export type Event<T... = ...any> = Event.Event<T...>
 export type UserEvent<T... = ...any> = Event.UserEvent<T...>
 export type EventConnection = Event.Connection
 export type FutureStatus = "pending" | "resolved" | "rejected"
-export type Future<T> = { status: FutureStatus, value: T?, error: any?, waiters: { thread } }
+export type Future<T> = { status: FutureStatus, value: T?, error: any?, waiters: { thread }, observed: boolean }
 
 Loom.Event = Event
 
@@ -145,6 +145,23 @@ end
 -- except where the compiler can see the await consuming the call directly, which it lowers to the
 -- plain call instead, so awaiting straight away costs nothing.
 
+-- A future nobody looked at when it rejected might still be looked at later - awaiting one many
+-- frames after it settled is a real pattern (see Loom.future's own doc), not a mistake, so this
+-- cannot fire the moment the rejection happens. task.defer instead runs once the current
+-- resumption cycle drains: every synchronous 'kick these off, then await them' shape (by far the
+-- common one) marks itself observed before that point, and only a future genuinely dropped on the
+-- floor is still unmarked when the deferred check runs. A future awaited on some later frame is a
+-- false positive this cannot tell apart from a real leak - the same tradeoff roblox-ts's Promise
+-- makes with its own unhandled-rejection check, and there is no cheaper way to make it in Luau:
+-- nothing here can hook "this value is no longer reachable".
+const function warnUnlessObserved<T>(future: Future<T>): ()
+	task.defer(function()
+		if not future.observed and future.status == "rejected" then
+			warn("unhandled Future rejection: " .. tostring(future.error))
+		end
+	end)
+end
+
 -- Settles a future and releases everything parked on it. Waiters are resumed through task.spawn
 -- rather than coroutine.resume so one of them raising cannot swallow the rest, and so the error
 -- surfaces on the waiter's own thread instead of inside whoever happened to settle the future.
@@ -158,6 +175,7 @@ const function settle<T>(future: Future<T>, status: FutureStatus, result: any): 
 		future.value = result
 	else
 		future.error = result
+		warnUnlessObserved(future)
 	end
 
 	const waiters = future.waiters
@@ -167,13 +185,25 @@ const function settle<T>(future: Future<T>, status: FutureStatus, result: any): 
 	end
 end
 
+-- xpcall handler for a plain async body. Only a string message gets the traceback appended -
+-- error() permits raising anything, and a table or other value is left exactly as raised rather
+-- than trusting debug.traceback's own handling of a non-string message, which is one more thing
+-- an embedded interpreter could get subtly wrong.
+const function tracebackIfString(err: any): any
+	return if type(err) == "string" then debug.traceback(err) else err
+end
+
 -- Starts 'fn' on a thread of its own and hands back the future it settles. Eager, like a promise:
 -- the body runs up to its first yield before this returns, so two calls made one after the other
 -- are genuinely in flight together.
+--
+-- xpcall rather than pcall so a panic keeps its traceback instead of losing it between here and
+-- whichever 'await' re-raises it - the same reason future_wrapped's inner call already goes
+-- through xpcall.
 function Loom.future<T, A...>(fn: (A...) -> T, ...: A...): Future<T>
-	const future: Future<T> = { status = "pending", waiters = {} }
+	const future: Future<T> = { status = "pending", waiters = {}, observed = false }
 	task.spawn(function(...)
-		const ok, result = pcall(fn, ...)
+		const ok, result = xpcall(fn, tracebackIfString, ...)
 		settle(future, if ok then "resolved" else "rejected", result)
 	end, ...)
 
@@ -181,8 +211,11 @@ function Loom.future<T, A...>(fn: (A...) -> T, ...: A...): Future<T>
 end
 
 -- Blocks until the future settles, then gives back its value or re-raises its error. One that has
--- already settled never yields, so awaiting a finished future is just a table read.
+-- already settled never yields, so awaiting a finished future is just a table read. Marking the
+-- future observed happens first and unconditionally, whether or not it has settled yet, since
+-- either way this is a caller that intends to read it.
 function Loom.await<T>(future: Future<T>): T
+	future.observed = true
 	if future.status == "pending" then
 		insert(future.waiters, coroutine.running())
 		coroutine.yield()
@@ -207,18 +240,23 @@ function Loom.future_wrapped<T, A...>(fn: (A...) -> T, ...: A...): Future<Result
 end
 
 function Loom.future_resolved<T>(value: T): Future<T>
-	return { status = "resolved", value = value, waiters = {} }
+	return { status = "resolved", value = value, waiters = {}, observed = false }
 end
 
+-- Routed through settle rather than built resolved outright, so an already-rejected future gets
+-- the same unhandled-rejection check a future that rejects later does - constructing one nobody
+-- ever awaits is exactly as much a dropped error as an async call that failed unobserved.
 function Loom.future_rejected<T>(err: any): Future<T>
-	return { status = "rejected", error = err, waiters = {} }
+	const future: Future<T> = { status = "pending", waiters = {}, observed = false }
+	settle(future, "rejected", err)
+	return future
 end
 
 -- Waits for every future and keeps the results in the order they were given, not the order they
 -- finished. The first rejection settles the whole thing: the rest are left running rather than
 -- cancelled, since a Luau thread has no cancellation a caller could rely on.
 function Loom.future_all<T>(futures: { Future<T> }): Future<{ T }>
-	const combined: Future<{ T }> = { status = "pending", waiters = {} }
+	const combined: Future<{ T }> = { status = "pending", waiters = {}, observed = false }
 	const values: { T } = {}
 	const total = #futures
 	if total == 0 then
@@ -248,7 +286,7 @@ end
 -- Settles with whichever future settles first, however it settles - a rejection wins a race the
 -- same way a value does.
 function Loom.future_race<T>(futures: { Future<T> }): Future<T>
-	const raced: Future<T> = { status = "pending", waiters = {} }
+	const raced: Future<T> = { status = "pending", waiters = {}, observed = false }
 	for _, future in futures do
 		task.spawn(function()
 			const ok, result = pcall(Loom.await, future)

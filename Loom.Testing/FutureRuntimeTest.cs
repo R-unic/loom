@@ -20,6 +20,10 @@ namespace Loom.Testing;
 ///     <para>
 ///         Roblox's <c>task</c> is stubbed rather than modelled: <c>Loom.future</c> uses only
 ///         <c>task.spawn</c>, whose whole contract is "resume this now", so resuming it now is the stub.
+///         <c>task.defer</c> is different - its whole point is running later - so its stub queues instead,
+///         and <c>flush_deferred()</c> is exposed for a case to say "later" has arrived. <c>warn</c> is a
+///         Roblox global this interpreter has no other source for, so it is stubbed too, collecting into
+///         <c>warnings</c> rather than printing, with <c>clear_warnings()</c> to reset between checks.
 ///     </para>
 /// </remarks>
 [Collection("Assembly")]
@@ -115,6 +119,38 @@ public class FutureRuntimeTest
         	end
 
         	return thread
+        end
+
+        -- task.defer's contract is "later", not "now", so unlike task.spawn it cannot just resume
+        -- inline - a case relies on being able to do something synchronously between a rejection and
+        -- checking whether it was reported unhandled. flush_deferred() is that "later" arriving.
+        local deferredQueue = {}
+        function task.defer(target, ...)
+        	local args = table.pack(...)
+        	table.insert(deferredQueue, function() target(table.unpack(args, 1, args.n)) end)
+        end
+
+        function flush_deferred()
+        	local queue = deferredQueue
+        	deferredQueue = {}
+        	for _, fn in queue do
+        		fn()
+        	end
+        end
+
+        -- warn is a Roblox global this interpreter has no other source for. Collected rather than
+        -- printed, so a case can assert on what was reported instead of just on nothing throwing.
+        warnings = {}
+        function warn(...)
+        	local parts = table.pack(...)
+        	for i = 1, parts.n do
+        		parts[i] = tostring(parts[i])
+        	end
+        	table.insert(warnings, table.concat(parts, " "))
+        end
+
+        function clear_warnings()
+        	warnings = {}
         end
         """;
 }
