@@ -581,6 +581,23 @@ public class VisitorTraversalTest
         );
 
     [Fact]
+    public void WithOperator_VisitsExpressionAndBody() =>
+        AssertVisitOrder(
+            "x with { foo: 69, [69]: true, bar }",
+            "ExpressionStatement",
+            "WithOperator",
+            "Identifier",
+            "InterfaceInvocationBody",
+            "PropertyInitializer",
+            "Literal",
+            "IndexInitializer",
+            "Literal",
+            "Literal",
+            "ShorthandPropertyInitializer",
+            "Identifier"
+        );
+
+    [Fact]
     public void NullForgiving_VisitsExpression() =>
         AssertVisitOrder(
             "x!",

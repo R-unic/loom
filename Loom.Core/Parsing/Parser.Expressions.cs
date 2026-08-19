@@ -31,6 +31,12 @@ public sealed partial class Parser
                     left = new Is(left, op, pattern);
                     continue;
                 }
+                case SyntaxKind.WithKeyword:
+                {
+                    var body = ParseInterfaceInvocationBody();
+                    left = new WithOperator(left, op, body);
+                    continue;
+                }
                 case SyntaxKind.Question:
                 {
                     var thenBranch = ParseBinaryLevel(level);
@@ -71,6 +77,12 @@ public sealed partial class Parser
     {
         var name = new Identifier(ExpectIdentifier());
         var typeArguments = ParseTypeArguments(true);
+        var body = ParseInterfaceInvocationBody();
+        return new InterfaceInvocation(keyword, name, typeArguments, body);
+    }
+
+    private InterfaceInvocationBody ParseInterfaceInvocationBody()
+    {
         var leftBrace = Expect(SyntaxKind.LBrace);
         var initializers = new List<InterfaceInvocationInitializer>();
         if (!Match(out var rightBrace, SyntaxKind.RBrace))
@@ -79,8 +91,7 @@ public sealed partial class Parser
             rightBrace = Expect(SyntaxKind.RBrace);
         }
 
-        var body = new InterfaceInvocationBody(leftBrace, rightBrace, initializers);
-        return new InterfaceInvocation(keyword, name, typeArguments, body);
+        return new InterfaceInvocationBody(leftBrace, rightBrace, initializers);
     }
 
     private Expression ParseUnary()

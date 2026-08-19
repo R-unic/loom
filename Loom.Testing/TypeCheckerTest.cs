@@ -975,6 +975,57 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_WithOperator_ResultTypeMatchesLeftOperand()
+    {
+        const string source = "interface I { x: number, y: string } let i = new I { x: 1, y: 'a' }; i with { x: 2 }";
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+        var type = Utility.GetLastStatementType(source);
+        var interfaceType = Assert.IsType<InterfaceType>(type);
+        Assert.Equal("I", interfaceType.Name);
+    }
+
+    [Fact]
+    public void Allows_WithOperator_OmittingFields() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics("interface I { x: number, y: string } let i = new I { x: 1, y: 'a' }; i with { x: 2 }")
+        );
+
+    [Fact]
+    public void Allows_WithOperator_ShorthandField() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics("interface I { x: number, y: string } let i = new I { x: 1, y: 'a' }; let x = 2; i with { x }")
+        );
+
+    [Fact]
+    public void Allows_WithOperator_IndexInitializer() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                "interface I { [string]: bool } let i = new I { ['a']: true }; i with { ['b']: false }"
+            )
+        );
+
+    [Fact]
+    public void ThrowsFor_WithOperator_NotAnInterface()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = 1; x with { x: 2 }");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidWithOperand, "'with' requires an interface value, got '1'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_WithOperator_PropertyNotFound()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("interface I { x: number } let i = new I { x: 1 }; i with { foo: 1 }");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidAccess, "Property 'foo' does not exist on interface 'I'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_WithOperator_PropertyTypeMismatch()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("interface I { x: number } let i = new I { x: 1 }; i with { x: 'abc' }");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"abc\"' is not assignable to type 'number'.");
+    }
+
+    [Fact]
     public void ThrowsFor_InterfaceInvocation_GenericWrongArity()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("interface I<T> { value: T } new I::<number, string> { value: 1 }");

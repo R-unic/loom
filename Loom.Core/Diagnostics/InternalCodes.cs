@@ -150,6 +150,7 @@ public static class InternalCodes
     public const string InvalidMappedType = "L426";
     public const string ConditionalTypeTooDeep = "L427";
     public const string UnresolvedTypeInOutput = "L428";
+    public const string InvalidWithOperand = "L429";
 
     public const string SimplifiableCode = "L500";
 }

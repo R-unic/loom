@@ -1,0 +1,3 @@
+user with { name: "Poppy", age: 32 };
+user with { [key]: value, name };
+user with { age: 32 } with { name: "Rose" };

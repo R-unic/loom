@@ -252,6 +252,33 @@ public sealed partial class TypeChecker
         return BindType(node, boundType);
     }
 
+    /// <summary>
+    ///     Non-destructive struct update: every field the '{ ... }' block lists is checked against the left
+    ///     operand's own type the same way a <c>new X { ... }</c> initializer is, but a field it leaves out is
+    ///     never an error here - it just keeps the left operand's value at generation time, so completeness
+    ///     never applies to 'with' the way it does to construction.
+    /// </summary>
+    public override Type VisitWithOperator(WithOperator withOperator)
+    {
+        var expressionType = Visit(withOperator.Expression);
+        if (expressionType is not InterfaceType interfaceType)
+        {
+            if (Type.IsNotNever(expressionType))
+                _diagnostics.Error(
+                    withOperator.Expression,
+                    InternalCodes.InvalidWithOperand,
+                    $"'with' requires an interface value, got '{expressionType}'."
+                );
+
+            return BindType(withOperator, PrimitiveType.Never);
+        }
+
+        foreach (var initializer in withOperator.Body.Initializers)
+            CheckInterfaceInvocationInitializer(interfaceType, initializer);
+
+        return BindType(withOperator, expressionType);
+    }
+
     private bool TrySubstituteGenericInterface(
         InterfaceInvocation node,
         GenericType generic,

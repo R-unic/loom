@@ -1256,6 +1256,109 @@ public class LuauGeneratorTest
     }
 
     [Fact]
+    public void Generates_WithOperator_OverridesListedField_ReadsOthersOffTheLeftOperand()
+    {
+        var luauTree = Utility.GetLuauAST(
+            "interface I { x: number, y: string } let i = new I { x: 1, y: 'a' }; let j = i with { x: 2 }",
+            true
+        );
+        Assert.Equal(3, luauTree.Statements.Count);
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements[2]);
+        var table = Assert.IsType<Table>(variable.Initializer);
+        Assert.Equal(2, table.Initializers.Count);
+
+        var x = Assert.IsType<PropertyTableInitializer>(table.Initializers[0]);
+        Assert.Equal("x", x.PropertyName);
+        Assert.Equal(2, Assert.IsType<NumberLiteral>(x.Value).Value);
+
+        var y = Assert.IsType<PropertyTableInitializer>(table.Initializers[1]);
+        Assert.Equal("y", y.PropertyName);
+        var access = Assert.IsType<Luau.AST.PropertyAccess>(y.Value);
+        Assert.Equal("y", Assert.Single(access.Names));
+        Assert.Equal("i", Assert.IsType<Identifier>(access.Target).Name);
+    }
+
+    [Fact]
+    public void Generates_WithOperator_IndexInitializer_AddedAlongsideCarriedOverProperties()
+    {
+        var luauTree = Utility.GetLuauAST(
+            "interface I { x: number, [string]: bool } let i = new I { x: 1, ['a']: true }; let j = i with { ['b']: false }",
+            true
+        );
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements[^1]);
+        var table = Assert.IsType<Table>(variable.Initializer);
+        Assert.Equal(2, table.Initializers.Count);
+
+        var x = Assert.IsType<PropertyTableInitializer>(table.Initializers[0]);
+        Assert.Equal("x", x.PropertyName);
+        var access = Assert.IsType<Luau.AST.PropertyAccess>(x.Value);
+        Assert.Equal("i", Assert.IsType<Identifier>(access.Target).Name);
+
+        var indexInit = Assert.IsType<ComputedPropertyTableInitializer>(table.Initializers[1]);
+        var key = Assert.IsType<StringLiteral>(indexInit.Key);
+        Assert.Equal("b", key.Value);
+        var value = Assert.IsType<BooleanLiteral>(indexInit.Value);
+        Assert.False(value.Value);
+    }
+
+    [Fact]
+    public void Generates_WithOperator_ShorthandField()
+    {
+        var luauTree = Utility.GetLuauAST(
+            "interface I { x: number } let i = new I { x: 1 }; let x = 2; let j = i with { x }",
+            true
+        );
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements[^1]);
+        var table = Assert.IsType<Table>(variable.Initializer);
+        var propInit = Assert.IsType<PropertyTableInitializer>(Assert.Single(table.Initializers));
+        Assert.Equal("x", propInit.PropertyName);
+        Assert.Equal("x", Assert.IsType<Identifier>(propInit.Value).Name);
+    }
+
+    [Fact]
+    public void Generates_WithOperator_HoistsNonRepeatableOperand_ToEvaluateItOnce()
+    {
+        var luauTree = Utility.GetLuauAST(
+            "interface I { x: number, y: string } fn get_i(): I -> new I { x: 1, y: 'a' }; let j = get_i() with { x: 2 }",
+            true
+        );
+
+        var subject = Assert.IsType<ConstVariable>(luauTree.Statements[^2]);
+        Assert.Equal("with_subject", subject.Name);
+        Assert.IsType<Call>(subject.Initializer);
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements[^1]);
+        var table = Assert.IsType<Table>(variable.Initializer);
+        var y = Assert.IsType<PropertyTableInitializer>(table.Initializers[1]);
+        var access = Assert.IsType<Luau.AST.PropertyAccess>(y.Value);
+        Assert.Equal("with_subject", Assert.IsType<Identifier>(access.Target).Name);
+    }
+
+    [Fact]
+    public void Generates_WithOperator_OnTraitImplementingInterface_PreservesMetatable_ExcludesTraitMethodFromFields()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            trait Execute { fn execute(): void; }
+            interface I { x: number }
+            implement Execute for I { fn execute() -> @; }
+            let i = new I { x: 1 };
+            let j = i with { x: 2 }
+            """,
+            true
+        );
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements[^1]);
+        var cast = Assert.IsType<TypeCast>(variable.Initializer);
+        var call = Assert.IsType<Call>(cast.Expression);
+        var table = Assert.IsType<Table>(call.Arguments[0]);
+        Assert.Single(table.Initializers);
+    }
+
+    [Fact]
     public void Generates_InterfaceInvocation_ChainedProperty()
     {
         var luauTree = Utility.GetLuauAST("interface I { x: number } let _ = new I { x: 1 }.x", true);

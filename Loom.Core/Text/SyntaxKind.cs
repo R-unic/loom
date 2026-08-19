@@ -103,6 +103,7 @@ public enum SyntaxKind : ushort
     WhenKeyword,
     IsKeyword,
     NotKeyword,
+    WithKeyword,
     Identifier,
     Eof,
 

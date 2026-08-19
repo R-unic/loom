@@ -1,0 +1,105 @@
+ExpressionStatement(
+  Expression: WithOperator(
+    Expression: Identifier(
+      Name: Token(Identifier, "user")
+      Token(Identifier, "user")
+    )
+    Body: InterfaceInvocationBody(
+      Initializers: [
+        PropertyInitializer(
+          Name: Token(Identifier, "name")
+          Colon: Token(Colon, ":")
+          Expression: Literal(
+            Token(StringLiteral, ""Poppy"")
+            Value: "Poppy"
+          )
+        )
+        PropertyInitializer(
+          Name: Token(Identifier, "age")
+          Colon: Token(Colon, ":")
+          Expression: Literal(
+            Token(NumberLiteral, "32")
+            Value: 32
+          )
+        )
+      ]
+      RightBrace: Token(RBrace, "}")
+      LeftBrace: Token(LBrace, "{")
+    )
+  )
+)
+ExpressionStatement(
+  Expression: WithOperator(
+    Expression: Identifier(
+      Name: Token(Identifier, "user")
+      Token(Identifier, "user")
+    )
+    Body: InterfaceInvocationBody(
+      Initializers: [
+        IndexInitializer(
+          RightBracket: Token(RBracket, "]")
+          LeftBracket: Token(LBracket, "[")
+          Colon: Token(Colon, ":")
+          IndexExpression: Identifier(
+            Name: Token(Identifier, "key")
+            Token(Identifier, "key")
+          )
+          Expression: Identifier(
+            Name: Token(Identifier, "value")
+            Token(Identifier, "value")
+          )
+        )
+        ShorthandPropertyInitializer(
+          Identifier(
+            Name: Token(Identifier, "name")
+            Token(Identifier, "name")
+          )
+          Expression: Identifier(
+            Name: Token(Identifier, "name")
+            Token(Identifier, "name")
+          )
+        )
+      ]
+      RightBrace: Token(RBrace, "}")
+      LeftBrace: Token(LBrace, "{")
+    )
+  )
+)
+ExpressionStatement(
+  Expression: WithOperator(
+    Expression: WithOperator(
+      Expression: Identifier(
+        Name: Token(Identifier, "user")
+        Token(Identifier, "user")
+      )
+      Body: InterfaceInvocationBody(
+        Initializers: [
+          PropertyInitializer(
+            Name: Token(Identifier, "age")
+            Colon: Token(Colon, ":")
+            Expression: Literal(
+              Token(NumberLiteral, "32")
+              Value: 32
+            )
+          )
+        ]
+        RightBrace: Token(RBrace, "}")
+        LeftBrace: Token(LBrace, "{")
+      )
+    )
+    Body: InterfaceInvocationBody(
+      Initializers: [
+        PropertyInitializer(
+          Name: Token(Identifier, "name")
+          Colon: Token(Colon, ":")
+          Expression: Literal(
+            Token(StringLiteral, ""Rose"")
+            Value: "Rose"
+          )
+        )
+      ]
+      RightBrace: Token(RBrace, "}")
+      LeftBrace: Token(LBrace, "{")
+    )
+  )
+)

@@ -1,0 +1,3 @@
+interface User { name: string, age: number }
+let user = new User { name: "Poppy", age: 31 };
+let older = user with { age: 32 };

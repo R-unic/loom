@@ -736,30 +736,34 @@ public sealed partial class LuauGenerator
             return new NilLiteral();
 
         var table = GenerateInterfaceInvocationBody(interfaceInvocation.Body, interfaceSymbol);
-        LuauExpression result;
+        return WrapWithImplementationMetatable(table, interfaceSymbol, interfaceInvocation.Name.Token.Text);
+    }
+
+    /// <summary>
+    ///     A table built for an interface that implements one or more traits needs the trait's methods
+    ///     reachable through <c>__index</c>, since they live on a shared metatable rather than as own
+    ///     fields of any one instance - shared by every site that produces a fresh instance of the
+    ///     interface (<c>new X { ... }</c> and the 'with' operator alike).
+    /// </summary>
+    private LuauExpression WrapWithImplementationMetatable(Table table, InterfaceSymbol interfaceSymbol, string typeName)
+    {
         if (interfaceSymbol.Implements.Count == 0)
+            return table;
+
+        var metaNames = interfaceSymbol.Implementations.ConvertAll(LuauExpression (i) => new Luau.AST.Identifier(GetImplementationMetaName(i)));
+        LuauExpression meta;
+        if (metaNames.Count == 1)
         {
-            result = table;
+            meta = metaNames[0];
         }
         else
         {
-            var metaNames = interfaceSymbol.Implementations.ConvertAll(LuauExpression (i) => new Luau.AST.Identifier(GetImplementationMetaName(i)));
-            LuauExpression meta;
-            if (metaNames.Count == 1)
-            {
-                meta = metaNames[0];
-            }
-            else
-            {
-                _semanticModel.RuntimeReferences += 1;
-                meta = LuauFactory.RuntimeLibraryCall(["merge_meta"], metaNames);
-            }
-
-            var call = LuauFactory.SetMetatableCall(table, meta);
-            result = new TypeCast(call, new Luau.AST.TypeName(interfaceInvocation.Name.Token.Text));
+            _semanticModel.RuntimeReferences += 1;
+            meta = LuauFactory.RuntimeLibraryCall(["merge_meta"], metaNames);
         }
 
-        return result;
+        var call = LuauFactory.SetMetatableCall(table, meta);
+        return new TypeCast(call, new Luau.AST.TypeName(typeName));
     }
 
     private Table GenerateInterfaceInvocationBody(InterfaceInvocationBody interfaceInvocationBody, InterfaceSymbol interfaceSymbol)
@@ -820,6 +824,61 @@ public sealed partial class LuauGenerator
         var name = shorthandPropertyInitializer.Identifier.Name.Text;
         var renamedName = GetRenamedPropertyName(interfaceSymbol, name);
         return new PropertyTableInitializer(renamedName, Visit(shorthandPropertyInitializer.Identifier));
+    }
+
+    /// <summary>
+    ///     Every field of the left operand's interface becomes a table entry: one the '{ ... }' block lists
+    ///     is generated the same way a <c>new X { ... }</c> initializer would be, and one it leaves out reads
+    ///     the left operand's own value for that field - inlined field-by-field at compile time, never a
+    ///     runtime merge.
+    /// </summary>
+    public override LuauNode VisitWithOperator(WithOperator withOperator)
+    {
+        // the type checker already reported why this isn't an interface; 'with' sits in expression
+        // position, so a statement placeholder here would fail to cast and surface as a compiler crash
+        if (_semanticModel.GetType(withOperator.Expression) is not InterfaceType interfaceType)
+            return new NilLiteral();
+
+        var left = _state.PushIfRepeated("with_subject", Visit(withOperator.Expression));
+        if (_semanticModel.FindTypeDeclaration(interfaceType.Name) is not InterfaceSymbol interfaceSymbol)
+        {
+            _diagnostics.CompilerError(withOperator, "'with' operand's interface has no declaration symbol");
+            return new NilLiteral();
+        }
+
+        var overridden = new Dictionary<string, PropertyTableInitializer>();
+        var indexOverrides = new List<TableInitializer>();
+        foreach (var initializer in withOperator.Body.Initializers)
+            switch (initializer)
+            {
+                case PropertyInitializer propertyInitializer:
+                    overridden[propertyInitializer.Name.Text] = GenerateInterfaceInvocationPropertyInitializer(propertyInitializer, interfaceSymbol);
+                    break;
+                case ShorthandPropertyInitializer shorthandPropertyInitializer:
+                    overridden[shorthandPropertyInitializer.Identifier.Name.Text] =
+                        GenerateInterfaceInvocationShorthandPropertyInitializer(shorthandPropertyInitializer, interfaceSymbol);
+                    break;
+                case IndexInitializer indexInitializer:
+                    indexOverrides.Add(GenerateInterfaceInvocationIndexInitializer(indexInitializer));
+                    break;
+            }
+
+        // trait methods live on the metatable, not as own fields, so a value's own type carrying them
+        // (only true once it has gone through 'new X { ... }') must not turn them into copied fields here
+        var fields = interfaceType.Properties
+            .Where(property => !interfaceType.TraitMethodNames.Contains(property.Name))
+            .Select(TableInitializer (property) =>
+            {
+                if (overridden.TryGetValue(property.Name, out var initializer))
+                    return initializer;
+
+                var renamedName = GetRenamedPropertyName(interfaceSymbol, property.Name);
+                return new PropertyTableInitializer(renamedName, new Luau.AST.PropertyAccess(left, [renamedName]));
+            })
+            .Concat(indexOverrides)
+            .ToList();
+
+        return WrapWithImplementationMetatable(new Table(fields), interfaceSymbol, interfaceType.Name);
     }
 
     private Luau.AST.PropertyAccess GenerateRenamedAccess(Expression access, LuauExpression target, List<string> names) =>
