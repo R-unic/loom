@@ -6,7 +6,7 @@ using Loom.Core.Text;
 namespace Loom.Core.Generation.Events;
 
 /// <summary>
-///     Resolves which event a '+='/'-=' targets, and performs the static, Luau-scope-reachability
+///     Resolves which event a '+='/'-='/'^=' targets, and performs the static, Luau-scope-reachability
 ///     analysis <see cref="Generation.LuauGenerator" /> needs to decide whether an event connection can become a
 ///     plain Luau local instead of an entry in the hidden per-event connection store. Pure functions of
 ///     a <see cref="Resolving.SemanticModel" />/the source tree - no generation state involved.
@@ -28,7 +28,7 @@ internal static class EventConnectionScopeAnalyzer
     }
 
     /// <summary>
-    ///     The function a '+='/'-=' connects or disconnects, whether it is named directly or read off a
+    ///     The function a '+='/'-='/'^=' connects or disconnects, whether it is named directly or read off a
     ///     namespace import - both name one function object, which is what a connection is tracked by. A
     ///     member of anything else is not one: it becomes a fresh closure at every connection.
     /// </summary>
@@ -44,8 +44,8 @@ internal static class EventConnectionScopeAnalyzer
         };
 
     /// <summary>
-    ///     Finds every (event, function) pair whose '+=' calls can each become a plain Luau local instead
-    ///     of an entry in the hidden per-event connection store. A '-=' always rebinds to whichever '+='
+    ///     Finds every (event, function) pair whose '+='/'^=' calls can each become a plain Luau local instead
+    ///     of an entry in the hidden per-event connection store. A '-=' always rebinds to whichever '+='/'^='
     ///     most recently ran for that pair, so a connection only needs to prove local-safety against the
     ///     disconnects that fall between it and the next connect for the same pair (if any); if every
     ///     connect for a pair can clear that bar, the whole pair can use locals.
@@ -57,12 +57,12 @@ internal static class EventConnectionScopeAnalyzer
 
         foreach (var assignment in semanticModel.Tree.EnumerateDescendants<AssignmentOperator>())
         {
-            if (assignment.Operator.Kind is not (SyntaxKind.PlusEquals or SyntaxKind.MinusEquals)) continue;
+            if (assignment.Operator.Kind is not (SyntaxKind.PlusEquals or SyntaxKind.MinusEquals or SyntaxKind.CaretEquals)) continue;
             if (ResolveEventTarget(semanticModel, assignment.Left) is not { } target) continue;
             if (ResolveConnectionFunction(semanticModel, assignment.Right) is not { } functionSymbol) continue;
 
             var key = (target, functionSymbol);
-            var bucket = assignment.Operator.Kind == SyntaxKind.PlusEquals ? connectsByKey : disconnectsByKey;
+            var bucket = assignment.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.CaretEquals ? connectsByKey : disconnectsByKey;
             if (!bucket.TryGetValue(key, out var list))
                 bucket[key] = list = [];
 

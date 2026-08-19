@@ -338,6 +338,10 @@ public class ResolverTest
         Utility.AssertNoErrors(Utility.GetSemanticModel("event abc(x: number); abc -= fn(x) { };"));
 
     [Fact]
+    public void Allows_UntypedParameter_OnFunctionExpressionConnectedOnceToEvent() =>
+        Utility.AssertNoErrors(Utility.GetSemanticModel("event abc(x: number); abc ^= fn(x) { };"));
+
+    [Fact]
     public void ThrowsFor_UntypedParameter_OnFunctionExpression_NotConnectedToAnything()
     {
         var diagnostics = Utility.GetSemanticModel("let f = fn(x) { };").Diagnostics;

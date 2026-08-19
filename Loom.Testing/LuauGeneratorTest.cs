@@ -3427,6 +3427,34 @@ public class LuauGeneratorTest
     }
 
     [Fact]
+    public void Generates_EventOnce_AutoBindsBareConnection_ForLaterDisconnect()
+    {
+        const string source = """
+            event abc;
+            fn handler(): void { }
+            abc ^= handler;
+            abc -= handler;
+            """;
+
+        var luauTree = Utility.GetLuauAST(source, true);
+        Assert.Equal(4, luauTree.Statements.Count);
+
+        var connVariable = Assert.IsType<ConstVariable>(luauTree.Statements[2]);
+        Assert.Equal("handler_conn", connVariable.Name);
+
+        var connectCall = Assert.IsType<Call>(connVariable.Initializer);
+        Assert.True(connectCall.IsMethod);
+        var connectAccess = Assert.IsType<PropertyAccess>(connectCall.Callee);
+        Assert.Equal("Once", Assert.Single(connectAccess.Names));
+
+        var disconnectStatement = Assert.IsType<ExpressionStatement>(luauTree.Statements[3]);
+        var disconnectCall = Assert.IsType<Call>(disconnectStatement.Expression);
+        var disconnectAccess = Assert.IsType<PropertyAccess>(disconnectCall.Callee);
+        Assert.Equal("Disconnect", Assert.Single(disconnectAccess.Names));
+        Assert.Equal("handler_conn", Assert.IsType<Identifier>(disconnectAccess.Target).Name);
+    }
+
+    [Fact]
     public void Generates_EventConnect_AcrossFunctionScopes_UsesModuleLevelConnectionStore()
     {
         // Regression test: the connection must be reachable from '-=' even though it's produced
@@ -3706,7 +3734,7 @@ public class LuauGeneratorTest
             diagnostics,
             InternalCodes.AnonymousEventDisconnect,
             "Cannot disconnect a function reference that gets wrapped into a new Luau closure on every connection.",
-            "store the connection returned from '+=' and disconnect that instead."
+            "store the connection returned from '+=' or '^=' and disconnect that instead."
         );
     }
 
@@ -3723,7 +3751,7 @@ public class LuauGeneratorTest
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.UnresolvedEventDisconnect,
-            "No event connection exists for this function, connect it with '+=' before disconnecting it."
+            "No event connection exists for this function, connect it with '+=' or '^=' before disconnecting it."
         );
     }
 

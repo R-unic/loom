@@ -52,7 +52,7 @@ public sealed partial class LuauGenerator
     }
 
     public override LuauNode VisitAssignmentOperator(AssignmentOperator assignmentOperator) =>
-        assignmentOperator.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals
+        assignmentOperator.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals or SyntaxKind.CaretEquals
         && EventConnectionScopeAnalyzer.ResolveEventTarget(_semanticModel, assignmentOperator.Left) is { } eventTarget
             ? GenerateEventAssignment(assignmentOperator, eventTarget)
             : GenerateAssignment(assignmentOperator);
@@ -60,16 +60,19 @@ public sealed partial class LuauGenerator
     private LuauExpression GenerateEventAssignment(AssignmentOperator assignmentOperator, EventTarget eventTarget)
     {
         var connectionTarget = Visit(assignmentOperator.Left);
-        return assignmentOperator.Operator.Kind == SyntaxKind.PlusEquals
-            ? GenerateEventConnect(assignmentOperator, connectionTarget, eventTarget)
-            : GenerateEventDisconnect(assignmentOperator, eventTarget);
+        return assignmentOperator.Operator.Kind switch
+        {
+            SyntaxKind.PlusEquals => GenerateEventConnect(assignmentOperator, connectionTarget, eventTarget, "Connect"),
+            SyntaxKind.CaretEquals => GenerateEventConnect(assignmentOperator, connectionTarget, eventTarget, "Once"),
+            _ => GenerateEventDisconnect(assignmentOperator, eventTarget)
+        };
     }
 
-    private LuauExpression GenerateEventConnect(AssignmentOperator assignmentOperator, LuauExpression connectionTarget, EventTarget eventTarget)
+    private LuauExpression GenerateEventConnect(AssignmentOperator assignmentOperator, LuauExpression connectionTarget, EventTarget eventTarget, string method)
     {
         var function = assignmentOperator.Right;
         var luauFunction = WrapAnonymousFunction(function, Visit(function), new UnitType());
-        var connect = new Call(new Luau.AST.PropertyAccess(connectionTarget, ["Connect"]), [luauFunction], true);
+        var connect = new Call(new Luau.AST.PropertyAccess(connectionTarget, [method]), [luauFunction], true);
         if (luauFunction is AnonymousFunction || EventConnectionScopeAnalyzer.ResolveConnectionFunction(_semanticModel, function) is not { } functionSymbol)
             return connect;
 
@@ -128,7 +131,7 @@ public sealed partial class LuauGenerator
                 function,
                 InternalCodes.AnonymousEventDisconnect,
                 "Cannot disconnect a function reference that gets wrapped into a new Luau closure on every connection.",
-                "store the connection returned from '+=' and disconnect that instead."
+                "store the connection returned from '+=' or '^=' and disconnect that instead."
             );
 
             return new NilLiteral();
@@ -137,7 +140,7 @@ public sealed partial class LuauGenerator
         _diagnostics.Error(
             assignmentOperator,
             InternalCodes.UnresolvedEventDisconnect,
-            "No event connection exists for this function, connect it with '+=' before disconnecting it."
+            "No event connection exists for this function, connect it with '+=' or '^=' before disconnecting it."
         );
 
         return new NilLiteral();

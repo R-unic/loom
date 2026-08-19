@@ -5088,6 +5088,13 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_CompoundAssignment_Power()
+    {
+        var type = Utility.GetLastStatementType("mut x = 2; x ^= 3");
+        Assert.True(type.IsAssignableTo(PrimitiveType.Number), $"Expected 'number', got '{type}'");
+    }
+
+    [Fact]
     public void Checks_ReturnTypeInference_BlockMultipleReturns()
     {
         var type = Utility.GetLastStatementType("fn abs(x: number) { if x >= 0 { return x } else { return -x } }");
@@ -8117,6 +8124,37 @@ public class TypeCheckerTest
         var type = Utility.GetLastStatementType(source);
         var interfaceType = Assert.IsType<InterfaceType>(type);
         Assert.Equal("ScriptConnection", interfaceType.Name);
+    }
+
+    [Fact]
+    public void Checks_InterfaceEventMember_Once_TypesAsEventConnection()
+    {
+        const string source = """
+            interface EventObject {
+                event consumer(param: string);
+            }
+
+            fn on_consumer(p: string): void { }
+
+            let eo = none as never as EventObject;
+            eo.consumer ^= on_consumer
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+        var type = Utility.GetLastStatementType(source);
+        var interfaceType = Assert.IsType<InterfaceType>(type);
+        Assert.Equal("ScriptConnection", interfaceType.Name);
+    }
+
+    [Fact]
+    public void Checks_EventOnce_AnonymousHandlerWithUntypedParameter_InfersFromEventDeclaration() =>
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics("event abc(x: number); abc ^= fn(x) { let y: number = x; };"));
+
+    [Fact]
+    public void ThrowsFor_EventOnce_AnonymousHandlerWithUntypedParameter_InferredTypeIsPrecise()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(x: number); abc ^= fn(x) { let y: string = x; };");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type 'number' is not assignable to type 'string'.");
     }
 
     [Fact]

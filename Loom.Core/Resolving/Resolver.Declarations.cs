@@ -189,7 +189,7 @@ public sealed partial class Resolver
     private static bool IsEventConnectionHandler(Parameter parameter) =>
         parameter.Parent?.Parent is FunctionExpression
         {
-            Parent: AssignmentOperator { Operator.Kind: SyntaxKind.PlusEquals or SyntaxKind.MinusEquals } assignment
+            Parent: AssignmentOperator { Operator.Kind: SyntaxKind.PlusEquals or SyntaxKind.MinusEquals or SyntaxKind.CaretEquals } assignment
         } functionExpression
         && assignment.Right == functionExpression;
 

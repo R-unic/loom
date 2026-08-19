@@ -1,0 +1,6 @@
+event my_event(data: string);
+
+fn handler(data: string): void -> print(data);
+
+my_event ^= handler;
+my_event("hello!");

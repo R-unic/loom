@@ -344,7 +344,7 @@ public sealed class FlowAnalyzer(SemanticModel semanticModel)
     private void CheckReassignment(AssignmentOperator assignment, Identifier identifier, Symbol symbol)
     {
         if (symbol.IsMutable) return;
-        if (symbol.Kind == SymbolKind.Event && assignment.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals) return;
+        if (symbol.Kind == SymbolKind.Event && assignment.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals or SyntaxKind.CaretEquals) return;
 
         _diagnostics.Error(
             assignment,

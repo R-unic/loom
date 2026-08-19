@@ -132,7 +132,7 @@ public sealed partial class TypeChecker
     {
         var leftType = Visit(binaryOperator.Left);
 
-        if (binaryOperator.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals
+        if (binaryOperator.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals or SyntaxKind.CaretEquals
             && TryGetEventParameterTypes(binaryOperator, leftType, out var eventParameters))
         {
             var assignableFunction = new Types.FunctionType([], eventParameters, Types.PrimitiveType.Void, IsVariadicEvent(binaryOperator.Left));
