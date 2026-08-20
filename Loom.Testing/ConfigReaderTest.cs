@@ -141,12 +141,12 @@ public class ConfigReaderTest
         Assert.Equal(2, config.Dependencies.Count);
         var serio = config.Dependencies[PackageName.Parse("serio")];
         Assert.Equal(PackageName.Parse("serio"), serio.Name);
-        Assert.Equal("^1.2", serio.VersionRequirement);
+        Assert.Equal("^1.2", serio.VersionRequirement.ToString());
         Assert.False(serio.IsDevelopmentOnly);
 
         var runit = config.Dependencies[PackageName.Parse("runit")];
         Assert.Equal(PackageName.Parse("runit"), runit.Name);
-        Assert.Equal("^0.4", runit.VersionRequirement);
+        Assert.Equal("^0.4", runit.VersionRequirement.ToString());
         Assert.True(runit.IsDevelopmentOnly);
 
         Assert.NotNull(config.Registry);
@@ -205,7 +205,7 @@ public class ConfigReaderTest
     {
         var config = ReadValid("[dependencies.serio]\nversion = \">=1.2.0\"\n");
 
-        Assert.Equal(">=1.2.0", config.Dependencies[PackageName.Parse("serio")].VersionRequirement);
+        Assert.Equal(VersionRequirement.Parse(">=1.2.0"), config.Dependencies[PackageName.Parse("serio")].VersionRequirement);
         Assert.False(config.Dependencies[PackageName.Parse("serio")].IsDevelopmentOnly);
     }
 
@@ -222,7 +222,7 @@ public class ConfigReaderTest
     public void Dependencies_AcceptsVersionRequirementForms(string requirement)
     {
         var config = ReadValid($"[dependencies]\nserio = \"{requirement}\"\n");
-        Assert.Equal(requirement, config.Dependencies[PackageName.Parse("serio")].VersionRequirement);
+        Assert.Equal(requirement, config.Dependencies[PackageName.Parse("serio")].VersionRequirement.ToString());
     }
 
     [Theory]
@@ -242,7 +242,7 @@ public class ConfigReaderTest
     [InlineData("[dependencies.serio]\nversion = 3\n", "written as a string")]
     [InlineData("[dependencies.serio]\nversion = \"^1.2\"\ndev = 1\n", "non-boolean 'dev'")]
     [InlineData("[dependencies]\nserio = \"^1.2\"\nSerio = \"^1.3\"\n", "listed more than once")]
-    [InlineData("[registry]\nindex = \"loom-lang.github.io\"\n", "expected an http or https URL")]
+    [InlineData("[registry]\nindex = \"   \"\n", "expected an http or https URL, or a path to a local index")]
     [InlineData("[files]\nsource_directory = \"\"\n", "[files] 'source_directory' cannot be empty")]
     [InlineData("[files]\noutput_directory = \"   \"\n", "[files] 'output_directory' cannot be empty")]
     [InlineData("[files]\nsource_directory = \"/usr/src\"\n", "[files] 'source_directory' must be relative to the project directory, but '/usr/src' is absolute")]

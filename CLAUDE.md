@@ -58,17 +58,56 @@ before claiming done.
       **Install-location contract:** a dependency's output is written into the *entry* project's output directory, under
       `<output>/packages/<scope>/<name>` — compiled output is consumer-specific (it names the entry project's runtime and is checked against its project
       type's intrinsics), so it cannot live beside sources a package manager may share. One `$path` covering the project's output therefore covers every
-      package, whatever the PM did with the sources. `no_emit` is read off the entry project alone for the same reason
+      package, whatever the PM did with the sources. `no_emit` is read off the entry project alone for the same reason. `ProjectLoader` is what a host
+      (CLI, watch, LSP) asks for those roots: it reads `loom-lock.toml`, and `DependencyResolver`'s lock-taking overload resolves it — directories from
+      `PackageLayout`, then two checks the map overload cannot make, that every manifest in the build asks only for versions the lock accepts and that the
+      package installed in a directory *is* the version locked. Both are a stale lock, which only a package manager can fix, so neither is compiled
+      through. A project with no `[dependencies]` needs no lock; one that declares them and has no lock has never been resolved, and guessing from the
+      requirements is exactly what the lock exists to prevent. **A package's `dev = true` dependencies are not the consumer's:** only the entry project's
+      are resolved, installed and required to be locked — a package's development dependencies are what its own tests are written against, and a package
+      whose shipped source imports one has a mislabelled dependency, which the unresolved import says. Same line in `LockResolver`, `PublishedPackage`
+      and `LockFile.Satisfies(config, includeDevelopmentOnly)`
 - `Loom.Luau/` — Luau output AST + renderer (`LuauFactory`, `RenderState`, `AST/`)
 - `Loom.Config/` — `loom-config.toml` reader (Tomlyn). `ProjectType` (default `game`), `Debug` (default `false`, for emitting debug diagnostics) `FilesConfig`:
   `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`). Package identity lives here too: `[package]` (`PackageConfig`, with `PackageName` and
-  semver `Version` value types, plus `Realm`), `[dependencies]` (`Dependency`), `[registry]` (`RegistryConfig`). `[realms]` maps a directory under the source
+  semver `Version` value types, plus `Realm`), `[dependencies]` (`Dependency`), `[registry]` (`RegistryConfig`). A dependency's requirement is
+  parsed into a `VersionRequirement` while reading, not left as text: every clause form (`^1.2`, `~1.2.3`, `>=1.4, <2`, `*`) names an interval and
+  comma-separated clauses intersect, so a requirement *is* one interval — which is what makes `Satisfies` a predicate over an index's published
+  versions and `Intersect` closed, the two questions resolution is made of. Emptiness is never represented: an unsatisfiable requirement is rejected at
+  parse, and disagreeing requirements come back from `Intersect` as `null`. A pre-release satisfies a requirement only when one of its bounds names a
+  pre-release of the same `major.minor.patch`, so `>=1.2.0` does not quietly pick up `1.3.0-beta.1`. `[realms]` maps a directory under the source
   directory to `shared`/`client`/`server`; `SourceRoot.RealmOf` answers with the *longest* directory naming a file, so a realm declared inside another narrows
   it rather than being shadowed, and a project declaring none has one realm and no boundary to cross. `ConfigReader` never throws on a manifest
   problem — malformed manifests come back as `null` plus `ConfigDiagnostic`s out of `LocateFromDirectory`. `[files]` directories are validated there too
   (non-empty, relative, path-legal), since nothing downstream can report one that isn't: they are resolved as real paths and a stage throwing is the
-  compiler-bug path
-- `Loom.CLI/` — entry point; locates config, compiles unit, prints debug info. `Include/loom_runtime.luau` = runtime support emitted alongside output
+  compiler-bug path. `loom-lock.toml` is the other half of that contract: the manifest says which versions are *acceptable*, the lock (`LockFile`,
+  `LockedPackage`, read by `LockFileReader` the same never-throwing way) says which ones were *chosen* — one `[[package]]` per package, plus the
+  `dependencies` naming the rest, so a lock is the resolved graph and `LockFileReader` can reject one that is not closed. It carries no paths: a lock is
+  committed and read again on another machine, so where a package landed stays the package manager's answer (`DependencyResolver`'s `packageDirectories`)
+  while *which version* is the lock's. `ToToml` is deterministic (ordered entries, fixed key order, `\n`) because two machines have to write the same
+  bytes, and `Satisfies(LoomConfig)` is how a package manager asks whether the lock still covers the manifest instead of re-resolving. `PackageLayout` is
+  the other half of that: `<project>/packages/<scope>/<name>` is where a package manager installs sources and where the compiler reads them — not a
+  setting, for the reason `FilesConfig.PackagesDirectoryName` isn't one, and deliberately not keyed by version, since one build compiling two copies of a
+  package is not a shape anything downstream supports. `[registry] index` and a lock's `source` are read by one rule (`IndexLocation`), since the second
+  is written from the first: an index is as legitimately a directory — vendored, or a test's fixtures — as it is a URL, so neither asks for a URL
+- `Loom.Packages/` — the package manager: the tool side of the line the compiler draws. `IPackageIndex` is all resolution needs from the outside world
+  (what is published, and how to install it), so `LocalPackageIndex` — a directory of `<index>/<scope>/<name>/<version>`, each version a Loom project of
+  its own — is a whole offline registry and the fixture every test resolves against; a network index implements the same interface later.
+  `LockResolver` turns requirements plus an index into a `LockFile`: every requirement on a package intersects into the one interval a
+  `VersionRequirement` already is, so combining dependents needs no search and the newest published version inside that interval is the answer. It
+  deliberately does *not* backtrack — if the newest version one package allows leaves another unsatisfiable, that is reported as a conflict naming both
+  sides, not searched around; requirements are re-derived from the currently chosen versions each round (a requirement written by a version no longer
+  chosen is not a requirement) under a round bound, so a graph that will not settle is reported rather than spun on. `PackageInstaller` copies into
+  `PackageLayout`'s directories, comparing the *installed* version against the lock rather than any timestamp — a directory holding the right version is
+  right however it got there, which is what makes vendoring by hand and installing from an index the same thing downstream. `PackageManager.Restore` is
+  the one call a build makes: resolve only when the lock does not cover the manifest (keeping every version the old lock still allows, so one changed
+  requirement does not bump everything else), install only what is missing or wrong, and open no index at all when both already hold — which is what
+  lets a project with its packages present build with no registry reachable
+- `Loom.CLI/` — entry point; locates config, runs `PackageManager.Restore`, asks `ProjectLoader` what the project compiles, compiles the unit, prints
+  debug info.
+  `Include/loom_runtime.luau` = runtime support emitted alongside output. A watch restarts on `loom-config.toml`, the Rojo project *or* `loom-lock.toml` — a
+  package manager installing a dependency changes which projects the unit spans and a unit already built cannot grow a root; renames count too, since
+  installing atomically is a write to a temporary file followed by one
 - `Loom.LanguageServer/` — LSP server (OmniSharp). One handler per request, all registered in `Program.cs`, all answering off the `DocumentStore`:
   it keeps one `CompilationUnit` per project root and recompiles the open file on every change. The pieces the handlers share:
     - `CompletionSnapshot` — rebuilt from each compile; answers "what may be written at this offset" (member scope, import list, attribute list,
@@ -86,6 +125,9 @@ before claiming done.
       demand, and only `didChange`'s diagnostic publish is deferred (via `Debouncer`) because it is the one thing nobody is blocked on. Every dirty
       buffer of a unit goes into one `Recompile` together, and `Close` reverts the file to its saved text — the unit keeps whatever text it was last
       handed, and an editor discards unsaved edits when a document closes
+    - `DocumentStore` builds its units through `ProjectLoader` too, so an editor sees the packages a build sees; a project whose dependencies cannot be
+      loaded (no lock yet, one not installed) still gets a unit over its own files, since answering nothing about the file on screen is worse than
+      answering it without its packages
     - `DiagnosticPublisher` reports every file the compile found something in, not just the edited one, and remembers what it said so a file whose
       errors are gone gets an empty set. It only ever clears files the compile covered: a workspace may hold more than one project
     - `Conversion` owns `DiagnosticsFor`/`DiagnosticsByFile`: a null result means the file was not analyzed, and an empty set is how a client is told
@@ -143,7 +185,8 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 
 ## Gotchas
 
-- Testing imports both plus `Type = Loom.TypeChecking.Types.Type` alias to dodge `System.Type` clash.
+- Testing imports both plus `Type = Loom.TypeChecking.Types.Type` alias to dodge `System.Type` clash. `Loom.Packages` names a package version in nearly
+  every file, so it aliases `Version = Loom.Config.Version` project-wide in its csproj instead of per file.
 - `DiagnosticOptions.FailFast` (per `CompilationUnit`, threaded into every stage's `DiagnosticBag`) prints the first error and exits the process. Off by
   default; only `Loom.CLI` opts in. Options are handed out per file by `CompilationUnit.DiagnosticOptionsFor` — a dependency's files never fail fast, so the
   error the build stops on is the one naming the package.
@@ -170,5 +213,7 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - `Loom.TypeGenerator` generates intrinsic types from the Roblox API that the test suite relies on to pass. The intrinsics are stored in
   `Loom.Core/TypeChecking/Intrinsics`.
 - A Tomlyn `TomlConverter` may only read a *scalar* value. One that consumes a table (inline or not) desynchronizes the reader and silently swallows the
-  table that follows it — which is why `[dependencies]` binds as `Dictionary<string, object>` and is read in `ConfigReader` instead of by a converter.
+  table that follows it — which is why `[dependencies]` binds as `Dictionary<string, object>` and is read in `ConfigReader` instead of by a converter. Its
+  typed deserializer also *ignores* a key it has no property for, so a table whose unknown keys have to be reported — `[dependencies]`, a lock file's
+  `[[package]]` — is bound raw and read by hand for that reason too.
 - PRs target `master`; open an issue before writing code (CONTRIBUTING.md).

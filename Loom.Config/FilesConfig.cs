@@ -8,6 +8,8 @@ public sealed class FilesConfig
     ///     The folder inside <see cref="OutputDirectory" /> a build writes its dependencies' compiled output
     ///     to, each package under a folder named by its identity. Not a setting: the package manager and the
     ///     compiler have to agree on it, and a project sharing the name for its own code can rename its own.
+    ///     The same folder name carries the other tree, where a package manager installs sources — see
+    ///     <see cref="PackageLayout" />.
     /// </summary>
     public const string PackagesDirectoryName = "packages";
 
