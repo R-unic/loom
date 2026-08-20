@@ -63,7 +63,10 @@ before claiming done.
       `PackageLayout`, then two checks the map overload cannot make, that every manifest in the build asks only for versions the lock accepts and that the
       package installed in a directory *is* the version locked. Both are a stale lock, which only a package manager can fix, so neither is compiled
       through. A project with no `[dependencies]` needs no lock; one that declares them and has no lock has never been resolved, and guessing from the
-      requirements is exactly what the lock exists to prevent
+      requirements is exactly what the lock exists to prevent. **A package's `dev = true` dependencies are not the consumer's:** only the entry project's
+      are resolved, installed and required to be locked — a package's development dependencies are what its own tests are written against, and a package
+      whose shipped source imports one has a mislabelled dependency, which the unresolved import says. Same line in `LockResolver`, `PublishedPackage`
+      and `LockFile.Satisfies(config, includeDevelopmentOnly)`
 - `Loom.Luau/` — Luau output AST + renderer (`LuauFactory`, `RenderState`, `AST/`)
 - `Loom.Config/` — `loom-config.toml` reader (Tomlyn). `ProjectType` (default `game`), `Debug` (default `false`, for emitting debug diagnostics) `FilesConfig`:
   `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`). Package identity lives here too: `[package]` (`PackageConfig`, with `PackageName` and
@@ -85,8 +88,23 @@ before claiming done.
   bytes, and `Satisfies(LoomConfig)` is how a package manager asks whether the lock still covers the manifest instead of re-resolving. `PackageLayout` is
   the other half of that: `<project>/packages/<scope>/<name>` is where a package manager installs sources and where the compiler reads them — not a
   setting, for the reason `FilesConfig.PackagesDirectoryName` isn't one, and deliberately not keyed by version, since one build compiling two copies of a
-  package is not a shape anything downstream supports
-- `Loom.CLI/` — entry point; locates config, asks `ProjectLoader` what the project compiles, compiles the unit, prints debug info.
+  package is not a shape anything downstream supports. `[registry] index` and a lock's `source` are read by one rule (`IndexLocation`), since the second
+  is written from the first: an index is as legitimately a directory — vendored, or a test's fixtures — as it is a URL, so neither asks for a URL
+- `Loom.Packages/` — the package manager: the tool side of the line the compiler draws. `IPackageIndex` is all resolution needs from the outside world
+  (what is published, and how to install it), so `LocalPackageIndex` — a directory of `<index>/<scope>/<name>/<version>`, each version a Loom project of
+  its own — is a whole offline registry and the fixture every test resolves against; a network index implements the same interface later.
+  `LockResolver` turns requirements plus an index into a `LockFile`: every requirement on a package intersects into the one interval a
+  `VersionRequirement` already is, so combining dependents needs no search and the newest published version inside that interval is the answer. It
+  deliberately does *not* backtrack — if the newest version one package allows leaves another unsatisfiable, that is reported as a conflict naming both
+  sides, not searched around; requirements are re-derived from the currently chosen versions each round (a requirement written by a version no longer
+  chosen is not a requirement) under a round bound, so a graph that will not settle is reported rather than spun on. `PackageInstaller` copies into
+  `PackageLayout`'s directories, comparing the *installed* version against the lock rather than any timestamp — a directory holding the right version is
+  right however it got there, which is what makes vendoring by hand and installing from an index the same thing downstream. `PackageManager.Restore` is
+  the one call a build makes: resolve only when the lock does not cover the manifest (keeping every version the old lock still allows, so one changed
+  requirement does not bump everything else), install only what is missing or wrong, and open no index at all when both already hold — which is what
+  lets a project with its packages present build with no registry reachable
+- `Loom.CLI/` — entry point; locates config, runs `PackageManager.Restore`, asks `ProjectLoader` what the project compiles, compiles the unit, prints
+  debug info.
   `Include/loom_runtime.luau` = runtime support emitted alongside output. A watch restarts on `loom-config.toml`, the Rojo project *or* `loom-lock.toml` — a
   package manager installing a dependency changes which projects the unit spans and a unit already built cannot grow a root; renames count too, since
   installing atomically is a write to a temporary file followed by one
@@ -167,7 +185,8 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 
 ## Gotchas
 
-- Testing imports both plus `Type = Loom.TypeChecking.Types.Type` alias to dodge `System.Type` clash.
+- Testing imports both plus `Type = Loom.TypeChecking.Types.Type` alias to dodge `System.Type` clash. `Loom.Packages` names a package version in nearly
+  every file, so it aliases `Version = Loom.Config.Version` project-wide in its csproj instead of per file.
 - `DiagnosticOptions.FailFast` (per `CompilationUnit`, threaded into every stage's `DiagnosticBag`) prints the first error and exits the process. Off by
   default; only `Loom.CLI` opts in. Options are handed out per file by `CompilationUnit.DiagnosticOptionsFor` — a dependency's files never fail fast, so the
   error the build stops on is the one naming the package.

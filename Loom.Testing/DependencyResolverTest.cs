@@ -96,6 +96,46 @@ public class DependencyResolverTest
         Assert.Equal(3, roots.Count);
     }
 
+    /// <remarks>
+    ///     A package's development dependencies are what its own tests are written against; a consumer compiling it
+    ///     needs no part of them, so nothing has to be installed for them either.
+    /// </remarks>
+    [Fact]
+    public void Skips_TheDevelopmentDependenciesOfADependency()
+    {
+        using var workspace = new Workspace();
+        var app = workspace.WriteProject("app", AppManifest, [("main.loom", "import { pi } from \"math\";\nlet x = pi;")]);
+        workspace.WriteProject(
+            "packages/math",
+            "project_type = \"library\"\n[package]\nname = \"math\"\nversion = \"1.0.0\"\n[dependencies]\nrunit = { version = \"^0.4\", dev = true }\n",
+            [("init.loom", "export let pi = 3;")]
+        );
+
+        var roots = DependencyResolver.Resolve(app, workspace.DirectoriesByPackage, out var diagnostics);
+
+        Assert.Empty(diagnostics);
+        Assert.NotNull(roots);
+        Assert.Equal(2, roots.Count);
+        Utility.AssertNoErrors(new CompilationUnit(roots).Compile());
+    }
+
+    /// <remarks>The project being built is the one being developed, so its own are resolved like any other.</remarks>
+    [Fact]
+    public void Resolves_TheDevelopmentDependenciesOfTheProjectBeingBuilt()
+    {
+        using var workspace = new Workspace();
+        var app = workspace.WriteProject(
+            "app",
+            "project_type = \"game\"\n[dependencies]\nrunit = { version = \"^0.4\", dev = true }\n",
+            [("main.loom", "let x = 1;")]
+        );
+
+        var roots = DependencyResolver.Resolve(app, workspace.DirectoriesByPackage, out var diagnostics);
+
+        Assert.Null(roots);
+        Assert.Equal("the project depends on 'runit', but no directory was resolved for it.", Assert.Single(diagnostics).Message);
+    }
+
     [Fact]
     public void Reports_ADependency_WithNoDirectoryResolvedForIt()
     {

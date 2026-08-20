@@ -242,7 +242,7 @@ public class ConfigReaderTest
     [InlineData("[dependencies.serio]\nversion = 3\n", "written as a string")]
     [InlineData("[dependencies.serio]\nversion = \"^1.2\"\ndev = 1\n", "non-boolean 'dev'")]
     [InlineData("[dependencies]\nserio = \"^1.2\"\nSerio = \"^1.3\"\n", "listed more than once")]
-    [InlineData("[registry]\nindex = \"loom-lang.github.io\"\n", "expected an http or https URL")]
+    [InlineData("[registry]\nindex = \"   \"\n", "expected an http or https URL, or a path to a local index")]
     [InlineData("[files]\nsource_directory = \"\"\n", "[files] 'source_directory' cannot be empty")]
     [InlineData("[files]\noutput_directory = \"   \"\n", "[files] 'output_directory' cannot be empty")]
     [InlineData("[files]\nsource_directory = \"/usr/src\"\n", "[files] 'source_directory' must be relative to the project directory, but '/usr/src' is absolute")]

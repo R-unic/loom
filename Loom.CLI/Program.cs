@@ -4,6 +4,7 @@ using Loom.CLI;
 using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Pipeline;
+using Loom.Packages;
 
 var command = CliParser.Parse(args);
 return command switch
@@ -53,6 +54,12 @@ static int compile(string directory, bool dependencyDiagnostics, bool watch)
     FileManager.WriteIncludeFolder(config.ProjectDirectory);
     if (!watch)
     {
+        if (!PackageManager.Restore(config, out var restoreDiagnostics))
+        {
+            printProjectDiagnostics(restoreDiagnostics);
+            return 1;
+        }
+
         var roots = ProjectLoader.Load(config, out var projectDiagnostics);
         if (roots == null)
         {

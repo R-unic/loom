@@ -53,6 +53,22 @@ public class LockFileTest
     [Fact]
     public void Read_UnlockedPackage_IsNotFound() => Assert.Null(ReadValid(FullLock).Find(PackageName.Parse("runit")));
 
+    /// <remarks>
+    ///     A source is where a version came from, and an index is as legitimately a directory beside the project as
+    ///     it is a registry over http — the same rule <c>[registry] index</c> is read by.
+    /// </remarks>
+    [Theory]
+    [InlineData("https://loom-lang.github.io/index")]
+    [InlineData("../index")]
+    [InlineData("/srv/loom/index")]
+    public void Read_AcceptsAnySourceAnIndexCouldBe(string source) =>
+        Assert.Equal(
+            source,
+            ReadValid($"version = 1\n[[package]]\nname = \"serio\"\nversion = \"1.2.3\"\nsource = \"{source}\"\n")
+                .Find(PackageName.Parse("serio"))!
+                .Source
+        );
+
     [Fact]
     public void Read_LockWithoutPackages_IsAProjectThatResolvedToNothing() => Assert.Empty(ReadValid("version = 1\n").Packages);
 
@@ -189,7 +205,7 @@ public class LockFileTest
     [InlineData("version = 1\n[[package]]\nname = \"serio\"\n", "'serio' must specify a 'version'")]
     [InlineData("version = 1\n[[package]]\nname = \"serio\"\nversion = \"^1.2\"\n", "invalid 'version' '^1.2'")]
     [InlineData("version = 1\n[[package]]\nname = \"serio\"\nversion = \"1.2\"\n", "exactly three components")]
-    [InlineData("version = 1\n[[package]]\nname = \"serio\"\nversion = \"1.2.3\"\nsource = \"loom-lang.github.io\"\n", "invalid 'source'")]
+    [InlineData("version = 1\n[[package]]\nname = \"serio\"\nversion = \"1.2.3\"\nsource = \"   \"\n", "invalid 'source'")]
     [InlineData("version = 1\n[[package]]\nname = \"serio\"\nversion = \"1.2.3\"\nchecksum = \"  \"\n", "empty 'checksum'")]
     [InlineData("version = 1\n[[package]]\nname = \"serio\"\nversion = \"1.2.3\"\ndependencies = [\"te ther\"]\n", "which is not a package name")]
     [InlineData("version = 1\n[[package]]\nname = \"serio\"\nversion = \"1.2.3\"\n[[package]]\nname = \"Serio\"\nversion = \"1.3.0\"\n", "is locked more than once")]
@@ -269,6 +285,23 @@ public class LockFileTest
         var config = ReadManifest("[dependencies]\nrunit = { version = \"^0.4\", dev = true }\n");
 
         Assert.False(new LockFile([]).Satisfies(config));
+    }
+
+    /// <remarks>
+    ///     A package's development dependencies are no part of compiling it for someone else, so a lock that does not
+    ///     pin them still covers it. The project being built is the exception, since it is the one being developed.
+    /// </remarks>
+    [Fact]
+    public void Satisfies_CanIgnoreDevelopmentDependencies_AsAConsumerOfAPackageDoes()
+    {
+        var config = ReadManifest("[dependencies]\nserio = \"^1.2\"\nrunit = { version = \"^0.4\", dev = true }\n");
+        var lockFile = new LockFile([new LockedPackage(PackageName.Parse("serio"), Version.Parse("1.2.3"))]);
+
+        Assert.False(lockFile.Satisfies(config, includeDevelopmentOnly: true, out var unmet));
+        Assert.Contains("'runit' is not locked", Assert.Single(unmet).Message);
+
+        Assert.True(lockFile.Satisfies(config, includeDevelopmentOnly: false, out var ignored));
+        Assert.Empty(ignored);
     }
 
     [Fact]

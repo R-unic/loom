@@ -21,6 +21,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Loom.Core\Loom.Core.csproj" />
+        <ProjectReference Include="..\Loom.Packages\Loom.Packages.csproj" />
     </ItemGroup>
 
 </Project>

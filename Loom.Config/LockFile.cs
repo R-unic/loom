@@ -51,24 +51,34 @@ public sealed class LockFile
     public LockedPackage? Find(PackageName name) => _packages.GetValueOrDefault(name);
 
     /// <summary>
-    ///     Whether every dependency <paramref name="config" /> declares — development ones included, since a lock
-    ///     covers the whole resolution — is locked at a version its requirement accepts.
+    ///     Whether every dependency <paramref name="config" /> declares — development ones included, since a project
+    ///     develops itself with them — is locked at a version its requirement accepts.
     /// </summary>
     /// <remarks>
     ///     A package locked that nothing depends on any more is not a disagreement, only something for a package
     ///     manager to prune, so it is not reported here.
     /// </remarks>
-    public bool Satisfies(LoomConfig config) => Satisfies(config, out _);
+    public bool Satisfies(LoomConfig config) => Satisfies(config, true, out _);
+
+    /// <inheritdoc cref="Satisfies(LoomConfig)" />
+    public bool Satisfies(LoomConfig config, out IReadOnlyList<ConfigDiagnostic> unmet) => Satisfies(config, true, out unmet);
 
     /// <inheritdoc cref="Satisfies(LoomConfig)" />
     /// <param name="config">The project whose requirements the lock is measured against.</param>
+    /// <param name="includeDevelopmentOnly">
+    ///     Whether <c>dev = true</c> dependencies count. They do for the project being built, which is being
+    ///     developed; they do not for a package it depends on, whose test framework is no part of compiling it.
+    /// </param>
     /// <param name="unmet">Why the lock does not cover the project, one entry per requirement it fails.</param>
-    public bool Satisfies(LoomConfig config, out IReadOnlyList<ConfigDiagnostic> unmet)
+    public bool Satisfies(LoomConfig config, bool includeDevelopmentOnly, out IReadOnlyList<ConfigDiagnostic> unmet)
     {
         var reported = new List<ConfigDiagnostic>();
         unmet = reported;
         foreach (var (name, dependency) in config.Dependencies)
         {
+            if (dependency.IsDevelopmentOnly && !includeDevelopmentOnly)
+                continue;
+
             var locked = Find(name);
             if (locked == null)
                 reported.Add(new ConfigDiagnostic($"'{name}' is not locked."));

@@ -70,7 +70,7 @@ public static class DependencyResolver
         diagnostics = reported;
 
         var resolved = new Dictionary<PackageName, LoomConfig>();
-        ResolveDependenciesOf(entry, "the project", packageDirectories, resolved, reported);
+        ResolveDependenciesOf(entry, "the project", isEntry: true, packageDirectories, resolved, reported);
 
         return reported.Count == 0
             ? new SourceRootSet(new SourceRoot(entry), resolved.Values.Select(config => new SourceRoot(config)))
@@ -83,16 +83,26 @@ public static class DependencyResolver
     ///     still being resolved higher up this very call stack (a cycle in the declared graph, which is otherwise
     ///     nothing to reject: nothing requires the packages a build's own files actually import to form one).
     /// </summary>
+    /// <param name="isEntry">
+    ///     Whether these are the dependencies of the project being built. Only its <c>dev = true</c> dependencies are
+    ///     resolved: a package's development dependencies are what its own tests are written against, and a consumer
+    ///     compiling the package needs no part of them. A package whose shipped source imports one is a package with
+    ///     a mislabelled dependency, and the import says so.
+    /// </param>
     private static void ResolveDependenciesOf(
         LoomConfig config,
         string describeOwner,
+        bool isEntry,
         IReadOnlyDictionary<PackageName, string> packageDirectories,
         Dictionary<PackageName, LoomConfig> resolved,
         List<ConfigDiagnostic> diagnostics
     )
     {
-        foreach (var name in config.Dependencies.Keys)
+        foreach (var (name, dependency) in config.Dependencies)
         {
+            if (dependency.IsDevelopmentOnly && !isEntry)
+                continue;
+
             if (resolved.ContainsKey(name))
                 continue;
 
@@ -135,7 +145,7 @@ public static class DependencyResolver
             }
 
             resolved[name] = packageConfig;
-            ResolveDependenciesOf(packageConfig, $"'{name}'", packageDirectories, resolved, diagnostics);
+            ResolveDependenciesOf(packageConfig, $"'{name}'", isEntry: false, packageDirectories, resolved, diagnostics);
         }
     }
 
@@ -150,7 +160,7 @@ public static class DependencyResolver
     private static void CheckAgainstLock(SourceRoot root, bool isEntry, LockFile lockFile, List<ConfigDiagnostic> diagnostics)
     {
         var describe = isEntry ? "the project" : $"'{root.Package?.Name}'";
-        if (!lockFile.Satisfies(root.Config, out var unmet))
+        if (!lockFile.Satisfies(root.Config, isEntry, out var unmet))
             diagnostics.AddRange(unmet.Select(problem => new ConfigDiagnostic($"{LockFile.FileName} does not cover what {describe} depends on: {problem.Message}")));
 
         if (isEntry || root.Package is not { Name: { } name, Version: { } installed })

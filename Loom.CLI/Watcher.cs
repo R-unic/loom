@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Pipeline;
+using Loom.Packages;
 
 namespace Loom.CLI;
 
@@ -139,6 +140,14 @@ internal sealed class Watcher(DiagnosticOptions diagnosticOptions)
     /// </summary>
     private CompilationUnit CreateUnit(LoomConfig config)
     {
+        // the same restore a one-shot build does: a watch started before the packages were installed, or across an
+        // edit to [dependencies], is the case this exists for
+        if (!PackageManager.Restore(config, out var restoreDiagnostics))
+        {
+            foreach (var diagnostic in restoreDiagnostics)
+                Log.Fatal(diagnostic.ToString());
+        }
+
         var roots = ProjectLoader.Load(config, out var diagnostics);
         foreach (var diagnostic in diagnostics)
             Log.Fatal(diagnostic.ToString());

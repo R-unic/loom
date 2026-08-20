@@ -89,8 +89,8 @@ public static class ConfigReader
         ValidateDirectory(config.Files.OutputDirectory, "output_directory", diagnostics);
         ReadDependencies(config, diagnostics);
         ReadRealms(config, diagnostics);
-        if (config.Registry != null && !IsFetchableUrl(config.Registry.Index))
-            diagnostics.Add(new ConfigDiagnostic($"invalid registry index '{config.Registry.Index}'; expected an http or https URL."));
+        if (config.Registry != null && !IndexLocation.IsValid(config.Registry.Index))
+            diagnostics.Add(new ConfigDiagnostic($"invalid registry index '{config.Registry.Index}'; {IndexLocation.Expected}."));
     }
 
     private static void ReadProjectType(LoomConfig config, List<ConfigDiagnostic> diagnostics)
@@ -314,5 +314,16 @@ public static class ConfigReader
 
     private static bool IsEdition(string edition) => edition.Length == EditionLength && edition.All(char.IsAsciiDigit);
 
-    private static bool IsFetchableUrl(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https";
+    /// <summary>
+    ///     Whether an index is somewhere an index could be. A registry is reached over http, but an index is just as
+    ///     legitimately a directory — vendored, checked out beside the project, or the fixtures a test resolves
+    ///     against — so a path is accepted here and read relative to the project directory by whoever opens it.
+    /// </summary>
+    private static bool IsIndexLocation(string index)
+    {
+        if (Uri.TryCreate(index, UriKind.Absolute, out var uri))
+            return uri.Scheme is "http" or "https" or "file";
+
+        return !string.IsNullOrWhiteSpace(index) && index.IndexOfAny(Path.GetInvalidPathChars()) < 0;
+    }
 }

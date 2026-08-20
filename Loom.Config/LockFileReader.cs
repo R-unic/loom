@@ -136,12 +136,8 @@ public static class LockFileReader
         var checksum = ReadText(entry, ChecksumKey, describe, diagnostics);
         var dependencies = ReadDependencies(entry, describe, diagnostics);
 
-        if (source != null && !IsLocation(source))
-        {
-            diagnostics.Add(
-                new ConfigDiagnostic($"{describe} has an invalid '{SourceKey}' '{source}'; expected an absolute URL, e.g. \"{RegistryConfig.DefaultIndex}\".")
-            );
-        }
+        if (source != null && !IndexLocation.IsValid(source))
+            diagnostics.Add(new ConfigDiagnostic($"{describe} has an invalid '{SourceKey}' '{source}'; {IndexLocation.Expected}."));
 
         // a package manager writing nothing is how "no checksum" is said; writing an empty one says the file
         // records an integrity check it does not have.
@@ -242,10 +238,4 @@ public static class LockFileReader
         return dependencies;
     }
 
-    /// <summary>
-    ///     Whether a <c>source</c> names somewhere a version could have come from. Any scheme is accepted, since
-    ///     what a package manager fetches from is its business — <c>git+https</c> is as much an answer as an index
-    ///     URL — but it has to be absolute, which is what catches the ones that are only a typo.
-    /// </summary>
-    private static bool IsLocation(string source) => Uri.TryCreate(source, UriKind.Absolute, out _);
 }

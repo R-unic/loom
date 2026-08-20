@@ -28,6 +28,7 @@
         <ProjectReference Include="..\Loom.Core\Loom.Core.csproj" />
         <ProjectReference Include="..\Loom.TypeGenerator\Loom.TypeGenerator.csproj" />
         <ProjectReference Include="..\Loom.LanguageServer\Loom.LanguageServer.csproj" />
+        <ProjectReference Include="..\Loom.Packages\Loom.Packages.csproj" />
     </ItemGroup>
 
 </Project>
