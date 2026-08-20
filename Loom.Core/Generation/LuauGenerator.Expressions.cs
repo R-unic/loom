@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Macros;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
@@ -736,7 +737,7 @@ public sealed partial class LuauGenerator
             return new NilLiteral();
 
         var table = GenerateInterfaceInvocationBody(interfaceInvocation.Body, interfaceSymbol);
-        return WrapWithImplementationMetatable(table, interfaceSymbol, interfaceInvocation.Name.Token.Text);
+        return WrapWithImplementationMetatable(table, interfaceSymbol, interfaceInvocation.Name.Token.Text, interfaceInvocation);
     }
 
     /// <summary>
@@ -745,10 +746,26 @@ public sealed partial class LuauGenerator
     ///     fields of any one instance - shared by every site that produces a fresh instance of the
     ///     interface (<c>new X { ... }</c> and the 'with' operator alike).
     /// </summary>
-    private LuauExpression WrapWithImplementationMetatable(Table table, InterfaceSymbol interfaceSymbol, string typeName)
+    private LuauExpression WrapWithImplementationMetatable(Table table, InterfaceSymbol interfaceSymbol, string typeName, Node site)
     {
         if (interfaceSymbol.Implements.Count == 0)
             return table;
+
+        // Loom hoists an interface's 'implement' blocks for type-checking - a construction site may
+        // legally precede all of them in source - but Luau does not hoist the locals they emit: a
+        // trait's table has to be declared before this setmetatable call references it, or the
+        // reference resolves to an undeclared global 'nil' and that trait's methods silently vanish
+        // (see LuauGeneratorTest's ordering regression test for the exact failure this used to produce).
+        if (interfaceSymbol.Implementations.Find(i => !_generatedImplements.Contains(i)) is { } notYetGenerated)
+        {
+            var traitName = _semanticModel.GetSymbol(notYetGenerated.TraitName, SymbolKind.Trait)?.Name ?? notYetGenerated.TraitName.ToString();
+            _diagnostics.Error(
+                site,
+                InternalCodes.ConstructedBeforeImplement,
+                $"'{typeName}' is constructed here before 'implement {traitName} for {typeName}', which appears later in the file.",
+                $"move 'implement {traitName} for {typeName}' above this point."
+            );
+        }
 
         var metaNames = interfaceSymbol.Implementations.ConvertAll(LuauExpression (i) => new Luau.AST.Identifier(GetImplementationMetaName(i)));
         LuauExpression meta;
@@ -878,7 +895,7 @@ public sealed partial class LuauGenerator
             .Concat(indexOverrides)
             .ToList();
 
-        return WrapWithImplementationMetatable(new Table(fields), interfaceSymbol, interfaceType.Name);
+        return WrapWithImplementationMetatable(new Table(fields), interfaceSymbol, interfaceType.Name, withOperator);
     }
 
     private Luau.AST.PropertyAccess GenerateRenamedAccess(Expression access, LuauExpression target, List<string> names) =>

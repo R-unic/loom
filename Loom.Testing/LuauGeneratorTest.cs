@@ -948,6 +948,59 @@ public class LuauGeneratorTest
         Assert.Equal("Serialize_string_for_User", Assert.IsType<Identifier>(setmetatableCall.Arguments[1]).Name);
     }
 
+    [Theory]
+    [InlineData(
+        // single trait, construction precedes its only implement
+        """
+        interface Foo { }
+        let a = new Foo { };
+        implement Eq for Foo { }
+        """
+    )]
+    [InlineData(
+        // two traits, construction precedes the second implement
+        """
+        interface Foo { }
+        implement Display for Foo { }
+        let a = new Foo { };
+        implement Eq for Foo { }
+        """
+    )]
+    [InlineData(
+        // the 'with' operator is a construction site too
+        """
+        interface Foo { }
+        implement Display for Foo { }
+        let a = new Foo { };
+        let b = a with { };
+        implement Eq for Foo { }
+        """
+    )]
+    public void ThrowsFor_Construction_BeforeAllOfItsInterfaceImplementBlocks(string source)
+    {
+        // Regression test: Luau does not hoist the 'local X_for_Y' a trait's table needs, unlike Loom's
+        // own type checker hoisting 'implement' blocks - a construction site earlier in the file than
+        // one of its interface's traits used to silently reference that trait's table before its own
+        // declaration, resolving to an undeclared global 'nil' and dropping the trait's methods with no
+        // diagnostic at all.
+        var diagnostics = Utility.GetGeneratorDiagnostics(source, true);
+        Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.ConstructedBeforeImplement);
+    }
+
+    [Fact]
+    public void Allows_Construction_AfterAllOfItsInterfaceImplementBlocks() =>
+        Utility.AssertNoErrors(
+            Utility.GetGeneratorDiagnostics(
+                """
+                interface Foo { }
+                implement Display for Foo { }
+                implement Eq for Foo { }
+                let a = new Foo { };
+                """,
+                true
+            )
+        );
+
     [Fact]
     public void Generates_Implement_Basic()
     {

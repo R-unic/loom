@@ -30,6 +30,17 @@ public sealed partial class LuauGenerator
     private readonly Dictionary<Is, List<LuauStatement>> _isPreludes = [];
     private readonly Dictionary<Is, LuauExpression> _isSubjects = [];
     private readonly Dictionary<FunctionDeclaration, Identifier> _traitDefaultFunctions = [];
+
+    /// <summary>
+    ///     Every 'implement' block whose own table/method statements have already been emitted, in this
+    ///     file's generation order so far - checked by <see cref="WrapWithImplementationMetatable" /> before
+    ///     merging two or more trait tables into one <c>setmetatable</c> call, since Luau (unlike Loom's own
+    ///     type checker, which hoists interfaces and their implementations) requires a local to be declared
+    ///     before anything can reference it: a construction site earlier in the file than one of its
+    ///     interface's 'implement' blocks would otherwise reference that trait's table before its own
+    ///     <c>local X_for_Y = {}</c> runs, silently resolving to a global 'nil'.
+    /// </summary>
+    private readonly HashSet<Implement> _generatedImplements = [];
     private readonly Lazy<HashSet<(EventTarget Target, Symbol Function)>> _localSafeConnections;
 
     private readonly ArrayPipeline _arrayPipeline;

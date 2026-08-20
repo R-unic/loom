@@ -23,6 +23,7 @@ public sealed partial class LuauGenerator
 {
     public override LuauNode VisitImplement(Implement implement)
     {
+        _generatedImplements.Add(implement);
         var interfaceName = Visit(implement.InterfaceName);
         var metaName = GetImplementationMetaName(implement);
         var identifier = new Identifier(metaName);
