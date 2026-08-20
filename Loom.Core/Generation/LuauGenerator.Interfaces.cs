@@ -57,7 +57,7 @@ public sealed partial class LuauGenerator
             foreach (var (name, defaultDeclaration) in traitSymbol.Defaults)
             {
                 if (overridden.Contains(name)) continue;
-                var defaultFunction = GetOrCreateTraitDefault(traitSymbol.Name, defaultDeclaration);
+                var defaultFunction = GetOrCreateTraitDefault(traitSymbol, defaultDeclaration);
                 _state.Postreq(new ExpressionStatement(new BinaryOperator(new PropertyAccess(identifier, [name]), "=", defaultFunction)));
             }
 
@@ -71,6 +71,21 @@ public sealed partial class LuauGenerator
     }
 
     /// <summary>
+    ///     A defaulted method the compiler itself implements: its intrinsic source body is a placeholder
+    ///     only (typed correctly so the trait still checks, never actually compiled) because a real
+    ///     structural implementation needs to walk a value generically, which nothing short of a runtime
+    ///     helper can do without exposing that helper as a callable Loom name. Keyed by (trait, method)
+    ///     rather than trusting the source, so a same-named user trait can never accidentally trigger it -
+    ///     see <see cref="GetOrCreateTraitDefault" />.
+    /// </summary>
+    private static readonly Dictionary<(string Trait, string Method), string> _internalTraitDefaults = new()
+    {
+        [("Display", "to_string")] = "deep_display",
+        [("Eq", "equals")] = "deep_equal",
+        [("Hash", "hash")] = "deep_hash"
+    };
+
+    /// <summary>
     ///     A trait default is generated once - shared by value across every 'implement' block that doesn't
     ///     override it - rather than re-emitted per site: cheaper output the more types share it, and wiring
     ///     it in with a direct field assignment costs one write per instance method table instead of a
@@ -79,23 +94,62 @@ public sealed partial class LuauGenerator
     ///     cref="TypeChecking.TypeChecker.VisitSelfExpression" />) - the function is shared verbatim, so it
     ///     can assume nothing about which interface it is actually running against.
     /// </summary>
-    private Identifier GetOrCreateTraitDefault(string traitName, FunctionDeclaration defaultDeclaration)
+    private Identifier GetOrCreateTraitDefault(TraitSymbol traitSymbol, FunctionDeclaration defaultDeclaration)
     {
         if (_traitDefaultFunctions.TryGetValue(defaultDeclaration, out var existing))
             return existing;
 
-        var name = _state.Scope.AddIdentifier($"{traitName}_{defaultDeclaration.Name.Text}_default");
+        var name = _state.Scope.AddIdentifier($"{traitSymbol.Name}_{defaultDeclaration.Name.Text}_default");
         var typeParameters = MaybeVisit<TypeParameters>(defaultDeclaration.TypeParameters);
         var parameters = defaultDeclaration.Parameters?.ParameterList.ConvertAll(Visit<Parameter>) ?? [];
         parameters.Insert(0, new Parameter("self", Luau.AST.PrimitiveType.Unknown));
 
         var returnType = MaybeVisit<LuauType>(defaultDeclaration.ReturnType);
-        var body = GenerateFunctionBody(defaultDeclaration);
+        var body = GenerateTraitDefaultBody(traitSymbol, defaultDeclaration, parameters);
+
         _state.Postreq(new Function(name, typeParameters, parameters, returnType, body));
 
         var identifier = new Identifier(name);
         _traitDefaultFunctions[defaultDeclaration] = identifier;
         return identifier;
+    }
+
+    /// <summary>
+    ///     The default is shared by ONE Luau function across every implementer, so a type parameter the
+    ///     trait itself declares (as opposed to one the method redeclares on its own signature, which
+    ///     <see cref="GetOrCreateTraitDefault" /> already forwards) has nowhere to come from at the shared
+    ///     function's single declaration site - unlike an ordinary generic function, there is no per-call
+    ///     instantiation to bind it against. Refused outright rather than emitted with the trait's type
+    ///     parameter left dangling unbound in the signature, which Luau would reject.
+    /// </summary>
+    private Chunk GenerateTraitDefaultBody(TraitSymbol traitSymbol, FunctionDeclaration defaultDeclaration, List<Parameter> parameters)
+    {
+        if (traitSymbol.Declaration is TraitDeclaration { TypeParameters: not null })
+        {
+            _diagnostics.NotImplemented(
+                defaultDeclaration,
+                $"A default method on generic trait '{traitSymbol.Name}' is not yet supported.",
+                "override it explicitly in every 'implement' block instead."
+            );
+
+            return new Chunk([new ExpressionStatement(new Call(new Identifier("error"), [new StringLiteral($"{traitSymbol.Name}.{defaultDeclaration.Name.Text} is not implemented")]))]);
+        }
+
+        return traitSymbol.IsIntrinsic && _internalTraitDefaults.TryGetValue((traitSymbol.Name, defaultDeclaration.Name.Text), out var runtimeFunction)
+            ? GenerateInternalRuntimeDefaultBody(runtimeFunction, parameters)
+            : GenerateFunctionBody(defaultDeclaration);
+    }
+
+    /// <summary>
+    ///     A call straight into the Luau runtime library, never through a Loom-callable declaration - the
+    ///     library keeps the actual structural walk (<c>deep_equal</c>/<c>deep_hash</c>/<c>deep_display</c>),
+    ///     and this is the only place anything hands it a value to walk.
+    /// </summary>
+    private Chunk GenerateInternalRuntimeDefaultBody(string runtimeFunctionName, List<Parameter> parameters)
+    {
+        _semanticModel.RuntimeReferences += 1;
+        var arguments = parameters.ConvertAll(LuauExpression (parameter) => new Identifier(parameter.Name));
+        return new Chunk([new Loom.Luau.AST.Return(LuauFactory.RuntimeLibraryCall([runtimeFunctionName], arguments))]);
     }
 
     public override LuauNode VisitTraitDeclaration(TraitDeclaration traitDeclaration)

@@ -402,5 +402,98 @@ function Loom.deep_equal(a: any, b: any): boolean
 	return true
 end
 
+-- djb2 over the string's bytes - not cryptographic, just cheap and evenly enough distributed that
+-- two different field names rarely collide.
+local function string_hash(s: string): number
+	local h = 5381
+	for i = 1, #s do
+		h = (h * 33 + string.byte(s, i)) % 2147483647
+	end
+	return h
+end
+
+-- Two values 'deep_equal' calls equal must hash equal, so a table's entries are combined by
+-- addition rather than position: order is never guaranteed across two 'for...in' passes over the
+-- same table, let alone across the two different tables an equal comparison might pair up, and
+-- addition (unlike concatenation or a positional fold) does not care which entry came first.
+-- Each entry is folded by multiplication before that sum, not addition: summing
+-- '397*hash(key)+hash(value)' per entry is still linear in key and value separately, so it stays
+-- the same total no matter which value ends up paired with which key - {x=5,y=10} and {x=10,y=5}
+-- would hash equal even though they are not. Multiplying the (offset) hashes together first ties
+-- each entry's contribution to its actual pairing, so swapping values changes the total.
+function Loom.deep_hash(value: any): number
+	local t = type(value)
+	if t == "table" then
+		local h = 0
+		for key, v in value do
+			local entryHash = ((Loom.deep_hash(key) + 1) * (Loom.deep_hash(v) + 1)) % 2147483647
+			h = (h + entryHash) % 2147483647
+		end
+		return h
+	elseif t == "string" then
+		return string_hash(value)
+	elseif t == "number" then
+		return value % 2147483647
+	elseif t == "boolean" then
+		return value and 1 or 0
+	else
+		return 0
+	end
+end
+
+-- A table with every key a contiguous 1..#t index reads as an array; anything else (string keys,
+-- gaps, non-integer keys) reads as a struct. '#t' is only reliable once every key is known to be
+-- part of that sequence, which the entry count check confirms.
+local function is_array(value: { [any]: any }): boolean
+	local count = 0
+	for _ in value do
+		count += 1
+	end
+
+	return count == #value
+end
+
+-- Field order matters for a human reading the result even though it never mattered for equality or
+-- hashing, and Luau's own 'for...in' makes no promise about it - so struct fields are sorted by
+-- name before rendering, the one place in this file that pays for a sort.
+function Loom.deep_display(value: any): string
+	local t = type(value)
+	if t == "string" then
+		-- backslashes first, so a value already containing '\"' does not have its escaping
+		-- backslash escaped a second time by the quote substitution that follows.
+		local escaped = value:gsub("\\", "\\\\"):gsub("\"", "\\\"")
+		return `"{escaped}"`
+	end
+
+	if t ~= "table" then
+		return tostring(value)
+	end
+
+	if is_array(value) then
+		local parts = {}
+		for i, element in value do
+			parts[i] = Loom.deep_display(element)
+		end
+
+		return "[" .. table.concat(parts, ", ") .. "]"
+	end
+
+	local keys = {}
+	for key in value do
+		keys[#keys + 1] = key
+	end
+
+	table.sort(keys, function(a, b)
+		return tostring(a) < tostring(b)
+	end)
+
+	local parts = {}
+	for i, key in keys do
+		parts[i] = `{key}: {Loom.deep_display(value[key])}`
+	end
+
+	return "{ " .. table.concat(parts, ", ") .. " }"
+end
+
 table.freeze(Loom)
 return Loom

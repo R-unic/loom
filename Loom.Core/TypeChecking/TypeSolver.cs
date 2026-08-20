@@ -137,6 +137,15 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
     public void SetType(Node node, Type type) => _nodeTypes[node.Id] = type;
 
     /// <summary>
+    ///     Every node this solver has actually bound a type to - never a node merely asked about, which
+    ///     <see cref="GetType" /> would otherwise answer with a freshly minted, permanently unconstrained
+    ///     <see cref="TypeVariable" />. Read-only and reflects live state, so a caller taking a snapshot
+    ///     (<see cref="Intrinsics.CollectNodeBindings" />, sharing an intrinsic file's bindings with every
+    ///     other file) must copy it before this solver keeps running.
+    /// </summary>
+    internal IReadOnlyDictionary<NodeId, Type> BoundTypes => _nodeTypes;
+
+    /// <summary>
     ///     Types shared with every other file of the project - the intrinsics'. Consulted after this file's
     ///     own so a file can still bind its own type to one of their nodes, and so the ~1,600 entries are
     ///     stored once rather than copied into every file's map.

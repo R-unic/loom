@@ -104,6 +104,15 @@ public static class Intrinsics
     ///     own signature when a consuming file's own <see cref="Resolving.SemanticModel" /> - which never
     ///     walked this node - tries to read it back out.
     /// </summary>
+    /// <remarks>
+    ///     Merges each file's own <see cref="SemanticModel.References" />/<see cref="TypeSolver.BoundTypes" />
+    ///     wholesale rather than re-deriving them node by node: a node can carry more than one recorded
+    ///     symbol (an interface-invocation name resolves both a value and a type symbol on the same node),
+    ///     which a single <c>GetSymbol(node)</c> call would collapse to the first; and re-querying
+    ///     <c>GetType(node)</c> for a node the type checker never actually bound would mint and permanently
+    ///     cache a fresh, unconstrained <see cref="Types.TypeVariable" /> for it instead of simply omitting
+    ///     it.
+    /// </remarks>
     private static (SymbolTable References, Dictionary<NodeId, Type> Types) CollectNodeBindings(IEnumerable<CompiledFile> compiledFiles)
     {
         var references = new SymbolTable();
@@ -112,13 +121,11 @@ public static class Intrinsics
         {
             if (compiledFile.SourceFile.Name is NonPluginRuntimeFileName or PluginSecurityFileName) continue;
 
-            foreach (var node in compiledFile.Tree.EnumerateDescendants())
-            {
-                if (compiledFile.SemanticModel.GetSymbol(node) is { } symbol)
-                    references[node.Id] = [symbol];
+            foreach (var (id, symbols) in compiledFile.SemanticModel.References)
+                references[id] = symbols;
 
-                types[node.Id] = compiledFile.SemanticModel.GetType(node);
-            }
+            foreach (var (id, type) in compiledFile.SemanticModel.TypeSolver.BoundTypes)
+                types[id] = type;
         }
 
         return (references, types);

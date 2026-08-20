@@ -738,10 +738,60 @@ public class ResolverTest
             )
         );
 
+    [Theory]
+    [InlineData("deep_equal")]
+    [InlineData("deep_hash")]
+    [InlineData("deep_display")]
+    public void ThrowsFor_InternalRuntimeHelper_NotReachableAsLoomName(string name)
+    {
+        var diagnostics = Utility.GetSemanticModel($"{name}(1, 2)").Diagnostics;
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, $"Cannot find name '{name}'.");
+    }
+
     [Fact]
     public void Allows_SelfExpression_InsideDefaultTraitMethodBody() =>
         Utility.AssertNoErrors(
             Utility.GetSemanticModel("trait Foo { fn a(): unknown -> @; }")
+        );
+
+    [Fact]
+    public void Allows_SelfExpression_InsideClosureNestedInDefaultTraitMethodBody() =>
+        Utility.AssertNoErrors(
+            Utility.GetSemanticModel("trait Foo { fn a(): void -> (fn() { print(@); })(); }")
+        );
+
+    [Fact]
+    public void ThrowsFor_TwoTraits_BothDefaultingSameMethodName_NeitherOverridden()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            trait A { fn describe(): string -> "a"; }
+            trait B { fn describe(): string -> "b"; }
+            interface X { }
+            implement A for X { }
+            implement B for X { }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.AmbiguousTraitDefault,
+            "Traits 'A' and 'B' both default method 'describe' on interface 'X' - override 'describe' explicitly to resolve the ambiguity."
+        );
+    }
+
+    [Fact]
+    public void Allows_TwoTraits_BothDefaultingSameMethodName_WhenOneOverrides() =>
+        Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                trait A { fn describe(): string -> "a"; }
+                trait B { fn describe(): string -> "b"; }
+                interface X { }
+                implement A for X { }
+                implement B for X { fn describe(): string -> "explicit"; }
+                """
+            )
         );
 
     [Fact]

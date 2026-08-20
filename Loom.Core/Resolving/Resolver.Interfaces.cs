@@ -79,6 +79,28 @@ public sealed partial class Resolver
             return false;
         }
 
+        // Two traits defaulting the same method name is only a problem once neither implementer
+        // overrides it - an override picks a winner unambiguously, the same as it would if the
+        // collision were between two abstract (non-defaulted) signatures instead. Checked against
+        // every already-resolved sibling implement rather than only the current one, since either
+        // side of the pair could be the one written first in source order.
+        foreach (var name in traitSymbol.Defaults.Keys.Where(name => implement.Body.Implementations.All(i => i.Name.Text != name)))
+        {
+            var collidingImplement = interfaceSymbol.Implementations.FirstOrDefault(sibling =>
+                sibling.Body.Implementations.All(i => i.Name.Text != name)
+                && _semanticModel.GetSymbol(sibling.TraitName, SymbolKind.Trait) is TraitSymbol siblingTrait
+                && siblingTrait.Defaults.ContainsKey(name));
+
+            if (collidingImplement == null) continue;
+
+            var collidingTraitName = _semanticModel.GetSymbol(collidingImplement.TraitName, SymbolKind.Trait)!.Name;
+            _diagnostics.Error(
+                implement,
+                InternalCodes.AmbiguousTraitDefault,
+                $"Traits '{collidingTraitName}' and '{traitSymbol.Name}' both default method '{name}' on interface '{interfaceSymbol.Name}' - override '{name}' explicitly to resolve the ambiguity."
+            );
+        }
+
         using var _ = InScope();
         interfaceSymbol.Implementations.Add(implement);
         interfaceSymbol.Implements.Add(traitSymbol);
@@ -116,9 +138,7 @@ public sealed partial class Resolver
         // '@' as a type predicate subject on any interface/trait member, or as the receiver inside a
         // default trait method's own body - both name no concrete interface, only the trait/interface
         // declaration itself
-        var isTypePredicateSubject = selfExpression.Parent is TypePredicateType;
-        var isDefaultMethodBody = selfExpression.FirstAncestorOfType<FunctionDeclaration>() is { Parent: TraitBody };
-        if (isTypePredicateSubject || isDefaultMethodBody)
+        if (selfExpression.Parent is TypePredicateType || selfExpression.IsInsideDefaultMethodBody())
         {
             if (selfExpression.FirstAncestorOfType<InterfaceDeclaration>() is { } interfaceDeclaration)
             {

@@ -1,15 +1,31 @@
 ## Structural traits every interface may pick up for free with 'implement', overriding only the
 ## methods whose default isn't good enough.
+##
+## Every default below is compiler-implemented: the body written here never actually compiles (see
+## LuauGenerator.GetOrCreateTraitDefault's '_internalTraitDefaults' table) because a real
+## implementation has to walk a value's fields generically, and nothing short of a Luau runtime
+## helper can do that - one which stays internal to the compiler rather than becoming a callable
+## Loom name. What's written is a correctly-typed placeholder only, so the trait still has something
+## to type-check an 'implement' block's override against.
 
 trait Display {
-    ### A human-readable representation of this value. The default is a placeholder - override it
-    ### with whatever actually describes the type.
-    fn to_string(): string -> "<object>";
+    ### A human-readable representation of this value: every field, recursively, rendered the way
+    ### Rust's derived 'Debug' would. Override this where a more specific representation is wanted
+    ### instead.
+    fn to_string(): string -> "";
 }
 
 trait Eq {
     ### Whether this value and 'other' are the same: recursive, field-by-field structural equality,
     ### not reference equality - two separately constructed values with identical fields are equal.
     ### Override this where a shallower or field-specific comparison is wanted instead.
-    fn equals(other: unknown): bool -> deep_equal(@, other);
+    fn equals(other: unknown): bool -> false;
+}
+
+trait Hash {
+    ### A deterministic structural hash: two values 'Eq.equals' calls equal always hash the same.
+    ### Two unequal values hashing the same costs nothing but a wasted comparison downstream, so this
+    ### only needs to be consistent with 'equals', never collision-free. Override this alongside
+    ### 'Eq.equals' whenever that is overridden, or the two can disagree about which fields matter.
+    fn hash(): number -> 0;
 }

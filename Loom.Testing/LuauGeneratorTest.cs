@@ -872,6 +872,60 @@ public class LuauGeneratorTest
         Assert.Contains(luauTree.Statements.OfType<Function>(), f => f.Name == "Greeting_for_A.greet");
     }
 
+    [Theory]
+    [InlineData("Display", "to_string", "deep_display")]
+    [InlineData("Eq", "equals", "deep_equal")]
+    [InlineData("Hash", "hash", "deep_hash")]
+    public void Generates_IntrinsicTraitDefault_AsInternalRuntimeCall_NeverCompilingItsOwnSource(
+        string traitName,
+        string methodName,
+        string runtimeFunctionName)
+    {
+        var luauTree = Utility.GetLuauAST($"interface Foo {{ }} implement {traitName} for Foo {{ }}", true);
+        var function = Assert.Single(luauTree.Statements.OfType<Function>(), f => f.Name == $"{traitName}_{methodName}_default");
+
+        var @return = Assert.IsType<Return>(Assert.Single(function.Body.Statements));
+        var call = Assert.IsType<Call>(@return.Expression);
+        var callee = Assert.IsType<PropertyAccess>(call.Callee);
+        Assert.Equal(runtimeFunctionName, Assert.Single(callee.Names));
+        Assert.Equal("self", Assert.IsType<Identifier>(call.Arguments[0]).Name);
+    }
+
+    [Fact]
+    public void Generates_UserTrait_SameNameAsIntrinsic_DoesNotGetInternalRuntimeSubstitution()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            trait Eq { fn equals(other: unknown): bool -> true; }
+            interface Foo { }
+            implement Eq for Foo { }
+            """,
+            true
+        );
+
+        var function = Assert.Single(luauTree.Statements.OfType<Function>(), f => f.Name == "Eq_equals_default");
+        var @return = Assert.IsType<Return>(Assert.Single(function.Body.Statements));
+        Assert.IsType<BooleanLiteral>(@return.Expression);
+    }
+
+    [Fact]
+    public void ThrowsFor_DefaultMethod_OnGenericTrait()
+    {
+        const string source = """
+            trait Wrap<T> { fn identity(x: T): T -> x; }
+            interface Foo { }
+            implement Wrap<number> for Foo { }
+            """;
+
+        var diagnostics = Utility.GetGeneratorDiagnostics(source, true);
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.NotImplemented,
+            "A default method on generic trait 'Wrap' is not yet supported.",
+            "override it explicitly in every 'implement' block instead."
+        );
+    }
+
     [Fact]
     public void Generates_InterfaceInvocation_WithSingleImplementation_OmitsMergeMeta()
     {

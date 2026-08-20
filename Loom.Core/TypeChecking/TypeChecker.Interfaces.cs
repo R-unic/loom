@@ -63,9 +63,7 @@ public sealed partial class TypeChecker
             // where a value of an unknown, opaque shape is legal: a type predicate subject, or the value
             // passed through a default method's own body (shared verbatim by every implementer, so it can
             // assume nothing about which interface's fields it will actually run against)
-            var isTypePredicateSubject = selfExpression.Parent is TypePredicateType;
-            var isDefaultMethodBody = selfExpression.FirstAncestorOfType<FunctionDeclaration>() is { Parent: TraitBody };
-            if ((isTypePredicateSubject || isDefaultMethodBody)
+            if ((selfExpression.Parent is TypePredicateType || selfExpression.IsInsideDefaultMethodBody())
                 && (selfExpression.FirstAncestorOfType<InterfaceDeclaration>() != null || selfExpression.FirstAncestorOfType<TraitDeclaration>() != null))
                 return BindType(selfExpression, PrimitiveType.Unknown);
 
@@ -239,14 +237,13 @@ public sealed partial class TypeChecker
     ///     fallback a fully-defaulted method would type-check nowhere: not <c>foo.method()</c> on a
     ///     constructed value, and not <c>@.method()</c> from a sibling <c>implement</c> block.
     /// </summary>
-    private List<ObjectProperty> CollectEffectiveTraitProperties(IEnumerable<Implement> implementations)
+    private List<ObjectProperty> CollectEffectiveTraitProperties(IReadOnlyCollection<Implement> implementations)
     {
-        var implementationList = implementations as IReadOnlyCollection<Implement> ?? implementations.ToList();
         var effective = new Dictionary<string, ObjectProperty>();
-        foreach (var declaration in implementationList.SelectMany(i => i.Body.Implementations))
+        foreach (var declaration in implementations.SelectMany(i => i.Body.Implementations))
             effective[declaration.Name.Text] = new ObjectProperty(false, declaration.Name.Text, _semanticModel.GetType(declaration));
 
-        foreach (var implement in implementationList)
+        foreach (var implement in implementations)
         {
             if (_semanticModel.GetSymbol(implement.TraitName, SymbolKind.Trait) is not TraitSymbol traitSymbol
                 || traitSymbol.Defaults.Count == 0)
