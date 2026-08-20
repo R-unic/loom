@@ -405,10 +405,26 @@ public sealed class DocumentStore
             return unit;
 
         config.NoEmit = true;
-        unit = new CompilationUnit(config);
+        unit = CreateUnit(config);
         _results[unit] = unit.Compile();
         _unitsByProjectRoot[config.ProjectDirectory] = unit;
         return unit;
+    }
+
+    /// <summary>
+    ///     The unit for a project the editor opened a file in, spanning the packages its lock file pins so a symbol
+    ///     imported from one resolves the way it does in a build.
+    /// </summary>
+    /// <remarks>
+    ///     A project whose dependencies cannot be loaded — no lock file yet, a dependency not installed — still gets
+    ///     a unit over its own files. An editor is used while a project is being put together, and answering nothing
+    ///     about the file on screen is worse than answering it without its packages; the unresolved imports are
+    ///     reported as the diagnostics they already are.
+    /// </remarks>
+    private static CompilationUnit CreateUnit(LoomConfig config)
+    {
+        var roots = ProjectLoader.Load(config, out _);
+        return roots == null ? new CompilationUnit(config) : new CompilationUnit(roots);
     }
 
     private static string? PathOf(DocumentUri uri)

@@ -68,7 +68,11 @@ internal static class Scaffolder
         }
 
         File.WriteAllText(Path.Combine(sourceDirectory, "main.loom"), StarterSource(projectType));
-        File.WriteAllText(Path.Combine(projectDirectory, ".gitignore"), "dist/" + Environment.NewLine);
+        // packages are installed by a package manager and pinned by loom-lock.toml, which is committed instead
+        File.WriteAllText(
+            Path.Combine(projectDirectory, ".gitignore"),
+            "dist/" + Environment.NewLine + FilesConfig.PackagesDirectoryName + "/" + Environment.NewLine
+        );
         Log.Info($"Wrote {string.Join(", ", filesWritten.SkipLast(1).Select(colorFileName))}, and {colorFileName(filesWritten.Last())}.");
 
         return;

@@ -6,7 +6,7 @@ namespace Loom.Config;
 ///     Identity of a Loom package: an optional scope and a name, written <c>scope/name</c> or <c>name</c>.
 ///     Comparison is case-insensitive, since a package name doubles as a path segment on disk.
 /// </summary>
-public sealed class PackageName : IEquatable<PackageName>
+public sealed class PackageName : IEquatable<PackageName>, IComparable<PackageName>
 {
     public const int MaximumSegmentLength = 64;
 
@@ -61,6 +61,19 @@ public sealed class PackageName : IEquatable<PackageName>
         packageName = new PackageName(scope, name);
         error = null;
         return true;
+    }
+
+    /// <summary>
+    ///     Orders names the way they are compared, so a file listing packages — a lock file — can be written in one
+    ///     order whoever writes it. An unscoped name sorts before every scoped one.
+    /// </summary>
+    public int CompareTo(PackageName? other)
+    {
+        if (other == null)
+            return 1;
+
+        var scope = string.Compare(Scope, other.Scope, StringComparison.OrdinalIgnoreCase);
+        return scope != 0 ? scope : string.Compare(Name, other.Name, StringComparison.OrdinalIgnoreCase);
     }
 
     public bool Equals(PackageName? other) =>

@@ -1,8 +1,10 @@
+using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using Version = Loom.Config.Version;
 
 namespace Loom.Testing;
 
@@ -31,6 +33,76 @@ public class DocumentStoreTest
         {
             Directory.Delete(directory, true);
         }
+    }
+
+    /// <remarks>
+    ///     An editor has to see what a build sees: the unit spans the packages the lock file pins, so a symbol
+    ///     imported from one resolves rather than coming back unknown.
+    /// </remarks>
+    [Fact]
+    public void Open_SpansThePackagesTheLockFilePins()
+    {
+        var directory = WritePackagedProject(writeLock: true);
+        try
+        {
+            var path = Path.Combine(directory, "src", "main.loom");
+            var result = new DocumentStore().Open(DocumentUri.FromFileSystemPath(path), File.ReadAllText(path));
+
+            Assert.NotNull(result);
+            Utility.AssertNoErrors(result);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    /// <remarks>
+    ///     A project half-way through being set up still gets answers about the file on screen: the import is
+    ///     reported as unresolved, which it is, rather than the editor answering nothing at all.
+    /// </remarks>
+    [Fact]
+    public void Open_AProjectWithNoLockFile_StillCompilesItsOwnFiles()
+    {
+        var directory = WritePackagedProject(writeLock: false);
+        try
+        {
+            var path = Path.Combine(directory, "src", "main.loom");
+            var result = new DocumentStore().Open(DocumentUri.FromFileSystemPath(path), File.ReadAllText(path));
+
+            Assert.NotNull(result);
+            Utility.AssertDiagnostic(result.Diagnostics, InternalCodes.PackageNotFound, "Cannot find package 'math'.");
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    /// <summary>A project with one package installed the way a package manager leaves it, optionally locked.</summary>
+    private static string WritePackagedProject(bool writeLock)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
+        var packageDirectory = Path.Combine(directory, "packages", "math");
+        Directory.CreateDirectory(Path.Combine(directory, "src"));
+        Directory.CreateDirectory(Path.Combine(packageDirectory, "src"));
+
+        File.WriteAllText(
+            Path.Combine(directory, "loom-config.toml"),
+            "[dependencies]\nmath = \"^1.0\"\n[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n"
+        );
+
+        File.WriteAllText(
+            Path.Combine(packageDirectory, "loom-config.toml"),
+            "project_type = \"library\"\n[package]\nname = \"math\"\nversion = \"1.0.0\"\n[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n"
+        );
+
+        File.WriteAllText(Path.Combine(packageDirectory, "src", "init.loom"), "export let pi = 3;");
+        File.WriteAllText(Path.Combine(directory, "src", "main.loom"), "import { pi } from \"math\";\nlet x: number = pi;");
+        if (writeLock)
+            new LockFile([new LockedPackage(PackageName.Parse("math"), Version.Parse("1.0.0"))]).WriteTo(directory);
+
+        return directory;
     }
 
     [Fact]
