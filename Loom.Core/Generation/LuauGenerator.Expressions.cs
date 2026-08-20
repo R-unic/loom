@@ -767,20 +767,32 @@ public sealed partial class LuauGenerator
             );
         }
 
-        var metaNames = interfaceSymbol.Implementations.ConvertAll(LuauExpression (i) => new Luau.AST.Identifier(GetImplementationMetaName(i)));
-        LuauExpression meta;
-        if (metaNames.Count == 1)
-        {
-            meta = metaNames[0];
-        }
-        else
-        {
-            _semanticModel.RuntimeReferences += 1;
-            meta = LuauFactory.RuntimeLibraryCall(["merge_meta"], metaNames);
-        }
+        LuauExpression meta = interfaceSymbol.Implementations.Count == 1
+            ? new Luau.AST.Identifier(GetImplementationMetaName(interfaceSymbol.Implementations[0]))
+            : GetMergedMetatable(interfaceSymbol);
 
         var call = LuauFactory.SetMetatableCall(table, meta);
         return new TypeCast(call, new Luau.AST.TypeName(typeName));
+    }
+
+    /// <summary>
+    ///     Reuses the merged metatable <see cref="EmitMergedMetatableOnceComplete" /> already built as a
+    ///     top-level local, shared by every construction site of a multi-trait interface instead of each
+    ///     calling <c>Loom.merge_meta</c> (a fresh closure and table) for itself. The pre-pass behind <see
+    ///     cref="_multiTraitInterfacesConstructed" /> guarantees this exists by the time any LEGALLY placed
+    ///     construction site is reached; the only way to miss it is the ConstructedBeforeImplement case just
+    ///     diagnosed above, where the interface's own trait tables are not fully declared yet either - so
+    ///     falling back to an inline (unshared) merge there keeps the tree well-formed without pretending
+    ///     the already-reported error away.
+    /// </summary>
+    private LuauExpression GetMergedMetatable(InterfaceSymbol interfaceSymbol)
+    {
+        if (_mergedMetatables.TryGetValue(interfaceSymbol, out var existing))
+            return existing;
+
+        var metaNames = interfaceSymbol.Implementations.ConvertAll(LuauExpression (i) => new Luau.AST.Identifier(GetImplementationMetaName(i)));
+        _semanticModel.RuntimeReferences += 1;
+        return LuauFactory.RuntimeLibraryCall(["merge_meta"], metaNames);
     }
 
     private Table GenerateInterfaceInvocationBody(InterfaceInvocationBody interfaceInvocationBody, InterfaceSymbol interfaceSymbol)

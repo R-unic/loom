@@ -807,7 +807,7 @@ public class LuauGeneratorTest
             true
         );
 
-        Assert.Equal(12, luauTree.Statements.Count);
+        Assert.Equal(13, luauTree.Statements.Count);
 
         var interfaceAlias = Assert.IsType<TypeAlias>(luauTree.Statements[2]);
         var intersection = Assert.IsType<IntersectionType>(interfaceAlias.Type);
@@ -818,13 +818,101 @@ public class LuauGeneratorTest
         Assert.Equal("Display_for_Container", Assert.IsType<LocalVariable>(luauTree.Statements[3]).Name);
         Assert.Equal("Serialize_for_Container", Assert.IsType<LocalVariable>(luauTree.Statements[7]).Name);
 
-        var variable = Assert.IsType<ConstVariable>(luauTree.Statements[11]);
-        var cast = Assert.IsType<TypeCast>(variable.Initializer);
-        var setmetatableCall = Assert.IsType<Call>(cast.Expression);
-        var mergeCall = Assert.IsType<Call>(setmetatableCall.Arguments[1]);
+        // the merged metatable is computed once, right after both trait tables it merges are in scope -
+        // not re-computed at every construction site.
+        var mergedLocal = Assert.IsType<LocalVariable>(luauTree.Statements[11]);
+        Assert.Equal("Container_meta", mergedLocal.Name);
+        var mergeCall = Assert.IsType<Call>(mergedLocal.Initializer);
         Assert.Equal(2, mergeCall.Arguments.Count);
         Assert.Equal("Display_for_Container", Assert.IsType<Identifier>(mergeCall.Arguments[0]).Name);
         Assert.Equal("Serialize_for_Container", Assert.IsType<Identifier>(mergeCall.Arguments[1]).Name);
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements[12]);
+        var cast = Assert.IsType<TypeCast>(variable.Initializer);
+        var setmetatableCall = Assert.IsType<Call>(cast.Expression);
+        Assert.Equal("Container_meta", Assert.IsType<Identifier>(setmetatableCall.Arguments[1]).Name);
+    }
+
+    [Fact]
+    public void Generates_MergedMetatable_SharedAcrossMultipleConstructionSites_NotRecomputedPerSite()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            trait Display { fn display(): void }
+            trait Serialize { fn serialize(): string }
+
+            interface Container { value: number }
+
+            implement Display for Container {
+                fn display() -> print(value);
+            }
+
+            implement Serialize for Container {
+                fn serialize() -> string(value);
+            }
+
+            let first = new Container { value: 1 };
+            let second = new Container { value: 2 };
+            let third = first with { value: 3 };
+            """,
+            true
+        );
+
+        var mergeCalls = luauTree.Statements.OfType<LocalVariable>().Where(v => v.Initializer is Call { Callee: PropertyAccess { Names: ["merge_meta"] } }).ToList();
+        Assert.Single(mergeCalls);
+
+        var constructions = luauTree.Statements.OfType<ConstVariable>().Where(v => v.Initializer is TypeCast).ToList();
+        Assert.Equal(3, constructions.Count);
+        foreach (var construction in constructions)
+        {
+            var cast = Assert.IsType<TypeCast>(construction.Initializer);
+            var setmetatableCall = Assert.IsType<Call>(cast.Expression);
+            Assert.Equal(mergeCalls[0].Name, Assert.IsType<Identifier>(setmetatableCall.Arguments[1]).Name);
+        }
+    }
+
+    /// <summary>
+    ///     A shared merged metatable must be a TOP-LEVEL local, never one built lazily inside whichever
+    ///     function body happens to construct the interface first - two sibling functions each constructing
+    ///     the same multi-trait interface must both see (and both reference) the exact same local, since a
+    ///     local declared inside one function's body would be out of scope, and therefore an undeclared
+    ///     global, from inside the other.
+    /// </summary>
+    [Fact]
+    public void Generates_MergedMetatable_AtTopLevel_VisibleAcrossSiblingFunctionBodies()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            trait Display { fn display(): void }
+            trait Serialize { fn serialize(): string }
+
+            interface Container { value: number }
+
+            implement Display for Container {
+                fn display() -> print(value);
+            }
+
+            implement Serialize for Container {
+                fn serialize() -> string(value);
+            }
+
+            fn make_one(): Container -> new Container { value: 1 };
+            fn make_two(): Container -> new Container { value: 2 };
+            """,
+            true
+        );
+
+        var mergedLocal = Assert.Single(luauTree.Statements.OfType<LocalVariable>(), v => v.Initializer is Call { Callee: PropertyAccess { Names: ["merge_meta"] } });
+
+        var functions = luauTree.Statements.OfType<Function>().Where(f => f.Name is "make_one" or "make_two").ToList();
+        Assert.Equal(2, functions.Count);
+        foreach (var function in functions)
+        {
+            var @return = Assert.IsType<Return>(Assert.Single(function.Body.Statements));
+            var cast = Assert.IsType<TypeCast>(@return.Expression);
+            var setmetatableCall = Assert.IsType<Call>(cast.Expression);
+            Assert.Equal(mergedLocal.Name, Assert.IsType<Identifier>(setmetatableCall.Arguments[1]).Name);
+        }
     }
 
     [Fact]

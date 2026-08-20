@@ -68,7 +68,33 @@ public sealed partial class LuauGenerator
                 );
         }
 
+        EmitMergedMetatableOnceComplete(implement);
         return variable;
+    }
+
+    /// <summary>
+    ///     Builds the one shared metatable an actually-constructed multi-trait interface's construction
+    ///     sites all reuse, right after every trait table it merges is a declared local - which happens
+    ///     exactly when this 'implement' block turns out to be the last of its interface's to generate.
+    ///     Emitted as a postreq of THIS statement, alongside the trait tables it merges, so it is visible
+    ///     everywhere they already are - which for an ordinary (module-scope) 'implement' block means every
+    ///     construction site in the file, unlike a merge built lazily at the first construction site
+    ///     reached, which could sit inside one function and be invisible to a sibling's.
+    /// </summary>
+    private void EmitMergedMetatableOnceComplete(Implement implement)
+    {
+        if (_semanticModel.GetSymbol(implement.InterfaceName, SymbolKind.Interface) is not InterfaceSymbol interfaceSymbol
+            || !_multiTraitInterfacesConstructed.Contains(interfaceSymbol)
+            || !interfaceSymbol.Implementations.TrueForAll(_generatedImplements.Contains))
+        {
+            return;
+        }
+
+        var metaNames = interfaceSymbol.Implementations.ConvertAll(LuauExpression (i) => new Identifier(GetImplementationMetaName(i)));
+        _semanticModel.RuntimeReferences += 1;
+        var mergedName = _state.Scope.AddIdentifier($"{implement.InterfaceName.Name.Text}_meta");
+        _state.Postreq(new LocalVariable(mergedName, null, LuauFactory.RuntimeLibraryCall(["merge_meta"], metaNames)));
+        _mergedMetatables[interfaceSymbol] = new Identifier(mergedName);
     }
 
     /// <summary>
@@ -299,6 +325,29 @@ public sealed partial class LuauGenerator
             usage |= SerializationUsage.Serialize;
 
         return usage;
+    }
+
+    /// <summary>
+    ///     Scans every 'new X { ... }'/'x with { ... }' in the file before the main tree walk starts, so
+    ///     <see cref="VisitImplement" /> knows - before it ever reaches one - which multi-trait interfaces
+    ///     need a shared merged metatable built. See <see cref="_multiTraitInterfacesConstructed" /> for why
+    ///     this cannot be decided lazily at the first construction site instead.
+    /// </summary>
+    private void CollectMultiTraitConstructions()
+    {
+        foreach (var node in _semanticModel.Tree.EnumerateDescendants())
+        {
+            InterfaceSymbol? interfaceSymbol = node switch
+            {
+                InterfaceInvocation invocation => _semanticModel.GetSymbol(invocation.Name, SymbolKind.Interface) as InterfaceSymbol,
+                WithOperator withOperator when _semanticModel.GetType(withOperator.Expression) is InterfaceType interfaceType =>
+                    _semanticModel.FindTypeDeclaration(interfaceType.Name) as InterfaceSymbol,
+                _ => null
+            };
+
+            if (interfaceSymbol is { Implementations.Count: > 1 })
+                _multiTraitInterfacesConstructed.Add(interfaceSymbol);
+        }
     }
 
     /// <summary>

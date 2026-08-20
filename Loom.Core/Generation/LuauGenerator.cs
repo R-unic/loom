@@ -41,6 +41,32 @@ public sealed partial class LuauGenerator
     ///     <c>local X_for_Y = {}</c> runs, silently resolving to a global 'nil'.
     /// </summary>
     private readonly HashSet<Implement> _generatedImplements = [];
+
+    /// <summary>
+    ///     Every multi-trait interface actually constructed somewhere in this file ('new X { ... }' or
+    ///     'x with { ... }'), determined by <see cref="CollectMultiTraitConstructions" /> before the main
+    ///     tree walk starts. A construction site may legally sit inside a function body nested arbitrarily
+    ///     deep, so <see cref="VisitImplement" /> cannot decide lazily, at the first site it happens to
+    ///     reach, whether to build a shared metatable local - that site's own enclosing scope might not be
+    ///     where its interface's own 'implement' block(s) live, and a local declared there would be invisible
+    ///     to a sibling function's own construction site. Knowing the full set up front lets the merged
+    ///     local be emitted once, right where its interface's own trait tables already are (a postreq of
+    ///     whichever 'implement' block is the last of its interface's to generate) - ordinarily the file's
+    ///     top level, and in every ordinary program visible everywhere a construction site could legally be.
+    ///     (An 'implement' block nested inside a function body is a pre-existing, separate gap - nothing
+    ///     currently stops one from being written there, and its trait table already suffers this same
+    ///     visibility problem with or without a merge; this optimization does not introduce it.)
+    /// </summary>
+    private readonly HashSet<InterfaceSymbol> _multiTraitInterfacesConstructed = [];
+
+    /// <summary>
+    ///     One shared merged metatable per multi-trait interface actually constructed (see <see
+    ///     cref="_multiTraitInterfacesConstructed" />), built once as a top-level local right after that
+    ///     interface's last 'implement' block generates, and reused by every construction site instead of
+    ///     each calling <c>Loom.merge_meta</c> (fresh closure + table) for itself.
+    /// </summary>
+    private readonly Dictionary<InterfaceSymbol, Identifier> _mergedMetatables = [];
+
     private readonly Lazy<HashSet<(EventTarget Target, Symbol Function)>> _localSafeConnections;
 
     private readonly ArrayPipeline _arrayPipeline;
@@ -73,6 +99,7 @@ public sealed partial class LuauGenerator
         _serializerStatements.Clear();
         var moduleImports = _moduleGenerator.GenerateImports();
         CollectSerializationUsage();
+        CollectMultiTraitConstructions();
 
         var luauTree = VisitTree(_semanticModel.Tree);
         foreach (var mapType in _semanticModel.SerializerMaps)

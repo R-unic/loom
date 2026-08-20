@@ -24,8 +24,9 @@ const function Hash_hash_default(self: unknown): number
   return Loom.deep_hash(self)
 end
 Hash_for_User.hash = Hash_hash_default
-const a = setmetatable({ name = "Poppy", age = 31 }, Loom.merge_meta(Display_for_User, Eq_for_User, Hash_for_User)) :: User
-const b = setmetatable({ name = "Poppy", age = 31 }, Loom.merge_meta(Display_for_User, Eq_for_User, Hash_for_User)) :: User
+local User_meta = Loom.merge_meta(Display_for_User, Eq_for_User, Hash_for_User)
+const a = setmetatable({ name = "Poppy", age = 31 }, User_meta) :: User
+const b = setmetatable({ name = "Poppy", age = 31 }, User_meta) :: User
 print(a:to_string())
 print(a:equals(b))
 print(a:hash())

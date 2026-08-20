@@ -16,7 +16,8 @@ const function Eq_equals_default(self: unknown, other: unknown): boolean
   return Loom.deep_equal(self, other)
 end
 Eq_for_User.equals = Eq_equals_default
-const a = setmetatable({ name = "Poppy", age = 31 }, Loom.merge_meta(Display_for_User, Eq_for_User)) :: User
-const b = setmetatable({ name = "Rose", age = 20 }, Loom.merge_meta(Display_for_User, Eq_for_User)) :: User
+local User_meta = Loom.merge_meta(Display_for_User, Eq_for_User)
+const a = setmetatable({ name = "Poppy", age = 31 }, User_meta) :: User
+const b = setmetatable({ name = "Rose", age = 20 }, User_meta) :: User
 print(a:to_string())
 print(a:equals(b))
