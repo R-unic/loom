@@ -62,7 +62,12 @@ before claiming done.
 - `Loom.Luau/` — Luau output AST + renderer (`LuauFactory`, `RenderState`, `AST/`)
 - `Loom.Config/` — `loom-config.toml` reader (Tomlyn). `ProjectType` (default `game`), `Debug` (default `false`, for emitting debug diagnostics) `FilesConfig`:
   `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`). Package identity lives here too: `[package]` (`PackageConfig`, with `PackageName` and
-  semver `Version` value types, plus `Realm`), `[dependencies]` (`Dependency`), `[registry]` (`RegistryConfig`). `[realms]` maps a directory under the source
+  semver `Version` value types, plus `Realm`), `[dependencies]` (`Dependency`), `[registry]` (`RegistryConfig`). A dependency's requirement is
+  parsed into a `VersionRequirement` while reading, not left as text: every clause form (`^1.2`, `~1.2.3`, `>=1.4, <2`, `*`) names an interval and
+  comma-separated clauses intersect, so a requirement *is* one interval — which is what makes `Satisfies` a predicate over an index's published
+  versions and `Intersect` closed, the two questions resolution is made of. Emptiness is never represented: an unsatisfiable requirement is rejected at
+  parse, and disagreeing requirements come back from `Intersect` as `null`. A pre-release satisfies a requirement only when one of its bounds names a
+  pre-release of the same `major.minor.patch`, so `>=1.2.0` does not quietly pick up `1.3.0-beta.1`. `[realms]` maps a directory under the source
   directory to `shared`/`client`/`server`; `SourceRoot.RealmOf` answers with the *longest* directory naming a file, so a realm declared inside another narrows
   it rather than being shadowed, and a project declaring none has one realm and no boundary to cross. `ConfigReader` never throws on a manifest
   problem — malformed manifests come back as `null` plus `ConfigDiagnostic`s out of `LocateFromDirectory`. `[files]` directories are validated there too

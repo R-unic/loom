@@ -1,10 +1,9 @@
-using System.Text.RegularExpressions;
 using Tomlyn;
 using Tomlyn.Model;
 
 namespace Loom.Config;
 
-public static partial class ConfigReader
+public static class ConfigReader
 {
     public const string ConfigFileName = "loom-config.toml";
     private const int EditionLength = 4;
@@ -271,9 +270,9 @@ public static partial class ConfigReader
     {
         return source switch
         {
-            string requirement => IsVersionRequirement(requirement)
-                ? new Dependency(name, requirement)
-                : reject(name, $"invalid version requirement '{requirement}'; expected something like \"^1.2\" or \">=0.4.0\"."),
+            string requirement => VersionRequirement.TryParse(requirement, out var parsed, out var requirementError)
+                ? new Dependency(name, parsed)
+                : reject(name, $"invalid version requirement '{requirement}': {requirementError}"),
             TomlTable table => ReadDependencyTable(name, table, diagnostics),
             _ => reject(name, $"must be a version requirement string or a table with a '{VersionKey}' key.")
         };
@@ -302,27 +301,16 @@ public static partial class ConfigReader
                 diagnostics.Add(new ConfigDiagnostic($"dependency '{name}' has a non-boolean '{DevelopmentKey}'."));
         }
 
+        VersionRequirement? version = null;
         if (!table.TryGetValue(VersionKey, out var requirement))
             diagnostics.Add(new ConfigDiagnostic($"dependency '{name}' must specify a '{VersionKey}' requirement."));
         else if (requirement is not string text)
             diagnostics.Add(new ConfigDiagnostic($"dependency '{name}' must have a version requirement written as a string, e.g. \"^1.2\"."));
-        else if (!IsVersionRequirement(text))
-            diagnostics.Add(new ConfigDiagnostic($"dependency '{name}' has an invalid version requirement '{text}'; expected something like \"^1.2\"."));
-        else if (diagnostics.Count == reported)
-            return new Dependency(name, text, isDevelopmentOnly);
+        else if (!VersionRequirement.TryParse(text, out version, out var error))
+            diagnostics.Add(new ConfigDiagnostic($"dependency '{name}' has an invalid version requirement '{text}': {error}"));
 
-        return null;
+        return version != null && diagnostics.Count == reported ? new Dependency(name, version, isDevelopmentOnly) : null;
     }
-
-    /// <summary>
-    ///     Shape-checks a requirement: comma-separated clauses, each an optional comparator followed by a partial
-    ///     version, or <c>*</c> for any version. Interpreting the comparators is left to the package manager.
-    /// </summary>
-    private static bool IsVersionRequirement(string requirement) =>
-        requirement.Length > 0 && requirement.Split(',').All(clause => RequirementClause().IsMatch(clause));
-
-    [GeneratedRegex(@"^\s*(?:\*|(?:\^|~|>=|<=|>|<|=)?\s*\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?)\s*$")]
-    private static partial Regex RequirementClause();
 
     private static bool IsEdition(string edition) => edition.Length == EditionLength && edition.All(char.IsAsciiDigit);
 

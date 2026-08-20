@@ -141,12 +141,12 @@ public class ConfigReaderTest
         Assert.Equal(2, config.Dependencies.Count);
         var serio = config.Dependencies[PackageName.Parse("serio")];
         Assert.Equal(PackageName.Parse("serio"), serio.Name);
-        Assert.Equal("^1.2", serio.VersionRequirement);
+        Assert.Equal("^1.2", serio.VersionRequirement.ToString());
         Assert.False(serio.IsDevelopmentOnly);
 
         var runit = config.Dependencies[PackageName.Parse("runit")];
         Assert.Equal(PackageName.Parse("runit"), runit.Name);
-        Assert.Equal("^0.4", runit.VersionRequirement);
+        Assert.Equal("^0.4", runit.VersionRequirement.ToString());
         Assert.True(runit.IsDevelopmentOnly);
 
         Assert.NotNull(config.Registry);
@@ -205,7 +205,7 @@ public class ConfigReaderTest
     {
         var config = ReadValid("[dependencies.serio]\nversion = \">=1.2.0\"\n");
 
-        Assert.Equal(">=1.2.0", config.Dependencies[PackageName.Parse("serio")].VersionRequirement);
+        Assert.Equal(VersionRequirement.Parse(">=1.2.0"), config.Dependencies[PackageName.Parse("serio")].VersionRequirement);
         Assert.False(config.Dependencies[PackageName.Parse("serio")].IsDevelopmentOnly);
     }
 
@@ -222,7 +222,7 @@ public class ConfigReaderTest
     public void Dependencies_AcceptsVersionRequirementForms(string requirement)
     {
         var config = ReadValid($"[dependencies]\nserio = \"{requirement}\"\n");
-        Assert.Equal(requirement, config.Dependencies[PackageName.Parse("serio")].VersionRequirement);
+        Assert.Equal(requirement, config.Dependencies[PackageName.Parse("serio")].VersionRequirement.ToString());
     }
 
     [Theory]
