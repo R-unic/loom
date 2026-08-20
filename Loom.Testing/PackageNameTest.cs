@@ -121,4 +121,32 @@ public class PackageNameTest
         var names = new Dictionary<PackageName, int> { [PackageName.Parse("alternativelua/tether")] = 1 };
         Assert.Equal(1, names[PackageName.Parse("AlternativeLua/tether")]);
     }
+
+    /// <remarks>
+    ///     Ordering exists so a file listing packages - a lock file - is written the same way whoever writes it.
+    /// </remarks>
+    [Fact]
+    public void CompareTo_OrdersUnscopedNamesBeforeScopedOnes()
+    {
+        var names = new[]
+        {
+            PackageName.Parse("alternativelua/tether"),
+            PackageName.Parse("serio"),
+            PackageName.Parse("AlternativeLua/serio"),
+            PackageName.Parse("runit")
+        };
+
+        Assert.Equal(
+            ["runit", "serio", "AlternativeLua/serio", "alternativelua/tether"],
+            names.Order().Select(name => name.ToString())
+        );
+    }
+
+    [Fact]
+    public void CompareTo_IgnoresCaseAndOrdersEqualNamesTogether()
+    {
+        Assert.Equal(0, PackageName.Parse("AlternativeLua/Tether").CompareTo(PackageName.Parse("alternativelua/tether")));
+        Assert.True(PackageName.Parse("runit").CompareTo(PackageName.Parse("Serio")) < 0);
+        Assert.True(PackageName.Parse("serio").CompareTo(null) > 0);
+    }
 }

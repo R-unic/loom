@@ -72,7 +72,12 @@ before claiming done.
   it rather than being shadowed, and a project declaring none has one realm and no boundary to cross. `ConfigReader` never throws on a manifest
   problem — malformed manifests come back as `null` plus `ConfigDiagnostic`s out of `LocateFromDirectory`. `[files]` directories are validated there too
   (non-empty, relative, path-legal), since nothing downstream can report one that isn't: they are resolved as real paths and a stage throwing is the
-  compiler-bug path
+  compiler-bug path. `loom-lock.toml` is the other half of that contract: the manifest says which versions are *acceptable*, the lock (`LockFile`,
+  `LockedPackage`, read by `LockFileReader` the same never-throwing way) says which ones were *chosen* — one `[[package]]` per package, plus the
+  `dependencies` naming the rest, so a lock is the resolved graph and `LockFileReader` can reject one that is not closed. It carries no paths: a lock is
+  committed and read again on another machine, so where a package landed stays the package manager's answer (`DependencyResolver`'s `packageDirectories`)
+  while *which version* is the lock's. `ToToml` is deterministic (ordered entries, fixed key order, `\n`) because two machines have to write the same
+  bytes, and `Satisfies(LoomConfig)` is how a package manager asks whether the lock still covers the manifest instead of re-resolving
 - `Loom.CLI/` — entry point; locates config, compiles unit, prints debug info. `Include/loom_runtime.luau` = runtime support emitted alongside output
 - `Loom.LanguageServer/` — LSP server (OmniSharp). One handler per request, all registered in `Program.cs`, all answering off the `DocumentStore`:
   it keeps one `CompilationUnit` per project root and recompiles the open file on every change. The pieces the handlers share:
@@ -175,5 +180,7 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - `Loom.TypeGenerator` generates intrinsic types from the Roblox API that the test suite relies on to pass. The intrinsics are stored in
   `Loom.Core/TypeChecking/Intrinsics`.
 - A Tomlyn `TomlConverter` may only read a *scalar* value. One that consumes a table (inline or not) desynchronizes the reader and silently swallows the
-  table that follows it — which is why `[dependencies]` binds as `Dictionary<string, object>` and is read in `ConfigReader` instead of by a converter.
+  table that follows it — which is why `[dependencies]` binds as `Dictionary<string, object>` and is read in `ConfigReader` instead of by a converter. Its
+  typed deserializer also *ignores* a key it has no property for, so a table whose unknown keys have to be reported — `[dependencies]`, a lock file's
+  `[[package]]` — is bound raw and read by hand for that reason too.
 - PRs target `master`; open an issue before writing code (CONTRIBUTING.md).
