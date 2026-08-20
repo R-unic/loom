@@ -133,6 +133,36 @@ public class CompilerTest
         Assert.Equal("this is a compiler bug! please report an issue.", compilerError.Hint);
     }
 
+    /// <remarks>
+    ///     'implement' outside module scope is a plain user error (see ResolverTest's
+    ///     ThrowsFor_ImplementOutsideModuleScope), not a compiler bug - the resolver reports it and stops
+    ///     resolving that block, which leaves its trait/interface names unresolved for every later stage.
+    ///     TypeChecker.VisitImplement has to tolerate that gracefully rather than assume a FunctionType it
+    ///     was never given, or this would misreport as "the compiler threw an exception" instead.
+    /// </remarks>
+    [Fact]
+    public void Reports_ImplementOutsideModuleScope_WithoutFallingBackToCompilerError()
+    {
+        var config = new LoomConfig();
+        var compiler = new Compiler(new CompilationUnit(config), Utility.TestFile(
+            """
+            trait Foo { fn a(): void }
+            interface Bar { }
+
+            fn f() {
+                implement Foo for Bar {
+                    fn a() { }
+                }
+            }
+            """
+        ));
+
+        compiler.Compile();
+
+        Assert.DoesNotContain(compiler.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.CompilerError);
+        Assert.Contains(compiler.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.ImplementOutsideModuleScope);
+    }
+
     private static ParsedFile Parse(string source)
     {
         var compilationUnit = new CompilationUnit(new LoomConfig());

@@ -153,6 +153,7 @@ public static class InternalCodes
     public const string InvalidWithOperand = "L429";
     public const string AmbiguousTraitDefault = "L430";
     public const string ConstructedBeforeImplement = "L431";
+    public const string ImplementOutsideModuleScope = "L432";
 
     public const string SimplifiableCode = "L500";
 }

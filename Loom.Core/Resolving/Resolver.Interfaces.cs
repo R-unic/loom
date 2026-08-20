@@ -9,6 +9,18 @@ public sealed partial class Resolver
 {
     public override bool VisitImplement(Implement implement)
     {
+        if (!AtModuleScope())
+        {
+            _diagnostics.Error(
+                implement,
+                InternalCodes.ImplementOutsideModuleScope,
+                "Traits can only be implemented at the top level of a module.",
+                "move the 'implement' block out of the enclosing block"
+            );
+
+            return false;
+        }
+
         var traitNameSymbol = LookupTypeSymbol(implement.TraitName.Name.Text);
         if (traitNameSymbol is not TraitSymbol traitSymbol)
         {

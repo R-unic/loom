@@ -738,6 +738,30 @@ public class ResolverTest
             )
         );
 
+    [Fact]
+    public void ThrowsFor_ImplementOutsideModuleScope()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            trait Foo { fn a(): void }
+            interface Bar { }
+
+            fn f() {
+                implement Foo for Bar {
+                    fn a() { }
+                }
+            }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.ImplementOutsideModuleScope,
+            "Traits can only be implemented at the top level of a module.",
+            "move the 'implement' block out of the enclosing block"
+        );
+    }
+
     [Theory]
     [InlineData("deep_equal")]
     [InlineData("deep_hash")]

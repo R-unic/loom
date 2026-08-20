@@ -21,7 +21,13 @@ public sealed partial class TypeChecker
         var interfaceType = Visit(implement.InterfaceName);
         foreach (var declaration in implement.Body.Implementations)
         {
-            var declarationType = (FunctionType)GetTypeAtIndex(declaration, traitType, new LiteralType(declaration.Name.Text));
+            // not a FunctionType only when the trait/interface name itself failed to resolve (the
+            // resolver already reported why - most commonly ImplementOutsideModuleScope - and
+            // GetTypeAtIndex has already reported its own diagnostic for indexing into the fallback
+            // type that leaves); nothing left here can be checked safely against a made-up signature
+            if (GetTypeAtIndex(declaration, traitType, new LiteralType(declaration.Name.Text)) is not FunctionType declarationType)
+                continue;
+
             BindType(declaration, declarationType);
             MaybeVisit(declaration.TypeParameters);
 
