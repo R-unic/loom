@@ -23,7 +23,7 @@ internal sealed class IntrinsicGlobalInvocationMacroProvider : IMacroProvider
 
     public bool IsInvocationOnlyMember(string memberName) =>
         memberName is "string" or "number" or "new_instance" or "get_service" or "type_is" or "get_metadata" or "has_attribute" or "wait"
-            or "serialize_binary" or "deserialize_binary" or "serializer" or "serializer_of" or "diff_binary" or "apply_diff_binary";
+            or "serialize_binary" or "deserialize_binary" or "serializer" or "serializer_of" or "diff_binary" or "apply_diff_binary" or "deep_equal";
 
     public bool TryInvocation(
         MacroContext context,
@@ -63,6 +63,10 @@ internal sealed class IntrinsicGlobalInvocationMacroProvider : IMacroProvider
                 return true;
             case "type_is":
                 expression = new BinaryOperator(new Call(new Identifier("typeof"), [call.Arguments[0]]), "==", call.Arguments[1]);
+                return true;
+            case "deep_equal":
+                context.SemanticModel.RuntimeReferences += 1;
+                expression = LuauFactory.RuntimeLibraryCall(["deep_equal"], call.Arguments);
                 return true;
             case "get_metadata":
             {

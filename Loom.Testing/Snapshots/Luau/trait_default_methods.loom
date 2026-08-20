@@ -1,0 +1,16 @@
+trait Greeting {
+    fn greet(): string -> "Hello!";
+}
+
+interface A { }
+interface B { }
+
+implement Greeting for A { }
+implement Greeting for B {
+    fn greet(): string -> "Howdy!";
+}
+
+let a = new A { };
+let b = new B { };
+print(a.greet());
+print(b.greet());

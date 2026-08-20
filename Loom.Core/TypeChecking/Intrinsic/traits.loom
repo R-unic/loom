@@ -1,0 +1,15 @@
+## Structural traits every interface may pick up for free with 'implement', overriding only the
+## methods whose default isn't good enough.
+
+trait Display {
+    ### A human-readable representation of this value. The default is a placeholder - override it
+    ### with whatever actually describes the type.
+    fn to_string(): string -> "<object>";
+}
+
+trait Eq {
+    ### Whether this value and 'other' are the same: recursive, field-by-field structural equality,
+    ### not reference equality - two separately constructed values with identical fields are equal.
+    ### Override this where a shallower or field-specific comparison is wanted instead.
+    fn equals(other: unknown): bool -> deep_equal(@, other);
+}

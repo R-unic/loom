@@ -1,0 +1,4 @@
+trait Greeting {
+    fn greet(): string -> "hi";
+    fn name(): string;
+}

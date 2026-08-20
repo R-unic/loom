@@ -720,6 +720,31 @@ public class ResolverTest
     }
 
     [Fact]
+    public void Allows_Implement_OmittingMethodWithDefault() =>
+        Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                trait Foo {
+                    fn a(): void
+                    fn b(): void -> print("default");
+                }
+
+                interface Bar { }
+
+                implement Foo for Bar {
+                    fn a() { }
+                }
+                """
+            )
+        );
+
+    [Fact]
+    public void Allows_SelfExpression_InsideDefaultTraitMethodBody() =>
+        Utility.AssertNoErrors(
+            Utility.GetSemanticModel("trait Foo { fn a(): unknown -> @; }")
+        );
+
+    [Fact]
     public void ThrowsFor_IntrinsicImplementation()
     {
         var diagnostics = Utility.GetSemanticModel(

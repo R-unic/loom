@@ -73,6 +73,9 @@
         <EmbeddedResource Include="TypeChecking\Intrinsic\runtime.loom">
             <LogicalName>Intrinsic/runtime.loom</LogicalName>
         </EmbeddedResource>
+        <EmbeddedResource Include="TypeChecking\Intrinsic\traits.loom">
+            <LogicalName>Intrinsic/traits.loom</LogicalName>
+        </EmbeddedResource>
         <EmbeddedResource Include="TypeChecking\Intrinsic\generated\None.loom">
             <LogicalName>Intrinsic/generated/None.loom</LogicalName>
         </EmbeddedResource>

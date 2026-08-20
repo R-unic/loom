@@ -34,18 +34,28 @@ internal sealed class AmbientIntrinsics
     /// <summary>The type of each intrinsic declaration node, for <see cref="TypeChecking.TypeSolver" /> to fall back to.</summary>
     public Dictionary<NodeId, Type> Types { get; } = [];
 
+    /// <summary>
+    ///     What every node below an intrinsic file's own hand-written declarations resolves to - not just
+    ///     the declarations themselves - for <see cref="SemanticModel.GetSymbol" /> to fall back to. A
+    ///     defaulted trait method's body is real code a consuming file's own generator reads back out (see
+    ///     <see cref="Symbols.TraitSymbol.Defaults" /> and <see cref="Generation.LuauGenerator" />'s
+    ///     <c>GetOrCreateTraitDefault</c>), and any name or type it uses was only ever resolved by the
+    ///     intrinsic bootstrap's own <see cref="SemanticModel" />, never by the consuming file's.
+    /// </summary>
+    public SymbolTable References { get; } = [];
+
     /// <summary>Every intrinsic symbol, in no particular order.</summary>
     public IReadOnlyCollection<Symbol> Symbols { get; }
 
     private static readonly ConcurrentDictionary<ProjectType, Lazy<AmbientIntrinsics>> _cache = new();
 
     /// <summary>An empty set, for the intrinsic bootstrap itself - it has no intrinsics to resolve against.</summary>
-    public static readonly AmbientIntrinsics None = new([]);
+    public static readonly AmbientIntrinsics None = new(IntrinsicRegistration.Empty);
 
-    private AmbientIntrinsics(IReadOnlyCollection<(Symbol Symbol, Type Type)> intrinsics)
+    private AmbientIntrinsics(IntrinsicRegistration registration)
     {
-        var symbols = new List<Symbol>(intrinsics.Count);
-        foreach (var (symbol, type) in intrinsics)
+        var symbols = new List<Symbol>(registration.Symbols.Count);
+        foreach (var (symbol, type) in registration.Symbols)
         {
             symbols.Add(symbol);
             Scope.Declare(symbol);
@@ -59,19 +69,26 @@ internal sealed class AmbientIntrinsics
         }
 
         Symbols = symbols;
+
+        var (nodeReferences, nodeTypes) = registration.NodeBindings;
+        foreach (var (id, referenced) in nodeReferences)
+            References[id] = referenced;
+
+        foreach (var (id, type) in nodeTypes)
+            Types.TryAdd(id, type);
     }
 
     /// <inheritdoc cref="AmbientIntrinsics" />
     public static AmbientIntrinsics For(Pipeline.CompilationUnit unit)
     {
-        var intrinsics = Intrinsics.Register(unit);
-        if (intrinsics.Count == 0)
+        var registration = Intrinsics.Register(unit);
+        if (registration.Symbols.Count == 0)
             return None;
 
         return _cache
             .GetOrAdd(
                 unit.Config.ProjectType,
-                _ => new Lazy<AmbientIntrinsics>(() => new AmbientIntrinsics(intrinsics), LazyThreadSafetyMode.ExecutionAndPublication)
+                _ => new Lazy<AmbientIntrinsics>(() => new AmbientIntrinsics(registration), LazyThreadSafetyMode.ExecutionAndPublication)
             )
             .Value;
     }

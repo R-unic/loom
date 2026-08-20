@@ -1782,6 +1782,61 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_SelfExpression_SeesDefaultedMethodFromOtherImplementedTrait()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Container { value: number }
+            trait Greeting { fn greet(): string -> "hi"; }
+            trait Announcer { fn announce(): void }
+
+            implement Greeting for Container { }
+            implement Announcer for Container {
+                fn announce -> print(@.greet());
+            }
+            """
+        );
+
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void Checks_ConstructedValue_HasDefaultedTraitMethod()
+    {
+        const string source = """
+            trait Greeting { fn greet(): string -> "hi"; }
+            interface Container { }
+            implement Greeting for Container { }
+            new Container { }.greet()
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+        Assert.True(Utility.GetLastStatementType(source).IsAssignableTo(PrimitiveType.String));
+    }
+
+    [Fact]
+    public void Checks_DefaultTraitMethod_SelfExpressionTypesAsUnknown()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("trait Foo { fn a(): void -> print(@); }");
+        Utility.AssertNoErrors(diagnostics);
+    }
+
+    [Fact]
+    public void ThrowsFor_DefaultTraitMethod_SelfExpressionMemberAccess()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            trait Foo {
+                fn bar(): void;
+                fn baz(): void -> @.bar();
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidAccess, "Cannot access property 'bar' on type 'unknown'.");
+    }
+
+    [Fact]
     public void ThrowsFor_Implement_DefaultValueWrongType()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(

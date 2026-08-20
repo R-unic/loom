@@ -1,0 +1,11 @@
+interface User { name: string, age: number }
+
+implement Display for User {
+    fn to_string(): string -> "User(" + @.name + ")";
+}
+implement Eq for User { }
+
+let a = new User { name: "Poppy", age: 31 };
+let b = new User { name: "Rose", age: 20 };
+print(a.to_string());
+print(a.equals(b));

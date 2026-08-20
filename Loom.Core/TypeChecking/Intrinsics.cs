@@ -7,6 +7,7 @@ using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 using IWithAttributes = Loom.Core.Parsing.AST.IWithAttributes;
+using NodeId = Loom.Core.Parsing.AST.NodeId;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Core.TypeChecking;
@@ -20,7 +21,7 @@ public static class Intrinsics
     private const string IntrinsicResourcePrefix = "Intrinsic/";
 
     [ThreadStatic] private static bool _isBootstrapping;
-    private static readonly ConcurrentDictionary<ProjectType, Lazy<HashSet<(Symbol, Type)>>> _cache = new();
+    private static readonly ConcurrentDictionary<ProjectType, Lazy<IntrinsicRegistration>> _cache = new();
     private static readonly Assembly _resourceAssembly = typeof(Intrinsics).Assembly;
 
     /// <remarks>
@@ -37,8 +38,8 @@ public static class Intrinsics
     ///         type map is <see cref="AmbientIntrinsics" />'s job, and it does it once for the whole project.
     ///     </para>
     /// </remarks>
-    public static HashSet<(Symbol, Type)> Register(CompilationUnit injectInto) =>
-        _isBootstrapping ? [] : _cache.GetOrAdd(injectInto.Config.ProjectType, CompileLazily).Value;
+    internal static IntrinsicRegistration Register(CompilationUnit injectInto) =>
+        _isBootstrapping ? IntrinsicRegistration.Empty : _cache.GetOrAdd(injectInto.Config.ProjectType, CompileLazily).Value;
 
     /// <remarks>
     ///     The <see cref="Lazy{T}" /> is what makes a project type compile exactly once, and it has to be
@@ -51,11 +52,11 @@ public static class Intrinsics
     ///     The bootstrap cannot deadlock on it, since <see cref="Register" /> returns above before ever
     ///     reaching the cache.
     /// </remarks>
-    private static Lazy<HashSet<(Symbol, Type)>> CompileLazily(ProjectType projectType) =>
+    private static Lazy<IntrinsicRegistration> CompileLazily(ProjectType projectType) =>
         new(() => CompileIntrinsics(projectType), LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <remarks>Only ever reached with <see cref="_isBootstrapping" /> clear - <see cref="Register" /> is the gate.</remarks>
-    private static HashSet<(Symbol, Type)> CompileIntrinsics(ProjectType projectType)
+    private static IntrinsicRegistration CompileIntrinsics(ProjectType projectType)
     {
         _isBootstrapping = true;
         try
@@ -84,12 +85,43 @@ public static class Intrinsics
                 if (!coreFiles.Contains(file) && compilationUnit.Compile(file) is { } compiledFile)
                     compiledFiles.Add(compiledFile);
 
-            return CollectDeclaredSymbols(compiledFiles);
+            return new IntrinsicRegistration(CollectDeclaredSymbols(compiledFiles), CollectNodeBindings(compiledFiles));
         }
         finally
         {
             _isBootstrapping = false;
         }
+    }
+
+    /// <summary>
+    ///     Every node's own symbol/type below every intrinsic file's own hand-written declarations (never
+    ///     the ~1,600-declaration generated Roblox files, which are signature-only and so have no bodies to
+    ///     bind) - a default trait method body is real code that can reference a name or use a type
+    ///     anywhere inside it, and <see cref="AmbientIntrinsics.Types" />/<see cref="AmbientIntrinsics.References" />
+    ///     otherwise only carry the type of each declaration's own top-level node. Without this, a defaulted
+    ///     method compiled once here and reused by every 'implement' site that doesn't override it (see
+    ///     <see cref="Generation.LuauGenerator.GetOrCreateTraitDefault" />) would resolve nothing below its
+    ///     own signature when a consuming file's own <see cref="Resolving.SemanticModel" /> - which never
+    ///     walked this node - tries to read it back out.
+    /// </summary>
+    private static (SymbolTable References, Dictionary<NodeId, Type> Types) CollectNodeBindings(IEnumerable<CompiledFile> compiledFiles)
+    {
+        var references = new SymbolTable();
+        var types = new Dictionary<NodeId, Type>();
+        foreach (var compiledFile in compiledFiles)
+        {
+            if (compiledFile.SourceFile.Name is NonPluginRuntimeFileName or PluginSecurityFileName) continue;
+
+            foreach (var node in compiledFile.Tree.EnumerateDescendants())
+            {
+                if (compiledFile.SemanticModel.GetSymbol(node) is { } symbol)
+                    references[node.Id] = [symbol];
+
+                types[node.Id] = compiledFile.SemanticModel.GetType(node);
+            }
+        }
+
+        return (references, types);
     }
 
     /// <summary>
@@ -183,4 +215,18 @@ public static class Intrinsics
 
         return (int)flagsValue;
     }
+}
+
+/// <summary>
+///     What one project type's intrinsic bootstrap produces: <paramref name="Symbols" /> is the ambient
+///     name set <see cref="AmbientIntrinsics" /> declares into every file's scope, unchanged from before;
+///     <paramref name="NodeBindings" /> is every other node's own symbol/type below those declarations,
+///     for a reference or type expression written inside one of them (a default trait method body,
+///     chiefly) to still resolve when read back out by a consuming file's own <see cref="SemanticModel" />.
+/// </summary>
+internal readonly record struct IntrinsicRegistration(
+    HashSet<(Symbol Symbol, Type Type)> Symbols,
+    (SymbolTable References, Dictionary<NodeId, Type> Types) NodeBindings)
+{
+    public static readonly IntrinsicRegistration Empty = new([], (References: [], Types: []));
 }

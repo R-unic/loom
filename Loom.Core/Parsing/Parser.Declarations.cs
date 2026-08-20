@@ -34,11 +34,37 @@ public sealed partial class Parser
             if (!Match(out var fnKeyword, SyntaxKind.FnKeyword))
                 break;
 
-            members.Add(ParseDeclareFunctionSignature(fnKeyword, attributes, asyncKeyword));
+            members.Add(ParseTraitMember(fnKeyword, attributes, asyncKeyword));
             Match(SyntaxKind.Comma, SyntaxKind.Semicolon);
         }
 
         return members.OfType<DeclareFunctionSignature>().ToList();
+    }
+
+    /// <summary>
+    ///     A trait member with a body is a default implementation (a <see cref="FunctionDeclaration" />,
+    ///     which is itself a <see cref="DeclareFunctionSignature" />) that an <c>implement</c> block may
+    ///     omit; one without is the abstract signature every implementer must still provide.
+    /// </summary>
+    private Statement ParseTraitMember(Token fnKeyword, Attributes? attributes, Token? asyncKeyword)
+    {
+        var name = ExpectIdentifier("function name");
+        var typeParameters = ParseTypeParameters();
+        var parameters = ParseParameters();
+        var returnType = ParseColonTypeClause();
+        if (!ValidateFunctionSignature(
+                "trait members",
+                parameters?.LocationSpan ?? typeParameters?.LocationSpan ?? name.GetLocation(),
+                returnType,
+                parameters
+            ))
+            return new NullStatement(fnKeyword);
+
+        if (Current().Kind is not (SyntaxKind.LBrace or SyntaxKind.Arrow))
+            return new DeclareFunctionSignature(fnKeyword, name, typeParameters, parameters, returnType, attributes, asyncKeyword);
+
+        var body = ParseFunctionBody();
+        return new FunctionDeclaration(fnKeyword, name, typeParameters, parameters, returnType, body, attributes, asyncKeyword);
     }
 
     private InterfaceDeclaration ParseInterfaceDeclaration(Token keyword) => ParseInterfaceDeclaration(keyword, null);

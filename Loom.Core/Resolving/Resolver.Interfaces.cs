@@ -66,7 +66,9 @@ public sealed partial class Resolver
             return false;
         }
 
-        foreach (var methodName in traitSymbol.MethodNames.Where(methodName => implement.Body.Implementations.All(i => methodName != i.Name.Text)))
+        foreach (var methodName in traitSymbol.MethodNames
+                     .Where(methodName => !traitSymbol.Defaults.ContainsKey(methodName))
+                     .Where(methodName => implement.Body.Implementations.All(i => methodName != i.Name.Text)))
         {
             _diagnostics.Error(
                 implement,
@@ -111,7 +113,12 @@ public sealed partial class Resolver
             return true;
         }
 
-        if (selfExpression.Parent is TypePredicateType)
+        // '@' as a type predicate subject on any interface/trait member, or as the receiver inside a
+        // default trait method's own body - both name no concrete interface, only the trait/interface
+        // declaration itself
+        var isTypePredicateSubject = selfExpression.Parent is TypePredicateType;
+        var isDefaultMethodBody = selfExpression.FirstAncestorOfType<FunctionDeclaration>() is { Parent: TraitBody };
+        if (isTypePredicateSubject || isDefaultMethodBody)
         {
             if (selfExpression.FirstAncestorOfType<InterfaceDeclaration>() is { } interfaceDeclaration)
             {

@@ -59,7 +59,13 @@ public sealed partial class TypeChecker
         var implement = selfExpression.FirstAncestorOfType<Implement>();
         if (implement == null)
         {
-            if (selfExpression.Parent is TypePredicateType
+            // outside an 'implement' block, '@' names no concrete interface - only 'unknown', and only
+            // where a value of an unknown, opaque shape is legal: a type predicate subject, or the value
+            // passed through a default method's own body (shared verbatim by every implementer, so it can
+            // assume nothing about which interface's fields it will actually run against)
+            var isTypePredicateSubject = selfExpression.Parent is TypePredicateType;
+            var isDefaultMethodBody = selfExpression.FirstAncestorOfType<FunctionDeclaration>() is { Parent: TraitBody };
+            if ((isTypePredicateSubject || isDefaultMethodBody)
                 && (selfExpression.FirstAncestorOfType<InterfaceDeclaration>() != null || selfExpression.FirstAncestorOfType<TraitDeclaration>() != null))
                 return BindType(selfExpression, PrimitiveType.Unknown);
 
@@ -71,11 +77,7 @@ public sealed partial class TypeChecker
             || _semanticModel.GetSymbol(implement.InterfaceName, SymbolKind.Interface) is not InterfaceSymbol interfaceSymbol)
             return BindType(selfExpression, interfaceType);
 
-        var traitProperties = interfaceSymbol.FullImplementations
-            .SelectMany(i => i.Body.Implementations)
-            .Select(declaration => new ObjectProperty(false, declaration.Name.Text, _semanticModel.GetType(declaration)))
-            .ToList();
-
+        var traitProperties = CollectEffectiveTraitProperties(interfaceSymbol.FullImplementations);
         var objectType = new ObjectType(nonGenericInterfaceType.ObjectType.Indexer, [..nonGenericInterfaceType.ObjectType.Properties, ..traitProperties]);
         var selfType = new InterfaceType(nonGenericInterfaceType.Name, nonGenericInterfaceType.Constraints, objectType)
         {
@@ -201,11 +203,7 @@ public sealed partial class TypeChecker
 
         var traitProperties = new List<ObjectProperty>();
         if (_semanticModel.GetSymbol(interfaceInvocation.Name, SymbolKind.Interface) is InterfaceSymbol interfaceSymbol)
-            traitProperties.AddRange(
-                from declaration in interfaceSymbol.Implementations.SelectMany(i => i.Body.Implementations)
-                let methodType = _semanticModel.GetType(declaration)
-                select new ObjectProperty(false, declaration.Name.Text, methodType)
-            );
+            traitProperties.AddRange(CollectEffectiveTraitProperties(interfaceSymbol.Implementations));
 
         if (type is InterfaceType nonGeneric)
         {
@@ -231,6 +229,49 @@ public sealed partial class TypeChecker
             return BindType(interfaceInvocation, PrimitiveType.Never);
 
         return BindInterfaceInvocation(interfaceInvocation, interfaceType, traitProperties);
+    }
+
+    /// <summary>
+    ///     Every trait method reachable through <paramref name="implementations" />: an explicit override
+    ///     wins, and a trait method neither this interface nor its constraints ever overrode falls back to
+    ///     its trait's own default. A trait method with no override and no default cannot reach here -
+    ///     <see cref="Resolving.Resolver.VisitImplement" /> already required an override for it. Without this
+    ///     fallback a fully-defaulted method would type-check nowhere: not <c>foo.method()</c> on a
+    ///     constructed value, and not <c>@.method()</c> from a sibling <c>implement</c> block.
+    /// </summary>
+    private List<ObjectProperty> CollectEffectiveTraitProperties(IEnumerable<Implement> implementations)
+    {
+        var implementationList = implementations as IReadOnlyCollection<Implement> ?? implementations.ToList();
+        var effective = new Dictionary<string, ObjectProperty>();
+        foreach (var declaration in implementationList.SelectMany(i => i.Body.Implementations))
+            effective[declaration.Name.Text] = new ObjectProperty(false, declaration.Name.Text, _semanticModel.GetType(declaration));
+
+        foreach (var implement in implementationList)
+        {
+            if (_semanticModel.GetSymbol(implement.TraitName, SymbolKind.Trait) is not TraitSymbol traitSymbol
+                || traitSymbol.Defaults.Count == 0)
+                continue;
+
+            // indexed off the trait's own published type rather than read straight off
+            // 'defaultDeclaration' by node: an intrinsic (or any cross-file) trait's default body was
+            // bound by a different SemanticModel, whose per-node type cache this one never shares -
+            // only the trait's type itself crosses that boundary, the same way an ordinary cross-file
+            // interface property already does.
+            var traitType = _semanticModel.GetType(traitSymbol.Declaration) switch
+            {
+                InterfaceType direct => direct,
+                GenericType { UnderlyingType: InterfaceType underlying } => underlying,
+                _ => null
+            };
+
+            if (traitType == null) continue;
+
+            foreach (var name in traitSymbol.Defaults.Keys)
+                if (!effective.ContainsKey(name) && traitType.GetProperty(name) is { } property)
+                    effective[name] = property;
+        }
+
+        return effective.Values.ToList();
     }
 
     private InterfaceType BindInterfaceInvocation(InterfaceInvocation node, InterfaceType interfaceType, List<ObjectProperty> traitProperties)

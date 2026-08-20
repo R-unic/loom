@@ -235,7 +235,10 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         }
     }
 
-    public Symbol? GetSymbol(Node node, SymbolKind? kind = null) => FindSymbol(node, kind, References);
+    public Symbol? GetSymbol(Node node, SymbolKind? kind = null) =>
+        References.TryGetValue(node.Id, out var symbols) || Ambient.References.TryGetValue(node.Id, out symbols)
+            ? Pick(symbols, kind)
+            : null;
 
     public Symbol? GetDeclarationSymbol(Node node, SymbolKind? kind = null)
     {
@@ -373,9 +376,6 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
         Declarations.TryGetValue(node.Id, out var symbols) || Ambient.Declarations.TryGetValue(node.Id, out symbols)
             ? Pick(symbols, kind)
             : null;
-
-    private static Symbol? FindSymbol(Node node, SymbolKind? kind, SymbolTable table) =>
-        table.TryGetValue(node.Id, out var symbols) ? Pick(symbols, kind) : null;
 
     private static Symbol? Pick(List<Symbol> symbols, SymbolKind? kind) =>
         kind != null ? symbols.Find(s => s.Kind == kind) : symbols.FirstOrDefault();

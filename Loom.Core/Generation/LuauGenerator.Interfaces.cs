@@ -30,8 +30,10 @@ public sealed partial class LuauGenerator
         _state.Postreq(new ExpressionStatement(new BinaryOperator(new PropertyAccess(identifier, ["__index"]), "=", identifier)));
         _state.Postreq(new ExpressionStatement(new BinaryOperator(identifier, "=", new TypeCast(identifier, interfaceName))));
 
+        var overridden = new HashSet<string>();
         foreach (var declaration in implement.Body.Implementations)
         {
+            overridden.Add(declaration.Name.Text);
             var typeParameters = MaybeVisit<TypeParameters>(declaration.TypeParameters);
             var parameters = declaration.Parameters?.ParameterList.ConvertAll(Visit<Parameter>) ?? [];
             parameters.Insert(0, new Parameter("self", interfaceName));
@@ -51,12 +53,49 @@ public sealed partial class LuauGenerator
         }
 
         if (_semanticModel.GetSymbol(implement.TraitName, SymbolKind.Trait) is TraitSymbol traitSymbol)
+        {
+            foreach (var (name, defaultDeclaration) in traitSymbol.Defaults)
+            {
+                if (overridden.Contains(name)) continue;
+                var defaultFunction = GetOrCreateTraitDefault(traitSymbol.Name, defaultDeclaration);
+                _state.Postreq(new ExpressionStatement(new BinaryOperator(new PropertyAccess(identifier, [name]), "=", defaultFunction)));
+            }
+
             foreach (var (metamethodName, methodName) in traitSymbol.Metamethods)
                 _state.Postreq(
                     new ExpressionStatement(new BinaryOperator(new PropertyAccess(identifier, [metamethodName]), "=", new PropertyAccess(identifier, [methodName])))
                 );
+        }
 
         return variable;
+    }
+
+    /// <summary>
+    ///     A trait default is generated once - shared by value across every 'implement' block that doesn't
+    ///     override it - rather than re-emitted per site: cheaper output the more types share it, and wiring
+    ///     it in with a direct field assignment costs one write per instance method table instead of a
+    ///     metatable-chained '__index' lookup on every call. 'self' erases to 'unknown' rather than any one
+    ///     implementer's interface, matching '@''s own type inside the default's body (<see
+    ///     cref="TypeChecking.TypeChecker.VisitSelfExpression" />) - the function is shared verbatim, so it
+    ///     can assume nothing about which interface it is actually running against.
+    /// </summary>
+    private Identifier GetOrCreateTraitDefault(string traitName, FunctionDeclaration defaultDeclaration)
+    {
+        if (_traitDefaultFunctions.TryGetValue(defaultDeclaration, out var existing))
+            return existing;
+
+        var name = _state.Scope.AddIdentifier($"{traitName}_{defaultDeclaration.Name.Text}_default");
+        var typeParameters = MaybeVisit<TypeParameters>(defaultDeclaration.TypeParameters);
+        var parameters = defaultDeclaration.Parameters?.ParameterList.ConvertAll(Visit<Parameter>) ?? [];
+        parameters.Insert(0, new Parameter("self", Luau.AST.PrimitiveType.Unknown));
+
+        var returnType = MaybeVisit<LuauType>(defaultDeclaration.ReturnType);
+        var body = GenerateFunctionBody(defaultDeclaration);
+        _state.Postreq(new Function(name, typeParameters, parameters, returnType, body));
+
+        var identifier = new Identifier(name);
+        _traitDefaultFunctions[defaultDeclaration] = identifier;
+        return identifier;
     }
 
     public override LuauNode VisitTraitDeclaration(TraitDeclaration traitDeclaration)

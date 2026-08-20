@@ -29,6 +29,7 @@ public sealed partial class LuauGenerator
     private readonly EventConnectionTracker _eventConnections = new();
     private readonly Dictionary<Is, List<LuauStatement>> _isPreludes = [];
     private readonly Dictionary<Is, LuauExpression> _isSubjects = [];
+    private readonly Dictionary<FunctionDeclaration, Identifier> _traitDefaultFunctions = [];
     private readonly Lazy<HashSet<(EventTarget Target, Symbol Function)>> _localSafeConnections;
 
     private readonly ArrayPipeline _arrayPipeline;

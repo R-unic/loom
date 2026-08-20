@@ -1,0 +1,55 @@
+TraitDeclaration(
+  Body: TraitBody(
+    LeftBrace: Token(LBrace, "{")
+    RightBrace: Token(RBrace, "}")
+    Members: [
+      FunctionDeclaration(
+        ReturnType: ColonTypeClause(
+          ColonToken: Token(Colon, ":")
+          Type: PrimitiveType(
+            TypeArguments: null
+            Kind: String
+            Width: null
+          )
+        )
+        Body: ExpressionBody(
+          Arrow: Token(Arrow, "->")
+          Expression: Literal(
+            Token(StringLiteral, ""hi"")
+            Value: "hi"
+          )
+        )
+        Parameters(
+          LeftParen: Token(LParen, "(")
+          RightParen: Token(RParen, ")")
+          ParameterList: []
+        )
+        Attributes: null
+        AsyncKeyword: null
+        TypeParameters: null
+        Name: Token(Identifier, "greet")
+      )
+      DeclareFunctionSignature(
+        Parameters(
+          LeftParen: Token(LParen, "(")
+          RightParen: Token(RParen, ")")
+          ParameterList: []
+        )
+        ReturnType: ColonTypeClause(
+          ColonToken: Token(Colon, ":")
+          Type: PrimitiveType(
+            TypeArguments: null
+            Kind: String
+            Width: null
+          )
+        )
+        Attributes: null
+        AsyncKeyword: null
+        TypeParameters: null
+        Name: Token(Identifier, "name")
+      )
+    ]
+  )
+  TypeParameters: null
+  Name: Token(Identifier, "Greeting")
+)

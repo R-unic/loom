@@ -114,12 +114,12 @@ public class ParserTest
         new("let x: typeof(a", InternalCodes.UnexpectedEof, "Expected ')', got EOF.", null),
         new("let x: typeof()", InternalCodes.UnexpectedToken, "Expected expression, got ')'.", null),
         new("trait { }", InternalCodes.UnexpectedToken, "Expected trait name, got '{'.", null),
-        new("trait Foo { fn bar() }", InternalCodes.MissingDeclareFnReturnType, "Declared function signatures must have a return type.", null),
-        new("trait Foo { fn bar(x): void }", InternalCodes.MissingDeclareFnParameterType, "Parameters must have types in declared function signatures.", null),
+        new("trait Foo { fn bar() }", InternalCodes.MissingDeclareFnReturnType, "Trait members must have a return type.", null),
+        new("trait Foo { fn bar(x): void }", InternalCodes.MissingDeclareFnParameterType, "Parameters must have types in trait members.", null),
         new(
             "trait Foo { fn bar(x: number = 5): void }",
             InternalCodes.UseOfDeclareFnParameterDefaults,
-            "Parameters may not have default values in declared function signatures.",
+            "Parameters may not have default values in trait members.",
             null
         ),
         new("implement", InternalCodes.UnexpectedEof, "Expected trait name, got EOF.", null),
@@ -1525,6 +1525,35 @@ public class ParserTest
         var trait = Assert.IsType<TraitDeclaration>(Assert.Single(tree.Statements));
         var member = Assert.Single(trait.Body.Members);
         Assert.Null(member.Attributes);
+    }
+
+    [Fact]
+    public void Parses_TraitMember_WithArrowBody_AsFunctionDeclaration()
+    {
+        var tree = Utility.GetAST("trait Greeting { fn greet(): string -> \"hi\"; }");
+        var trait = Assert.IsType<TraitDeclaration>(Assert.Single(tree.Statements));
+        var member = Assert.IsType<FunctionDeclaration>(Assert.Single(trait.Body.Members));
+        var body = Assert.IsType<ExpressionBody>(member.Body);
+        Assert.Equal("hi", Assert.IsType<Literal>(body.Expression).Value);
+    }
+
+    [Fact]
+    public void Parses_TraitMember_WithBlockBody_AsFunctionDeclaration()
+    {
+        var tree = Utility.GetAST("trait Greeting { fn greet(): string { return \"hi\"; } }");
+        var trait = Assert.IsType<TraitDeclaration>(Assert.Single(tree.Statements));
+        var member = Assert.IsType<FunctionDeclaration>(Assert.Single(trait.Body.Members));
+        Assert.IsType<Block>(member.Body);
+    }
+
+    [Fact]
+    public void Parses_TraitMember_WithoutBody_AsDeclareFunctionSignature()
+    {
+        var tree = Utility.GetAST("trait Greeting { fn greet(): string; }");
+        var trait = Assert.IsType<TraitDeclaration>(Assert.Single(tree.Statements));
+        var member = Assert.Single(trait.Body.Members);
+        Assert.IsNotType<FunctionDeclaration>(member);
+        Assert.IsType<DeclareFunctionSignature>(member);
     }
     #endregion Decorators
     #region ExportedAttributes

@@ -828,6 +828,51 @@ public class LuauGeneratorTest
     }
 
     [Fact]
+    public void Generates_TraitDefault_SharedAcrossImplementations_ViaDirectFieldAssignment()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            trait Greeting { fn greet(): string -> "hi"; }
+            interface A { }
+            interface B { }
+            implement Greeting for A { }
+            implement Greeting for B { }
+            """,
+            true
+        );
+
+        var sharedDefaults = luauTree.Statements.OfType<Function>().Where(f => f.Name == "Greeting_greet_default").ToList();
+        Assert.Single(sharedDefaults);
+
+        var assignments = luauTree.Statements
+            .OfType<ExpressionStatement>()
+            .Select(s => s.Expression)
+            .OfType<BinaryOperator>()
+            .Where(b => b.Operator == "=" && b.Left is PropertyAccess { Names: ["greet"] })
+            .ToList();
+
+        Assert.Equal(2, assignments.Count);
+        foreach (var assignment in assignments)
+            Assert.Equal("Greeting_greet_default", Assert.IsType<Identifier>(assignment.Right).Name);
+    }
+
+    [Fact]
+    public void Generates_Implement_OverridingDefault_EmitsInlineFunction_NoSharedDefault()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            trait Greeting { fn greet(): string -> "hi"; }
+            interface A { }
+            implement Greeting for A { fn greet(): string -> "hello"; }
+            """,
+            true
+        );
+
+        Assert.DoesNotContain(luauTree.Statements.OfType<Function>(), f => f.Name == "Greeting_greet_default");
+        Assert.Contains(luauTree.Statements.OfType<Function>(), f => f.Name == "Greeting_for_A.greet");
+    }
+
+    [Fact]
     public void Generates_InterfaceInvocation_WithSingleImplementation_OmitsMergeMeta()
     {
         var luauTree = Utility.GetLuauAST(

@@ -135,3 +135,8 @@ declare fn apply_diff_binary<T>(baseline: T, diff: Serialized): Result<T, Deseri
 ## case serializer::<T>() cannot express, since inside a wrapper's body the type is not known - only
 ## the key value is. The result stays exactly typed as Serializer<T[K]>, so no cast is needed.
 declare fn serializer_of<T, K>(key: K): Serializer<T[K]>;
+
+### Recursive, field-by-field equality: true for two different tables whose entries all match (nested
+### tables included), not merely reference-equal ones. Already what delta serialization compares a
+### baseline against, exposed here as a general-purpose intrinsic.
+declare fn deep_equal(a: unknown, b: unknown): bool;
