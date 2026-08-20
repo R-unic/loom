@@ -278,6 +278,25 @@ public class LockFileTest
         Assert.Equal("loom-lock.toml (1 package)", new LockFile([new LockedPackage(PackageName.Parse("serio"), Version.Parse("1.2.3"))]).ToString());
     }
 
+    /// <remarks>
+    ///     The layout is the other half of the contract the lock file is one half of: a package manager installs
+    ///     into these directories and the compiler reads them, so neither has to ask the other where a package is.
+    /// </remarks>
+    [Fact]
+    public void PackageLayout_PutsEveryLockedPackageUnderTheProjectsPackagesDirectory()
+    {
+        var config = ReadManifest("project_type = \"game\"\n");
+        var lockFile = ReadValid(FullLock);
+
+        var directories = PackageLayout.DirectoriesOf(config, lockFile);
+
+        Assert.Equal(Path.Combine(config.ProjectDirectory, "packages", "serio"), directories[PackageName.Parse("serio")]);
+        Assert.Equal(
+            Path.Combine(config.ProjectDirectory, "packages", "alternativelua", "tether"),
+            directories[PackageName.Parse("alternativelua/tether")]
+        );
+    }
+
     private static LockFile ReadValid(string toml)
     {
         var lockFile = LockFileReader.Read(toml, out var diagnostics);

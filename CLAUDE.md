@@ -58,7 +58,12 @@ before claiming done.
       **Install-location contract:** a dependency's output is written into the *entry* project's output directory, under
       `<output>/packages/<scope>/<name>` — compiled output is consumer-specific (it names the entry project's runtime and is checked against its project
       type's intrinsics), so it cannot live beside sources a package manager may share. One `$path` covering the project's output therefore covers every
-      package, whatever the PM did with the sources. `no_emit` is read off the entry project alone for the same reason
+      package, whatever the PM did with the sources. `no_emit` is read off the entry project alone for the same reason. `ProjectLoader` is what a host
+      (CLI, watch, LSP) asks for those roots: it reads `loom-lock.toml`, and `DependencyResolver`'s lock-taking overload resolves it — directories from
+      `PackageLayout`, then two checks the map overload cannot make, that every manifest in the build asks only for versions the lock accepts and that the
+      package installed in a directory *is* the version locked. Both are a stale lock, which only a package manager can fix, so neither is compiled
+      through. A project with no `[dependencies]` needs no lock; one that declares them and has no lock has never been resolved, and guessing from the
+      requirements is exactly what the lock exists to prevent
 - `Loom.Luau/` — Luau output AST + renderer (`LuauFactory`, `RenderState`, `AST/`)
 - `Loom.Config/` — `loom-config.toml` reader (Tomlyn). `ProjectType` (default `game`), `Debug` (default `false`, for emitting debug diagnostics) `FilesConfig`:
   `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`). Package identity lives here too: `[package]` (`PackageConfig`, with `PackageName` and
@@ -77,8 +82,14 @@ before claiming done.
   `dependencies` naming the rest, so a lock is the resolved graph and `LockFileReader` can reject one that is not closed. It carries no paths: a lock is
   committed and read again on another machine, so where a package landed stays the package manager's answer (`DependencyResolver`'s `packageDirectories`)
   while *which version* is the lock's. `ToToml` is deterministic (ordered entries, fixed key order, `\n`) because two machines have to write the same
-  bytes, and `Satisfies(LoomConfig)` is how a package manager asks whether the lock still covers the manifest instead of re-resolving
-- `Loom.CLI/` — entry point; locates config, compiles unit, prints debug info. `Include/loom_runtime.luau` = runtime support emitted alongside output
+  bytes, and `Satisfies(LoomConfig)` is how a package manager asks whether the lock still covers the manifest instead of re-resolving. `PackageLayout` is
+  the other half of that: `<project>/packages/<scope>/<name>` is where a package manager installs sources and where the compiler reads them — not a
+  setting, for the reason `FilesConfig.PackagesDirectoryName` isn't one, and deliberately not keyed by version, since one build compiling two copies of a
+  package is not a shape anything downstream supports
+- `Loom.CLI/` — entry point; locates config, asks `ProjectLoader` what the project compiles, compiles the unit, prints debug info.
+  `Include/loom_runtime.luau` = runtime support emitted alongside output. A watch restarts on `loom-config.toml`, the Rojo project *or* `loom-lock.toml` — a
+  package manager installing a dependency changes which projects the unit spans and a unit already built cannot grow a root; renames count too, since
+  installing atomically is a write to a temporary file followed by one
 - `Loom.LanguageServer/` — LSP server (OmniSharp). One handler per request, all registered in `Program.cs`, all answering off the `DocumentStore`:
   it keeps one `CompilationUnit` per project root and recompiles the open file on every change. The pieces the handlers share:
     - `CompletionSnapshot` — rebuilt from each compile; answers "what may be written at this offset" (member scope, import list, attribute list,
@@ -96,6 +107,9 @@ before claiming done.
       demand, and only `didChange`'s diagnostic publish is deferred (via `Debouncer`) because it is the one thing nobody is blocked on. Every dirty
       buffer of a unit goes into one `Recompile` together, and `Close` reverts the file to its saved text — the unit keeps whatever text it was last
       handed, and an editor discards unsaved edits when a document closes
+    - `DocumentStore` builds its units through `ProjectLoader` too, so an editor sees the packages a build sees; a project whose dependencies cannot be
+      loaded (no lock yet, one not installed) still gets a unit over its own files, since answering nothing about the file on screen is worse than
+      answering it without its packages
     - `DiagnosticPublisher` reports every file the compile found something in, not just the edited one, and remembers what it said so a file whose
       errors are gone gets an empty set. It only ever clears files the compile covered: a workspace may hold more than one project
     - `Conversion` owns `DiagnosticsFor`/`DiagnosticsByFile`: a null result means the file was not analyzed, and an empty set is how a client is told

@@ -53,13 +53,30 @@ static int compile(string directory, bool dependencyDiagnostics, bool watch)
     FileManager.WriteIncludeFolder(config.ProjectDirectory);
     if (!watch)
     {
-        var result = new CompilationUnit(config, diagnosticOptions).Compile();
+        var roots = ProjectLoader.Load(config, out var projectDiagnostics);
+        if (roots == null)
+        {
+            printProjectDiagnostics(projectDiagnostics);
+            return 1;
+        }
+
+        var result = new CompilationUnit(roots, diagnosticOptions).Compile();
         Log.OutputResult(result);
         return result.Failed ? 1 : 0;
     }
 
     var watcher = new Watcher(diagnosticOptions);
     return watcher.Start(config);
+}
+
+/// <summary>
+///     Reports what stopped the build before a file was read: a lock file that cannot be trusted, a dependency
+///     that is not installed. Each names the file it is about, so none is prefixed with one.
+/// </summary>
+static void printProjectDiagnostics(IEnumerable<ConfigDiagnostic> diagnostics)
+{
+    foreach (var diagnostic in diagnostics)
+        Log.Fatal(diagnostic.ToString());
 }
 
 static void printAndExit(Diagnostic diagnostic)
