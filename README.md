@@ -91,6 +91,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Declare Statements & Casting](#declare-statements--casting)
   - [Function Types](#function-types)
   - [Interfaces](#interfaces)
+  - [With Operator](#with-operator)
   - [While Loops](#while-loops)
   - [Sealed & Declared Interfaces](#sealed--declared-interfaces)
   - [`after` Statements](#after-statements)
@@ -118,8 +119,11 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [string() & number()](#string--number)
   - [Decorators](#decorators)
   - [Traits & implementations](#traits--implementations)
+    - [Default Trait Method Bodies](#default-trait-method-bodies)
+    - [Structural Traits: Display, Eq, Hash](#structural-traits-display-eq-hash)
   - [typeof](#typeof)
   - [Events](#events)
+  - [Once Event Operator](#once-event-operator)
   - [Exports](#exports)
   - [Imports & Modules](#imports--modules)
   - [Realms](#realms)
@@ -157,8 +161,16 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - **Sets** – `Set<T>`/`MutSet<T>` with the usual algebra, lowered to a plain table whose keys are its members. No
   runtime library, no wrapper object. See [example](#sets).
 - **Events** – Built-in user events with shorthand syntax. See [example](#events).
+- **Once event operator** – `event ^= handler` connects a handler that disconnects itself after firing exactly once. See [example](#once-event-operator).
 - **Traits** – Define reusable behavior that interfaces can implement, enabling shared APIs and generic constraints that reflect behavior, including an
   explicit `@` self receiver inside implementations. See [example](#traits--implementations).
+- **Default trait method bodies** – A trait method can carry a body of its own, used by every `implement` block that doesn't override it - shared as one
+  Luau function rather than re-emitted per site. See [example](#default-trait-method-bodies).
+- **Built-in `Display`, `Eq` and `Hash` traits** – Every interface can `implement` these for free: a recursive, Rust-`Debug`-style `to_string()`,
+  structural `equals()`, and a `hash()` consistent with it - no fields to write by hand, no runtime library exposed to Loom code. See
+  [example](#structural-traits-display-eq-hash).
+- **`with` operator** – `value with { field: newValue }` builds a new instance from an existing one, copying every field not explicitly overridden.
+  See [example](#with-operator).
 - **Named imports/exports** – Including `export * from "./module"` to forward everything another module publishes, and `export type *` to forward only its
   types. See [example](#exports).
 - **Modules & packages** – Relative imports resolve inside a project, bare specifiers (`math`, `scope/math`) name a package declared in `[dependencies]`, and a
@@ -982,6 +994,26 @@ type Person = {
 }
 const runic = { name = "Runic", age = 21 }
 runic.age = 69
+```
+---
+### With Operator
+
+`value with { field: newValue }` builds a new instance of `value`'s interface, copying every field not mentioned in the `{ ... }` block from `value`
+itself. Nothing is merged at runtime - each field is resolved to either the override or the original at compile time.
+
+```rs
+interface User { name: string, age: number }
+let user = new User { name: "Poppy", age: 31 };
+let older = user with { age: 32 };
+```
+
+```luau
+type User = {
+  read name: string,
+  read age: number,
+}
+const user = { name = "Poppy", age = 31 }
+const older = { name = user.name, age = 32 }
 ```
 ---
 ### While Loops
@@ -2126,6 +2158,126 @@ const flags = setmetatable({ [69] = true, [420] = true }, FlagContainer_for_Flag
 print(flags:has_flag(69))
 ```
 ---
+### Default Trait Method Bodies
+
+A trait method can carry a body of its own instead of just a signature. An `implement` block that doesn't override the method gets that body for free;
+one that does override it works exactly as before. The default is emitted once - as one shared Luau function - and every non-overriding `implement`
+wires it in with a direct field assignment rather than a per-call metatable lookup.
+
+```rs
+trait Greeting {
+    fn greet(): string -> "Hello!";
+}
+
+interface A { }
+interface B { }
+
+implement Greeting for A { }
+implement Greeting for B {
+    fn greet(): string -> "Howdy!";
+}
+
+let a = new A { };
+let b = new B { };
+print(a.greet());
+print(b.greet());
+```
+
+```luau
+type Greeting = {
+  greet: (Greeting) -> string,
+}
+type A = {} & Greeting
+type B = {} & Greeting
+local Greeting_for_A = {}
+Greeting_for_A.__index = Greeting_for_A
+Greeting_for_A = Greeting_for_A :: A
+const function Greeting_greet_default(self: unknown): string
+  return "Hello!"
+end
+Greeting_for_A.greet = Greeting_greet_default
+local Greeting_for_B = {}
+Greeting_for_B.__index = Greeting_for_B
+Greeting_for_B = Greeting_for_B :: B
+function Greeting_for_B.greet(self: B): string
+  return "Howdy!"
+end
+const a = setmetatable({}, Greeting_for_A) :: A
+const b = setmetatable({}, Greeting_for_B) :: B
+print(a:greet())
+print(b:greet())
+```
+
+Inside a default body, `@` types as `unknown` rather than any one implementer's interface - the body is shared verbatim across every type that picks it
+up, so it can't assume a specific shape. Two traits defaulting the same method name on the same interface, with neither overridden, is an error rather
+than a silent pick of whichever `implement` came first.
+
+---
+
+### Structural Traits: Display, Eq, Hash
+
+Every interface can `implement` these three for free, with no methods of its own:
+
+```rs
+interface User { name: string, age: number }
+
+implement Display for User { }
+implement Eq for User { }
+implement Hash for User { }
+
+let a = new User { name: "Poppy", age: 31 };
+let b = new User { name: "Poppy", age: 31 };
+print(a.to_string());
+print(a.equals(b));
+print(a.hash());
+```
+
+```luau
+const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
+type User = {
+  read name: string,
+  read age: number,
+} & Display & Eq & Hash
+local Display_for_User = {}
+Display_for_User.__index = Display_for_User
+Display_for_User = Display_for_User :: User
+const function Display_to_string_default(self: unknown): string
+  return Loom.deep_display(self)
+end
+Display_for_User.to_string = Display_to_string_default
+local Eq_for_User = {}
+Eq_for_User.__index = Eq_for_User
+Eq_for_User = Eq_for_User :: User
+const function Eq_equals_default(self: unknown, other: unknown): boolean
+  return Loom.deep_equal(self, other)
+end
+Eq_for_User.equals = Eq_equals_default
+local Hash_for_User = {}
+Hash_for_User.__index = Hash_for_User
+Hash_for_User = Hash_for_User :: User
+const function Hash_hash_default(self: unknown): number
+  return Loom.deep_hash(self)
+end
+Hash_for_User.hash = Hash_hash_default
+local User_meta = Loom.merge_meta(Display_for_User, Eq_for_User, Hash_for_User)
+const a = setmetatable({ name = "Poppy", age = 31 }, User_meta) :: User
+const b = setmetatable({ name = "Poppy", age = 31 }, User_meta) :: User
+print(a:to_string())
+print(a:equals(b))
+print(a:hash())
+```
+
+- **`Display.to_string()`** – A human-readable representation of every field, recursively, the way Rust's derived `Debug` would - never the placeholder
+  `<object>` a naive default might fall back to.
+- **`Eq.equals(other)`** – Recursive, field-by-field structural equality, not reference equality: two separately constructed values with identical
+  fields are equal.
+- **`Hash.hash()`** – A deterministic structural hash consistent with `Eq.equals`: two values that compare equal always hash the same.
+
+Override any of the three where a more specific behavior is wanted - `Display` and `Eq`/`Hash` in particular should usually be overridden together, or
+the derived versions can disagree about which fields matter. The structural walk these defaults use (`Loom.deep_display`/`deep_equal`/`deep_hash`) lives
+in the runtime library but is never callable from Loom code directly - only these three traits reach it.
+
+---
 ## typeof
 
 Inspect types of dynamic expressions.
@@ -2203,6 +2355,31 @@ labelled:Fire("hi", table.unpack(ns))
 The handler's parameters infer from what the rest parameter holds — `a`, `b` and `c` are `unknown`, `first` is `number` — and the
 rest parameter reaches Luau as a variadic type pack (`...unknown`) rather than the array it is written as, so the emitted `Connect`
 still type-checks. Firing takes a [spread](#spreading-into-a-call) like any other rest parameter.
+
+---
+
+## Once Event Operator
+
+`^=` connects a handler the same way `+=` does, but the connection disconnects itself after the event fires once - no manual `-=` needed.
+
+```rs
+event my_event(data: string);
+
+fn handler(data: string): void -> print(data);
+
+my_event ^= handler;
+my_event("hello!");
+```
+
+```luau
+const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
+const my_event: Loom.Event<string> = Loom.Event.new()
+const function handler(data: string): ()
+  return print(data)
+end
+const handler_conn = my_event:Once(handler)
+my_event:Fire("hello!")
+```
 
 ---
 
