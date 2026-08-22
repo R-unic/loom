@@ -53,7 +53,8 @@ whose arguments are the packages to add, so it takes the directory as `--project
 published now, `loom add serio@^1.2` asks for what you name, and `--dev` marks it as needed only to develop the
 project. `loom publish` offers the project to its `[registry]` index as one version of the package its `[package]`
 table names — after checking that it compiles, since a published version is never replaced. `loom publish --dry-run`
-lists the files it would send without sending them.
+lists the files it would send without sending them, and `--allow-dirty` publishes without the compile check, for when
+you know something the compiler on this machine does not.
 
 ## Quick look
 

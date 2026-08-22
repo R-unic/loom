@@ -13,7 +13,11 @@ internal readonly record struct NewOptions(string Directory);
 /// </param>
 internal readonly record struct AddOptions(IReadOnlyList<string> Packages, bool DevelopmentOnly, string Directory);
 
-internal readonly record struct PublishOptions(string Directory, bool DryRun);
+/// <param name="AllowDirty">
+///     Publish without first checking that the project compiles. Named for what it lets through rather than for the
+///     check it skips: what reaches the index is source nobody has established is publishable.
+/// </param>
+internal readonly record struct PublishOptions(string Directory, bool DryRun, bool AllowDirty);
 
 internal abstract record CliCommand
 {

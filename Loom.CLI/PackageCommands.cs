@@ -65,7 +65,10 @@ internal static class PackageCommands
     /// <remarks>
     ///     It compiles before it publishes because a published version is never replaced. Everything else a publish
     ///     gets wrong can be fixed by publishing the next version; source that does not compile is in the index for
-    ///     good, and every consumer that resolves it inherits the failure.
+    ///     good, and every consumer that resolves it inherits the failure. <c>--allow-dirty</c> is there for the
+    ///     publisher who knows something the compiler does not — a package for a runtime whose types are not
+    ///     installed here, a release cut from a machine that cannot build it — and it says what it let through, since
+    ///     the version it produces is the one thing about a publish nobody can take back.
     /// </remarks>
     public static int Publish(PublishOptions options)
     {
@@ -100,7 +103,9 @@ internal static class PackageCommands
             return 1;
         }
 
-        if (!Compiles(config))
+        if (options.AllowDirty)
+            Log.Info($"{Colors.Yellow}Publishing without checking that the project compiles.{Colors.Reset}");
+        else if (!Compiles(config))
             return 1;
 
         if (!PackagePublisher.Publish(payload, index, out var publishDiagnostics))

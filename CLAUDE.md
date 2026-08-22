@@ -117,7 +117,8 @@ before claiming done.
   debug info. `Projects` is how every verb finds the project it was pointed at and reports what stopped it before a file was read. `PackageCommands` holds
   the two verbs that work on packages rather than code (`add`, `publish`) and is deliberately thin — deciding what to write and what to send is
   `Loom.Packages`' job, which is testable without a terminal. `publish` compiles with `NoEmit` before it publishes: everything else a publish gets wrong can
-  be fixed by publishing the next version, but source that does not compile is in the index for good. `add` is the one verb whose positionals are not the
+  be fixed by publishing the next version, but source that does not compile is in the index for good — `--allow-dirty` skips that check for a publisher who
+  knows something this machine does not, and says so on the way past. `add` is the one verb whose positionals are not the
   project directory (they are the packages to add), so it takes `--project` instead.
   `Include/loom_runtime.luau` = runtime support emitted alongside output. A watch restarts on `loom-config.toml`, the Rojo project *or* `loom-lock.toml` — a
   package manager installing a dependency changes which projects the unit spans and a unit already built cannot grow a root; renames count too, since

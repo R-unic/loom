@@ -55,6 +55,7 @@ internal static class CliParser
     private static readonly (string Label, string Description)[] PublishCommandOptions =
     [
         ("-n, --dry-run", "List what would be published, without publishing it."),
+        ("--allow-dirty", "Publish without checking that the project compiles."),
         ("--help", "Display this help screen."),
         ("--version", "Display version information."),
         ("directory (pos. 0)", "(Default: .) The project directory.")
@@ -257,6 +258,7 @@ internal static class CliParser
         var directory = ".";
         var directorySet = false;
         var dryRun = false;
+        var allowDirty = false;
 
         foreach (var arg in rest)
         {
@@ -274,6 +276,10 @@ internal static class CliParser
                     dryRun = true;
                     break;
 
+                case "--allow-dirty":
+                    allowDirty = true;
+                    break;
+
                 case var flag when flag.StartsWith('-'):
                     return Error($"Option '{flag.TrimStart('-')}' is unknown.", PublishCommandOptions);
 
@@ -288,7 +294,7 @@ internal static class CliParser
             }
         }
 
-        return new CliCommand.RunPublish(new PublishOptions(directory, dryRun));
+        return new CliCommand.RunPublish(new PublishOptions(directory, dryRun, allowDirty));
     }
 
     private static CliCommand Error(string message, (string Label, string Description)[] fallbackOptions)

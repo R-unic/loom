@@ -34,7 +34,14 @@ before claiming done.
     - `TypeChecking/` — `TypeChecker` (partial: `.Enums`, `.Generics`, `.Interfaces`, `.ControlFlow`, `.Declarations`, `.Invocations`, `.Match`, `.MemberAcess`,
       `.Operators`, `.TypeNodes`, , `.Check` (bidirectional/contextual typing)), plus `TypeInferrer`, `TypeNarrower`, `TypeSimplifier`, `TypeSolver`; Intrinsics
       for injecting .loom files into all Loom programs
-      `Types/` one file per type kind (union, intersection, literal, generic, etc.); `Intrinsic/` + operator binders/rules
+      `Types/` one file per type kind (union, intersection, literal, generic, etc.); `Intrinsic/` + operator binders/rules.
+      `KeyOfType`, `IndexedType`, `MappedType` (`[K from keyof(T)]: T[K]`) and `ConditionalType` (`T is U ? A : B`, and the
+      n-armed `match T { ... }` it is the two-armed case of) are all *deferred operators*: they answer nothing at the
+      declaration, where the target is still a parameter, and are resolved by `TypeSubstitution.Apply` once an
+      instantiation supplies one. Adding another means a case there, in `TypeSolver.Transform`, and in
+      `TypeSimplifier.Normalize`. `TypeMatcher` measures a subject against a pattern and binds its `let` names;
+      `ConditionalTypeEvaluator` picks the arm, distributes over a union for `match each`, and unrolls a tail-recursive
+      arm iteratively under two bounds (small for nesting, large for tail steps)
     - `Generation/` — `LuauGenerator` (partial: `.Declarations`, `.Events`, `.Expressions`, `.Interfaces`, `.Match`, `.Statements`, `.Types`),
       `LuauOperatorMap.cs`, `Macros/` with `IMacroProvider` implementations under `Macros/Providers/` (Array, Range, Number, Result, Instance, global
       invocations)
@@ -51,17 +58,71 @@ before claiming done.
       **Install-location contract:** a dependency's output is written into the *entry* project's output directory, under
       `<output>/packages/<scope>/<name>` — compiled output is consumer-specific (it names the entry project's runtime and is checked against its project
       type's intrinsics), so it cannot live beside sources a package manager may share. One `$path` covering the project's output therefore covers every
-      package, whatever the PM did with the sources. `no_emit` is read off the entry project alone for the same reason
+      package, whatever the PM did with the sources. `no_emit` is read off the entry project alone for the same reason. `ProjectLoader` is what a host
+      (CLI, watch, LSP) asks for those roots: it reads `loom-lock.toml`, and `DependencyResolver`'s lock-taking overload resolves it — directories from
+      `PackageLayout`, then two checks the map overload cannot make, that every manifest in the build asks only for versions the lock accepts and that the
+      package installed in a directory *is* the version locked. Both are a stale lock, which only a package manager can fix, so neither is compiled
+      through. A project with no `[dependencies]` needs no lock; one that declares them and has no lock has never been resolved, and guessing from the
+      requirements is exactly what the lock exists to prevent. **A package's `dev = true` dependencies are not the consumer's:** only the entry project's
+      are resolved, installed and required to be locked — a package's development dependencies are what its own tests are written against, and a package
+      whose shipped source imports one has a mislabelled dependency, which the unresolved import says. Same line in `LockResolver`, `PublishedPackage`
+      and `LockFile.Satisfies(config, includeDevelopmentOnly)`
 - `Loom.Luau/` — Luau output AST + renderer (`LuauFactory`, `RenderState`, `AST/`)
 - `Loom.Config/` — `loom-config.toml` reader (Tomlyn). `ProjectType` (default `game`), `Debug` (default `false`, for emitting debug diagnostics) `FilesConfig`:
   `SourceDirectory` (default `src`) → `OutputDirectory` (default `dist`). Package identity lives here too: `[package]` (`PackageConfig`, with `PackageName` and
-  semver `Version` value types, plus `Realm`), `[dependencies]` (`Dependency`), `[registry]` (`RegistryConfig`). `[realms]` maps a directory under the source
+  semver `Version` value types, plus `Realm`), `[dependencies]` (`Dependency`), `[registry]` (`RegistryConfig`). A dependency's requirement is
+  parsed into a `VersionRequirement` while reading, not left as text: every clause form (`^1.2`, `~1.2.3`, `>=1.4, <2`, `*`) names an interval and
+  comma-separated clauses intersect, so a requirement *is* one interval — which is what makes `Satisfies` a predicate over an index's published
+  versions and `Intersect` closed, the two questions resolution is made of. Emptiness is never represented: an unsatisfiable requirement is rejected at
+  parse, and disagreeing requirements come back from `Intersect` as `null`. A pre-release satisfies a requirement only when one of its bounds names a
+  pre-release of the same `major.minor.patch`, so `>=1.2.0` does not quietly pick up `1.3.0-beta.1`. `[realms]` maps a directory under the source
   directory to `shared`/`client`/`server`; `SourceRoot.RealmOf` answers with the *longest* directory naming a file, so a realm declared inside another narrows
-  it rather than being shadowed, and a project declaring none has one realm and no boundary to cross. `ConfigReader` never throws on a manifest
-  problem — malformed manifests come back as `null` plus `ConfigDiagnostic`s out of `LocateFromDirectory`. `[files]` directories are validated there too
+  it rather than being shadowed, and a project declaring none has one realm and no boundary to cross. `ManifestEditor` is the only thing that *writes* a
+  manifest, and writes it as a text edit — a table header and a key line, never a re-serialization — since the comments, key order and line endings in a
+  `loom-config.toml` are its author's; it answers `null` rather than touching more than the one line an entry is written on. `ConfigReader` never throws on
+  a manifest problem — malformed manifests come back as `null` plus `ConfigDiagnostic`s out of `LocateFromDirectory`. `[files]` directories are validated there too
   (non-empty, relative, path-legal), since nothing downstream can report one that isn't: they are resolved as real paths and a stage throwing is the
-  compiler-bug path
-- `Loom.CLI/` — entry point; locates config, compiles unit, prints debug info. `Include/loom_runtime.luau` = runtime support emitted alongside output
+  compiler-bug path. `loom-lock.toml` is the other half of that contract: the manifest says which versions are *acceptable*, the lock (`LockFile`,
+  `LockedPackage`, read by `LockFileReader` the same never-throwing way) says which ones were *chosen* — one `[[package]]` per package, plus the
+  `dependencies` naming the rest, so a lock is the resolved graph and `LockFileReader` can reject one that is not closed. It carries no paths: a lock is
+  committed and read again on another machine, so where a package landed stays the package manager's answer (`DependencyResolver`'s `packageDirectories`)
+  while *which version* is the lock's. `ToToml` is deterministic (ordered entries, fixed key order, `\n`) because two machines have to write the same
+  bytes, and `Satisfies(LoomConfig)` is how a package manager asks whether the lock still covers the manifest instead of re-resolving. `PackageLayout` is
+  the other half of that: `<project>/packages/<scope>/<name>` is where a package manager installs sources and where the compiler reads them — not a
+  setting, for the reason `FilesConfig.PackagesDirectoryName` isn't one, and deliberately not keyed by version, since one build compiling two copies of a
+  package is not a shape anything downstream supports. `[registry] index` and a lock's `source` are read by one rule (`IndexLocation`), since the second
+  is written from the first: an index is as legitimately a directory — vendored, or a test's fixtures — as it is a URL, so neither asks for a URL
+- `Loom.Packages/` — the package manager: the tool side of the line the compiler draws. `IPackageIndex` is all resolution needs from the outside world
+  (what is published, and how to install it), so `LocalPackageIndex` — a directory of `<index>/<scope>/<name>/<version>`, each version a Loom project of
+  its own — is a whole offline registry and the fixture every test resolves against; a network index implements the same interface later.
+  `LockResolver` turns requirements plus an index into a `LockFile`: every requirement on a package intersects into the one interval a
+  `VersionRequirement` already is, so combining dependents needs no search and the newest published version inside that interval is the answer. It
+  deliberately does *not* backtrack — if the newest version one package allows leaves another unsatisfiable, that is reported as a conflict naming both
+  sides, not searched around; requirements are re-derived from the currently chosen versions each round (a requirement written by a version no longer
+  chosen is not a requirement) under a round bound, so a graph that will not settle is reported rather than spun on. `PackageInstaller` copies into
+  `PackageLayout`'s directories, comparing the *installed* version against the lock rather than any timestamp — a directory holding the right version is
+  right however it got there, which is what makes vendoring by hand and installing from an index the same thing downstream. `PackageManager.Restore` is
+  the one call a build makes: resolve only when the lock does not cover the manifest (keeping every version the old lock still allows, so one changed
+  requirement does not bump everything else), install only what is missing or wrong, and open no index at all when both already hold — which is what
+  lets a project with its packages present build with no registry reachable. `PackageAdder` is the other direction — the half that changes what a project
+  *asks for*: a `PackageRequest` naming no version is answered from the index (compatibility with the newest release published, since a request with no
+  opinion is not a request for a pre-release), written into the manifest by `ManifestEditor`, and only then restored. The manifest is written first because
+  resolution reads the manifest, so a request that turns out not to be resolvable puts the file back — a failed `add` leaves the project as it found it.
+  `PackagePublisher` splits publishing the way the tool/compiler line is drawn elsewhere: `Prepare` answers what a version consists of (the manifest, the
+  source directory, and the README/LICENSE/CHANGELOG a reader wants — never the output directory, the installed packages or the lock, each of which is one
+  consumer's answer rather than the package's), and `IPackageIndex.Publish` answers where it goes, so a local directory taking a copy and a registry taking
+  an upload differ in nothing else. `CanPublish` is asked before a caller does the work of satisfying itself the version is fit to publish, since a version
+  already published is never replaced whatever is offered for it
+- `Loom.CLI/` — entry point; locates config, runs `PackageManager.Restore`, asks `ProjectLoader` what the project compiles, compiles the unit, prints
+  debug info. `Projects` is how every verb finds the project it was pointed at and reports what stopped it before a file was read. `PackageCommands` holds
+  the two verbs that work on packages rather than code (`add`, `publish`) and is deliberately thin — deciding what to write and what to send is
+  `Loom.Packages`' job, which is testable without a terminal. `publish` compiles with `NoEmit` before it publishes: everything else a publish gets wrong can
+  be fixed by publishing the next version, but source that does not compile is in the index for good — `--allow-dirty` skips that check for a publisher who
+  knows something this machine does not, and says so on the way past. `add` is the one verb whose positionals are not the
+  project directory (they are the packages to add), so it takes `--project` instead.
+  `Include/loom_runtime.luau` = runtime support emitted alongside output. A watch restarts on `loom-config.toml`, the Rojo project *or* `loom-lock.toml` — a
+  package manager installing a dependency changes which projects the unit spans and a unit already built cannot grow a root; renames count too, since
+  installing atomically is a write to a temporary file followed by one
 - `Loom.LanguageServer/` — LSP server (OmniSharp). One handler per request, all registered in `Program.cs`, all answering off the `DocumentStore`:
   it keeps one `CompilationUnit` per project root and recompiles the open file on every change. The pieces the handlers share:
     - `CompletionSnapshot` — rebuilt from each compile; answers "what may be written at this offset" (member scope, import list, attribute list,
@@ -79,6 +140,9 @@ before claiming done.
       demand, and only `didChange`'s diagnostic publish is deferred (via `Debouncer`) because it is the one thing nobody is blocked on. Every dirty
       buffer of a unit goes into one `Recompile` together, and `Close` reverts the file to its saved text — the unit keeps whatever text it was last
       handed, and an editor discards unsaved edits when a document closes
+    - `DocumentStore` builds its units through `ProjectLoader` too, so an editor sees the packages a build sees; a project whose dependencies cannot be
+      loaded (no lock yet, one not installed) still gets a unit over its own files, since answering nothing about the file on screen is worse than
+      answering it without its packages
     - `DiagnosticPublisher` reports every file the compile found something in, not just the edited one, and remembers what it said so a file whose
       errors are gone gets an empty set. It only ever clears files the compile covered: a workspace may hold more than one project
     - `Conversion` owns `DiagnosticsFor`/`DiagnosticsByFile`: a null result means the file was not analyzed, and an empty set is how a client is told
@@ -136,7 +200,8 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 
 ## Gotchas
 
-- Testing imports both plus `Type = Loom.TypeChecking.Types.Type` alias to dodge `System.Type` clash.
+- Testing imports both plus `Type = Loom.TypeChecking.Types.Type` alias to dodge `System.Type` clash. `Loom.Packages` names a package version in nearly
+  every file, so it aliases `Version = Loom.Config.Version` project-wide in its csproj instead of per file.
 - `DiagnosticOptions.FailFast` (per `CompilationUnit`, threaded into every stage's `DiagnosticBag`) prints the first error and exits the process. Off by
   default; only `Loom.CLI` opts in. Options are handed out per file by `CompilationUnit.DiagnosticOptionsFor` — a dependency's files never fail fast, so the
   error the build stops on is the one naming the package.
@@ -144,6 +209,14 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
   warnings and info and collapses errors into one `PackageFailedToCompile` per file carrying the first underlying error. `DiagnosticOptions
   .ReportDependencyDiagnostics` (CLI: `--dependency-diagnostics`) turns that off for debugging a package from a project consuming it. Opening a package's own
   files in the LSP needs no flag — the package is the entry root of its own unit there.
+- `x is T` is read as a type predicate or as a conditional type depending on whether a `?` follows the target, which the parser only finds out after reading
+  it — so `_suppressOptionalSuffix` turns off the postfix `?` for the length of that target and is cleared only by `Parser.Bracketed`, for positions a closing
+  bracket ends before the `?` could be reached. A target that really is optional therefore needs parens: `T is (number?) ? A : B`. A pattern's `let` binders
+  are declared into the *arm's* scope by `DeclarePatternBinders`, not where they are written — `VisitFunctionType` opens a scope of its own, and
+  `fn(): let R ? R : never` would otherwise lose `R` before the branch that uses it.
+- A conditional alias emits no Luau body (Luau can express the answer but not the question): every use emits what it resolved to via `LuauTypeRenderer`, and a
+  use still generic at emission falls back to `unknown` with a warning — never `any`, which would silence every check downstream instead of making the consumer
+  narrow. A mapped type does have a Luau lowering (`{ [keyof<T>]: index<T, keyof<T>> }`), so it keeps its name at use sites.
 - The resolver keeps ambient names (intrinsics + `.d.loom` globals) in a scope below the file's own, so a module declaration shadows them instead of
   colliding. Scope depth is therefore not a test for "top level of a module" — use `AtModuleScope()`. Imports resolve ahead of the file's statements, so a name
   may be used above the import that brings it in.
@@ -155,5 +228,7 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 - `Loom.TypeGenerator` generates intrinsic types from the Roblox API that the test suite relies on to pass. The intrinsics are stored in
   `Loom.Core/TypeChecking/Intrinsics`.
 - A Tomlyn `TomlConverter` may only read a *scalar* value. One that consumes a table (inline or not) desynchronizes the reader and silently swallows the
-  table that follows it — which is why `[dependencies]` binds as `Dictionary<string, object>` and is read in `ConfigReader` instead of by a converter.
+  table that follows it — which is why `[dependencies]` binds as `Dictionary<string, object>` and is read in `ConfigReader` instead of by a converter. Its
+  typed deserializer also *ignores* a key it has no property for, so a table whose unknown keys have to be reported — `[dependencies]`, a lock file's
+  `[[package]]` — is bound raw and read by hand for that reason too.
 - PRs target `master`; open an issue before writing code (CONTRIBUTING.md).
