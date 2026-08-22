@@ -77,8 +77,10 @@ before claiming done.
   parse, and disagreeing requirements come back from `Intersect` as `null`. A pre-release satisfies a requirement only when one of its bounds names a
   pre-release of the same `major.minor.patch`, so `>=1.2.0` does not quietly pick up `1.3.0-beta.1`. `[realms]` maps a directory under the source
   directory to `shared`/`client`/`server`; `SourceRoot.RealmOf` answers with the *longest* directory naming a file, so a realm declared inside another narrows
-  it rather than being shadowed, and a project declaring none has one realm and no boundary to cross. `ConfigReader` never throws on a manifest
-  problem — malformed manifests come back as `null` plus `ConfigDiagnostic`s out of `LocateFromDirectory`. `[files]` directories are validated there too
+  it rather than being shadowed, and a project declaring none has one realm and no boundary to cross. `ManifestEditor` is the only thing that *writes* a
+  manifest, and writes it as a text edit — a table header and a key line, never a re-serialization — since the comments, key order and line endings in a
+  `loom-config.toml` are its author's; it answers `null` rather than touching more than the one line an entry is written on. `ConfigReader` never throws on
+  a manifest problem — malformed manifests come back as `null` plus `ConfigDiagnostic`s out of `LocateFromDirectory`. `[files]` directories are validated there too
   (non-empty, relative, path-legal), since nothing downstream can report one that isn't: they are resolved as real paths and a stage throwing is the
   compiler-bug path. `loom-lock.toml` is the other half of that contract: the manifest says which versions are *acceptable*, the lock (`LockFile`,
   `LockedPackage`, read by `LockFileReader` the same never-throwing way) says which ones were *chosen* — one `[[package]]` per package, plus the
@@ -102,9 +104,21 @@ before claiming done.
   right however it got there, which is what makes vendoring by hand and installing from an index the same thing downstream. `PackageManager.Restore` is
   the one call a build makes: resolve only when the lock does not cover the manifest (keeping every version the old lock still allows, so one changed
   requirement does not bump everything else), install only what is missing or wrong, and open no index at all when both already hold — which is what
-  lets a project with its packages present build with no registry reachable
+  lets a project with its packages present build with no registry reachable. `PackageAdder` is the other direction — the half that changes what a project
+  *asks for*: a `PackageRequest` naming no version is answered from the index (compatibility with the newest release published, since a request with no
+  opinion is not a request for a pre-release), written into the manifest by `ManifestEditor`, and only then restored. The manifest is written first because
+  resolution reads the manifest, so a request that turns out not to be resolvable puts the file back — a failed `add` leaves the project as it found it.
+  `PackagePublisher` splits publishing the way the tool/compiler line is drawn elsewhere: `Prepare` answers what a version consists of (the manifest, the
+  source directory, and the README/LICENSE/CHANGELOG a reader wants — never the output directory, the installed packages or the lock, each of which is one
+  consumer's answer rather than the package's), and `IPackageIndex.Publish` answers where it goes, so a local directory taking a copy and a registry taking
+  an upload differ in nothing else. `CanPublish` is asked before a caller does the work of satisfying itself the version is fit to publish, since a version
+  already published is never replaced whatever is offered for it
 - `Loom.CLI/` — entry point; locates config, runs `PackageManager.Restore`, asks `ProjectLoader` what the project compiles, compiles the unit, prints
-  debug info.
+  debug info. `Projects` is how every verb finds the project it was pointed at and reports what stopped it before a file was read. `PackageCommands` holds
+  the two verbs that work on packages rather than code (`add`, `publish`) and is deliberately thin — deciding what to write and what to send is
+  `Loom.Packages`' job, which is testable without a terminal. `publish` compiles with `NoEmit` before it publishes: everything else a publish gets wrong can
+  be fixed by publishing the next version, but source that does not compile is in the index for good. `add` is the one verb whose positionals are not the
+  project directory (they are the packages to add), so it takes `--project` instead.
   `Include/loom_runtime.luau` = runtime support emitted alongside output. A watch restarts on `loom-config.toml`, the Rojo project *or* `loom-lock.toml` — a
   package manager installing a dependency changes which projects the unit spans and a unit already built cannot grow a root; renames count too, since
   installing atomically is a write to a temporary file followed by one

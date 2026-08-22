@@ -15,6 +15,8 @@ internal sealed class PackageIndexFixture : IDisposable
 
     public string ProjectDirectory => Path.Combine(Root, "app");
 
+    public string LibraryDirectory => Path.Combine(Root, "lib");
+
     /// <summary>Publishes one version of a package into the index: a version directory holding a project of its own.</summary>
     public PackageIndexFixture Publish(string name, string version, string dependencies = "", string source = "export let value = 1;")
     {
@@ -51,6 +53,32 @@ internal sealed class PackageIndexFixture : IDisposable
         config.NoEmit = true;
         return config;
     }
+
+    /// <summary>
+    ///     Writes a project that is a package of its own, in a directory of its own — the subject a publish takes,
+    ///     kept apart from <see cref="ProjectDirectory" /> so one fixture can hold both a package and something that
+    ///     depends on it.
+    /// </summary>
+    public LoomConfig WriteLibrary(string name, string version, string dependencies = "", string source = "export let value = 1;")
+    {
+        Directory.CreateDirectory(Path.Combine(LibraryDirectory, "src"));
+        File.WriteAllText(
+            Path.Combine(LibraryDirectory, ConfigReader.ConfigFileName),
+            $"project_type = \"library\"\n[package]\nname = \"{name}\"\nversion = \"{version}\"\n"
+            + (dependencies.Length == 0 ? "" : $"[dependencies]\n{dependencies}\n")
+            + "[registry]\nindex = \"../index\"\n"
+            + "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n"
+        );
+
+        File.WriteAllText(Path.Combine(LibraryDirectory, "src", "init.loom"), source);
+        var config = ConfigReader.LocateFromDirectory(LibraryDirectory, out var diagnostics);
+        Assert.Empty(diagnostics);
+        Assert.NotNull(config);
+        return config;
+    }
+
+    /// <summary>The manifest of the project, as it stands on disk.</summary>
+    public string ReadManifest() => File.ReadAllText(Path.Combine(ProjectDirectory, ConfigReader.ConfigFileName));
 
     /// <summary>The version installed in the project's packages directory, or null when the package is not installed.</summary>
     public Version? InstalledVersion(string name)
