@@ -82,6 +82,60 @@ public sealed class LocalPackageIndex(string rootDirectory, string? source = nul
         }
     }
 
+    /// <summary>
+    ///     Publishes into <c>&lt;index&gt;/&lt;scope&gt;/&lt;name&gt;/&lt;version&gt;</c>, which is the directory
+    ///     <see cref="Publications" /> reads back — so publishing here is exactly the shape a version already in the
+    ///     index has, whether it was published by this or written by hand.
+    /// </summary>
+    /// <remarks>
+    ///     The version directory is created only when the copy is about to happen and is removed again if part of it
+    ///     fails: half a package in an index reads as a published version, and a consumer resolving it would compile
+    ///     against files that were never published.
+    /// </remarks>
+    public bool Publish(PackagePayload payload, out IReadOnlyList<ConfigDiagnostic> diagnostics)
+    {
+        diagnostics = [];
+        var directory = Path.Combine(_root, payload.Name.Scope ?? string.Empty, payload.Name.Name, payload.Version.ToString());
+        if (Directory.Exists(directory))
+        {
+            diagnostics = [new ConfigDiagnostic($"'{directory}' already exists, so '{payload}' cannot be published into it.")];
+            return false;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(directory);
+            foreach (var file in payload.Files)
+            {
+                var destination = Path.Combine(directory, file);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                File.Copy(Path.Combine(payload.Root, file), destination, true);
+            }
+
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Discard(directory);
+            diagnostics = [new ConfigDiagnostic($"could not publish '{payload}' into '{directory}': {exception.Message}")];
+            return false;
+        }
+    }
+
+    /// <summary>Removes a version directory that was not published in full, leaving the index as it was.</summary>
+    private static void Discard(string directory)
+    {
+        try
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // nothing further can be done about it here, and the failure being reported is the one worth reporting
+        }
+    }
+
     private static void CopyDirectory(string source, string destination)
     {
         Directory.CreateDirectory(destination);

@@ -5,7 +5,7 @@ namespace Loom.CLI;
 /// <summary>
 ///     Hand-rolled replacement for CommandLineParser: under Native AOT it discovers <c>[Verb]</c> option types
 ///     by reflection and crashes constructing them, rather than degrading gracefully. The surface here is small
-///     enough (three verbs, one positional argument, one flag) that reflection buys nothing.
+///     enough — a handful of verbs, a positional argument each and a flag or two — that reflection buys nothing.
 /// </summary>
 internal static class CliParser
 {
@@ -16,6 +16,8 @@ internal static class CliParser
         ("build", "Build a Loom project."),
         ("watch", "Build a Loom project and watch for changes."),
         ("new", "Create a new Loom project."),
+        ("add", "Add a dependency to a Loom project."),
+        ("publish", "Publish a Loom package to its index."),
         ("help", "Display more information on a specific command."),
         ("version", "Display version information.")
     ];
@@ -36,6 +38,24 @@ internal static class CliParser
 
     private static readonly (string Label, string Description)[] NewCommandOptions =
     [
+        ("--help", "Display this help screen."),
+        ("--version", "Display version information."),
+        ("directory (pos. 0)", "(Default: .) The project directory.")
+    ];
+
+    private static readonly (string Label, string Description)[] AddCommandOptions =
+    [
+        ("-D, --dev", "Add the packages as development-only dependencies."),
+        ("-p, --project", "(Default: .) The project directory."),
+        ("--help", "Display this help screen."),
+        ("--version", "Display version information."),
+        ("packages (pos. 0..)", "The packages to add, each written 'name' or 'name@requirement'.")
+    ];
+
+    private static readonly (string Label, string Description)[] PublishCommandOptions =
+    [
+        ("-n, --dry-run", "List what would be published, without publishing it."),
+        ("--allow-dirty", "Publish without checking that the project compiles."),
         ("--help", "Display this help screen."),
         ("--version", "Display version information."),
         ("directory (pos. 0)", "(Default: .) The project directory.")
@@ -76,6 +96,12 @@ internal static class CliParser
             case "new":
                 return ParseNew(rest);
 
+            case "add":
+                return ParseAdd(rest);
+
+            case "publish":
+                return ParsePublish(rest);
+
             case var verb:
                 return Error($"Verb '{verb}' is not recognized.", GlobalOptions);
         }
@@ -90,6 +116,12 @@ internal static class CliParser
                 return true;
             case "new":
                 options = NewCommandOptions;
+                return true;
+            case "add":
+                options = AddCommandOptions;
+                return true;
+            case "publish":
+                options = PublishCommandOptions;
                 return true;
             default:
                 options = [];
@@ -171,6 +203,98 @@ internal static class CliParser
         }
 
         return new CliCommand.RunNew(new NewOptions(directory));
+    }
+
+    /// <summary>
+    ///     Reads <c>add</c>: every positional is a package to add, so the project directory is named by an option
+    ///     rather than by position as the other verbs allow.
+    /// </summary>
+    private static CliCommand ParseAdd(string[] rest)
+    {
+        var packages = new List<string>();
+        var directory = ".";
+        var developmentOnly = false;
+
+        for (var index = 0; index < rest.Length; index++)
+        {
+            switch (rest[index])
+            {
+                case "--help":
+                    PrintVerbHelp(AddCommandOptions);
+                    return new CliCommand.Done(0);
+
+                case "--version":
+                    PrintVersion();
+                    return new CliCommand.Done(0);
+
+                case "-D" or "--dev":
+                    developmentOnly = true;
+                    break;
+
+                case "-p" or "--project":
+                    if (index + 1 >= rest.Length)
+                        return Error("Option 'project' has no value.", AddCommandOptions);
+
+                    directory = rest[++index];
+                    break;
+
+                case var flag when flag.StartsWith('-'):
+                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", AddCommandOptions);
+
+                case var positional:
+                    packages.Add(positional);
+                    break;
+            }
+        }
+
+        if (packages.Count == 0)
+            return Error("No package to add was named.", AddCommandOptions);
+
+        return new CliCommand.RunAdd(new AddOptions(packages, developmentOnly, directory));
+    }
+
+    private static CliCommand ParsePublish(string[] rest)
+    {
+        var directory = ".";
+        var directorySet = false;
+        var dryRun = false;
+        var allowDirty = false;
+
+        foreach (var arg in rest)
+        {
+            switch (arg)
+            {
+                case "--help":
+                    PrintVerbHelp(PublishCommandOptions);
+                    return new CliCommand.Done(0);
+
+                case "--version":
+                    PrintVersion();
+                    return new CliCommand.Done(0);
+
+                case "-n" or "--dry-run":
+                    dryRun = true;
+                    break;
+
+                case "--allow-dirty":
+                    allowDirty = true;
+                    break;
+
+                case var flag when flag.StartsWith('-'):
+                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", PublishCommandOptions);
+
+                case var positional:
+                    if (!directorySet)
+                    {
+                        directory = positional;
+                        directorySet = true;
+                    }
+
+                    break;
+            }
+        }
+
+        return new CliCommand.RunPublish(new PublishOptions(directory, dryRun, allowDirty));
     }
 
     private static CliCommand Error(string message, (string Label, string Description)[] fallbackOptions)

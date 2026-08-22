@@ -38,13 +38,23 @@ and Linux on both x86-64 and arm64. If you would rather not use Rokit, download 
 Then:
 
 ```sh
-loom new my-game    # scaffold a project
+loom new my-game     # scaffold a project
 cd my-game
-loom build          # compile src/ to dist/
-loom watch          # ... and keep compiling as files change
+loom build           # compile src/ to dist/
+loom watch           # ... and keep compiling as files change
+loom add serio       # depend on a package, and install it
+loom publish         # publish this project as a version of a package
 ```
 
-Every command takes the project directory as an optional argument, defaulting to the current one.
+Every command takes the project directory as an optional argument, defaulting to the current one — except `loom add`,
+whose arguments are the packages to add, so it takes the directory as `--project` instead.
+
+`loom add` writes the dependency into `loom-config.toml` and resolves it: `loom add serio` asks for whatever is
+published now, `loom add serio@^1.2` asks for what you name, and `--dev` marks it as needed only to develop the
+project. `loom publish` offers the project to its `[registry]` index as one version of the package its `[package]`
+table names — after checking that it compiles, since a published version is never replaced. `loom publish --dry-run`
+lists the files it would send without sending them, and `--allow-dirty` publishes without the compile check, for when
+you know something the compiler on this machine does not.
 
 ## Quick look
 

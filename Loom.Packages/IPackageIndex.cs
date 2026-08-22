@@ -22,4 +22,17 @@ public interface IPackageIndex
     ///     Fetching, unpacking or copying: which of those it is belongs to the index.
     /// </summary>
     bool Install(PublishedPackage package, string directory, out IReadOnlyList<ConfigDiagnostic> diagnostics);
+
+    /// <summary>
+    ///     Publishes <paramref name="payload" />, so that <see cref="Publications" /> answers with it afterwards.
+    ///     Copying into a directory or uploading to a registry: which of those it is belongs to the index, as with
+    ///     <see cref="Install" />.
+    /// </summary>
+    /// <remarks>
+    ///     An index that cannot be published to — one that is read-only, or a mirror — says so through the
+    ///     <paramref name="diagnostics" /> rather than by throwing, the same way every other refusal here is
+    ///     reported. Whether the version is already published is checked by <see cref="PackagePublisher" /> before
+    ///     this is called, since the answer is the same for every index; an index enforcing it again is welcome to.
+    /// </remarks>
+    bool Publish(PackagePayload payload, out IReadOnlyList<ConfigDiagnostic> diagnostics);
 }
