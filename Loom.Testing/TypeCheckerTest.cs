@@ -77,6 +77,23 @@ public class TypeCheckerTest
         Utility.AssertDiagnostic(diagnostics, InternalCodes.SimplifiableCode, "Use a range literal.");
     }
 
+    [Fact]
+    public void WarnsFor_ToSetOnAnArrayLiteral()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("[1, 2, 1].to_set();");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.SimplifiableCode, "Use 'Set.of(...)' instead of '.to_set()' on an array literal.");
+    }
+
+    [Theory]
+    [InlineData("let a = [1, 2, 1]; a.to_set();")]
+    [InlineData("fn source(): number[] -> [1, 2, 1]; source().to_set();")]
+    [InlineData("let a = [1, 2]; [1, 2, ..a].to_set();")]
+    public void DoesNotWarnFor_ToSetOnAnythingElse(string source)
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Assert.DoesNotContain(diagnostics.Set, d => d.Code == InternalCodes.SimplifiableCode);
+    }
+
     #region ThrowsFor
     [Fact]
     public void ThrowsFor_Variable_DeclaredType_Mismatch()
