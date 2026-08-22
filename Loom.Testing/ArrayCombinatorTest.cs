@@ -36,6 +36,10 @@ public class ArrayCombinatorTest
     [InlineData("let a = [[1, 2], [3]]; let b = a.flatten();", "number[]")]
     [InlineData("let a = [[[1]]]; let b = a.flatten().flatten();", "number[]")]
     [InlineData("let a = [[1, 2], [3]]; let b = a.flatten().where(fn(n) -> n > 1);", "number[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.find(fn(n) -> n > 1);", "number?")]
+    [InlineData("let a = [1, 2, 3]; let b = a.find_index(fn(n) -> n > 1);", "number?")]
+    [InlineData("let a = [1, 2, 3]; let b = a.reverse();", "number[]")]
+    [InlineData("let a = [1, 2, 3]; let b = a.clone();", "number[]")]
     public void InfersTheResultType(string source, string expected) => Assert.Equal(expected, Utility.GetLastStatementType(source + " let c = b;").ToString());
 
     [Fact]
@@ -272,6 +276,37 @@ public class ArrayCombinatorTest
         Assert.Contains("b += 1", rendered);
         Assert.DoesNotContain("table.create", rendered);
         Assert.DoesNotContain("table.insert", rendered);
+    }
+
+    [Fact]
+    public void FindStopsAtTheFirstMatch()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.find(fn(n) -> n > 1);", typeCheck: true).Render();
+
+        Assert.Contains("local _found = nil", rendered);
+        Assert.Contains("_found = n", rendered);
+        Assert.Contains("break", rendered);
+        Assert.Contains("const b = _found", rendered);
+    }
+
+    [Fact]
+    public void FindIndexStopsAtTheFirstMatch()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.find_index(fn(n) -> n > 1);", typeCheck: true).Render();
+
+        Assert.Contains("local _found = nil", rendered);
+        Assert.Contains("break", rendered);
+        Assert.Contains("const b = _found", rendered);
+    }
+
+    [Fact]
+    public void ReverseAllocatesUpFrontAndReadsFromTheOppositeEnd()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b = a.reverse();", typeCheck: true).Render();
+
+        Assert.Contains("const _length = #a", rendered);
+        Assert.Contains("const _result = table.create(_length)", rendered);
+        Assert.Contains("_result[_index] = a[_length - _index + 1]", rendered);
     }
 
     [Fact]

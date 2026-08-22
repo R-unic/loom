@@ -15,6 +15,7 @@ public sealed partial class TypeChecker
         var type = Visit(invocation.Expression);
         CheckPanicIsDeclared(invocation);
         CheckDeprecation(invocation);
+        CheckSimplifiableToSet(invocation);
 
         // a?.b() short-circuits to nil at runtime before ever calling 'b', so the callee is
         // checked against its non-nullable type and the call's own result gains '| none' back.
@@ -64,6 +65,21 @@ public sealed partial class TypeChecker
         return isOptionalChainCallee && !Type.IsNever(resultType)
             ? BindType(invocation, TypeSimplifier.Simplify(new Types.UnionType([resultType, Types.PrimitiveType.None])))
             : resultType;
+    }
+
+    /// <summary>
+    ///     <c>Set.of(...)</c> folds straight to a table literal at compile time; <c>.to_set()</c> on
+    ///     anything else has to build the array first and then walk it in a runtime loop
+    ///     (<c>ArrayMacroProvider.GenerateToSet</c>). The two are only equivalent when the receiver
+    ///     really is an array literal - a variable or a call result still needs the loop.
+    /// </summary>
+    private void CheckSimplifiableToSet(Invocation invocation)
+    {
+        if (!TryGetMemberCall(invocation, out var receiver, out var member) || member != "to_set")
+            return;
+
+        if (receiver is ArrayLiteral { Expressions: var elements } && elements.TrueForAll(element => element is not SpreadElement))
+            _diagnostics.Warn(invocation, InternalCodes.SimplifiableCode, "Use 'Set.of(...)' instead of '.to_set()' on an array literal.");
     }
 
     private static bool IsOptionalChainAccess(Expression expression) =>

@@ -99,6 +99,7 @@ declare interface MutSet<T> {
     has: fn(value: T): bool;
     add: fn(value: T): void;
     remove: fn(value: T): void;
+    clear: fn(): void;
     union: fn(other: Set<T>): Set<T>;
     intersect: fn(other: Set<T>): Set<T>;
     difference: fn(other: Set<T>): Set<T>;

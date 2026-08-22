@@ -52,6 +52,8 @@ public class MacroEffectTest
     // A suffix longer than the string must not wrap around and match.
     [InlineData("\"lo\".ends_with(\"hello\")", "false")]
     [InlineData("\"he\".starts_with(\"hello\")", "false")]
+    [InlineData("\"hello world\".index_of(\"world\")", "7")]
+    [InlineData("\"hello world\".index_of(\"xyz\")", "nil")]
     public void Computes(string expression, string expected) => Assert.Equal(expected, Run($"let value = {expression};", "value"));
 
     /// <summary>The folded length is a byte count, which is what Luau's '#' would have measured.</summary>

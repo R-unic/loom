@@ -18,7 +18,8 @@ internal sealed class StringMacroProvider : IMacroProvider
     public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) =>
-        memberName is "upper" or "lower" or "trim" or "replace" or "reverse" or "repeat" or "split" or "has" or "starts_with" or "ends_with" or "byte";
+        memberName is "upper" or "lower" or "trim" or "replace" or "reverse" or "repeat" or "split" or "has" or "index_of" or "starts_with" or "ends_with"
+            or "byte";
 
     public bool TryProperty(MacroContext context, string name, LuauExpression target, [MaybeNullWhen(false)] out LuauExpression expression)
     {
@@ -96,6 +97,11 @@ internal sealed class StringMacroProvider : IMacroProvider
                     new NilLiteral()
                 );
 
+                return true;
+            }
+            case "index_of":
+            {
+                expression = LuauFactory.StringCall("find", [str, call.Arguments.Single(), new NumberLiteral(1), new BooleanLiteral(true)]);
                 return true;
             }
             case "starts_with":

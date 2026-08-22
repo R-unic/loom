@@ -58,6 +58,13 @@ public class SetIntrinsicTest
     }
 
     [Fact]
+    public void ImmutableSetHasNoClear()
+    {
+        var diagnostics = Utility.GetAnalysisDiagnostics("Set.of(1).clear();");
+        Assert.Contains(diagnostics.Set, d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void ThrowsFor_MemberOfTheWrongElementType()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("Set.of(1, 2).has(\"three\");");
