@@ -614,6 +614,51 @@ public class MacroExpanderTest
         Assert.Equal("a", Assert.IsType<Identifier>(tableCall.Arguments.First()).Name);
     }
 
+    [Theory]
+    [InlineData("let a = mut [1, 2, 3]; a.clear()", "clear", 1)]
+    [InlineData("let a = [1, 2, 3]; let b = a.clone();", "clone", 1)]
+    public void Generates_Array_SingleTableCall(string source, string luauFunction, int argumentCount)
+    {
+        var luauTree = Utility.GetLuauAST(source, true);
+        Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
+
+        var tableCall = luauTree.Statements.Last() switch
+        {
+            ExpressionStatement statement => Assert.IsType<Call>(statement.Expression),
+            ConstVariable variable => Assert.IsType<Call>(variable.Initializer),
+            var other => throw new Xunit.Sdk.XunitException($"Unexpected statement kind: {other}")
+        };
+
+        var callee = Assert.IsType<PropertyAccess>(tableCall.Callee);
+        Assert.Equal("table", Assert.IsType<Identifier>(callee.Target).Name);
+        Assert.Equal(luauFunction, Assert.Single(callee.Names));
+        Assert.Equal(argumentCount, tableCall.Arguments.Count);
+        Assert.Equal("a", Assert.IsType<Identifier>(tableCall.Arguments.First()).Name);
+    }
+
+    /// <summary>
+    ///     Used as a bare statement, the lookup and the removal are a prereq and a postreq around the
+    ///     macro's own returned identifier - the elided-placeholder pass in <c>LuauGenerator</c> then
+    ///     drops the trailing binding, so no third statement carrying the found index survives.
+    /// </summary>
+    [Fact]
+    public void Generates_Array_RemoveValue_AsABareStatement()
+    {
+        const string source = "let a = mut [1, 2, 3]; a.remove_value(2)";
+        var luauTree = Utility.GetLuauAST(source, true);
+        Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
+        Assert.Equal(3, luauTree.Statements.Count);
+
+        var lookup = Assert.IsType<ConstVariable>(luauTree.Statements[1]);
+        var find = Assert.IsType<Call>(lookup.Initializer);
+        Assert.Equal("find", Assert.Single(Assert.IsType<PropertyAccess>(find.Callee).Names));
+
+        var guard = Assert.IsType<IfStatement>(luauTree.Statements[2]);
+        var removal = Assert.IsType<ExpressionStatement>(Assert.Single(guard.ThenBranch.Statements));
+        var remove = Assert.IsType<Call>(removal.Expression);
+        Assert.Equal("remove", Assert.Single(Assert.IsType<PropertyAccess>(remove.Callee).Names));
+    }
+
     [Fact]
     public void ImmutableArray_DoesNotSupport_Mutation()
     {

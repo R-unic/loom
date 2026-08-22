@@ -6480,6 +6480,14 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_StringMemberAccess_IndexOf_ReturnsOptionalNumber()
+    {
+        var type = Utility.GetLastStatementType("let s = 'abc'; s.index_of('b')");
+        var optional = Assert.IsType<OptionalType>(type);
+        Assert.Equal(PrimitiveType.Number, optional.NonNullableType);
+    }
+
+    [Fact]
     public void Checks_StringMemberAccess_Split()
     {
         var type = Utility.GetLastStatementType("let s = 'a,b'; s.split(',')");
@@ -6534,6 +6542,52 @@ public class TypeCheckerTest
     {
         var type = Utility.GetLastStatementType("let a = [1, 2, 3]; a.has(2)");
         Assert.Equal(PrimitiveType.Bool, type);
+    }
+
+    [Fact]
+    public void Checks_ArrayMemberAccess_Find_ReturnsOptionalElement()
+    {
+        var type = Utility.GetLastStatementType("let a = [1, 2, 3]; a.find(fn(n) -> n > 1)");
+        var optional = Assert.IsType<OptionalType>(type);
+        Assert.Equal(PrimitiveType.Number, optional.NonNullableType);
+    }
+
+    [Fact]
+    public void Checks_ArrayMemberAccess_FindIndex_ReturnsOptionalNumber()
+    {
+        var type = Utility.GetLastStatementType("let a = [1, 2, 3]; a.find_index(fn(n) -> n > 1)");
+        var optional = Assert.IsType<OptionalType>(type);
+        Assert.Equal(PrimitiveType.Number, optional.NonNullableType);
+    }
+
+    [Fact]
+    public void Checks_ArrayMemberAccess_Reverse_ReturnsSameElementType()
+    {
+        var type = Utility.GetLastStatementType("let a = [1, 2, 3]; a.reverse()");
+        var array = Assert.IsType<ArrayType>(type);
+        Assert.Equal(PrimitiveType.Number, array.ElementType);
+    }
+
+    [Fact]
+    public void Checks_ArrayMemberAccess_Clone_ReturnsSameElementType()
+    {
+        var type = Utility.GetLastStatementType("let a = [1, 2, 3]; a.clone()");
+        var array = Assert.IsType<ArrayType>(type);
+        Assert.Equal(PrimitiveType.Number, array.ElementType);
+    }
+
+    [Fact]
+    public void ThrowsFor_ImmutableArray_RemoveValue()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let a = [1, 2, 3]; a.remove_value(2);");
+        Assert.NotEmpty(diagnostics.Set);
+    }
+
+    [Fact]
+    public void ThrowsFor_ImmutableArray_Clear()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let a = [1, 2, 3]; a.clear();");
+        Assert.NotEmpty(diagnostics.Set);
     }
 
     [Fact]
