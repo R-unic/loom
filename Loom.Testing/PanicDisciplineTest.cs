@@ -59,6 +59,35 @@ public class PanicDisciplineTest
         );
 
     [Fact]
+    public void UnwrapErr_IsPanicking() =>
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(Fetch + "let e = fetch().unwrap_err();"),
+            InternalCodes.PanicOutsideFallibleFunction,
+            "'unwrap_err' can panic, and this code cannot recover from it."
+        );
+
+    [Fact]
+    public void ExpectErr_IsPanicking() =>
+        Utility.AssertDiagnostic(
+            Utility.GetTypeCheckerDiagnostics(Fetch + """let e = fetch().expect_err("boom");"""),
+            InternalCodes.PanicOutsideFallibleFunction,
+            "'expect_err' can panic, and this code cannot recover from it."
+        );
+
+    [Fact]
+    public void UnwrapErr_InsideAFallibleFunction_IsAllowed() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                Fetch + """
+                    [fallible]
+                    fn debug_error(): string {
+                        return fetch().unwrap_err();
+                    }
+                    """
+            )
+        );
+
+    [Fact]
     public void Error_IsPanicking()
     {
         Utility.AssertDiagnostic(
