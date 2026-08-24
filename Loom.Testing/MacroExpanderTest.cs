@@ -86,7 +86,7 @@ public class MacroExpanderTest
     {
         const string source = """
             declare fn consume<T, E>(callback: fn(value: T): Result<T, E>): void;
-            consume(Result.ok);
+            consume(BaseResult::ok);
             """;
 
         var luauTree = Utility.GetLuauAST(source, true);
@@ -110,7 +110,7 @@ public class MacroExpanderTest
     {
         const string source = """
             declare fn consume<T, E>(callback: fn(value: T): Result<T, E>): void;
-            consume(Result["ok"]);
+            consume(BaseResult["ok"]);
             """;
 
         var luauTree = Utility.GetLuauAST(source, true);
@@ -240,10 +240,10 @@ public class MacroExpanderTest
 
     /// <summary>
     ///     The wrapper's parameter is a concrete function type rather than a bare type parameter, unlike an
-    ///     earlier version of this test that wrapped <c>Result.ok</c> in a generic <c>id&lt;T&gt;</c> - passing
+    ///     earlier version of this test that wrapped <c>BaseResult::ok</c> in a generic <c>id&lt;T&gt;</c> - passing
     ///     a still-generic macro reference through a second, unrelated generic function's own inference is a
     ///     type-checker gap (contextual typing does not propagate a type parameter's binding through a nested
-    ///     generic call - see rbx-loom/loom, the <c>consume(id(Result.ok))</c> case), not something this test
+    ///     generic call - see rbx-loom/loom, the <c>consume(id(BaseResult::ok))</c> case), not something this test
     ///     is about. What it is about - a macro reference nested inside another call's own argument list still
     ///     being classified as a call and expanded, rather than becoming a lambda the outer call then calls a
     ///     second time (rbx-loom/loom#25) - only needs one level of nesting with a concrete callee type.
@@ -254,7 +254,7 @@ public class MacroExpanderTest
         const string source = """
             fn wrap(value: fn(value: number): Result<number, string>): fn(value: number): Result<number, string> -> value;
             declare fn consume(callback: fn(value: number): Result<number, string>): void;
-            consume(wrap(Result.ok));
+            consume(wrap(BaseResult::ok));
             """;
 
         var luauTree = Utility.GetLuauAST(source, true);
@@ -386,7 +386,7 @@ public class MacroExpanderTest
     [Fact]
     public void Generates_ResultStatic_Ok()
     {
-        const string source = "Result.ok(69)";
+        const string source = "BaseResult::ok(69)";
         var luauTree = Utility.GetLuauAST(source, true);
         Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
         Assert.Single(luauTree.Statements);
@@ -409,7 +409,7 @@ public class MacroExpanderTest
     [Fact]
     public void Generates_ResultStatic_Err()
     {
-        const string source = "Result.err('stupid program')";
+        const string source = "BaseResult::err('stupid program')";
         var luauTree = Utility.GetLuauAST(source, true);
         Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
         Assert.Single(luauTree.Statements);
@@ -1370,8 +1370,8 @@ public class MacroExpanderTest
     [Theory]
     [InlineData("let r = 1..10; r.clamp();")]
     [InlineData("let r = 1..10; r.clamp(1, 2);")]
-    [InlineData("Result.ok();")]
-    [InlineData("Result.ok(1, 2);")]
+    [InlineData("BaseResult::ok();")]
+    [InlineData("BaseResult::ok(1, 2);")]
     [InlineData("let s = [1, 2, 3].to_set(); s.has();")]
     [InlineData("let s = [1, 2, 3].to_set(); s.has(1, 2);")]
     public void Generates_AMacroBackedCall_GivenTheWrongArity_WithoutThrowing(string source)

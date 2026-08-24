@@ -7,7 +7,7 @@ public class PanicDisciplineTest
 {
     private const string Fetch = """
         fn fetch(): Result<number, string> {
-            return Result.ok(1);
+            return BaseResult::ok(1);
         }
 
 
@@ -127,7 +127,7 @@ public class PanicDisciplineTest
                 Fetch + """
                     fn load(): Result<number, string> {
                         let n = fetch()?;
-                        return Result.ok(n);
+                        return BaseResult::ok(n);
                     }
                     """
             )
@@ -142,7 +142,7 @@ public class PanicDisciplineTest
     {
         const string source = """
             fn fetch(): Result<number, string> {
-                return Result.ok(1);
+                return BaseResult::ok(1);
             }
 
             [fallible]

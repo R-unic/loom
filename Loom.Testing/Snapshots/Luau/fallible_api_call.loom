@@ -3,7 +3,7 @@ let data_store_service = get_service::<DataStoreService>();
 async fn load(key: string): Result<unknown, RobloxError> {
     let store = data_store_service.get_data_store("players")?;
     let value = await store.get_async(key)?;
-    return Result.ok(value);
+    return BaseResult::ok(value);
 }
 
 let outcome = load("player_1");

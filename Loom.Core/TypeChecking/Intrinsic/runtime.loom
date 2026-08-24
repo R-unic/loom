@@ -36,12 +36,12 @@ interface ResultError<T, Error> {
 
 type Result<T, Error> = ResultOk<T, Error> | ResultError<T, Error>;
 
-declare sealed interface ResultStatic {
-    ok: fn<T, Error>(value: T): Result<T, Error>;
-    err: fn<T, Error>(error: Error): Result<T, Error>;
+## Result<T, Error> is a union alias, not an interface, so it has nowhere to hang a 'static'
+## constructor - this interface exists purely to anchor 'ok'/'err' under a real name.
+declare sealed interface BaseResult {
+    static ok: fn<T, Error>(value: T): Result<T, Error>;
+    static err: fn<T, Error>(error: Error): Result<T, Error>;
 }
-
-declare let Result: ResultStatic;
 
 ## A value that is not ready yet. Calling an 'async fn' starts it and hands back one of these, so
 ## two calls made one after the other are in flight together; 'await' is how the value comes back
@@ -59,22 +59,17 @@ declare sealed interface Future<T> {
     ### The settled value, or 'none' while the future is still pending or if it failed. Reading it
     ### never waits - 'await' is what waits.
     value: T?;
-}
-
-declare sealed interface FutureStatic {
     ### A future that is already settled with 'value', so a synchronous path can hand back the same
     ### type an asynchronous one does. Awaiting it never yields.
-    resolved: fn<T>(value: T): Future<T>;
+    static resolved: fn<T>(value: T): Future<T>;
     ### A future that has already failed. Awaiting it re-raises 'error'.
-    rejected: fn<T>(error: unknown): Future<T>;
+    static rejected: fn<T>(error: unknown): Future<T>;
     ### Waits for every future, keeping the results in the order the futures were given rather than
     ### the order they finished. The first rejection rejects the whole thing.
-    all: fn<T>(futures: Future<T>[]): Future<T[]>;
+    static all: fn<T>(futures: Future<T>[]): Future<T[]>;
     ### Settles with whichever future settles first, whether it resolved or rejected.
-    race: fn<T>(futures: Future<T>[]): Future<T>;
+    static race: fn<T>(futures: Future<T>[]): Future<T>;
 }
-
-declare let Future: FutureStatic;
 
 ## The error half of every fallible Roblox API call. 'traceback' is captured by the xpcall
 ## handler the generator installs, so it costs nothing unless the call actually threw; it is

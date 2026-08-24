@@ -555,7 +555,7 @@ public class TypeInferrerTest
         Assert.Equal(PrimitiveType.Number, result[elementParameter]);
     }
 
-    /// <summary>A fixed parameter keeps the literal, so 'Result.ok(1)' stays 'Result&lt;1, E&gt;'.</summary>
+    /// <summary>A fixed parameter keeps the literal, so 'BaseResult::ok(1)' stays 'Result&lt;1, E&gt;'.</summary>
     [Fact]
     public void InferFunctionTypeArguments_FixedParameter_KeepsALiteralArgument()
     {

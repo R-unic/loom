@@ -17,7 +17,7 @@ public class ResultCombinatorRuntimeTest
         }
 
         fn step(n: number): Result<number, string> {
-            return Result.ok(n + 1);
+            return BaseResult::ok(n + 1);
         }
 
         fn recover(message: string): number {
@@ -25,11 +25,11 @@ public class ResultCombinatorRuntimeTest
         }
 
         fn ok(n: number): Result<number, string> {
-            return Result.ok(n);
+            return BaseResult::ok(n);
         }
 
         fn err(message: string): Result<number, string> {
-            return Result.err(message);
+            return BaseResult::err(message);
         }
 
 
@@ -77,7 +77,7 @@ public class ResultCombinatorRuntimeTest
             }
 
             fn err(message: string): Result<number, string> {
-                return Result.err(message);
+                return BaseResult::err(message);
             }
 
             let outcome = err("bad").map(boom);

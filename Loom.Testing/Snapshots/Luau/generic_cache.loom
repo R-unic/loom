@@ -6,9 +6,9 @@ interface Entry<K, V> {
 fn find<K, V>(entries: Entry<K, V>[], key: K): Result<V, string> {
     for entry : entries
         if entry.key == key
-            return Result.ok(entry.value);
+            return BaseResult::ok(entry.value);
 
-    return Result.err("missing key");
+    return BaseResult::err("missing key");
 }
 
 let entries = [

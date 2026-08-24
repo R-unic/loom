@@ -1356,7 +1356,7 @@ mutable, so writing `false` through it directly means what it says.
 
 ```rs
 fn unsafe_function(condition: bool): Result<number, string> ->
-    condition ? Result.ok(69) : Result.err("function failed!");
+    condition ? BaseResult::ok(69) : BaseResult::err("function failed!");
     
 let result = unsafe_function(true);
 print(result.ok ? result.value : result.error);
@@ -1410,7 +1410,7 @@ A method that also *yields* is `async fn` on top of this, so it is awaited as we
 async fn load(key: string): Result<unknown, RobloxError> {
     let store = data_store_service.get_data_store("players")?;
     let value = await store.get_async(key)?;
-    return Result.ok(value);
+    return BaseResult::ok(value);
 }
 ```
 
@@ -1446,7 +1446,7 @@ fn load_or_die(): number {
 
 fn load(): Result<number, string> {
     let value = unsafe_function(true)?;     ## ok - propagates, never panics
-    return Result.ok(value);
+    return BaseResult::ok(value);
 }
 
 fn careless(): number {
@@ -1544,7 +1544,7 @@ already means `(await call())?`:
 async fn load(key: string): Result<unknown, RobloxError> {
     let store = data_store_service.get_data_store("players")?;
     let value = await store.get_async(key)?;
-    return Result.ok(value);
+    return BaseResult::ok(value);
 }
 ```
 
@@ -1598,10 +1598,10 @@ Everywhere else `await` follows JS precedence - it takes the whole postfix chain
 | --- | --- |
 | `status` | `"pending"`, `"resolved"` or `"rejected"` |
 | `value` | the settled value, or `none` while pending and after a failure; reading it never waits |
-| `Future.all(futures)` | every value, in the order the futures were given; the first failure fails the whole set |
-| `Future.race(futures)` | whichever settles first, however it settles |
-| `Future.resolved(value)` | an already-settled future, so a synchronous path can hand back the same type |
-| `Future.rejected(error)` | an already-failed future; awaiting it re-raises |
+| `Future::all(futures)` | every value, in the order the futures were given; the first failure fails the whole set |
+| `Future::race(futures)` | whichever settles first, however it settles |
+| `Future::resolved(value)` | an already-settled future, so a synchronous path can hand back the same type |
+| `Future::rejected(error)` | an already-failed future; awaiting it re-raises |
 
 Awaiting a future that failed re-raises, so awaiting a `[fallible]` async function is itself a panicking operation.
 A future nobody awaits swallows its failure.
@@ -1627,12 +1627,12 @@ enclosing function to declare a `Result<T, E>` return type, and the propagated e
 
 ```rs
 fn some_other_unsafe_fn(): Result<number, string> {
-    return Result.ok(1);
+    return BaseResult::ok(1);
 }
 
 fn unsafe_fn(): Result<number, string> {
     let value = some_other_unsafe_fn()?;
-    return Result.ok(69 + value);
+    return BaseResult::ok(69 + value);
 }
 ```
 

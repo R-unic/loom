@@ -216,11 +216,11 @@ public class LuauGeneratorTest
         // whatever they need (e.g. an error-propagation guard) into the same shared, unconditional scope.
         var luauTree = Utility.GetLuauAST(
             """
-            fn a(): Result<number, string> { return Result.ok(1); }
-            fn b(): Result<number, string> { return Result.ok(2); }
+            fn a(): Result<number, string> { return BaseResult::ok(1); }
+            fn b(): Result<number, string> { return BaseResult::ok(2); }
             fn pick(cond: bool): Result<number, string> {
                 let value = cond ? a()? : b()?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """,
             true
@@ -250,11 +250,11 @@ public class LuauGeneratorTest
         var rendered = Utility.GetLuauAST(
             """
             fn some_other_unsafe_fn(): Result<number, string> {
-                return Result.ok(1);
+                return BaseResult::ok(1);
             }
             fn unsafe_fn(): Result<number, string> {
                 let value = some_other_unsafe_fn()?;
-                return Result.ok(69 + value);
+                return BaseResult::ok(69 + value);
             }
             """,
             true
@@ -275,10 +275,10 @@ public class LuauGeneratorTest
         // and again for '.value'.
         var luauTree = Utility.GetLuauAST(
             """
-            fn get(): Result<number, string> { return Result.ok(1); }
+            fn get(): Result<number, string> { return BaseResult::ok(1); }
             fn use_it(): Result<number, string> {
                 let value = get()?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """,
             true
