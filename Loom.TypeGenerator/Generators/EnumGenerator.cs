@@ -30,14 +30,9 @@ internal class EnumGenerator(string filePath, ReflectionMetadataReader metadata)
             GenerateEnum(rbxEnum, i == enums.Length - 1);
         }
 
-        WriteBlock(
-            "declare interface Enum",
-            () =>
-            {
-                WriteList(enumNames, name => $"{name}: EnumItem<\"{name}\">;");
-                WriteList(enumNames, name => $"static {name}: Enum{name};");
-            }
-        );
+        WriteBlock("declare interface EnumStatic", () => WriteList(enumNames, name => $"{name}: Enum{name};"));
+        WriteBlock("declare interface Enum", () => WriteList(enumNames, name => $"{name}: EnumItem<\"{name}\">;"));
+        Write("declare let Enum: EnumStatic;");
     }
 
     private void GenerateEnum(Enum rbxEnum, bool isLast) =>
