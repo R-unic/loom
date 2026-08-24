@@ -77,7 +77,7 @@ public class ResolverTest
 
     [Fact]
     public void Resolves_AnIntrinsic_ThatNothingShadows() =>
-        Utility.AssertNoErrors(Utility.GetSemanticModel("let v: Vector3 = Vector3.zero;\nprint(v.x);").Diagnostics);
+        Utility.AssertNoErrors(Utility.GetSemanticModel("let v: Vector3 = Vector3::zero;\nprint(v.x);").Diagnostics);
 
     [Fact]
     public void Allows_AModuleDeclaration_ToShadowAnAmbientGlobal() =>
@@ -2687,7 +2687,7 @@ public class ResolverTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            let cf = CFrame.create(1, 2, 3);
+            let cf = CFrame::create(1, 2, 3);
             let (x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22) = cf.get_components();
             let (rx, ry, rz) = cf.to_orientation();
             let (axis, angle) = cf.to_axis_angle();
@@ -2703,7 +2703,7 @@ public class ResolverTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            let cf = CFrame.create(1, 2, 3);
+            let cf = CFrame::create(1, 2, 3);
             let (ax, ay, az) = cf.to_euler_angles_xyz();
             let (bx, by, bz) = cf.to_euler_angles_yxz();
             print(ax, ay, az, bx, by, bz);
@@ -2718,12 +2718,12 @@ public class ResolverTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            let cf = CFrame.create(1, 2, 3);
+            let cf = CFrame::create(1, 2, 3);
             print(cf.inverse());
-            print(cf.lerp(CFrame.identity, 0.5));
-            print(cf.to_world_space(CFrame.identity));
-            print(cf.point_to_object_space(Vector3.zero));
-            print(cf.vector_to_world_space(Vector3.one));
+            print(cf.lerp(CFrame::identity, 0.5));
+            print(cf.to_world_space(CFrame::identity));
+            print(cf.point_to_object_space(Vector3::zero));
+            print(cf.vector_to_world_space(Vector3::one));
             """
         );
 
@@ -2733,7 +2733,7 @@ public class ResolverTest
     [Fact]
     public void Resolves_CFrameDecomposition_ToMethodCalls()
     {
-        var luau = Utility.GetLuauAST("let cf = CFrame.create(1, 2, 3); let (rx, ry, rz) = cf.to_orientation();", true).Render();
+        var luau = Utility.GetLuauAST("let cf = CFrame::create(1, 2, 3); let (rx, ry, rz) = cf.to_orientation();", true).Render();
 
         Assert.Contains("CFrame.new(1, 2, 3)", luau);
         Assert.Contains("cf:ToOrientation()", luau);

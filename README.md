@@ -1292,7 +1292,7 @@ A `Set<T>` is a table whose keys are its members. Nothing about it survives to r
 that table directly and every operation is lowered inline, so a set costs exactly what the table costs.
 
 ```rs
-let tags = Set.of("boss", "flying");
+let tags = Set::of("boss", "flying");
 let flying = tags.has("flying");
 let names = ["ana", "bo", "ana"].to_set();
 ```
@@ -1313,10 +1313,10 @@ const names = _result
 building can be passed to anything that only reads one.
 
 ```rs
-mut visited = MutSet.of(1);
+mut visited = MutSet::of(1);
 visited.add(2);
 visited.remove(1);
-let more = visited.union(Set.of(3));
+let more = visited.union(Set::of(3));
 ```
 
 ```luau
