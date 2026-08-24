@@ -7,7 +7,7 @@ public abstract record ObjectBodyType(bool IsMutable, Type ValueType);
 public sealed record ObjectIndexer(bool IsMutable, Type KeyType, Type ValueType)
     : ObjectBodyType(IsMutable, ValueType);
 
-public sealed record ObjectProperty(bool IsMutable, string Name, Type ValueType)
+public sealed record ObjectProperty(bool IsMutable, string Name, Type ValueType, bool IsStatic = false)
     : ObjectBodyType(IsMutable, ValueType);
 
 public class ObjectType(ObjectIndexer? indexer, List<ObjectProperty> properties) : NativelyIndexableType

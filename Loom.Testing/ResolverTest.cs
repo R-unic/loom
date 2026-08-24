@@ -762,6 +762,158 @@ public class ResolverTest
         );
     }
 
+    [Fact]
+    public void Resolves_StaticAndInstanceMembers_IntoCorrectlyFlaggedPropertySymbols()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                interface Vector2 {
+                    x: number
+                    static zero: Vector2
+                }
+                """
+            )
+        );
+
+        var iface = Assert.IsType<InterfaceDeclaration>(model.Tree.Statements[0]);
+        var symbol = Assert.IsType<InterfaceSymbol>(model.GetDeclarationSymbol(iface, SymbolKind.Interface));
+
+        var instanceProperty = Assert.Single(symbol.Properties, p => p.Name == "x");
+        var staticProperty = Assert.Single(symbol.Properties, p => p.Name == "zero");
+
+        Assert.False(instanceProperty.IsStatic);
+        Assert.True(staticProperty.IsStatic);
+    }
+
+    [Fact]
+    public void SynthesizesValueSymbol_ForInterfaceWithStaticMembers()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                interface Vector2 {
+                    static zero: Vector2
+                }
+
+                Vector2
+                """
+            )
+        );
+
+        var statement = Assert.IsType<ExpressionStatement>(model.Tree.Statements[1]);
+        var reference = Assert.IsType<Identifier>(statement.Expression);
+        var symbol = model.GetSymbol(reference);
+
+        Assert.NotNull(symbol);
+        Assert.True(symbol.IsValueSymbol);
+    }
+
+    [Fact]
+    public void SynthesizesValueSymbol_ForDeclaredInterfaceWithStaticMembers()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                declare interface Vector2 {
+                    static zero: Vector2
+                }
+
+                Vector2
+                """
+            )
+        );
+
+        var statement = Assert.IsType<ExpressionStatement>(model.Tree.Statements[1]);
+        var reference = Assert.IsType<Identifier>(statement.Expression);
+        var symbol = model.GetSymbol(reference);
+
+        Assert.NotNull(symbol);
+        Assert.True(symbol.IsValueSymbol);
+    }
+
+    [Fact]
+    public void ThrowsFor_SynthesizedValueSymbol_CollidingWithExplicitLet()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            declare let Vector2: number;
+            declare interface Vector2 {
+                static zero: Vector2
+            }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.DuplicateName, "Variable 'Vector2' is already declared in this scope.");
+    }
+
+    [Fact]
+    public void ThrowsFor_StaticBlockOutsideModuleScope()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            interface Vector2 { static zero: Vector2 }
+
+            fn f() {
+                static Vector2 { zero = new Vector2 { }; }
+            }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockOutsideModuleScope,
+            "Static blocks can only be declared at the top level of a module.",
+            "move the 'static' block out of the enclosing block"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_DuplicateStaticBlock()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            interface Vector2 { static zero: Vector2 }
+
+            static Vector2 { zero = new Vector2 { }; }
+            static Vector2 { zero = new Vector2 { }; }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.DuplicateStaticBlock, "Interface 'Vector2' already has a 'static' block.");
+    }
+
+    [Fact]
+    public void ThrowsFor_StaticBlockOnAmbientInterface()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            declare interface Vector2 { static zero: Vector2 }
+
+            static Vector2 { zero = new Vector2 { }; }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockOnAmbientInterface,
+            "Interface 'Vector2' is ambient, so its static members need no companion block.",
+            "remove the 'static' block - an ambient interface's static signatures are trusted as-is"
+        );
+    }
+
+    [Fact]
+    public void Allows_StaticBlock_OnNonAmbientInterfaceWithStatics() =>
+        Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                interface Vector2 { static zero: Vector2 }
+
+                static Vector2 { zero = new Vector2 { }; }
+                """
+            )
+        );
+
     [Theory]
     [InlineData("deep_equal")]
     [InlineData("deep_hash")]

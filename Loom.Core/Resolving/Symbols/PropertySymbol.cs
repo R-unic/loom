@@ -14,4 +14,5 @@ public class PropertySymbol(NamedDeclaration declaration, InterfaceSymbol? point
     /// <summary>The interface this member's declared type names, when it names one - the step a dotted member path walks through.</summary>
     public InterfaceSymbol? PointsTo { get; } = pointsTo;
     public override IReadOnlyList<AttributeSymbol> Attributes { get; } = attributes;
+    public bool IsStatic { get; init; }
 }

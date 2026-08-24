@@ -135,6 +135,69 @@ public sealed partial class Resolver
         return success;
     }
 
+    public override bool VisitStaticBlock(StaticBlock staticBlock)
+    {
+        if (!AtModuleScope())
+        {
+            _diagnostics.Error(
+                staticBlock,
+                InternalCodes.StaticBlockOutsideModuleScope,
+                "Static blocks can only be declared at the top level of a module.",
+                "move the 'static' block out of the enclosing block"
+            );
+
+            return false;
+        }
+
+        var interfaceNameSymbol = LookupTypeSymbol(staticBlock.InterfaceName.Name.Text);
+        if (interfaceNameSymbol == null)
+        {
+            _diagnostics.Error(
+                staticBlock.InterfaceName,
+                InternalCodes.CannotFindSymbol,
+                $"Cannot find interface symbol '{staticBlock.InterfaceName.Name.Text}'."
+            );
+
+            return false;
+        }
+
+        if (interfaceNameSymbol is not InterfaceSymbol interfaceSymbol)
+        {
+            _diagnostics.Error(staticBlock.InterfaceName, InternalCodes.NonInterfaceImplementation, "A 'static' block may only target an interface.");
+            return false;
+        }
+
+        AddReference(staticBlock.InterfaceName, interfaceSymbol);
+
+        if (interfaceSymbol.IsAmbient)
+        {
+            _diagnostics.Error(
+                staticBlock.InterfaceName,
+                InternalCodes.StaticBlockOnAmbientInterface,
+                $"Interface '{interfaceSymbol.Name}' is ambient, so its static members need no companion block.",
+                "remove the 'static' block - an ambient interface's static signatures are trusted as-is"
+            );
+
+            return false;
+        }
+
+        if (interfaceSymbol.StaticBlocks.Count > 0)
+        {
+            _diagnostics.Error(
+                staticBlock.InterfaceName,
+                InternalCodes.DuplicateStaticBlock,
+                $"Interface '{interfaceSymbol.Name}' already has a 'static' block."
+            );
+
+            return false;
+        }
+
+        interfaceSymbol.StaticBlocks.Add(staticBlock);
+
+        using var _ = InScope();
+        return Visit(staticBlock.Body);
+    }
+
     public override bool VisitSelfExpression(SelfExpression selfExpression)
     {
         var implement = selfExpression.FirstAncestorOfType<Implement>();
@@ -311,11 +374,21 @@ public sealed partial class Resolver
                  let attributeSymbols = property.Attributes?.AttributeList.Select(DeclareAttribute).ToList() ?? []
                  let propertyType = property.ColonTypeClause.Type is OptionalType optionalType ? optionalType.NonNullableType : property.ColonTypeClause.Type
                  let pointsTo = _semanticModel.GetSymbol(propertyType, SymbolKind.Interface) as InterfaceSymbol
-                 select new PropertySymbol(property, pointsTo, attributeSymbols) { IsIntrinsic = interfaceSymbol.IsIntrinsic })
+                 select new PropertySymbol(property, pointsTo, attributeSymbols) { IsIntrinsic = interfaceSymbol.IsIntrinsic, IsStatic = property.IsStatic })
         {
             interfaceSymbol.Properties.Add(symbol);
             AddDeclaration(symbol);
         }
+
+        // A non-ambient interface already gets a same-named value symbol from hoisting
+        // (HoistDeclarations), regardless of whether it declares statics - that symbol is what
+        // 'new Foo { ... }' resolves 'Foo' against. An ambient one does not, since hoisting only
+        // declares the type for a 'declare interface'; a static member is otherwise unreachable as a
+        // value ('Vector2::create' has nothing to look 'Vector2' up as), so this is where it is added -
+        // harmlessly hitting the 'AlreadyHoisted' case for the non-ambient path, and reporting the
+        // ordinary duplicate-symbol diagnostic when an explicit 'let'/import already claims the name.
+        if (properties.Any(property => property.IsStatic) && !DeclareVariable((InterfaceDeclaration)interfaceSymbol.Declaration))
+            return false;
 
         var events = body.Members.OfType<EventDeclaration>().ToList();
         foreach (var symbol in
