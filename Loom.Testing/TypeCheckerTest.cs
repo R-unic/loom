@@ -1719,6 +1719,153 @@ public class TypeCheckerTest
         );
     }
 
+    private const string Vector2WithStaticCreate = """
+        interface Vector2 {
+            x: number
+            y: number
+            static create: fn(x: number, y: number): Vector2
+        }
+
+        static Vector2 {
+            fn create(x, y) { return new Vector2 { x, y }; }
+        }
+        """;
+
+    [Fact]
+    public void Allows_StaticAccess_WithColonColon() =>
+        Utility.AssertNoErrors(Utility.TypeCheck($"{Vector2WithStaticCreate}\nlet v: Vector2 = Vector2::create(1, 2);"));
+
+    [Fact]
+    public void ThrowsFor_StaticMember_AccessedWithDot()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics($"{Vector2WithStaticCreate}\nlet v: Vector2 = Vector2.create(1, 2);");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.WrongOperatorForMemberKind,
+            "'create' is a static member of 'Vector2' - '.' cannot access it.",
+            "use '::create' instead"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_InstanceMember_AccessedWithColonColon()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 { x: number }
+            let v: Vector2 = new Vector2 { x: 1 };
+            v::x;
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.WrongOperatorForMemberKind,
+            "'x' is an instance member of 'Vector2' - '::' cannot access it.",
+            "use '.x' instead"
+        );
+    }
+
+    [Fact]
+    public void Allows_InterfaceInvocation_OmittingStaticMembers() =>
+        Utility.AssertNoErrors(
+            Utility.TypeCheck(
+                """
+                interface Vector2 {
+                    x: number
+                    y: number
+                    static zero: Vector2
+                }
+
+                static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+                """
+            )
+        );
+
+    [Fact]
+    public void ThrowsFor_StaticBlockField_TypeMismatch()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                static zero: number
+            }
+
+            static Vector2 { zero = "hello"; }
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"hello\"' is not assignable to type 'number'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_StaticBlock_MissingMember()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                static zero: Vector2
+                static one: Vector2
+                x: number
+                y: number
+            }
+
+            static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockMissingMember,
+            "Static block for interface 'Vector2' is missing member 'one'."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_StaticBlock_ExtraMember()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                static zero: Vector2
+                x: number
+                y: number
+            }
+
+            static Vector2 {
+                zero = new Vector2 { x: 0, y: 0 };
+                one = new Vector2 { x: 1, y: 1 };
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockExtraMember,
+            "Interface 'Vector2' does not declare a static member 'one'."
+        );
+    }
+
+    [Fact]
+    public void Allows_NamespaceAccess_WithColonColon() =>
+        Utility.WithTempProject(
+            [
+                ("main.loom", "import * as math from \"./math\"\nlet total: number = math::square(math::pi);\nprint(total);"),
+                ("math.loom", "export let pi: number = 3;\nexport fn square(x: number): number -> x * x;")
+            ],
+            (_, result) => Utility.AssertNoErrors(result)
+        );
+
+    [Fact]
+    public void ThrowsFor_NamespaceAccess_WithDot() =>
+        Utility.WithTempProject(
+            [
+                ("main.loom", "import * as math from \"./math\"\nlet total: number = math.square(math.pi);\nprint(total);"),
+                ("math.loom", "export let pi: number = 3;\nexport fn square(x: number): number -> x * x;")
+            ],
+            (_, result) => Assert.Contains(result.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.WrongOperatorForMemberKind)
+        );
+
     [Fact]
     public void Checks_SelfExpression_IndexerAccess_MatchesTraitReturnType()
     {

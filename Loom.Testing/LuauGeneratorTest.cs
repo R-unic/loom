@@ -3945,8 +3945,8 @@ public class LuauGeneratorTest
         const string mainModule = """
             import * as ev from "./events"
             fn h(): void { }
-            ev.tick += h;
-            ev.tick -= h;
+            ev::tick += h;
+            ev::tick -= h;
             """;
 
         Utility.WithTempProject(

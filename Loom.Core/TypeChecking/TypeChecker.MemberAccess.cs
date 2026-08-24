@@ -1,6 +1,7 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Macros;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 
 namespace Loom.Core.TypeChecking;
@@ -89,7 +90,7 @@ public sealed partial class TypeChecker
         return tupleType.ElementTypes[index - 1];
     }
 
-    private Type IndexType(Node node, Type type, Type indexType, string errorMessage)
+    private Type IndexType(Node node, Type type, Type indexType, string errorMessage, SyntaxKind? dotKind = null)
     {
         if (IsUnawaitedFutureMember(node, type, indexType))
             return ReportCannotUseToIndex(node, type, indexType);
@@ -104,7 +105,7 @@ public sealed partial class TypeChecker
                 var results = new List<Type>();
                 foreach (var member in union.Types)
                 {
-                    var memberType = GetTypeAtIndexSingle(node, member, indexType);
+                    var memberType = GetTypeAtIndexSingle(node, member, indexType, dotKind);
                     if (Type.IsNever(memberType))
                     {
                         _diagnostics.Error(
@@ -146,10 +147,10 @@ public sealed partial class TypeChecker
             }
 
             case NativelyIndexableType:
-                return GetTypeAtIndex(node, type, indexType);
+                return GetTypeAtIndex(node, type, indexType, dotKind);
 
             case Types.PrimitiveType { Kind: PrimitiveTypeKind.String }:
-                return GetTypeAtIndex(node, IntrinsicTypes.StringMembers, indexType);
+                return GetTypeAtIndex(node, IntrinsicTypes.StringMembers, indexType, dotKind);
         }
 
         _diagnostics.Error(node, InternalCodes.InvalidAccess, errorMessage);
@@ -184,7 +185,7 @@ public sealed partial class TypeChecker
             if (!name.IsOptional && TryReadThroughFuture(accessExpression, type, names.Count, out var settled))
                 type = settled;
 
-            type = IndexType(accessExpression, type, indexType, $"Cannot access property '{indexType.Value}' on type '{type}'.");
+            type = IndexType(accessExpression, type, indexType, $"Cannot access property '{indexType.Value}' on type '{type}'.", name.Dot.Kind);
             if (Type.IsNever(type))
                 return type;
         }
@@ -201,12 +202,12 @@ public sealed partial class TypeChecker
         return BindType(accessExpression, type);
     }
 
-    private Type GetTypeAtIndex(Node node, Type type, Type indexType)
+    private Type GetTypeAtIndex(Node node, Type type, Type indexType, SyntaxKind? dotKind = null)
     {
         if (type is Types.UnionType union)
         {
             var results = union.Types
-                .Select(member => GetTypeAtIndexSingle(node, member, indexType))
+                .Select(member => GetTypeAtIndexSingle(node, member, indexType, dotKind))
                 .Where(memberResult => !Type.IsNever(memberResult) && !Type.IsUnknown(memberResult))
                 .ToList();
 
@@ -216,10 +217,10 @@ public sealed partial class TypeChecker
         }
 
         if (indexType is not Types.UnionType indexUnion || !indexUnion.Types.All(t => t is Types.LiteralType { Value: string }))
-            return GetTypeAtIndexSingle(node, type, indexType);
+            return GetTypeAtIndexSingle(node, type, indexType, dotKind);
 
         var stringLiteralResults = indexUnion.Types
-            .Select(t => GetTypeAtIndexSingle(node, type, t))
+            .Select(t => GetTypeAtIndexSingle(node, type, t, dotKind))
             .Where(r => !Type.IsNever(r) && !Type.IsUnknown(r))
             .ToList();
 
@@ -241,21 +242,40 @@ public sealed partial class TypeChecker
         && TypeSimplifier.Expanded(type) is NativelyIndexableType future
         && future.GetTypeAtIndex(indexType).BodyType == null;
 
-    private Type GetTypeAtIndexSingle(Node node, Type type, Type indexType) =>
+    private Type GetTypeAtIndexSingle(Node node, Type type, Type indexType, SyntaxKind? dotKind = null) =>
         type switch
         {
-            NativelyIndexableType indexable => GetTypeAtIndexNative(node, indexable, indexType),
-            InstantiatedType instantiated => GetTypeAtIndex(node, instantiated.Expand(), indexType),
+            NativelyIndexableType indexable => GetTypeAtIndexNative(node, indexable, indexType, dotKind),
+            InstantiatedType instantiated => GetTypeAtIndex(node, instantiated.Expand(), indexType, dotKind),
             _ => type
         };
 
-    private Type GetTypeAtIndexNative(Node node, NativelyIndexableType indexable, Type indexType)
+    private Type GetTypeAtIndexNative(Node node, NativelyIndexableType indexable, Type indexType, SyntaxKind? dotKind = null)
     {
         var result = indexable.GetTypeAtIndex(indexType);
         var (bodyType, cannotFindReason) = result;
-        return bodyType != null
-            ? BindType(node, bodyType.ValueType)
-            : ReportCannotUseToIndex(node, indexable, indexType, cannotFindReason);
+        if (bodyType == null)
+            return ReportCannotUseToIndex(node, indexable, indexType, cannotFindReason);
+
+        if (dotKind is SyntaxKind.Dot or SyntaxKind.QuestionDot or SyntaxKind.ColonColon
+            && bodyType is ObjectProperty property
+            && property.IsStatic != (dotKind == SyntaxKind.ColonColon))
+            return ReportWrongOperatorForMemberKind(node, indexable, property);
+
+        return BindType(node, bodyType.ValueType);
+    }
+
+    private Type ReportWrongOperatorForMemberKind(Node node, NativelyIndexableType indexable, ObjectProperty property)
+    {
+        var (usedOperator, wantedOperator) = property.IsStatic ? (".", "::") : ("::", ".");
+        _diagnostics.Error(
+            node,
+            InternalCodes.WrongOperatorForMemberKind,
+            $"'{property.Name}' is {(property.IsStatic ? "a static" : "an instance")} member of '{indexable}' - '{usedOperator}' cannot access it.",
+            $"use '{wantedOperator}{property.Name}' instead"
+        );
+
+        return BindType(node, Types.PrimitiveType.Never);
     }
 
     private static Type GetObjectValueType(Type type) =>
