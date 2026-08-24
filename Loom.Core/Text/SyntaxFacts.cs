@@ -37,6 +37,7 @@ public static class SyntaxFacts
             new KeyValuePair<string, SyntaxKind>("sealed", SyntaxKind.SealedKeyword),
             new KeyValuePair<string, SyntaxKind>("trait", SyntaxKind.TraitKeyword),
             new KeyValuePair<string, SyntaxKind>("implement", SyntaxKind.ImplementKeyword),
+            new KeyValuePair<string, SyntaxKind>("static", SyntaxKind.StaticKeyword),
             new KeyValuePair<string, SyntaxKind>("match", SyntaxKind.MatchKeyword),
             new KeyValuePair<string, SyntaxKind>("when", SyntaxKind.WhenKeyword),
             new KeyValuePair<string, SyntaxKind>("is", SyntaxKind.IsKeyword),
@@ -99,6 +100,7 @@ public static class SyntaxFacts
             new KeyValuePair<string, SyntaxKind>("..", SyntaxKind.DotDot),
             new KeyValuePair<string, SyntaxKind>("?.", SyntaxKind.QuestionDot),
             new KeyValuePair<string, SyntaxKind>("->", SyntaxKind.Arrow),
+            new KeyValuePair<string, SyntaxKind>("::", SyntaxKind.ColonColon),
             new KeyValuePair<string, SyntaxKind>("::<", SyntaxKind.ColonColonLArrow),
             new KeyValuePair<string, SyntaxKind>(";", SyntaxKind.Semicolon),
             new KeyValuePair<string, SyntaxKind>("@", SyntaxKind.At)
