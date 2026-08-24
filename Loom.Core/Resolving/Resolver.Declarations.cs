@@ -165,7 +165,7 @@ public sealed partial class Resolver
 
         if (parameter.EqualsValueClause != null
             || parameter.ColonTypeClause != null
-            || parameter.Parent?.Parent?.Parent is ImplementBody
+            || parameter.Parent?.Parent?.Parent is ImplementBody or StaticBlockBody
             || IsEventConnectionHandler(parameter)
             || IsContextuallyTypedArgument(parameter))
             return base.VisitParameter(parameter);

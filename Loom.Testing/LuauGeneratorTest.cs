@@ -1202,6 +1202,65 @@ public class LuauGeneratorTest
     }
 
     [Fact]
+    public void Generates_StaticBlock_TableWithFieldAndFunction()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            interface Vector2 {
+                x: number
+                y: number
+                static zero: Vector2
+                static create: fn(x: number, y: number): Vector2
+            }
+
+            static Vector2 {
+                zero = new Vector2 { x: 0, y: 0 };
+                fn create(x, y) -> new Vector2 { x, y };
+            }
+            """,
+            true
+        );
+
+        var variable = Assert.IsType<LocalVariable>(luauTree.Statements[1]);
+        Assert.Equal("Vector2", variable.Name);
+        Assert.IsType<Table>(variable.Initializer);
+
+        var fieldAssignmentStatement = Assert.IsType<ExpressionStatement>(luauTree.Statements[2]);
+        var fieldAssignment = Assert.IsType<BinaryOperator>(fieldAssignmentStatement.Expression);
+        Assert.Equal("=", fieldAssignment.Operator);
+
+        var fieldAccess = Assert.IsType<PropertyAccess>(fieldAssignment.Left);
+        Assert.Equal("Vector2", Assert.IsType<Identifier>(fieldAccess.Target).Name);
+        Assert.Equal("zero", Assert.Single(fieldAccess.Names));
+        Assert.IsType<Table>(fieldAssignment.Right);
+
+        var createFunction = Assert.IsType<Function>(luauTree.Statements[3]);
+        Assert.Equal("Vector2.create", createFunction.Name);
+        Assert.Equal(2, createFunction.Parameters.Count);
+        Assert.Equal(["x", "y"], createFunction.Parameters.Select(p => p.Name));
+    }
+
+    [Fact]
+    public void Generates_AmbientInterfaceWithStatics_EmitsOnlyTheTypeAlias()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            declare interface Vector2 {
+                static zero: Vector2
+                static create: fn(x: number, y: number): Vector2
+            }
+
+            let v = Vector2::create(1, 2);
+            """,
+            true
+        );
+
+        Assert.Single(luauTree.Statements.OfType<TypeAlias>());
+        Assert.Empty(luauTree.Statements.OfType<LocalVariable>());
+        Assert.Empty(luauTree.Statements.OfType<Function>());
+    }
+
+    [Fact]
     public void Generates_SelfExpression_AsElementAccessOnSelf()
     {
         var luauTree = Utility.GetLuauAST(

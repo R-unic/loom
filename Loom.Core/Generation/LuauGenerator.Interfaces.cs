@@ -73,6 +73,37 @@ public sealed partial class LuauGenerator
     }
 
     /// <summary>
+    ///     The runtime table backing an interface's static members, bound directly to the plain interface
+    ///     name - unlike <see cref="VisitImplement" />'s synthesized meta-name, since a static access
+    ///     (<c>Vector2::create</c>) erases to an ordinary <c>Vector2.create</c> in Luau and has to find a
+    ///     table actually named that. No <c>self</c> parameter is inserted into any method here: a static
+    ///     member is not an instance method, so nothing is a receiver.
+    /// </summary>
+    public override LuauNode VisitStaticBlock(StaticBlock staticBlock)
+    {
+        var name = staticBlock.InterfaceName.Name.Text;
+        var identifier = new Identifier(name);
+        var variable = new LocalVariable(name, null, Table.Empty);
+
+        foreach (var field in staticBlock.Body.Fields)
+        {
+            var value = Visit(field.EqualsValueClause.Value);
+            _state.Postreq(new ExpressionStatement(new BinaryOperator(new PropertyAccess(identifier, [field.Name.Text]), "=", value)));
+        }
+
+        foreach (var method in staticBlock.Body.Methods)
+        {
+            var typeParameters = MaybeVisit<TypeParameters>(method.TypeParameters);
+            var parameters = method.Parameters?.ParameterList.ConvertAll(Visit<Parameter>) ?? [];
+            var returnType = MaybeVisit<LuauType>(method.ReturnType);
+            var body = GenerateFunctionBody(method);
+            _state.Postreq(new Function($"{name}.{method.Name.Text}", typeParameters, parameters, returnType, body, false));
+        }
+
+        return variable;
+    }
+
+    /// <summary>
     ///     Builds the one shared metatable an actually-constructed multi-trait interface's construction
     ///     sites all reuse, right after every trait table it merges is a declared local - which happens
     ///     exactly when this 'implement' block turns out to be the last of its interface's to generate.
