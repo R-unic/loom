@@ -738,6 +738,41 @@ public class ResolverTest
             )
         );
 
+    /// <summary>
+    ///     Bug #231-5: VisitImplement injected a bare-name variable symbol for every one of the interface's
+    ///     FullProperties, including statics - which have no self-relative meaning inside a trait method
+    ///     body - so a body could reference a static member by its bare name and the generator would emit
+    ///     'self.&lt;name&gt;', always nil at runtime. Filtering statics out of the injection means the bare
+    ///     name is simply undeclared, same as any other name the body never brought into scope.
+    /// </summary>
+    [Fact]
+    public void ThrowsFor_TraitMethodBody_ReferencingStaticMemberByBareName()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+                """
+                interface Vector2 {
+                    x: number
+                    static origin_label: string
+                }
+
+                static Vector2 { origin_label = "origin"; }
+
+                trait Describable {
+                    fn describe(): string
+                }
+
+                implement Describable for Vector2 {
+                    fn describe(): string {
+                        return origin_label;
+                    }
+                }
+                """
+            )
+            .Diagnostics;
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find name 'origin_label'.");
+    }
+
     [Fact]
     public void ThrowsFor_ImplementOutsideModuleScope()
     {

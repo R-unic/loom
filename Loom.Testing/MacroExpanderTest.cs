@@ -1381,4 +1381,35 @@ public class MacroExpanderTest
         Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.InvocationArity);
         Assert.DoesNotContain(diagnostics.Set, d => d.Code == InternalCodes.CompilerError);
     }
+
+    /// <summary>
+    ///     Bug #231-10: FutureStaticMacroProvider (and the sibling Set/MutSet/Result providers) matched a
+    ///     static member's receiver by bare InterfaceType.Name alone. Since the resolver deliberately lets a
+    ///     module shadow an ambient name (see CLAUDE.md), a user's own 'interface Future' with a matching
+    ///     'static Future { ... }' block was silently hijacked - 'Future::resolved(...)' emitted the runtime
+    ///     macro's call instead of the user's own implementation. Requiring IsIntrinsic alongside the name
+    ///     match means only the compiler's own Future is ever routed through the macro.
+    /// </summary>
+    [Fact]
+    public void Generates_UserDeclaredFutureStatic_WithoutMacroHijacking()
+    {
+        var luau = Utility.GetLuauAST(
+            """
+            interface Future {
+                value: number
+                static resolved: Future
+            }
+
+            static Future {
+                resolved = new Future { value: 5 };
+            }
+
+            let f = Future::resolved;
+            """,
+            true
+        ).Render();
+
+        Assert.Contains("Future.resolved", luau);
+        Assert.DoesNotContain("future_resolved", luau);
+    }
 }

@@ -1785,18 +1785,208 @@ public class TypeCheckerTest
                 """
                 interface Box<T: number = f32> {
                     x: T
-                    static make: fn(x: number): Box
+                    static zero: Box
                 }
 
                 static Box {
-                    fn make(x) { return new Box { x }; }
+                    zero = new Box { x: 0 };
                 }
 
-                let b = Box::make(1);
+                let b = Box::zero;
                 let x = b.x;
                 """
             )
         );
+
+    /// <summary>Bug #231-1: a generic static block was entirely unchecked - neither missing nor mistyped members were ever reported.</summary>
+    [Fact]
+    public void ThrowsFor_StaticBlock_MissingMember_OnGenericInterface()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Box<T = number> {
+                value: T
+                static empty: Box
+                static wrap: fn(v: T): Box
+            }
+
+            static Box {
+                fn wrap(v) { return new Box { value: v }; }
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockMissingMember,
+            "Static block for interface 'Box' is missing member 'empty'."
+        );
+    }
+
+    /// <summary>Bug #231-7 (return-type half): a generic static method's body was never checked against its declared signature.</summary>
+    [Fact]
+    public void ThrowsFor_StaticBlockMethod_ReturnTypeMismatch_OnGenericInterface()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Box<T = number> {
+                value: T
+                static wrap: fn(v: T): Box
+            }
+
+            static Box {
+                fn wrap(v) -> "not a Box";
+            }
+            """
+        );
+
+        Assert.Contains(diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.TypeMismatch);
+    }
+
+    /// <summary>Bug #231-2: TypeChecker.Generics.cs's SubstituteObjectType rebuilt every property without forwarding IsStatic, silently demoting statics to instance fields under generic substitution.</summary>
+    [Fact]
+    public void Allows_InterfaceInvocation_OmittingStaticMembers_OnGenericInterface() =>
+        Utility.AssertNoErrors(
+            Utility.TypeCheck(
+                """
+                interface Box<T = number> {
+                    x: T
+                    static make: fn(x: number): Box
+                }
+
+                let b = new Box { x: 1 };
+                """
+            )
+        );
+
+    /// <summary>Bug #231-3: an object-literal field name resolving to a static member corrupted the emitted per-instance table with no diagnostic.</summary>
+    [Fact]
+    public void ThrowsFor_StaticMember_InObjectLiteral()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                x: number
+                y: number
+                static zero: Vector2
+            }
+
+            static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+
+            let v = new Vector2 { x: 1, y: 2, zero: Vector2::zero };
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticMemberInObjectLiteral,
+            "'zero' is a static member of 'Vector2' - it cannot be set on an instance literal."
+        );
+    }
+
+    /// <summary>Bug #231-6: a static member reached through a real instance via '::' resolved cleanly since only the reverse direction (instance member via the interface name) was checked.</summary>
+    [Fact]
+    public void ThrowsFor_StaticMember_AccessedThroughInstance()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                x: number
+                y: number
+                static zero: Vector2
+            }
+
+            static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+
+            let v = new Vector2 { x: 1, y: 2 };
+            let z = v::zero;
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticMemberViaInstance,
+            "'zero' is a static member of 'Vector2' - it is not reachable through an instance of 'Vector2'."
+        );
+    }
+
+    /// <summary>Bug #231-8: bracket access built no dotKind/receiver-kind arguments at all, so it bypassed both the operator-kind and receiver-kind checks entirely.</summary>
+    [Fact]
+    public void ThrowsFor_StaticMember_AccessedThroughInstance_WithBrackets()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                x: number
+                y: number
+                static zero: Vector2
+            }
+
+            static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+
+            let v = new Vector2 { x: 1, y: 2 };
+            let z = v["zero"];
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticMemberViaInstance,
+            "'zero' is a static member of 'Vector2' - it is not reachable through an instance of 'Vector2'."
+        );
+    }
+
+    /// <summary>Bracket access through the interface's own namespace value is still valid - only a real instance is rejected.</summary>
+    [Fact]
+    public void Allows_StaticAccess_WithBrackets_ThroughInterfaceName() =>
+        Utility.AssertNoErrors(
+            Utility.TypeCheck(
+                """
+                interface Vector2 {
+                    x: number
+                    y: number
+                    static zero: Vector2
+                }
+
+                static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+
+                let z = Vector2["zero"];
+                """
+            )
+        );
+
+    /// <summary>Bug #231-9: TypeSimplifier.ResolveIndex, used for an intersection-typed receiver, took no dotKind/receiver-kind parameters at all, so 'A &amp; B' bypassed the check entirely.</summary>
+    [Fact]
+    public void ThrowsFor_StaticMember_AccessedThroughIntersectionInstance()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface A { static shared: number }
+            interface B { static shared: number }
+
+            static A { shared = 1; }
+            static B { shared = 2; }
+
+            fn use_it(v: A & B) {
+                v.shared;
+            }
+            """
+        );
+
+        Assert.Contains(diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.InvalidAccess);
+    }
+
+    /// <summary>
+    ///     Bug #231-1: the Enum migration merged an instance member ('Material: EnumItem&lt;"Material"&gt;')
+    ///     and a static member ('static Material: EnumMaterial') into the same 'declare interface Enum'
+    ///     under the identical name - InterfaceType.EnsureCaches' first-wins TryAdd then permanently shadowed
+    ///     the static half, hard-failing the single most common Roblox enum-access pattern. Enum alone was
+    ///     reverted to the original two-interface (EnumStatic/Enum) shape; every other migrated intrinsic
+    ///     stays on 'static'.
+    /// </summary>
+    [Fact]
+    public void Allows_Enum_InstanceAndStaticAccess() =>
+        Utility.AssertNoErrors(Utility.TypeCheck("let m = Enum.Material.Plastic;"));
 
     [Fact]
     public void Allows_InterfaceInvocation_OmittingStaticMembers() =>
