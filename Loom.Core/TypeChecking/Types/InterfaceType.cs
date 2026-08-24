@@ -51,6 +51,15 @@ public sealed class InterfaceType(
 
     /// <summary>Metamethod name (e.g. "__add") to member name, merged from this interface's own properties plus every trait it implements.</summary>
     public Dictionary<string, string> Metamethods { get; init; } = metamethods ?? [];
+
+    /// <summary>
+    ///     Whether this interface is one of the compiler's own intrinsics (<see cref="Resolving.Symbols.InterfaceSymbol.IsIntrinsic" />),
+    ///     rather than a user-declared interface that merely shares an intrinsic's name. A macro provider
+    ///     matching by bare <see cref="Name" /> alone would otherwise hijack a user's own <c>Future</c>,
+    ///     <c>Set</c> or <c>Result</c> - names the resolver deliberately lets a module shadow - so every
+    ///     <c>Supports</c> check needs this alongside the name match.
+    /// </summary>
+    public bool IsIntrinsic { get; init; }
     public override ObjectIndexer? Indexer
     {
         get => Indexers.FirstOrDefault();

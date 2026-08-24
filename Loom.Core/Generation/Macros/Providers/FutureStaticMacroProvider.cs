@@ -28,7 +28,7 @@ internal sealed class FutureStaticMacroProvider : IMacroProvider
     };
 
     public bool Supports(SemanticModel _, Type type) =>
-        type is InterfaceType { Name: "Future" } or GenericType { UnderlyingType: InterfaceType { Name: "Future" } };
+        type is InterfaceType { Name: "Future", IsIntrinsic: true } or GenericType { UnderlyingType: InterfaceType { Name: "Future", IsIntrinsic: true } };
     public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) => _members.ContainsKey(memberName);

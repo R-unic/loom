@@ -103,7 +103,7 @@ internal sealed class ResultMacroProvider : IMacroProvider
         depth < 4
         && type switch
         {
-            InterfaceType { Name: "ResultOk" or "ResultError" } => true,
+            InterfaceType { Name: "ResultOk" or "ResultError", IsIntrinsic: true } => true,
             InstantiatedType instantiated => IsResult(instantiated.Expand(), depth + 1),
             UnionType union => union.Types.Count > 0 && union.Types.TrueForAll(member => IsResult(member, depth + 1)),
             _ => false
