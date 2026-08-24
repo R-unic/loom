@@ -106,7 +106,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 objectType.Indexer != null
                     ? new ObjectIndexer(objectType.Indexer.IsMutable, Map(objectType.Indexer.KeyType), Map(objectType.Indexer.ValueType))
                     : null,
-                objectType.Properties.ConvertAll(p => new ObjectProperty(p.IsMutable, p.Name, Map(p.ValueType)))
+                objectType.Properties.ConvertAll(p => new ObjectProperty(p.IsMutable, p.Name, Map(p.ValueType), p.IsStatic))
             ),
             TupleType tupleType => new TupleType(tupleType.ElementTypes.ConvertAll(Map)),
             IntersectionType intersectionType => new IntersectionType(intersectionType.Types.ConvertAll(Map)),

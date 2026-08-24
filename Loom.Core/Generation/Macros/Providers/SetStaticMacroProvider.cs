@@ -17,7 +17,8 @@ namespace Loom.Core.Generation.Macros.Providers;
 /// </summary>
 internal sealed class SetStaticMacroProvider : IMacroProvider
 {
-    public bool Supports(SemanticModel _, Type type) => type is InterfaceType { Name: "SetStatic" or "MutSetStatic" };
+    public bool Supports(SemanticModel _, Type type) =>
+        type is InterfaceType { Name: "Set" or "MutSet" } or GenericType { UnderlyingType: InterfaceType { Name: "Set" or "MutSet" } };
     public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) => memberName is "of" or "empty";

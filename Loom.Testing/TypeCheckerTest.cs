@@ -1767,6 +1767,38 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void ThrowsFor_InstanceMember_AccessedThroughInterfaceName()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics($"{Vector2WithStaticCreate}\nlet x = Vector2.x;");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InstanceMemberViaInterfaceName,
+            "'x' is an instance member of 'Vector2' - 'Vector2' names the interface itself, not a value of it.",
+            "construct one first, e.g. 'new Vector2 { ... }'"
+        );
+    }
+
+    [Fact]
+    public void Allows_StaticAccess_OnGenericInterface() =>
+        Utility.AssertNoErrors(
+            Utility.TypeCheck(
+                """
+                interface Box<T: number = f32> {
+                    x: T
+                    static make: fn(x: number): Box
+                }
+
+                static Box {
+                    fn make(x) { return new Box { x }; }
+                }
+
+                let b = Box::make(1);
+                let x = b.x;
+                """
+            )
+        );
+
+    [Fact]
     public void Allows_InterfaceInvocation_OmittingStaticMembers() =>
         Utility.AssertNoErrors(
             Utility.TypeCheck(
