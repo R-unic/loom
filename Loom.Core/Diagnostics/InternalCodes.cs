@@ -161,6 +161,8 @@ public static class InternalCodes
     public const string StaticBlockMissingMember = "L437";
     public const string StaticBlockExtraMember = "L438";
     public const string InstanceMemberViaInterfaceName = "L439";
+    public const string StaticMemberViaInstance = "L440";
+    public const string StaticMemberInObjectLiteral = "L441";
 
     public const string SimplifiableCode = "L500";
 }
