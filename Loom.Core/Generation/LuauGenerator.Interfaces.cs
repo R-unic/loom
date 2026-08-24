@@ -248,7 +248,9 @@ public sealed partial class LuauGenerator
             return GenerateMappedTypeAlias(interfaceDeclaration, mapped);
 
         var indexer = interfaceDeclaration.Body?.Members.OfType<IndexerDeclaration>().FirstOrDefault();
-        var propertyDeclarations = interfaceDeclaration.Body?.Members.OfType<PropertyDeclaration>() ?? [];
+        // A static member lives on the separate static-holder table the 'static' block emits, not on
+        // instances of this interface - it never belongs in the structural type below.
+        var propertyDeclarations = interfaceDeclaration.Body?.Members.OfType<PropertyDeclaration>().Where(property => !property.IsStatic) ?? [];
         var eventDeclarations = interfaceDeclaration.Body?.Members.OfType<EventDeclaration>() ?? [];
         var tableIndexer = indexer != null
             ? new TableTypeIndexer(indexer.MutKeyword == null ? LuauVisibility.Read : null, Visit(indexer.IndexType), Visit(indexer.ColonTypeClause))

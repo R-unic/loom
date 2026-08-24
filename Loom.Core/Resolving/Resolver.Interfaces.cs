@@ -118,6 +118,7 @@ public sealed partial class Resolver
         interfaceSymbol.Implements.Add(traitSymbol);
         traitSymbol.ImplementedBy.Add(interfaceSymbol);
         var success = interfaceSymbol.FullProperties
+            .Where(property => !property.IsStatic)
             .All(property => DeclareVariable(implement, new InjectedPropertyVariableSymbol(implement, property.Name, interfaceSymbol, property.IsMutable)));
         
         if (success)
