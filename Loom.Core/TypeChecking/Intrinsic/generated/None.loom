@@ -147,38 +147,30 @@ declare sealed interface SecurityCapabilities;
 declare sealed interface DateTime {
     [luau_name("UnixTimestamp")] unix_timestamp: number;
     [luau_name("UnixTimestampMillis")] unix_timestamp_millis: number;
-    
+
     [luau_name("ToUniversalTime"), luau_method] to_universal_time: fn: TimeTable;
     [luau_name("ToLocalTime"), luau_method] to_local_time: fn: TimeTable;
     [luau_name("ToIsoDate"), luau_method] to_iso_date: fn: string;
     [luau_name("FormatUniversalTime"), luau_method] format_universal_time: fn(format: string, locale: string): string;
     [luau_name("FormatLocalTime"), luau_method] format_local_time: fn(format: string, locale: string): string;
-}
 
-declare sealed interface DateTimeStatic {
-    now: fn: DateTime;
-    [luau_name("fromIsoDate")] fromIsoDate: fn(isoDate: string): DateTime?;
-    [luau_name("fromLocalTime")] from_local_time: fn(year: number?, month: number?, day: number?, hour: number?, minute: number?, second: number?, millisecond: number?): DateTime;
-    [luau_name("fromUniversalTime")] from_universal_time: fn(year: number?, month: number?, day: number?, hour: number?, minute: number?, second: number?, millisecond: number?): DateTime;
-    [luau_name("fromUnixTimestamp")] from_unix_timestamp: fn(unixTimestamp: number): DateTime;
-    [luau_name("fromUnixTimestampMillis")] from_unix_timestampMillis: fn(unixTimestampMillis: number): DateTime;
+    static now: fn: DateTime;
+    [luau_name("fromIsoDate")] static fromIsoDate: fn(isoDate: string): DateTime?;
+    [luau_name("fromLocalTime")] static from_local_time: fn(year: number?, month: number?, day: number?, hour: number?, minute: number?, second: number?, millisecond: number?): DateTime;
+    [luau_name("fromUniversalTime")] static from_universal_time: fn(year: number?, month: number?, day: number?, hour: number?, minute: number?, second: number?, millisecond: number?): DateTime;
+    [luau_name("fromUnixTimestamp")] static from_unix_timestamp: fn(unixTimestamp: number): DateTime;
+    [luau_name("fromUnixTimestampMillis")] static from_unix_timestampMillis: fn(unixTimestampMillis: number): DateTime;
 }
-
-declare let DateTime: DateTimeStatic;
 
 declare sealed interface Content {
     [luau_name("SourceType")] source_type: Enum["ContentSourceType"];
     [luau_name("Uri")] uri: string?;
     [luau_name("Object")] object: Object?;
-}
 
-declare sealed interface ContentStatic {
-    [luau_name("none")] _none: Content;
-    [luau_name("fromUri")] from_uri: fn(uri: string): Content;
-    [luau_name("fromObject")] from_object: fn(object: Object): Content;
+    [luau_name("none")] static _none: Content;
+    [luau_name("fromUri")] static from_uri: fn(uri: string): Content;
+    [luau_name("fromObject")] static from_object: fn(object: Object): Content;
 }
-
-declare let Content: ContentStatic;
 
 declare sealed interface Vector2<T: number = f32> {
     [luau_name("X")] x: number;
@@ -208,19 +200,15 @@ declare sealed interface Vector2<T: number = f32> {
     div: fn(other: Vector3 | number): Vector3;
     [luau_metamethod("__idiv")]
     idiv: fn(other: Vector3 | number): Vector3;
-}
 
-declare sealed interface Vector2Static {
-    zero: Vector2;
-    one: Vector2;
-    [luau_name("yAxis")] y_axis: Vector2;
-    [luau_name("xAxis")] x_axis: Vector2;
-    [luau_name("zAxis")] z_axis: Vector2;
-    [luau_name("new")] create: fn: Vector2;
-    [luau_name("new")] create: fn(x: number, y: number): Vector2;
+    static zero: Vector2;
+    static one: Vector2;
+    [luau_name("yAxis")] static y_axis: Vector2;
+    [luau_name("xAxis")] static x_axis: Vector2;
+    [luau_name("zAxis")] static z_axis: Vector2;
+    [luau_name("new")] static create: fn: Vector2;
+    [luau_name("new")] static create: fn(x: number, y: number): Vector2;
 }
-
-declare let Vector2: Vector2Static;
 
 declare sealed interface Vector2int16 {
     [luau_name("X")] x: number;
@@ -265,21 +253,17 @@ declare sealed interface Vector3<T: number = f32> {
     div: fn(other: Vector3 | number): Vector3;
     [luau_metamethod("__idiv")]
     idiv: fn(other: Vector3 | number): Vector3;
-}
 
-declare sealed interface Vector3Static {
-    zero: Vector3;
-    one: Vector3;
-    [luau_name("xAxis")] x_axis: Vector3;
-    [luau_name("yAxis")] y_axis: Vector3;
-    [luau_name("zAxis")] z_axis: Vector3;
-    [luau_name("FromNormalId")] from_normal_id: fn(normal: Enum["NormalId"]): Vector3;
-    [luau_name("FromAxis")] from_axis: fn(axis: Enum["Axis"]): Vector3;
-    [luau_name("new")] create: fn: Vector3;
-    [luau_name("new")] create: fn(x: number, y: number, z: number): Vector3;
+    static zero: Vector3;
+    static one: Vector3;
+    [luau_name("xAxis")] static x_axis: Vector3;
+    [luau_name("yAxis")] static y_axis: Vector3;
+    [luau_name("zAxis")] static z_axis: Vector3;
+    [luau_name("FromNormalId")] static from_normal_id: fn(normal: Enum["NormalId"]): Vector3;
+    [luau_name("FromAxis")] static from_axis: fn(axis: Enum["Axis"]): Vector3;
+    [luau_name("new")] static create: fn: Vector3;
+    [luau_name("new")] static create: fn(x: number, y: number, z: number): Vector3;
 }
-
-declare let Vector3: Vector3Static;
 
 declare sealed interface Vector3int16 {
     [luau_name("X")] x: number;
@@ -331,33 +315,29 @@ declare sealed interface CFrame<T: number = f32> {
     [luau_name("ToEulerAnglesXYZ"), luau_method] to_euler_angles_xyz: fn: (number, number, number);
     [luau_name("ToEulerAnglesYXZ"), luau_method] to_euler_angles_yxz: fn: (number, number, number);
     [luau_name("ToAxisAngle"), luau_method] to_axis_angle: fn: (Vector3, number);
-}
 
-declare sealed interface CFrameStatic {
-    identity: CFrame;
-    [luau_name("Angles")] angles: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("lookAt")] look_at: fn(at: Vector3, lookAt: Vector3, up: Vector3?): CFrame;
-    [luau_name("lookAlong")] look_along: fn(at: Vector3, direction: Vector3, up: Vector3?): CFrame;
-    [luau_name("fromEulerAngles")] from_euler_angles: fn(x: number, y: number, z: number, order: Enum["RotationOrder"]?): CFrame;
-    [luau_name("fromEulerAnglesXYZ")] from_euler_angles_xyz: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("fromEulerAnglesYXZ")] from_euler_angles_yxz: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("fromOrientation")] from_orientation: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("fromAxisAngle")] from_axis_angle: fn(vector: Vector3, rotation: number): CFrame;
-    [luau_name("fromMatrix")] from_matrix: fn(pos: Vector3, vX: Vector3, vY: Vector3, vZ: Vector3): CFrame;
-    [luau_name("new")] create: fn: CFrame;
-    [luau_name("new")] create: fn(pos: Vector3): CFrame;
-    [luau_name("new")] create: fn(pos: Vector3, lookAt: Vector3): CFrame;
-    [luau_name("new")] create: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("new")] create: fn(x: number, y: number, z: number, qX: number, qY: number, qZ: number, qW: number): CFrame;
-    [luau_name("new")] create: fn(
+    static identity: CFrame;
+    [luau_name("Angles")] static angles: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("lookAt")] static look_at: fn(at: Vector3, lookAt: Vector3, up: Vector3?): CFrame;
+    [luau_name("lookAlong")] static look_along: fn(at: Vector3, direction: Vector3, up: Vector3?): CFrame;
+    [luau_name("fromEulerAngles")] static from_euler_angles: fn(x: number, y: number, z: number, order: Enum["RotationOrder"]?): CFrame;
+    [luau_name("fromEulerAnglesXYZ")] static from_euler_angles_xyz: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("fromEulerAnglesYXZ")] static from_euler_angles_yxz: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("fromOrientation")] static from_orientation: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("fromAxisAngle")] static from_axis_angle: fn(vector: Vector3, rotation: number): CFrame;
+    [luau_name("fromMatrix")] static from_matrix: fn(pos: Vector3, vX: Vector3, vY: Vector3, vZ: Vector3): CFrame;
+    [luau_name("new")] static create: fn: CFrame;
+    [luau_name("new")] static create: fn(pos: Vector3): CFrame;
+    [luau_name("new")] static create: fn(pos: Vector3, lookAt: Vector3): CFrame;
+    [luau_name("new")] static create: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("new")] static create: fn(x: number, y: number, z: number, qX: number, qY: number, qZ: number, qW: number): CFrame;
+    [luau_name("new")] static create: fn(
         x: number, y: number, z: number,
         r00: number, r01: number, r02: number,
         r10: number, r11: number, r12: number,
         r20: number, r21: number, r22: number
     ): CFrame;
 }
-
-declare let CFrame: CFrameStatic;
 
 declare sealed interface Region3int16 {
     [luau_name("Min")] min: Vector3int16;
@@ -367,28 +347,20 @@ declare sealed interface Region3int16 {
 declare sealed interface Region3 {
     [luau_name("CFrame")] cframe: CFrame;
     [luau_name("Size")] size: Vector3;
-}
 
-declare sealed interface Region3Static {
-    [luau_name("new")] create: fn(min: Vector3, max: Vector3): Region3;
+    [luau_name("new")] static create: fn(min: Vector3, max: Vector3): Region3;
 }
-
-declare let Region3: Region3Static;
 
 declare sealed interface Color3 {
     [luau_name("R")] r: number;
     [luau_name("G")] g: number;
     [luau_name("B")] b: number;
-}
 
-declare sealed interface Color3Static {
-    [luau_name("fromRGB")] from_rgb: fn(r: number?, g: number?, b: number?): Color3;
-    [luau_name("fromHSV")] from_hsv: fn(h: number?, s: number?, v: number?): Color3;
-    [luau_name("fromHex")] from_hex: fn(hex: string): Color3;
-    [luau_name("new")] create: fn(r: number?, g: number?, b: number?): Color3;
+    [luau_name("fromRGB")] static from_rgb: fn(r: number?, g: number?, b: number?): Color3;
+    [luau_name("fromHSV")] static from_hsv: fn(h: number?, s: number?, v: number?): Color3;
+    [luau_name("fromHex")] static from_hex: fn(hex: string): Color3;
+    [luau_name("new")] static create: fn(r: number?, g: number?, b: number?): Color3;
 }
-
-declare let Color3: Color3Static;
 
 declare sealed interface BrickColor {
     [luau_name("Number")] number: number;
@@ -397,38 +369,30 @@ declare sealed interface BrickColor {
     r: number;
     g: number;
     b: number;
-}
 
-declare sealed interface BrickColorStatic {
-    random: fn: BrickColor;
-    palette: fn(paletteValue: number): BrickColor;
-    White: fn: BrickColor;
-    Gray: fn: BrickColor;
-    DarkGray: fn: BrickColor;
-    Black: fn: BrickColor;
-    Red: fn: BrickColor;
-    Yellow: fn: BrickColor;
-    Green: fn: BrickColor;
-    Blue: fn: BrickColor;
-    [luau_name("new")] create: fn(name: string): BrickColor;
-    [luau_name("new")] create: fn(number: number): BrickColor;
-    [luau_name("new")] create: fn(color: Color3): BrickColor;
-    [luau_name("new")] create: fn(r: number, g: number, b: number): BrickColor;
+    static random: fn: BrickColor;
+    static palette: fn(paletteValue: number): BrickColor;
+    static White: fn: BrickColor;
+    static Gray: fn: BrickColor;
+    static DarkGray: fn: BrickColor;
+    static Black: fn: BrickColor;
+    static Red: fn: BrickColor;
+    static Yellow: fn: BrickColor;
+    static Green: fn: BrickColor;
+    static Blue: fn: BrickColor;
+    [luau_name("new")] static create: fn(name: string): BrickColor;
+    [luau_name("new")] static create: fn(number: number): BrickColor;
+    [luau_name("new")] static create: fn(color: Color3): BrickColor;
+    [luau_name("new")] static create: fn(r: number, g: number, b: number): BrickColor;
 }
-
-declare let BrickColor: BrickColorStatic;
 
 declare sealed interface Ray {
     [luau_name("Unit")] unit: Ray;
     [luau_name("Origin")] origin: Vector3;
     [luau_name("Direction")] direction: Vector3;
-}
 
-declare sealed interface RayStatic {
-    [luau_name("new")] create: fn(origin: Vector3, direction: Vector3): Ray;
+    [luau_name("new")] static create: fn(origin: Vector3, direction: Vector3): Ray;
 }
-
-declare let Ray: RayStatic;
 
 declare sealed interface RaycastResult {
     [luau_name("Distance")] distance: number;
@@ -445,13 +409,9 @@ declare sealed interface RaycastParams {
     [luau_name("CollisionGroup")] mut collision_group: string;
     [luau_name("RespectCanCollide")] mut respect_can_collide: bool?;
     [luau_name("BruteForceAllSlow")] mut brute_force_all_slow: bool?;
-}
 
-declare sealed interface RaycastParamsStatic {
-    [luau_name("new")] create: fn: RaycastParams;
+    [luau_name("new")] static create: fn: RaycastParams;
 }
-
-declare let RaycastParams: RaycastParamsStatic;
 
 declare sealed interface OverlapParams {
     [luau_name("FilterDescendantsInstances")] mut filter_descendants_instances: Instance[]?;
@@ -460,41 +420,29 @@ declare sealed interface OverlapParams {
     [luau_name("CollisionGroup")] mut collision_group: string;
     [luau_name("RespectCanCollide")] mut respect_can_collide: bool?;
     [luau_name("BruteForceAllSlow")] mut brute_force_all_slow: bool?;
-}
 
-declare sealed interface OverlapParamsStatic {
-    [luau_name("new")] create: fn: OverlapParams;
+    [luau_name("new")] static create: fn: OverlapParams;
 }
-
-declare let OverlapParams: OverlapParamsStatic;
 
 declare sealed interface UDim {
     [luau_name("Scale")] scale: number;
     [luau_name("Offset")] offset: number;
-}
 
-declare sealed interface UDimStatic {
-    [luau_name("new")] create: fn(scale: number?, offset: number?): UDim;
+    [luau_name("new")] static create: fn(scale: number?, offset: number?): UDim;
 }
-
-declare let UDim: UDimStatic;
 
 declare sealed interface UDim2 {
     [luau_name("X")] x: UDim;
     [luau_name("Y")] y: UDim;
     [luau_name("Width")] width: UDim;
     [luau_name("Height")] height: UDim;
-}
 
-declare sealed interface UDim2Static {
-    [luau_name("fromScale")] from_scale: fn(xScale: number?, yScale: number?): UDim2;
-    [luau_name("fromOffset")] from_offset: fn(xOffset: number?, yOffset: number?): UDim2;
-    [luau_name("new")] create: fn: UDim2;
-    [luau_name("new")] create: fn(xScale: number, xOffset: number, yScale: number, yOffset: number): UDim2;
-    [luau_name("new")] create: fn(xUDim: UDim, yUDim: UDim): UDim2;
+    [luau_name("fromScale")] static from_scale: fn(xScale: number?, yScale: number?): UDim2;
+    [luau_name("fromOffset")] static from_offset: fn(xOffset: number?, yOffset: number?): UDim2;
+    [luau_name("new")] static create: fn: UDim2;
+    [luau_name("new")] static create: fn(xScale: number, xOffset: number, yScale: number, yOffset: number): UDim2;
+    [luau_name("new")] static create: fn(xUDim: UDim, yUDim: UDim): UDim2;
 }
-
-declare let UDim2: UDim2Static;
 
 declare sealed interface Random;
 
@@ -523,13 +471,9 @@ declare sealed interface TimeTable {
 declare sealed interface NumberRange {
     [luau_name("Min")] min: number;
     [luau_name("Max")] max: number;
-}
 
-declare sealed interface NumberRangeStatic {
-    [luau_name("new")] create: fn(min: number, max: number?): NumberRange;
+    [luau_name("new")] static create: fn(min: number, max: number?): NumberRange;
 }
-
-declare let NumberRange: NumberRangeStatic;
 
 declare sealed interface NumberSequenceKeypoint {
     [luau_name("Envelope")] envelope: number;
@@ -539,15 +483,11 @@ declare sealed interface NumberSequenceKeypoint {
 
 declare sealed interface NumberSequence {
      [luau_name("Keypoints")] keypoints: NumberSequenceKeypoint[];
-}
 
-declare sealed interface NumberSequenceStatic {
-    [luau_name("new")] create: fn(value: number): NumberSequence;
-    [luau_name("new")] create: fn(min: number, max: number): NumberSequence;
-    [luau_name("new")] create: fn(keypoints: NumberSequenceKeypoint[]): NumberSequence;
+    [luau_name("new")] static create: fn(value: number): NumberSequence;
+    [luau_name("new")] static create: fn(min: number, max: number): NumberSequence;
+    [luau_name("new")] static create: fn(keypoints: NumberSequenceKeypoint[]): NumberSequence;
 }
-
-declare let NumberSequence: NumberSequenceStatic;
 
 declare sealed interface ColorSequenceKeypoint {
     [luau_name("Time")] time: number;
@@ -556,29 +496,21 @@ declare sealed interface ColorSequenceKeypoint {
 
 declare sealed interface ColorSequence {
     [luau_name("Keypoints")] keypoints: ColorSequenceKeypoint[];
-}
 
-declare sealed interface ColorSequenceStatic {
-    [luau_name("new")] create: fn(color: Color3): ColorSequence;
-    [luau_name("new")] create: fn(color0: Color3, color1: Color3): ColorSequence;
-    [luau_name("new")] create: fn(keypoints: ColorSequenceKeypoint[]): ColorSequence;
+    [luau_name("new")] static create: fn(color: Color3): ColorSequence;
+    [luau_name("new")] static create: fn(color0: Color3, color1: Color3): ColorSequence;
+    [luau_name("new")] static create: fn(keypoints: ColorSequenceKeypoint[]): ColorSequence;
 }
-
-declare let ColorSequence: ColorSequenceStatic;
 
 declare sealed interface Rect {
     [luau_name("Width")] width: number;
     [luau_name("Height")] height: number;
     [luau_name("Min")] min: Vector2;
     [luau_name("Max")] max: Vector2;
-}
 
-declare sealed interface RectStatic {
-    [luau_name("new")] create: fn(min: Vector2, max: Vector2): Rect;
-    [luau_name("new")] create: fn(minX: number, minY: number, maxX: number, maxY: number): Rect;
+    [luau_name("new")] static create: fn(min: Vector2, max: Vector2): Rect;
+    [luau_name("new")] static create: fn(minX: number, minY: number, maxX: number, maxY: number): Rect;
 }
-
-declare let Rect: RectStatic;
 
 declare sealed interface Axes {
     [luau_name("X")] x: bool;
@@ -607,14 +539,10 @@ declare sealed interface PhysicalProperties {
     [luau_name("Elasticity")] elasticity: number;
     [luau_name("FrictionWeight")] friction_weight: number;
     [luau_name("ElasticityWeight")] elasticity_weight: number;
-}
 
-declare sealed interface PhysicalPropertiesStatic {
-    [luau_name("new")] create: fn(material: Enum["Material"]): PhysicalProperties;
-    [luau_name("new")] create: fn(density: number, friction: number, elasticity: number, frictionWeight: number?, elasticityWeight: number?): PhysicalProperties;
+    [luau_name("new")] static create: fn(material: Enum["Material"]): PhysicalProperties;
+    [luau_name("new")] static create: fn(density: number, friction: number, elasticity: number, frictionWeight: number?, elasticityWeight: number?): PhysicalProperties;
 }
-
-declare let PhysicalProperties: PhysicalPropertiesStatic;
 
 declare sealed interface Path2DControlPoint {
     [luau_name("Position")] position: UDim2;
@@ -651,15 +579,11 @@ declare sealed interface Font {
     [luau_name("Weight")] weight: Enum["FontWeight"];
     [luau_name("Style")] style: Enum["FontStyle"];
     [luau_name("Bold")] bold: bool;
-}
 
-declare sealed interface FontStatic {
-    [luau_name("fromEnum")] from_enum: fn(font: Enum["Font"]): Font;
-    [luau_name("fromName")] from_name: fn(name: string, weight: Enum["FontWeight"]?, style: Enum["FontStyle"]?): Font;
-    [luau_name("fromId")] from_id: fn(id: number, weight: Enum["FontWeight"]?, style: Enum["FontStyle"]?): Font;
+    [luau_name("fromEnum")] static from_enum: fn(font: Enum["Font"]): Font;
+    [luau_name("fromName")] static from_name: fn(name: string, weight: Enum["FontWeight"]?, style: Enum["FontStyle"]?): Font;
+    [luau_name("fromId")] static from_id: fn(id: number, weight: Enum["FontWeight"]?, style: Enum["FontStyle"]?): Font;
 }
-
-declare let Font: FontStatic;
 
 declare sealed interface Secret;
 
@@ -694,10 +618,8 @@ declare sealed interface TweenInfo {
     [luau_name("DelayTime")] delay_time: number;
     [luau_name("RepeatCount")] repeat_count: number;
     [luau_name("Reverses")] reverses: bool;
-}
 
-declare sealed interface TweenInfoStatic {
-    [luau_name("new")] create: fn(
+    [luau_name("new")] static create: fn(
         time: number?,
         easingStyle: Enum["EasingStyle"]?,
         easingDirection: Enum["EasingDirection"]?,
@@ -706,8 +628,6 @@ declare sealed interface TweenInfoStatic {
         delayTime: number?
     ): TweenInfo;
 }
-
-declare let TweenInfo: TweenInfoStatic;
 
 declare sealed interface SharedTable {
     mut [string]: unknown;
@@ -6224,626 +6144,6 @@ declare interface EnumZIndexBehavior {
 	Global: EnumItem<"ZIndexBehavior">;
 	Sibling: EnumItem<"ZIndexBehavior">;
 }
-declare interface EnumStatic {
-	AccessModifierType: EnumAccessModifierType;
-	AccessoryType: EnumAccessoryType;
-	ActionOnAutoResumeSync: EnumActionOnAutoResumeSync;
-	ActionOnStopSync: EnumActionOnStopSync;
-	ActionType: EnumActionType;
-	ActivePayerStatus: EnumActivePayerStatus;
-	ActuatorRelativeTo: EnumActuatorRelativeTo;
-	ActuatorType: EnumActuatorType;
-	AdAvailabilityResult: EnumAdAvailabilityResult;
-	AdEventType: EnumAdEventType;
-	AdFormat: EnumAdFormat;
-	AdShape: EnumAdShape;
-	AdTeleportMethod: EnumAdTeleportMethod;
-	AdUIEventType: EnumAdUIEventType;
-	AdUIType: EnumAdUIType;
-	AdUnitStatus: EnumAdUnitStatus;
-	AdornCullingMode: EnumAdornCullingMode;
-	AdornShading: EnumAdornShading;
-	AgeCheckStatus: EnumAgeCheckStatus;
-	AlignType: EnumAlignType;
-	AlphaMode: EnumAlphaMode;
-	AnalyticsCustomFieldKeys: EnumAnalyticsCustomFieldKeys;
-	AnalyticsEconomyAction: EnumAnalyticsEconomyAction;
-	AnalyticsEconomyFlowType: EnumAnalyticsEconomyFlowType;
-	AnalyticsEconomyTransactionType: EnumAnalyticsEconomyTransactionType;
-	AnalyticsLogLevel: EnumAnalyticsLogLevel;
-	AnalyticsProgressionStatus: EnumAnalyticsProgressionStatus;
-	AnalyticsProgressionType: EnumAnalyticsProgressionType;
-	AnimationClipFromVideoStatus: EnumAnimationClipFromVideoStatus;
-	AnimationNodeBlend2DInputMode: EnumAnimationNodeBlend2DInputMode;
-	AnimationNodeInterruptible: EnumAnimationNodeInterruptible;
-	AnimationNodePhaseSync: EnumAnimationNodePhaseSync;
-	AnimationNodePlayMode: EnumAnimationNodePlayMode;
-	AnimationNodeTransitionType: EnumAnimationNodeTransitionType;
-	AnimationNodeType: EnumAnimationNodeType;
-	AnimationNodeWaitFor: EnumAnimationNodeWaitFor;
-	AnimationPriority: EnumAnimationPriority;
-	AnimatorRetargetingMode: EnumAnimatorRetargetingMode;
-	AnnotationChannelContentPreference: EnumAnnotationChannelContentPreference;
-	AnnotationEditingMode: EnumAnnotationEditingMode;
-	AnnotationPlaceContentPreference: EnumAnnotationPlaceContentPreference;
-	AnnotationRequestStatus: EnumAnnotationRequestStatus;
-	AnnotationRequestType: EnumAnnotationRequestType;
-	AntiAliasing: EnumAntiAliasing;
-	AppLifecycleManagerState: EnumAppLifecycleManagerState;
-	AppShellActionType: EnumAppShellActionType;
-	AppShellFeature: EnumAppShellFeature;
-	AppUpdateStatus: EnumAppUpdateStatus;
-	ApplyShadowMode: EnumApplyShadowMode;
-	ApplyStrokeMode: EnumApplyStrokeMode;
-	AspectType: EnumAspectType;
-	AssetCreatorType: EnumAssetCreatorType;
-	AssetFetchStatus: EnumAssetFetchStatus;
-	AssetRepresentation: EnumAssetRepresentation;
-	AssetType: EnumAssetType;
-	AssetTypeVerification: EnumAssetTypeVerification;
-	AudioApiRollout: EnumAudioApiRollout;
-	AudioCaptureMode: EnumAudioCaptureMode;
-	AudioChannelLayout: EnumAudioChannelLayout;
-	AudioFilterType: EnumAudioFilterType;
-	AudioPositionType: EnumAudioPositionType;
-	AudioSimulationFidelity: EnumAudioSimulationFidelity;
-	AudioSubType: EnumAudioSubType;
-	AudioWindowSize: EnumAudioWindowSize;
-	AuthorityMode: EnumAuthorityMode;
-	AutoIndentRule: EnumAutoIndentRule;
-	AutomaticSize: EnumAutomaticSize;
-	AvatarAssetType: EnumAvatarAssetType;
-	AvatarChatServiceFeature: EnumAvatarChatServiceFeature;
-	AvatarContextMenuOption: EnumAvatarContextMenuOption;
-	AvatarGenerationError: EnumAvatarGenerationError;
-	AvatarItemType: EnumAvatarItemType;
-	AvatarPromptResult: EnumAvatarPromptResult;
-	AvatarSettingsAccessoryLimitMethod: EnumAvatarSettingsAccessoryLimitMethod;
-	AvatarSettingsAccessoryMode: EnumAvatarSettingsAccessoryMode;
-	AvatarSettingsAnimationClipsMode: EnumAvatarSettingsAnimationClipsMode;
-	AvatarSettingsAnimationPacksMode: EnumAvatarSettingsAnimationPacksMode;
-	AvatarSettingsAppearanceMode: EnumAvatarSettingsAppearanceMode;
-	AvatarSettingsBuildMode: EnumAvatarSettingsBuildMode;
-	AvatarSettingsCharacterControllerMode: EnumAvatarSettingsCharacterControllerMode;
-	AvatarSettingsClothingMode: EnumAvatarSettingsClothingMode;
-	AvatarSettingsCollisionMode: EnumAvatarSettingsCollisionMode;
-	AvatarSettingsCustomAccessoryMode: EnumAvatarSettingsCustomAccessoryMode;
-	AvatarSettingsCustomBodyType: EnumAvatarSettingsCustomBodyType;
-	AvatarSettingsCustomClothingMode: EnumAvatarSettingsCustomClothingMode;
-	AvatarSettingsHitAndTouchDetectionMode: EnumAvatarSettingsHitAndTouchDetectionMode;
-	AvatarSettingsJumpMode: EnumAvatarSettingsJumpMode;
-	AvatarSettingsLegacyCollisionMode: EnumAvatarSettingsLegacyCollisionMode;
-	AvatarSettingsScaleMode: EnumAvatarSettingsScaleMode;
-	AvatarThumbnailCustomizationType: EnumAvatarThumbnailCustomizationType;
-	AvatarUnificationMode: EnumAvatarUnificationMode;
-	Axis: EnumAxis;
-	BenefitType: EnumBenefitType;
-	BinType: EnumBinType;
-	BodyPart: EnumBodyPart;
-	BodyPartR15: EnumBodyPartR15;
-	BorderMode: EnumBorderMode;
-	BorderStrokePosition: EnumBorderStrokePosition;
-	BreakReason: EnumBreakReason;
-	BreakpointRemoveReason: EnumBreakpointRemoveReason;
-	BulkMoveMode: EnumBulkMoveMode;
-	BundleType: EnumBundleType;
-	Button: EnumButton;
-	ButtonStyle: EnumButtonStyle;
-	CageType: EnumCageType;
-	CameraMode: EnumCameraMode;
-	CameraNavigationModel: EnumCameraNavigationModel;
-	CameraPanMode: EnumCameraPanMode;
-	CameraSpeedAdjustBinding: EnumCameraSpeedAdjustBinding;
-	CameraType: EnumCameraType;
-	CanCollaborateError: EnumCanCollaborateError;
-	CaptureGalleryPermission: EnumCaptureGalleryPermission;
-	CaptureType: EnumCaptureType;
-	CatalogCategoryFilter: EnumCatalogCategoryFilter;
-	CatalogSortAggregation: EnumCatalogSortAggregation;
-	CatalogSortType: EnumCatalogSortType;
-	CellBlock: EnumCellBlock;
-	CellMaterial: EnumCellMaterial;
-	CellOrientation: EnumCellOrientation;
-	CenterDialogType: EnumCenterDialogType;
-	CharacterControlMode: EnumCharacterControlMode;
-	ChatCallbackType: EnumChatCallbackType;
-	ChatColor: EnumChatColor;
-	ChatMode: EnumChatMode;
-	ChatPrivacyMode: EnumChatPrivacyMode;
-	ChatRestrictionStatus: EnumChatRestrictionStatus;
-	ChatStyle: EnumChatStyle;
-	ChatVersion: EnumChatVersion;
-	ClientAnimatorThrottlingMode: EnumClientAnimatorThrottlingMode;
-	CloseReason: EnumCloseReason;
-	CollaboratorStatus: EnumCollaboratorStatus;
-	CollisionFidelity: EnumCollisionFidelity;
-	CommandPermission: EnumCommandPermission;
-	CompileTarget: EnumCompileTarget;
-	CompletionAcceptanceBehavior: EnumCompletionAcceptanceBehavior;
-	CompletionItemKind: EnumCompletionItemKind;
-	CompletionItemTag: EnumCompletionItemTag;
-	CompletionTriggerKind: EnumCompletionTriggerKind;
-	CompositeValueCurveType: EnumCompositeValueCurveType;
-	CompressionAlgorithm: EnumCompressionAlgorithm;
-	ComputerCameraMovementMode: EnumComputerCameraMovementMode;
-	ComputerMovementMode: EnumComputerMovementMode;
-	ConfigSnapshotErrorState: EnumConfigSnapshotErrorState;
-	ConnectionError: EnumConnectionError;
-	ConnectionState: EnumConnectionState;
-	ContentSourceType: EnumContentSourceType;
-	ContextActionPriority: EnumContextActionPriority;
-	ContextActionResult: EnumContextActionResult;
-	ControlMode: EnumControlMode;
-	CoreGuiType: EnumCoreGuiType;
-	CreateAssetResult: EnumCreateAssetResult;
-	CreateContentResult: EnumCreateContentResult;
-	CreateOutfitFailure: EnumCreateOutfitFailure;
-	CreatorType: EnumCreatorType;
-	CreatorTypeFilter: EnumCreatorTypeFilter;
-	CurrencyType: EnumCurrencyType;
-	CustomCameraMode: EnumCustomCameraMode;
-	DataModelChangeType: EnumDataModelChangeType;
-	DataModelExtractorFileType: EnumDataModelExtractorFileType;
-	DataStoreRequestType: EnumDataStoreRequestType;
-	DebugBreakModeType: EnumDebugBreakModeType;
-	DebuggerEndReason: EnumDebuggerEndReason;
-	DebuggerExceptionBreakMode: EnumDebuggerExceptionBreakMode;
-	DebuggerFrameType: EnumDebuggerFrameType;
-	DebuggerPauseReason: EnumDebuggerPauseReason;
-	DebuggerResumeType: EnumDebuggerResumeType;
-	DebuggerStatus: EnumDebuggerStatus;
-	DefaultScriptSyncFileType: EnumDefaultScriptSyncFileType;
-	DevCameraOcclusionMode: EnumDevCameraOcclusionMode;
-	DevComputerCameraMovementMode: EnumDevComputerCameraMovementMode;
-	DevComputerMovementMode: EnumDevComputerMovementMode;
-	DevTouchCameraMovementMode: EnumDevTouchCameraMovementMode;
-	DevTouchMovementMode: EnumDevTouchMovementMode;
-	DeveloperMemoryTag: EnumDeveloperMemoryTag;
-	DeviceFeatureType: EnumDeviceFeatureType;
-	DeviceForm: EnumDeviceForm;
-	DeviceLevel: EnumDeviceLevel;
-	DeviceSimulatorScalingMode: EnumDeviceSimulatorScalingMode;
-	DeviceType: EnumDeviceType;
-	DialogBehaviorType: EnumDialogBehaviorType;
-	DialogPurpose: EnumDialogPurpose;
-	DialogTone: EnumDialogTone;
-	DigitsRigDescriptionSide: EnumDigitsRigDescriptionSide;
-	DiscountType: EnumDiscountType;
-	DisplayScalingMode: EnumDisplayScalingMode;
-	DisplaySize: EnumDisplaySize;
-	DistanceAttenuationMode: EnumDistanceAttenuationMode;
-	DomainType: EnumDomainType;
-	DominantAxis: EnumDominantAxis;
-	DraftStatusCode: EnumDraftStatusCode;
-	DragDetectorDragStyle: EnumDragDetectorDragStyle;
-	DragDetectorPermissionPolicy: EnumDragDetectorPermissionPolicy;
-	DragDetectorResponseStyle: EnumDragDetectorResponseStyle;
-	DraggerCoordinateSpace: EnumDraggerCoordinateSpace;
-	DraggerMovementMode: EnumDraggerMovementMode;
-	DraggingScrollBar: EnumDraggingScrollBar;
-	EasingDirection: EnumEasingDirection;
-	EasingStyle: EnumEasingStyle;
-	EditableStatus: EnumEditableStatus;
-	ElasticBehavior: EnumElasticBehavior;
-	EmitterPositionType: EnumEmitterPositionType;
-	EngagementLevel: EnumEngagementLevel;
-	EngineFolder: EnumEngineFolder;
-	EnviromentalPhysicsThrottle: EnumEnviromentalPhysicsThrottle;
-	ExperienceActivationStatus: EnumExperienceActivationStatus;
-	ExperienceAuthScope: EnumExperienceAuthScope;
-	ExperienceEventStatus: EnumExperienceEventStatus;
-	ExperienceStateCaptureSelectionMode: EnumExperienceStateCaptureSelectionMode;
-	ExperienceStateRecordingLoadMode: EnumExperienceStateRecordingLoadMode;
-	ExperienceStateRecordingLoadSourceType: EnumExperienceStateRecordingLoadSourceType;
-	ExperienceStateRecordingPlaybackMode: EnumExperienceStateRecordingPlaybackMode;
-	ExplosionType: EnumExplosionType;
-	ExternalEditorMode: EnumExternalEditorMode;
-	FACSDataLod: EnumFACSDataLod;
-	FacialAgeEstimationResultType: EnumFacialAgeEstimationResultType;
-	FacialAnimationStreamingState: EnumFacialAnimationStreamingState;
-	FacsActionUnit: EnumFacsActionUnit;
-	FeatureRestrictionAbuseVector: EnumFeatureRestrictionAbuseVector;
-	FeedbackType: EnumFeedbackType;
-	FieldOfViewMode: EnumFieldOfViewMode;
-	FillDirection: EnumFillDirection;
-	FilterErrorType: EnumFilterErrorType;
-	FilterResult: EnumFilterResult;
-	FilterType: EnumFilterType;
-	FinishRecordingOperation: EnumFinishRecordingOperation;
-	FluidFidelity: EnumFluidFidelity;
-	FluidForces: EnumFluidForces;
-	Font: EnumFont;
-	FontSize: EnumFontSize;
-	FontStyle: EnumFontStyle;
-	FontWeight: EnumFontWeight;
-	ForceLimitMode: EnumForceLimitMode;
-	FormFactor: EnumFormFactor;
-	FrameStyle: EnumFrameStyle;
-	FramerateManagerMode: EnumFramerateManagerMode;
-	FriendRequestEvent: EnumFriendRequestEvent;
-	FriendStatus: EnumFriendStatus;
-	FrustumStreamingMode: EnumFrustumStreamingMode;
-	FunctionalTestResult: EnumFunctionalTestResult;
-	GameAvatarType: EnumGameAvatarType;
-	GamepadType: EnumGamepadType;
-	GearGenreSetting: EnumGearGenreSetting;
-	GearType: EnumGearType;
-	GenerateMomentTextResult: EnumGenerateMomentTextResult;
-	Genre: EnumGenre;
-	GradientTileMode: EnumGradientTileMode;
-	GradientType: EnumGradientType;
-	GraphicsMode: EnumGraphicsMode;
-	GraphicsOptimizationMode: EnumGraphicsOptimizationMode;
-	GroupMembershipStatus: EnumGroupMembershipStatus;
-	GuiState: EnumGuiState;
-	GuiType: EnumGuiType;
-	HandlesStyle: EnumHandlesStyle;
-	HapticEffectType: EnumHapticEffectType;
-	HashAlgorithm: EnumHashAlgorithm;
-	HighlightDepthMode: EnumHighlightDepthMode;
-	HorizontalAlignment: EnumHorizontalAlignment;
-	HoverAnimateSpeed: EnumHoverAnimateSpeed;
-	HttpCachePolicy: EnumHttpCachePolicy;
-	HttpCompression: EnumHttpCompression;
-	HttpContentType: EnumHttpContentType;
-	HttpError: EnumHttpError;
-	HttpRequestType: EnumHttpRequestType;
-	HumanoidCollisionType: EnumHumanoidCollisionType;
-	HumanoidDisplayDistanceType: EnumHumanoidDisplayDistanceType;
-	HumanoidHealthDisplayType: EnumHumanoidHealthDisplayType;
-	HumanoidRigType: EnumHumanoidRigType;
-	HumanoidStateType: EnumHumanoidStateType;
-	IKCollisionsMode: EnumIKCollisionsMode;
-	IKControlConstraintSupport: EnumIKControlConstraintSupport;
-	IKControlType: EnumIKControlType;
-	IXPLoadingStatus: EnumIXPLoadingStatus;
-	ImageAlphaType: EnumImageAlphaType;
-	ImageCombineType: EnumImageCombineType;
-	InOut: EnumInOut;
-	InfoType: EnumInfoType;
-	InitialDockState: EnumInitialDockState;
-	InputActionType: EnumInputActionType;
-	InputBindingType: EnumInputBindingType;
-	InputSink: EnumInputSink;
-	InputType: EnumInputType;
-	InstanceFileSyncStatus: EnumInstanceFileSyncStatus;
-	IntermediateMeshGenerationResult: EnumIntermediateMeshGenerationResult;
-	InternalVideoUsage: EnumInternalVideoUsage;
-	InterpolationThrottlingMode: EnumInterpolationThrottlingMode;
-	InviteState: EnumInviteState;
-	ItemLineAlignment: EnumItemLineAlignment;
-	JoinSource: EnumJoinSource;
-	JointCreationMode: EnumJointCreationMode;
-	KeyCode: EnumKeyCode;
-	KeyCodeStringFormat: EnumKeyCodeStringFormat;
-	KeyInterpolationMode: EnumKeyInterpolationMode;
-	KeywordFilterType: EnumKeywordFilterType;
-	KnownWindow: EnumKnownWindow;
-	Language: EnumLanguage;
-	LeftRight: EnumLeftRight;
-	LexemeType: EnumLexemeType;
-	LightingStyle: EnumLightingStyle;
-	Limb: EnumLimb;
-	LineJoinMode: EnumLineJoinMode;
-	ListDisplayMode: EnumListDisplayMode;
-	ListenerLocation: EnumListenerLocation;
-	ListenerPositionType: EnumListenerPositionType;
-	ListenerType: EnumListenerType;
-	LiveEditingAtomicUpdateResponse: EnumLiveEditingAtomicUpdateResponse;
-	LiveEditingBroadcastMessageType: EnumLiveEditingBroadcastMessageType;
-	LoadCharacterLayeredClothing: EnumLoadCharacterLayeredClothing;
-	LoadDynamicHeads: EnumLoadDynamicHeads;
-	LocationType: EnumLocationType;
-	LuauTypeCheckMode: EnumLuauTypeCheckMode;
-	MakeupType: EnumMakeupType;
-	MarketplaceBulkPurchasePromptStatus: EnumMarketplaceBulkPurchasePromptStatus;
-	MarketplaceItemPurchaseStatus: EnumMarketplaceItemPurchaseStatus;
-	MarketplaceProductType: EnumMarketplaceProductType;
-	MarkupKind: EnumMarkupKind;
-	MatchmakingType: EnumMatchmakingType;
-	Material: EnumMaterial;
-	MaterialPattern: EnumMaterialPattern;
-	MembershipType: EnumMembershipType;
-	MeshAttribute: EnumMeshAttribute;
-	MeshPartDetailLevel: EnumMeshPartDetailLevel;
-	MeshPartHeadsAndAccessories: EnumMeshPartHeadsAndAccessories;
-	MeshScaleUnit: EnumMeshScaleUnit;
-	MeshType: EnumMeshType;
-	MessageType: EnumMessageType;
-	ModelLevelOfDetail: EnumModelLevelOfDetail;
-	ModelStreamingBehavior: EnumModelStreamingBehavior;
-	ModelStreamingMode: EnumModelStreamingMode;
-	ModerationResultCategory: EnumModerationResultCategory;
-	ModerationResultLabel: EnumModerationResultLabel;
-	ModerationStatus: EnumModerationStatus;
-	ModifierKey: EnumModifierKey;
-	MouseBehavior: EnumMouseBehavior;
-	MoveState: EnumMoveState;
-	MuteState: EnumMuteState;
-	NameOcclusion: EnumNameOcclusion;
-	NegateOperationHiddenHistory: EnumNegateOperationHiddenHistory;
-	NetworkOwnership: EnumNetworkOwnership;
-	NetworkStatus: EnumNetworkStatus;
-	NoiseType: EnumNoiseType;
-	NormalId: EnumNormalId;
-	NotificationButtonType: EnumNotificationButtonType;
-	OperationType: EnumOperationType;
-	OrientationAlignmentMode: EnumOrientationAlignmentMode;
-	OutfitSource: EnumOutfitSource;
-	OutfitType: EnumOutfitType;
-	OutputLayoutMode: EnumOutputLayoutMode;
-	OverrideMouseIconBehavior: EnumOverrideMouseIconBehavior;
-	PackagePermission: EnumPackagePermission;
-	PartType: EnumPartType;
-	ParticleEmitterShape: EnumParticleEmitterShape;
-	ParticleEmitterShapeInOut: EnumParticleEmitterShapeInOut;
-	ParticleEmitterShapeStyle: EnumParticleEmitterShapeStyle;
-	ParticleFlipbookLayout: EnumParticleFlipbookLayout;
-	ParticleFlipbookMode: EnumParticleFlipbookMode;
-	ParticleFlipbookTextureCompatible: EnumParticleFlipbookTextureCompatible;
-	ParticleOrientation: EnumParticleOrientation;
-	PathStatus: EnumPathStatus;
-	PathWaypointAction: EnumPathWaypointAction;
-	PathfindingUseImprovedSearch: EnumPathfindingUseImprovedSearch;
-	PeoplePageLayout: EnumPeoplePageLayout;
-	PerformanceOverlayMode: EnumPerformanceOverlayMode;
-	PermissionLevelShown: EnumPermissionLevelShown;
-	PhysicalConstraintType: EnumPhysicalConstraintType;
-	PhysicsSimulationRate: EnumPhysicsSimulationRate;
-	PhysicsSteppingMethod: EnumPhysicsSteppingMethod;
-	PioneerSource: EnumPioneerSource;
-	PlaceContentPreference: EnumPlaceContentPreference;
-	PlacePublishType: EnumPlacePublishType;
-	Platform: EnumPlatform;
-	PlaybackState: EnumPlaybackState;
-	PlayerActions: EnumPlayerActions;
-	PlayerCharacterDestroyBehavior: EnumPlayerCharacterDestroyBehavior;
-	PlayerChatType: EnumPlayerChatType;
-	PlayerDataErrorState: EnumPlayerDataErrorState;
-	PlayerDataLoadFailureBehavior: EnumPlayerDataLoadFailureBehavior;
-	PlayerExitReason: EnumPlayerExitReason;
-	PlayerPlatformActivationStatus: EnumPlayerPlatformActivationStatus;
-	PlayerPlatformSpenderStatus: EnumPlayerPlatformSpenderStatus;
-	PluginConnectionTargetType: EnumPluginConnectionTargetType;
-	PoseEasingDirection: EnumPoseEasingDirection;
-	PoseEasingStyle: EnumPoseEasingStyle;
-	PositionAlignmentMode: EnumPositionAlignmentMode;
-	PredictionMode: EnumPredictionMode;
-	PredictionStatus: EnumPredictionStatus;
-	PredictiveStreamingMode: EnumPredictiveStreamingMode;
-	PreferredInput: EnumPreferredInput;
-	PreferredTextSize: EnumPreferredTextSize;
-	PrefetchDownloadStatus: EnumPrefetchDownloadStatus;
-	PrimalPhysicsSolver: EnumPrimalPhysicsSolver;
-	PrimitiveType: EnumPrimitiveType;
-	PrivilegeType: EnumPrivilegeType;
-	ProductLocationRestriction: EnumProductLocationRestriction;
-	ProductPurchaseChannel: EnumProductPurchaseChannel;
-	ProductPurchaseDecision: EnumProductPurchaseDecision;
-	PromptCreateAssetResult: EnumPromptCreateAssetResult;
-	PromptCreateAvatarResult: EnumPromptCreateAvatarResult;
-	PromptCreateOutfitResult: EnumPromptCreateOutfitResult;
-	PromptExperienceDetailsResult: EnumPromptExperienceDetailsResult;
-	PromptLinkSharingResult: EnumPromptLinkSharingResult;
-	PromptPublishAssetResult: EnumPromptPublishAssetResult;
-	PropertyStatus: EnumPropertyStatus;
-	ProximityPromptExclusivity: EnumProximityPromptExclusivity;
-	ProximityPromptInputType: EnumProximityPromptInputType;
-	ProximityPromptStyle: EnumProximityPromptStyle;
-	PurchaseOption: EnumPurchaseOption;
-	QualityLevel: EnumQualityLevel;
-	R15CollisionType: EnumR15CollisionType;
-	RaycastFilterType: EnumRaycastFilterType;
-	ReadCapturesFromGalleryResult: EnumReadCapturesFromGalleryResult;
-	ReceiptDecision: EnumReceiptDecision;
-	ReceiptType: EnumReceiptType;
-	RecommendationActionType: EnumRecommendationActionType;
-	RecommendationDepartureIntent: EnumRecommendationDepartureIntent;
-	RecommendationImpressionType: EnumRecommendationImpressionType;
-	RecommendationItemContentType: EnumRecommendationItemContentType;
-	RecommendationItemVisibility: EnumRecommendationItemVisibility;
-	RecommendationPreferenceTargetType: EnumRecommendationPreferenceTargetType;
-	RecommendationPreferenceType: EnumRecommendationPreferenceType;
-	RejectCharacterDeletions: EnumRejectCharacterDeletions;
-	RenderFidelity: EnumRenderFidelity;
-	RenderPriority: EnumRenderPriority;
-	RenderingCacheOptimizationMode: EnumRenderingCacheOptimizationMode;
-	RenderingTestComparisonMethod: EnumRenderingTestComparisonMethod;
-	ReplicateInstanceDestroySetting: EnumReplicateInstanceDestroySetting;
-	ResamplerMode: EnumResamplerMode;
-	ReservedHighlightId: EnumReservedHighlightId;
-	RestPose: EnumRestPose;
-	RestPoseModel: EnumRestPoseModel;
-	ReturnKeyType: EnumReturnKeyType;
-	ReverbType: EnumReverbType;
-	ReviewableContentState: EnumReviewableContentState;
-	RibbonTool: EnumRibbonTool;
-	RigLabel: EnumRigLabel;
-	RigScale: EnumRigScale;
-	RigType: EnumRigType;
-	RollOffMode: EnumRollOffMode;
-	RolloutState: EnumRolloutState;
-	RotationOrder: EnumRotationOrder;
-	RotationType: EnumRotationType;
-	RsvpStatus: EnumRsvpStatus;
-	RtlTextSupport: EnumRtlTextSupport;
-	RunContext: EnumRunContext;
-	RunState: EnumRunState;
-	RuntimeUndoBehavior: EnumRuntimeUndoBehavior;
-	SafeAreaCompatibility: EnumSafeAreaCompatibility;
-	SalesTypeFilter: EnumSalesTypeFilter;
-	SandboxedInstanceMode: EnumSandboxedInstanceMode;
-	SaveAvatarThumbnailCustomizationFailure: EnumSaveAvatarThumbnailCustomizationFailure;
-	SaveFilter: EnumSaveFilter;
-	SavedQualitySetting: EnumSavedQualitySetting;
-	ScaleType: EnumScaleType;
-	ScopeCheckResult: EnumScopeCheckResult;
-	ScreenInsets: EnumScreenInsets;
-	ScreenOrientation: EnumScreenOrientation;
-	ScreenshotCaptureResult: EnumScreenshotCaptureResult;
-	ScriptStoppedReason: EnumScriptStoppedReason;
-	ScriptVariableScope: EnumScriptVariableScope;
-	ScrollBarInset: EnumScrollBarInset;
-	ScrollingDirection: EnumScrollingDirection;
-	SecurityCapability: EnumSecurityCapability;
-	SelectionBehavior: EnumSelectionBehavior;
-	SelectionRenderMode: EnumSelectionRenderMode;
-	SelfViewPosition: EnumSelfViewPosition;
-	SensorMode: EnumSensorMode;
-	SensorUpdateType: EnumSensorUpdateType;
-	ServerLiveEditingMode: EnumServerLiveEditingMode;
-	ServiceVisibility: EnumServiceVisibility;
-	Severity: EnumSeverity;
-	ShowAdResult: EnumShowAdResult;
-	SignalBehavior: EnumSignalBehavior;
-	SimulationMode: EnumSimulationMode;
-	SizeConstraint: EnumSizeConstraint;
-	SlimTintMode: EnumSlimTintMode;
-	SlimTranscoderStatus: EnumSlimTranscoderStatus;
-	SlimViewContext: EnumSlimViewContext;
-	SolidPrimitiveType: EnumSolidPrimitiveType;
-	SolverConvergenceMetricType: EnumSolverConvergenceMetricType;
-	SolverConvergenceVisualizationMode: EnumSolverConvergenceVisualizationMode;
-	SortDirection: EnumSortDirection;
-	SortOrder: EnumSortOrder;
-	SpecialKey: EnumSpecialKey;
-	StartCorner: EnumStartCorner;
-	StateObjectFieldType: EnumStateObjectFieldType;
-	Status: EnumStatus;
-	StepFrequency: EnumStepFrequency;
-	StreamOutBehavior: EnumStreamOutBehavior;
-	StreamingIntegrityMode: EnumStreamingIntegrityMode;
-	StreamingPauseMode: EnumStreamingPauseMode;
-	StrokeSizingMode: EnumStrokeSizingMode;
-	StudioAction: EnumStudioAction;
-	StudioCaptureBufferStatus: EnumStudioCaptureBufferStatus;
-	StudioCaptureScreenshotFormat: EnumStudioCaptureScreenshotFormat;
-	StudioCloseMode: EnumStudioCloseMode;
-	StudioDataModelType: EnumStudioDataModelType;
-	StudioPlaceUpdateFailureReason: EnumStudioPlaceUpdateFailureReason;
-	StudioScriptEditorColorCategories: EnumStudioScriptEditorColorCategories;
-	StudioScriptEditorColorPresets: EnumStudioScriptEditorColorPresets;
-	StudioStyleGuideColor: EnumStudioStyleGuideColor;
-	StudioStyleGuideModifier: EnumStudioStyleGuideModifier;
-	Style: EnumStyle;
-	SubscriptionExpirationReason: EnumSubscriptionExpirationReason;
-	SubscriptionPaymentStatus: EnumSubscriptionPaymentStatus;
-	SubscriptionPeriod: EnumSubscriptionPeriod;
-	SubscriptionState: EnumSubscriptionState;
-	SurfaceConstraint: EnumSurfaceConstraint;
-	SurfaceGuiShape: EnumSurfaceGuiShape;
-	SurfaceGuiSizingMode: EnumSurfaceGuiSizingMode;
-	SurfaceType: EnumSurfaceType;
-	SwipeDirection: EnumSwipeDirection;
-	SystemThemeValue: EnumSystemThemeValue;
-	TableMajorAxis: EnumTableMajorAxis;
-	TagReplicability: EnumTagReplicability;
-	TeamCreateErrorState: EnumTeamCreateErrorState;
-	Technology: EnumTechnology;
-	TelemetryBackend: EnumTelemetryBackend;
-	TelemetryStandardizedField: EnumTelemetryStandardizedField;
-	TeleportMethod: EnumTeleportMethod;
-	TeleportResult: EnumTeleportResult;
-	TeleportState: EnumTeleportState;
-	TeleportType: EnumTeleportType;
-	TerrainAcquisitionMethod: EnumTerrainAcquisitionMethod;
-	TerrainFace: EnumTerrainFace;
-	TerrainLiquidMergeOperation: EnumTerrainLiquidMergeOperation;
-	TerrainSolidMergeOperation: EnumTerrainSolidMergeOperation;
-	TextChatMessageStatus: EnumTextChatMessageStatus;
-	TextDirection: EnumTextDirection;
-	TextFilterContext: EnumTextFilterContext;
-	TextInputType: EnumTextInputType;
-	TextTruncate: EnumTextTruncate;
-	TextXAlignment: EnumTextXAlignment;
-	TextYAlignment: EnumTextYAlignment;
-	TextureMode: EnumTextureMode;
-	TextureQueryType: EnumTextureQueryType;
-	ThreadPoolConfig: EnumThreadPoolConfig;
-	ThrottlingPriority: EnumThrottlingPriority;
-	ThumbnailSize: EnumThumbnailSize;
-	ThumbnailType: EnumThumbnailType;
-	TickCountSampleMethod: EnumTickCountSampleMethod;
-	TitleBarControlsPosition: EnumTitleBarControlsPosition;
-	TitleBarMode: EnumTitleBarMode;
-	TonemapperPreset: EnumTonemapperPreset;
-	TopBottom: EnumTopBottom;
-	TouchCameraMovementMode: EnumTouchCameraMovementMode;
-	TouchMovementMode: EnumTouchMovementMode;
-	TrackerError: EnumTrackerError;
-	TrackerExtrapolationFlagMode: EnumTrackerExtrapolationFlagMode;
-	TrackerFaceTrackingStatus: EnumTrackerFaceTrackingStatus;
-	TrackerLodFlagMode: EnumTrackerLodFlagMode;
-	TrackerLodValueMode: EnumTrackerLodValueMode;
-	TrackerMode: EnumTrackerMode;
-	TrackerPromptEvent: EnumTrackerPromptEvent;
-	TrackerType: EnumTrackerType;
-	TriStateBoolean: EnumTriStateBoolean;
-	TweenStatus: EnumTweenStatus;
-	UICaptureMode: EnumUICaptureMode;
-	UIDragDetectorBoundingBehavior: EnumUIDragDetectorBoundingBehavior;
-	UIDragDetectorDragRelativity: EnumUIDragDetectorDragRelativity;
-	UIDragDetectorDragSpace: EnumUIDragDetectorDragSpace;
-	UIDragDetectorDragStyle: EnumUIDragDetectorDragStyle;
-	UIDragDetectorResponseStyle: EnumUIDragDetectorResponseStyle;
-	UIDragSpeedAxisMapping: EnumUIDragSpeedAxisMapping;
-	UIFlexAlignment: EnumUIFlexAlignment;
-	UIFlexMode: EnumUIFlexMode;
-	UITheme: EnumUITheme;
-	UiMessageType: EnumUiMessageType;
-	UpdateState: EnumUpdateState;
-	UploadCaptureResult: EnumUploadCaptureResult;
-	UsageContext: EnumUsageContext;
-	UserAcquisitionSource: EnumUserAcquisitionSource;
-	UserCFrame: EnumUserCFrame;
-	UserIdMode: EnumUserIdMode;
-	UserInputState: EnumUserInputState;
-	UserInputType: EnumUserInputType;
-	UserNewReturningStatus: EnumUserNewReturningStatus;
-	UserReturnStatus: EnumUserReturnStatus;
-	VRComfortSetting: EnumVRComfortSetting;
-	VRControllerModelMode: EnumVRControllerModelMode;
-	VRDeviceType: EnumVRDeviceType;
-	VRLaserPointerMode: EnumVRLaserPointerMode;
-	VRSafetyBubbleMode: EnumVRSafetyBubbleMode;
-	VRScaling: EnumVRScaling;
-	VRSessionState: EnumVRSessionState;
-	VRTouchpad: EnumVRTouchpad;
-	VRTouchpadMode: EnumVRTouchpadMode;
-	VelocityConstraintMode: EnumVelocityConstraintMode;
-	VerifiedLevel: EnumVerifiedLevel;
-	VerticalAlignment: EnumVerticalAlignment;
-	VerticalScrollBarPosition: EnumVerticalScrollBarPosition;
-	VibrationMotor: EnumVibrationMotor;
-	VideoCaptureResult: EnumVideoCaptureResult;
-	VideoCaptureStartedResult: EnumVideoCaptureStartedResult;
-	VideoDeviceCaptureQuality: EnumVideoDeviceCaptureQuality;
-	VideoError: EnumVideoError;
-	VideoSampleSize: EnumVideoSampleSize;
-	ViewMode: EnumViewMode;
-	VirtualCursorMode: EnumVirtualCursorMode;
-	VirtualInputMode: EnumVirtualInputMode;
-	VoiceChatDistanceAttenuationType: EnumVoiceChatDistanceAttenuationType;
-	VoiceChatState: EnumVoiceChatState;
-	VoiceClientLeaveReasons: EnumVoiceClientLeaveReasons;
-	VoiceControlPath: EnumVoiceControlPath;
-	VoiceRccReconnectReason: EnumVoiceRccReconnectReason;
-	VolumetricAudio: EnumVolumetricAudio;
-	WaterDirection: EnumWaterDirection;
-	WaterForce: EnumWaterForce;
-	WebSocketState: EnumWebSocketState;
-	WebStreamClientState: EnumWebStreamClientState;
-	WebStreamClientType: EnumWebStreamClientType;
-	WeldConstraintPreserve: EnumWeldConstraintPreserve;
-	WhenUserFirstPlayed: EnumWhenUserFirstPlayed;
-	WhisperChatPrivacyMode: EnumWhisperChatPrivacyMode;
-	WindSoundProfile: EnumWindSoundProfile;
-	WindowState: EnumWindowState;
-	WrapLayerAutoSkin: EnumWrapLayerAutoSkin;
-	WrapLayerDebugMode: EnumWrapLayerDebugMode;
-	WrapTargetDebugMode: EnumWrapTargetDebugMode;
-	ZIndexBehavior: EnumZIndexBehavior;
-}
 
 declare interface Enum {
 	AccessModifierType: EnumItem<"AccessModifierType">;
@@ -7464,9 +6764,625 @@ declare interface Enum {
 	WrapLayerDebugMode: EnumItem<"WrapLayerDebugMode">;
 	WrapTargetDebugMode: EnumItem<"WrapTargetDebugMode">;
 	ZIndexBehavior: EnumItem<"ZIndexBehavior">;
+	static AccessModifierType: EnumAccessModifierType;
+	static AccessoryType: EnumAccessoryType;
+	static ActionOnAutoResumeSync: EnumActionOnAutoResumeSync;
+	static ActionOnStopSync: EnumActionOnStopSync;
+	static ActionType: EnumActionType;
+	static ActivePayerStatus: EnumActivePayerStatus;
+	static ActuatorRelativeTo: EnumActuatorRelativeTo;
+	static ActuatorType: EnumActuatorType;
+	static AdAvailabilityResult: EnumAdAvailabilityResult;
+	static AdEventType: EnumAdEventType;
+	static AdFormat: EnumAdFormat;
+	static AdShape: EnumAdShape;
+	static AdTeleportMethod: EnumAdTeleportMethod;
+	static AdUIEventType: EnumAdUIEventType;
+	static AdUIType: EnumAdUIType;
+	static AdUnitStatus: EnumAdUnitStatus;
+	static AdornCullingMode: EnumAdornCullingMode;
+	static AdornShading: EnumAdornShading;
+	static AgeCheckStatus: EnumAgeCheckStatus;
+	static AlignType: EnumAlignType;
+	static AlphaMode: EnumAlphaMode;
+	static AnalyticsCustomFieldKeys: EnumAnalyticsCustomFieldKeys;
+	static AnalyticsEconomyAction: EnumAnalyticsEconomyAction;
+	static AnalyticsEconomyFlowType: EnumAnalyticsEconomyFlowType;
+	static AnalyticsEconomyTransactionType: EnumAnalyticsEconomyTransactionType;
+	static AnalyticsLogLevel: EnumAnalyticsLogLevel;
+	static AnalyticsProgressionStatus: EnumAnalyticsProgressionStatus;
+	static AnalyticsProgressionType: EnumAnalyticsProgressionType;
+	static AnimationClipFromVideoStatus: EnumAnimationClipFromVideoStatus;
+	static AnimationNodeBlend2DInputMode: EnumAnimationNodeBlend2DInputMode;
+	static AnimationNodeInterruptible: EnumAnimationNodeInterruptible;
+	static AnimationNodePhaseSync: EnumAnimationNodePhaseSync;
+	static AnimationNodePlayMode: EnumAnimationNodePlayMode;
+	static AnimationNodeTransitionType: EnumAnimationNodeTransitionType;
+	static AnimationNodeType: EnumAnimationNodeType;
+	static AnimationNodeWaitFor: EnumAnimationNodeWaitFor;
+	static AnimationPriority: EnumAnimationPriority;
+	static AnimatorRetargetingMode: EnumAnimatorRetargetingMode;
+	static AnnotationChannelContentPreference: EnumAnnotationChannelContentPreference;
+	static AnnotationEditingMode: EnumAnnotationEditingMode;
+	static AnnotationPlaceContentPreference: EnumAnnotationPlaceContentPreference;
+	static AnnotationRequestStatus: EnumAnnotationRequestStatus;
+	static AnnotationRequestType: EnumAnnotationRequestType;
+	static AntiAliasing: EnumAntiAliasing;
+	static AppLifecycleManagerState: EnumAppLifecycleManagerState;
+	static AppShellActionType: EnumAppShellActionType;
+	static AppShellFeature: EnumAppShellFeature;
+	static AppUpdateStatus: EnumAppUpdateStatus;
+	static ApplyShadowMode: EnumApplyShadowMode;
+	static ApplyStrokeMode: EnumApplyStrokeMode;
+	static AspectType: EnumAspectType;
+	static AssetCreatorType: EnumAssetCreatorType;
+	static AssetFetchStatus: EnumAssetFetchStatus;
+	static AssetRepresentation: EnumAssetRepresentation;
+	static AssetType: EnumAssetType;
+	static AssetTypeVerification: EnumAssetTypeVerification;
+	static AudioApiRollout: EnumAudioApiRollout;
+	static AudioCaptureMode: EnumAudioCaptureMode;
+	static AudioChannelLayout: EnumAudioChannelLayout;
+	static AudioFilterType: EnumAudioFilterType;
+	static AudioPositionType: EnumAudioPositionType;
+	static AudioSimulationFidelity: EnumAudioSimulationFidelity;
+	static AudioSubType: EnumAudioSubType;
+	static AudioWindowSize: EnumAudioWindowSize;
+	static AuthorityMode: EnumAuthorityMode;
+	static AutoIndentRule: EnumAutoIndentRule;
+	static AutomaticSize: EnumAutomaticSize;
+	static AvatarAssetType: EnumAvatarAssetType;
+	static AvatarChatServiceFeature: EnumAvatarChatServiceFeature;
+	static AvatarContextMenuOption: EnumAvatarContextMenuOption;
+	static AvatarGenerationError: EnumAvatarGenerationError;
+	static AvatarItemType: EnumAvatarItemType;
+	static AvatarPromptResult: EnumAvatarPromptResult;
+	static AvatarSettingsAccessoryLimitMethod: EnumAvatarSettingsAccessoryLimitMethod;
+	static AvatarSettingsAccessoryMode: EnumAvatarSettingsAccessoryMode;
+	static AvatarSettingsAnimationClipsMode: EnumAvatarSettingsAnimationClipsMode;
+	static AvatarSettingsAnimationPacksMode: EnumAvatarSettingsAnimationPacksMode;
+	static AvatarSettingsAppearanceMode: EnumAvatarSettingsAppearanceMode;
+	static AvatarSettingsBuildMode: EnumAvatarSettingsBuildMode;
+	static AvatarSettingsCharacterControllerMode: EnumAvatarSettingsCharacterControllerMode;
+	static AvatarSettingsClothingMode: EnumAvatarSettingsClothingMode;
+	static AvatarSettingsCollisionMode: EnumAvatarSettingsCollisionMode;
+	static AvatarSettingsCustomAccessoryMode: EnumAvatarSettingsCustomAccessoryMode;
+	static AvatarSettingsCustomBodyType: EnumAvatarSettingsCustomBodyType;
+	static AvatarSettingsCustomClothingMode: EnumAvatarSettingsCustomClothingMode;
+	static AvatarSettingsHitAndTouchDetectionMode: EnumAvatarSettingsHitAndTouchDetectionMode;
+	static AvatarSettingsJumpMode: EnumAvatarSettingsJumpMode;
+	static AvatarSettingsLegacyCollisionMode: EnumAvatarSettingsLegacyCollisionMode;
+	static AvatarSettingsScaleMode: EnumAvatarSettingsScaleMode;
+	static AvatarThumbnailCustomizationType: EnumAvatarThumbnailCustomizationType;
+	static AvatarUnificationMode: EnumAvatarUnificationMode;
+	static Axis: EnumAxis;
+	static BenefitType: EnumBenefitType;
+	static BinType: EnumBinType;
+	static BodyPart: EnumBodyPart;
+	static BodyPartR15: EnumBodyPartR15;
+	static BorderMode: EnumBorderMode;
+	static BorderStrokePosition: EnumBorderStrokePosition;
+	static BreakReason: EnumBreakReason;
+	static BreakpointRemoveReason: EnumBreakpointRemoveReason;
+	static BulkMoveMode: EnumBulkMoveMode;
+	static BundleType: EnumBundleType;
+	static Button: EnumButton;
+	static ButtonStyle: EnumButtonStyle;
+	static CageType: EnumCageType;
+	static CameraMode: EnumCameraMode;
+	static CameraNavigationModel: EnumCameraNavigationModel;
+	static CameraPanMode: EnumCameraPanMode;
+	static CameraSpeedAdjustBinding: EnumCameraSpeedAdjustBinding;
+	static CameraType: EnumCameraType;
+	static CanCollaborateError: EnumCanCollaborateError;
+	static CaptureGalleryPermission: EnumCaptureGalleryPermission;
+	static CaptureType: EnumCaptureType;
+	static CatalogCategoryFilter: EnumCatalogCategoryFilter;
+	static CatalogSortAggregation: EnumCatalogSortAggregation;
+	static CatalogSortType: EnumCatalogSortType;
+	static CellBlock: EnumCellBlock;
+	static CellMaterial: EnumCellMaterial;
+	static CellOrientation: EnumCellOrientation;
+	static CenterDialogType: EnumCenterDialogType;
+	static CharacterControlMode: EnumCharacterControlMode;
+	static ChatCallbackType: EnumChatCallbackType;
+	static ChatColor: EnumChatColor;
+	static ChatMode: EnumChatMode;
+	static ChatPrivacyMode: EnumChatPrivacyMode;
+	static ChatRestrictionStatus: EnumChatRestrictionStatus;
+	static ChatStyle: EnumChatStyle;
+	static ChatVersion: EnumChatVersion;
+	static ClientAnimatorThrottlingMode: EnumClientAnimatorThrottlingMode;
+	static CloseReason: EnumCloseReason;
+	static CollaboratorStatus: EnumCollaboratorStatus;
+	static CollisionFidelity: EnumCollisionFidelity;
+	static CommandPermission: EnumCommandPermission;
+	static CompileTarget: EnumCompileTarget;
+	static CompletionAcceptanceBehavior: EnumCompletionAcceptanceBehavior;
+	static CompletionItemKind: EnumCompletionItemKind;
+	static CompletionItemTag: EnumCompletionItemTag;
+	static CompletionTriggerKind: EnumCompletionTriggerKind;
+	static CompositeValueCurveType: EnumCompositeValueCurveType;
+	static CompressionAlgorithm: EnumCompressionAlgorithm;
+	static ComputerCameraMovementMode: EnumComputerCameraMovementMode;
+	static ComputerMovementMode: EnumComputerMovementMode;
+	static ConfigSnapshotErrorState: EnumConfigSnapshotErrorState;
+	static ConnectionError: EnumConnectionError;
+	static ConnectionState: EnumConnectionState;
+	static ContentSourceType: EnumContentSourceType;
+	static ContextActionPriority: EnumContextActionPriority;
+	static ContextActionResult: EnumContextActionResult;
+	static ControlMode: EnumControlMode;
+	static CoreGuiType: EnumCoreGuiType;
+	static CreateAssetResult: EnumCreateAssetResult;
+	static CreateContentResult: EnumCreateContentResult;
+	static CreateOutfitFailure: EnumCreateOutfitFailure;
+	static CreatorType: EnumCreatorType;
+	static CreatorTypeFilter: EnumCreatorTypeFilter;
+	static CurrencyType: EnumCurrencyType;
+	static CustomCameraMode: EnumCustomCameraMode;
+	static DataModelChangeType: EnumDataModelChangeType;
+	static DataModelExtractorFileType: EnumDataModelExtractorFileType;
+	static DataStoreRequestType: EnumDataStoreRequestType;
+	static DebugBreakModeType: EnumDebugBreakModeType;
+	static DebuggerEndReason: EnumDebuggerEndReason;
+	static DebuggerExceptionBreakMode: EnumDebuggerExceptionBreakMode;
+	static DebuggerFrameType: EnumDebuggerFrameType;
+	static DebuggerPauseReason: EnumDebuggerPauseReason;
+	static DebuggerResumeType: EnumDebuggerResumeType;
+	static DebuggerStatus: EnumDebuggerStatus;
+	static DefaultScriptSyncFileType: EnumDefaultScriptSyncFileType;
+	static DevCameraOcclusionMode: EnumDevCameraOcclusionMode;
+	static DevComputerCameraMovementMode: EnumDevComputerCameraMovementMode;
+	static DevComputerMovementMode: EnumDevComputerMovementMode;
+	static DevTouchCameraMovementMode: EnumDevTouchCameraMovementMode;
+	static DevTouchMovementMode: EnumDevTouchMovementMode;
+	static DeveloperMemoryTag: EnumDeveloperMemoryTag;
+	static DeviceFeatureType: EnumDeviceFeatureType;
+	static DeviceForm: EnumDeviceForm;
+	static DeviceLevel: EnumDeviceLevel;
+	static DeviceSimulatorScalingMode: EnumDeviceSimulatorScalingMode;
+	static DeviceType: EnumDeviceType;
+	static DialogBehaviorType: EnumDialogBehaviorType;
+	static DialogPurpose: EnumDialogPurpose;
+	static DialogTone: EnumDialogTone;
+	static DigitsRigDescriptionSide: EnumDigitsRigDescriptionSide;
+	static DiscountType: EnumDiscountType;
+	static DisplayScalingMode: EnumDisplayScalingMode;
+	static DisplaySize: EnumDisplaySize;
+	static DistanceAttenuationMode: EnumDistanceAttenuationMode;
+	static DomainType: EnumDomainType;
+	static DominantAxis: EnumDominantAxis;
+	static DraftStatusCode: EnumDraftStatusCode;
+	static DragDetectorDragStyle: EnumDragDetectorDragStyle;
+	static DragDetectorPermissionPolicy: EnumDragDetectorPermissionPolicy;
+	static DragDetectorResponseStyle: EnumDragDetectorResponseStyle;
+	static DraggerCoordinateSpace: EnumDraggerCoordinateSpace;
+	static DraggerMovementMode: EnumDraggerMovementMode;
+	static DraggingScrollBar: EnumDraggingScrollBar;
+	static EasingDirection: EnumEasingDirection;
+	static EasingStyle: EnumEasingStyle;
+	static EditableStatus: EnumEditableStatus;
+	static ElasticBehavior: EnumElasticBehavior;
+	static EmitterPositionType: EnumEmitterPositionType;
+	static EngagementLevel: EnumEngagementLevel;
+	static EngineFolder: EnumEngineFolder;
+	static EnviromentalPhysicsThrottle: EnumEnviromentalPhysicsThrottle;
+	static ExperienceActivationStatus: EnumExperienceActivationStatus;
+	static ExperienceAuthScope: EnumExperienceAuthScope;
+	static ExperienceEventStatus: EnumExperienceEventStatus;
+	static ExperienceStateCaptureSelectionMode: EnumExperienceStateCaptureSelectionMode;
+	static ExperienceStateRecordingLoadMode: EnumExperienceStateRecordingLoadMode;
+	static ExperienceStateRecordingLoadSourceType: EnumExperienceStateRecordingLoadSourceType;
+	static ExperienceStateRecordingPlaybackMode: EnumExperienceStateRecordingPlaybackMode;
+	static ExplosionType: EnumExplosionType;
+	static ExternalEditorMode: EnumExternalEditorMode;
+	static FACSDataLod: EnumFACSDataLod;
+	static FacialAgeEstimationResultType: EnumFacialAgeEstimationResultType;
+	static FacialAnimationStreamingState: EnumFacialAnimationStreamingState;
+	static FacsActionUnit: EnumFacsActionUnit;
+	static FeatureRestrictionAbuseVector: EnumFeatureRestrictionAbuseVector;
+	static FeedbackType: EnumFeedbackType;
+	static FieldOfViewMode: EnumFieldOfViewMode;
+	static FillDirection: EnumFillDirection;
+	static FilterErrorType: EnumFilterErrorType;
+	static FilterResult: EnumFilterResult;
+	static FilterType: EnumFilterType;
+	static FinishRecordingOperation: EnumFinishRecordingOperation;
+	static FluidFidelity: EnumFluidFidelity;
+	static FluidForces: EnumFluidForces;
+	static Font: EnumFont;
+	static FontSize: EnumFontSize;
+	static FontStyle: EnumFontStyle;
+	static FontWeight: EnumFontWeight;
+	static ForceLimitMode: EnumForceLimitMode;
+	static FormFactor: EnumFormFactor;
+	static FrameStyle: EnumFrameStyle;
+	static FramerateManagerMode: EnumFramerateManagerMode;
+	static FriendRequestEvent: EnumFriendRequestEvent;
+	static FriendStatus: EnumFriendStatus;
+	static FrustumStreamingMode: EnumFrustumStreamingMode;
+	static FunctionalTestResult: EnumFunctionalTestResult;
+	static GameAvatarType: EnumGameAvatarType;
+	static GamepadType: EnumGamepadType;
+	static GearGenreSetting: EnumGearGenreSetting;
+	static GearType: EnumGearType;
+	static GenerateMomentTextResult: EnumGenerateMomentTextResult;
+	static Genre: EnumGenre;
+	static GradientTileMode: EnumGradientTileMode;
+	static GradientType: EnumGradientType;
+	static GraphicsMode: EnumGraphicsMode;
+	static GraphicsOptimizationMode: EnumGraphicsOptimizationMode;
+	static GroupMembershipStatus: EnumGroupMembershipStatus;
+	static GuiState: EnumGuiState;
+	static GuiType: EnumGuiType;
+	static HandlesStyle: EnumHandlesStyle;
+	static HapticEffectType: EnumHapticEffectType;
+	static HashAlgorithm: EnumHashAlgorithm;
+	static HighlightDepthMode: EnumHighlightDepthMode;
+	static HorizontalAlignment: EnumHorizontalAlignment;
+	static HoverAnimateSpeed: EnumHoverAnimateSpeed;
+	static HttpCachePolicy: EnumHttpCachePolicy;
+	static HttpCompression: EnumHttpCompression;
+	static HttpContentType: EnumHttpContentType;
+	static HttpError: EnumHttpError;
+	static HttpRequestType: EnumHttpRequestType;
+	static HumanoidCollisionType: EnumHumanoidCollisionType;
+	static HumanoidDisplayDistanceType: EnumHumanoidDisplayDistanceType;
+	static HumanoidHealthDisplayType: EnumHumanoidHealthDisplayType;
+	static HumanoidRigType: EnumHumanoidRigType;
+	static HumanoidStateType: EnumHumanoidStateType;
+	static IKCollisionsMode: EnumIKCollisionsMode;
+	static IKControlConstraintSupport: EnumIKControlConstraintSupport;
+	static IKControlType: EnumIKControlType;
+	static IXPLoadingStatus: EnumIXPLoadingStatus;
+	static ImageAlphaType: EnumImageAlphaType;
+	static ImageCombineType: EnumImageCombineType;
+	static InOut: EnumInOut;
+	static InfoType: EnumInfoType;
+	static InitialDockState: EnumInitialDockState;
+	static InputActionType: EnumInputActionType;
+	static InputBindingType: EnumInputBindingType;
+	static InputSink: EnumInputSink;
+	static InputType: EnumInputType;
+	static InstanceFileSyncStatus: EnumInstanceFileSyncStatus;
+	static IntermediateMeshGenerationResult: EnumIntermediateMeshGenerationResult;
+	static InternalVideoUsage: EnumInternalVideoUsage;
+	static InterpolationThrottlingMode: EnumInterpolationThrottlingMode;
+	static InviteState: EnumInviteState;
+	static ItemLineAlignment: EnumItemLineAlignment;
+	static JoinSource: EnumJoinSource;
+	static JointCreationMode: EnumJointCreationMode;
+	static KeyCode: EnumKeyCode;
+	static KeyCodeStringFormat: EnumKeyCodeStringFormat;
+	static KeyInterpolationMode: EnumKeyInterpolationMode;
+	static KeywordFilterType: EnumKeywordFilterType;
+	static KnownWindow: EnumKnownWindow;
+	static Language: EnumLanguage;
+	static LeftRight: EnumLeftRight;
+	static LexemeType: EnumLexemeType;
+	static LightingStyle: EnumLightingStyle;
+	static Limb: EnumLimb;
+	static LineJoinMode: EnumLineJoinMode;
+	static ListDisplayMode: EnumListDisplayMode;
+	static ListenerLocation: EnumListenerLocation;
+	static ListenerPositionType: EnumListenerPositionType;
+	static ListenerType: EnumListenerType;
+	static LiveEditingAtomicUpdateResponse: EnumLiveEditingAtomicUpdateResponse;
+	static LiveEditingBroadcastMessageType: EnumLiveEditingBroadcastMessageType;
+	static LoadCharacterLayeredClothing: EnumLoadCharacterLayeredClothing;
+	static LoadDynamicHeads: EnumLoadDynamicHeads;
+	static LocationType: EnumLocationType;
+	static LuauTypeCheckMode: EnumLuauTypeCheckMode;
+	static MakeupType: EnumMakeupType;
+	static MarketplaceBulkPurchasePromptStatus: EnumMarketplaceBulkPurchasePromptStatus;
+	static MarketplaceItemPurchaseStatus: EnumMarketplaceItemPurchaseStatus;
+	static MarketplaceProductType: EnumMarketplaceProductType;
+	static MarkupKind: EnumMarkupKind;
+	static MatchmakingType: EnumMatchmakingType;
+	static Material: EnumMaterial;
+	static MaterialPattern: EnumMaterialPattern;
+	static MembershipType: EnumMembershipType;
+	static MeshAttribute: EnumMeshAttribute;
+	static MeshPartDetailLevel: EnumMeshPartDetailLevel;
+	static MeshPartHeadsAndAccessories: EnumMeshPartHeadsAndAccessories;
+	static MeshScaleUnit: EnumMeshScaleUnit;
+	static MeshType: EnumMeshType;
+	static MessageType: EnumMessageType;
+	static ModelLevelOfDetail: EnumModelLevelOfDetail;
+	static ModelStreamingBehavior: EnumModelStreamingBehavior;
+	static ModelStreamingMode: EnumModelStreamingMode;
+	static ModerationResultCategory: EnumModerationResultCategory;
+	static ModerationResultLabel: EnumModerationResultLabel;
+	static ModerationStatus: EnumModerationStatus;
+	static ModifierKey: EnumModifierKey;
+	static MouseBehavior: EnumMouseBehavior;
+	static MoveState: EnumMoveState;
+	static MuteState: EnumMuteState;
+	static NameOcclusion: EnumNameOcclusion;
+	static NegateOperationHiddenHistory: EnumNegateOperationHiddenHistory;
+	static NetworkOwnership: EnumNetworkOwnership;
+	static NetworkStatus: EnumNetworkStatus;
+	static NoiseType: EnumNoiseType;
+	static NormalId: EnumNormalId;
+	static NotificationButtonType: EnumNotificationButtonType;
+	static OperationType: EnumOperationType;
+	static OrientationAlignmentMode: EnumOrientationAlignmentMode;
+	static OutfitSource: EnumOutfitSource;
+	static OutfitType: EnumOutfitType;
+	static OutputLayoutMode: EnumOutputLayoutMode;
+	static OverrideMouseIconBehavior: EnumOverrideMouseIconBehavior;
+	static PackagePermission: EnumPackagePermission;
+	static PartType: EnumPartType;
+	static ParticleEmitterShape: EnumParticleEmitterShape;
+	static ParticleEmitterShapeInOut: EnumParticleEmitterShapeInOut;
+	static ParticleEmitterShapeStyle: EnumParticleEmitterShapeStyle;
+	static ParticleFlipbookLayout: EnumParticleFlipbookLayout;
+	static ParticleFlipbookMode: EnumParticleFlipbookMode;
+	static ParticleFlipbookTextureCompatible: EnumParticleFlipbookTextureCompatible;
+	static ParticleOrientation: EnumParticleOrientation;
+	static PathStatus: EnumPathStatus;
+	static PathWaypointAction: EnumPathWaypointAction;
+	static PathfindingUseImprovedSearch: EnumPathfindingUseImprovedSearch;
+	static PeoplePageLayout: EnumPeoplePageLayout;
+	static PerformanceOverlayMode: EnumPerformanceOverlayMode;
+	static PermissionLevelShown: EnumPermissionLevelShown;
+	static PhysicalConstraintType: EnumPhysicalConstraintType;
+	static PhysicsSimulationRate: EnumPhysicsSimulationRate;
+	static PhysicsSteppingMethod: EnumPhysicsSteppingMethod;
+	static PioneerSource: EnumPioneerSource;
+	static PlaceContentPreference: EnumPlaceContentPreference;
+	static PlacePublishType: EnumPlacePublishType;
+	static Platform: EnumPlatform;
+	static PlaybackState: EnumPlaybackState;
+	static PlayerActions: EnumPlayerActions;
+	static PlayerCharacterDestroyBehavior: EnumPlayerCharacterDestroyBehavior;
+	static PlayerChatType: EnumPlayerChatType;
+	static PlayerDataErrorState: EnumPlayerDataErrorState;
+	static PlayerDataLoadFailureBehavior: EnumPlayerDataLoadFailureBehavior;
+	static PlayerExitReason: EnumPlayerExitReason;
+	static PlayerPlatformActivationStatus: EnumPlayerPlatformActivationStatus;
+	static PlayerPlatformSpenderStatus: EnumPlayerPlatformSpenderStatus;
+	static PluginConnectionTargetType: EnumPluginConnectionTargetType;
+	static PoseEasingDirection: EnumPoseEasingDirection;
+	static PoseEasingStyle: EnumPoseEasingStyle;
+	static PositionAlignmentMode: EnumPositionAlignmentMode;
+	static PredictionMode: EnumPredictionMode;
+	static PredictionStatus: EnumPredictionStatus;
+	static PredictiveStreamingMode: EnumPredictiveStreamingMode;
+	static PreferredInput: EnumPreferredInput;
+	static PreferredTextSize: EnumPreferredTextSize;
+	static PrefetchDownloadStatus: EnumPrefetchDownloadStatus;
+	static PrimalPhysicsSolver: EnumPrimalPhysicsSolver;
+	static PrimitiveType: EnumPrimitiveType;
+	static PrivilegeType: EnumPrivilegeType;
+	static ProductLocationRestriction: EnumProductLocationRestriction;
+	static ProductPurchaseChannel: EnumProductPurchaseChannel;
+	static ProductPurchaseDecision: EnumProductPurchaseDecision;
+	static PromptCreateAssetResult: EnumPromptCreateAssetResult;
+	static PromptCreateAvatarResult: EnumPromptCreateAvatarResult;
+	static PromptCreateOutfitResult: EnumPromptCreateOutfitResult;
+	static PromptExperienceDetailsResult: EnumPromptExperienceDetailsResult;
+	static PromptLinkSharingResult: EnumPromptLinkSharingResult;
+	static PromptPublishAssetResult: EnumPromptPublishAssetResult;
+	static PropertyStatus: EnumPropertyStatus;
+	static ProximityPromptExclusivity: EnumProximityPromptExclusivity;
+	static ProximityPromptInputType: EnumProximityPromptInputType;
+	static ProximityPromptStyle: EnumProximityPromptStyle;
+	static PurchaseOption: EnumPurchaseOption;
+	static QualityLevel: EnumQualityLevel;
+	static R15CollisionType: EnumR15CollisionType;
+	static RaycastFilterType: EnumRaycastFilterType;
+	static ReadCapturesFromGalleryResult: EnumReadCapturesFromGalleryResult;
+	static ReceiptDecision: EnumReceiptDecision;
+	static ReceiptType: EnumReceiptType;
+	static RecommendationActionType: EnumRecommendationActionType;
+	static RecommendationDepartureIntent: EnumRecommendationDepartureIntent;
+	static RecommendationImpressionType: EnumRecommendationImpressionType;
+	static RecommendationItemContentType: EnumRecommendationItemContentType;
+	static RecommendationItemVisibility: EnumRecommendationItemVisibility;
+	static RecommendationPreferenceTargetType: EnumRecommendationPreferenceTargetType;
+	static RecommendationPreferenceType: EnumRecommendationPreferenceType;
+	static RejectCharacterDeletions: EnumRejectCharacterDeletions;
+	static RenderFidelity: EnumRenderFidelity;
+	static RenderPriority: EnumRenderPriority;
+	static RenderingCacheOptimizationMode: EnumRenderingCacheOptimizationMode;
+	static RenderingTestComparisonMethod: EnumRenderingTestComparisonMethod;
+	static ReplicateInstanceDestroySetting: EnumReplicateInstanceDestroySetting;
+	static ResamplerMode: EnumResamplerMode;
+	static ReservedHighlightId: EnumReservedHighlightId;
+	static RestPose: EnumRestPose;
+	static RestPoseModel: EnumRestPoseModel;
+	static ReturnKeyType: EnumReturnKeyType;
+	static ReverbType: EnumReverbType;
+	static ReviewableContentState: EnumReviewableContentState;
+	static RibbonTool: EnumRibbonTool;
+	static RigLabel: EnumRigLabel;
+	static RigScale: EnumRigScale;
+	static RigType: EnumRigType;
+	static RollOffMode: EnumRollOffMode;
+	static RolloutState: EnumRolloutState;
+	static RotationOrder: EnumRotationOrder;
+	static RotationType: EnumRotationType;
+	static RsvpStatus: EnumRsvpStatus;
+	static RtlTextSupport: EnumRtlTextSupport;
+	static RunContext: EnumRunContext;
+	static RunState: EnumRunState;
+	static RuntimeUndoBehavior: EnumRuntimeUndoBehavior;
+	static SafeAreaCompatibility: EnumSafeAreaCompatibility;
+	static SalesTypeFilter: EnumSalesTypeFilter;
+	static SandboxedInstanceMode: EnumSandboxedInstanceMode;
+	static SaveAvatarThumbnailCustomizationFailure: EnumSaveAvatarThumbnailCustomizationFailure;
+	static SaveFilter: EnumSaveFilter;
+	static SavedQualitySetting: EnumSavedQualitySetting;
+	static ScaleType: EnumScaleType;
+	static ScopeCheckResult: EnumScopeCheckResult;
+	static ScreenInsets: EnumScreenInsets;
+	static ScreenOrientation: EnumScreenOrientation;
+	static ScreenshotCaptureResult: EnumScreenshotCaptureResult;
+	static ScriptStoppedReason: EnumScriptStoppedReason;
+	static ScriptVariableScope: EnumScriptVariableScope;
+	static ScrollBarInset: EnumScrollBarInset;
+	static ScrollingDirection: EnumScrollingDirection;
+	static SecurityCapability: EnumSecurityCapability;
+	static SelectionBehavior: EnumSelectionBehavior;
+	static SelectionRenderMode: EnumSelectionRenderMode;
+	static SelfViewPosition: EnumSelfViewPosition;
+	static SensorMode: EnumSensorMode;
+	static SensorUpdateType: EnumSensorUpdateType;
+	static ServerLiveEditingMode: EnumServerLiveEditingMode;
+	static ServiceVisibility: EnumServiceVisibility;
+	static Severity: EnumSeverity;
+	static ShowAdResult: EnumShowAdResult;
+	static SignalBehavior: EnumSignalBehavior;
+	static SimulationMode: EnumSimulationMode;
+	static SizeConstraint: EnumSizeConstraint;
+	static SlimTintMode: EnumSlimTintMode;
+	static SlimTranscoderStatus: EnumSlimTranscoderStatus;
+	static SlimViewContext: EnumSlimViewContext;
+	static SolidPrimitiveType: EnumSolidPrimitiveType;
+	static SolverConvergenceMetricType: EnumSolverConvergenceMetricType;
+	static SolverConvergenceVisualizationMode: EnumSolverConvergenceVisualizationMode;
+	static SortDirection: EnumSortDirection;
+	static SortOrder: EnumSortOrder;
+	static SpecialKey: EnumSpecialKey;
+	static StartCorner: EnumStartCorner;
+	static StateObjectFieldType: EnumStateObjectFieldType;
+	static Status: EnumStatus;
+	static StepFrequency: EnumStepFrequency;
+	static StreamOutBehavior: EnumStreamOutBehavior;
+	static StreamingIntegrityMode: EnumStreamingIntegrityMode;
+	static StreamingPauseMode: EnumStreamingPauseMode;
+	static StrokeSizingMode: EnumStrokeSizingMode;
+	static StudioAction: EnumStudioAction;
+	static StudioCaptureBufferStatus: EnumStudioCaptureBufferStatus;
+	static StudioCaptureScreenshotFormat: EnumStudioCaptureScreenshotFormat;
+	static StudioCloseMode: EnumStudioCloseMode;
+	static StudioDataModelType: EnumStudioDataModelType;
+	static StudioPlaceUpdateFailureReason: EnumStudioPlaceUpdateFailureReason;
+	static StudioScriptEditorColorCategories: EnumStudioScriptEditorColorCategories;
+	static StudioScriptEditorColorPresets: EnumStudioScriptEditorColorPresets;
+	static StudioStyleGuideColor: EnumStudioStyleGuideColor;
+	static StudioStyleGuideModifier: EnumStudioStyleGuideModifier;
+	static Style: EnumStyle;
+	static SubscriptionExpirationReason: EnumSubscriptionExpirationReason;
+	static SubscriptionPaymentStatus: EnumSubscriptionPaymentStatus;
+	static SubscriptionPeriod: EnumSubscriptionPeriod;
+	static SubscriptionState: EnumSubscriptionState;
+	static SurfaceConstraint: EnumSurfaceConstraint;
+	static SurfaceGuiShape: EnumSurfaceGuiShape;
+	static SurfaceGuiSizingMode: EnumSurfaceGuiSizingMode;
+	static SurfaceType: EnumSurfaceType;
+	static SwipeDirection: EnumSwipeDirection;
+	static SystemThemeValue: EnumSystemThemeValue;
+	static TableMajorAxis: EnumTableMajorAxis;
+	static TagReplicability: EnumTagReplicability;
+	static TeamCreateErrorState: EnumTeamCreateErrorState;
+	static Technology: EnumTechnology;
+	static TelemetryBackend: EnumTelemetryBackend;
+	static TelemetryStandardizedField: EnumTelemetryStandardizedField;
+	static TeleportMethod: EnumTeleportMethod;
+	static TeleportResult: EnumTeleportResult;
+	static TeleportState: EnumTeleportState;
+	static TeleportType: EnumTeleportType;
+	static TerrainAcquisitionMethod: EnumTerrainAcquisitionMethod;
+	static TerrainFace: EnumTerrainFace;
+	static TerrainLiquidMergeOperation: EnumTerrainLiquidMergeOperation;
+	static TerrainSolidMergeOperation: EnumTerrainSolidMergeOperation;
+	static TextChatMessageStatus: EnumTextChatMessageStatus;
+	static TextDirection: EnumTextDirection;
+	static TextFilterContext: EnumTextFilterContext;
+	static TextInputType: EnumTextInputType;
+	static TextTruncate: EnumTextTruncate;
+	static TextXAlignment: EnumTextXAlignment;
+	static TextYAlignment: EnumTextYAlignment;
+	static TextureMode: EnumTextureMode;
+	static TextureQueryType: EnumTextureQueryType;
+	static ThreadPoolConfig: EnumThreadPoolConfig;
+	static ThrottlingPriority: EnumThrottlingPriority;
+	static ThumbnailSize: EnumThumbnailSize;
+	static ThumbnailType: EnumThumbnailType;
+	static TickCountSampleMethod: EnumTickCountSampleMethod;
+	static TitleBarControlsPosition: EnumTitleBarControlsPosition;
+	static TitleBarMode: EnumTitleBarMode;
+	static TonemapperPreset: EnumTonemapperPreset;
+	static TopBottom: EnumTopBottom;
+	static TouchCameraMovementMode: EnumTouchCameraMovementMode;
+	static TouchMovementMode: EnumTouchMovementMode;
+	static TrackerError: EnumTrackerError;
+	static TrackerExtrapolationFlagMode: EnumTrackerExtrapolationFlagMode;
+	static TrackerFaceTrackingStatus: EnumTrackerFaceTrackingStatus;
+	static TrackerLodFlagMode: EnumTrackerLodFlagMode;
+	static TrackerLodValueMode: EnumTrackerLodValueMode;
+	static TrackerMode: EnumTrackerMode;
+	static TrackerPromptEvent: EnumTrackerPromptEvent;
+	static TrackerType: EnumTrackerType;
+	static TriStateBoolean: EnumTriStateBoolean;
+	static TweenStatus: EnumTweenStatus;
+	static UICaptureMode: EnumUICaptureMode;
+	static UIDragDetectorBoundingBehavior: EnumUIDragDetectorBoundingBehavior;
+	static UIDragDetectorDragRelativity: EnumUIDragDetectorDragRelativity;
+	static UIDragDetectorDragSpace: EnumUIDragDetectorDragSpace;
+	static UIDragDetectorDragStyle: EnumUIDragDetectorDragStyle;
+	static UIDragDetectorResponseStyle: EnumUIDragDetectorResponseStyle;
+	static UIDragSpeedAxisMapping: EnumUIDragSpeedAxisMapping;
+	static UIFlexAlignment: EnumUIFlexAlignment;
+	static UIFlexMode: EnumUIFlexMode;
+	static UITheme: EnumUITheme;
+	static UiMessageType: EnumUiMessageType;
+	static UpdateState: EnumUpdateState;
+	static UploadCaptureResult: EnumUploadCaptureResult;
+	static UsageContext: EnumUsageContext;
+	static UserAcquisitionSource: EnumUserAcquisitionSource;
+	static UserCFrame: EnumUserCFrame;
+	static UserIdMode: EnumUserIdMode;
+	static UserInputState: EnumUserInputState;
+	static UserInputType: EnumUserInputType;
+	static UserNewReturningStatus: EnumUserNewReturningStatus;
+	static UserReturnStatus: EnumUserReturnStatus;
+	static VRComfortSetting: EnumVRComfortSetting;
+	static VRControllerModelMode: EnumVRControllerModelMode;
+	static VRDeviceType: EnumVRDeviceType;
+	static VRLaserPointerMode: EnumVRLaserPointerMode;
+	static VRSafetyBubbleMode: EnumVRSafetyBubbleMode;
+	static VRScaling: EnumVRScaling;
+	static VRSessionState: EnumVRSessionState;
+	static VRTouchpad: EnumVRTouchpad;
+	static VRTouchpadMode: EnumVRTouchpadMode;
+	static VelocityConstraintMode: EnumVelocityConstraintMode;
+	static VerifiedLevel: EnumVerifiedLevel;
+	static VerticalAlignment: EnumVerticalAlignment;
+	static VerticalScrollBarPosition: EnumVerticalScrollBarPosition;
+	static VibrationMotor: EnumVibrationMotor;
+	static VideoCaptureResult: EnumVideoCaptureResult;
+	static VideoCaptureStartedResult: EnumVideoCaptureStartedResult;
+	static VideoDeviceCaptureQuality: EnumVideoDeviceCaptureQuality;
+	static VideoError: EnumVideoError;
+	static VideoSampleSize: EnumVideoSampleSize;
+	static ViewMode: EnumViewMode;
+	static VirtualCursorMode: EnumVirtualCursorMode;
+	static VirtualInputMode: EnumVirtualInputMode;
+	static VoiceChatDistanceAttenuationType: EnumVoiceChatDistanceAttenuationType;
+	static VoiceChatState: EnumVoiceChatState;
+	static VoiceClientLeaveReasons: EnumVoiceClientLeaveReasons;
+	static VoiceControlPath: EnumVoiceControlPath;
+	static VoiceRccReconnectReason: EnumVoiceRccReconnectReason;
+	static VolumetricAudio: EnumVolumetricAudio;
+	static WaterDirection: EnumWaterDirection;
+	static WaterForce: EnumWaterForce;
+	static WebSocketState: EnumWebSocketState;
+	static WebStreamClientState: EnumWebStreamClientState;
+	static WebStreamClientType: EnumWebStreamClientType;
+	static WeldConstraintPreserve: EnumWeldConstraintPreserve;
+	static WhenUserFirstPlayed: EnumWhenUserFirstPlayed;
+	static WhisperChatPrivacyMode: EnumWhisperChatPrivacyMode;
+	static WindSoundProfile: EnumWindSoundProfile;
+	static WindowState: EnumWindowState;
+	static WrapLayerAutoSkin: EnumWrapLayerAutoSkin;
+	static WrapLayerDebugMode: EnumWrapLayerDebugMode;
+	static WrapTargetDebugMode: EnumWrapTargetDebugMode;
+	static ZIndexBehavior: EnumZIndexBehavior;
 }
-
-declare let Enum: EnumStatic;
 ## Generated Roblox instance classes
 
 declare interface AnimationNode: Object;
