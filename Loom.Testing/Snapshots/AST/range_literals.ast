@@ -111,6 +111,7 @@ VariableDeclaration(
             Dot: Token(Dot, ".")
             Name: Token(Identifier, "len")
             IsOptional: False
+            IsStatic: False
           )
         ]
         Token(Identifier, "arr")

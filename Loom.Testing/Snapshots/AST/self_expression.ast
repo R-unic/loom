@@ -108,6 +108,7 @@ Implement(
                           Dot: Token(Dot, ".")
                           Name: Token(Identifier, "value")
                           IsOptional: False
+                          IsStatic: False
                         )
                       ]
                     )

@@ -23,6 +23,7 @@ ExportDeclaration(
       RightBrace: Token(RBrace, "}")
       Members: [
         PropertyDeclaration(
+          StaticKeyword: null
           MutKeyword: null
           ColonTypeClause(
             ColonToken: Token(Colon, ":")
@@ -33,9 +34,11 @@ ExportDeclaration(
             )
           )
           Attributes: null
+          IsStatic: False
           Name: Token(Identifier, "x")
         )
         PropertyDeclaration(
+          StaticKeyword: null
           MutKeyword: null
           ColonTypeClause(
             ColonToken: Token(Colon, ":")
@@ -46,6 +49,7 @@ ExportDeclaration(
             )
           )
           Attributes: null
+          IsStatic: False
           Name: Token(Identifier, "y")
         )
       ]

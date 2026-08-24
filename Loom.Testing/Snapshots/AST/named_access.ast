@@ -9,6 +9,7 @@
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "b")
         IsOptional: False
+        IsStatic: False
       )
     ]
     Token(Identifier, "a")
@@ -25,11 +26,13 @@ ExpressionStatement(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "b")
         IsOptional: False
+        IsStatic: False
       )
       DotName(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "c")
         IsOptional: False
+        IsStatic: False
       )
     ]
     Token(Identifier, "a")
@@ -46,16 +49,19 @@ ExpressionStatement(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "b")
         IsOptional: False
+        IsStatic: False
       )
       DotName(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "c")
         IsOptional: False
+        IsStatic: False
       )
       DotName(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "d")
         IsOptional: False
+        IsStatic: False
       )
     ]
     Token(Identifier, "a")
@@ -74,6 +80,7 @@ ExpressionStatement(
             Dot: Token(Dot, ".")
             Name: Token(Identifier, "b")
             IsOptional: False
+            IsStatic: False
           )
         ]
       )
@@ -101,6 +108,7 @@ ExpressionStatement(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "b")
         IsOptional: False
+        IsStatic: False
       )
     ]
   )
@@ -124,6 +132,7 @@ ExpressionStatement(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "bar")
         IsOptional: False
+        IsStatic: False
       )
     ]
   )
@@ -147,11 +156,13 @@ ExpressionStatement(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "bar")
         IsOptional: False
+        IsStatic: False
       )
       DotName(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "baz")
         IsOptional: False
+        IsStatic: False
       )
     ]
   )
@@ -171,6 +182,7 @@ ExpressionStatement(
                 Dot: Token(Dot, ".")
                 Name: Token(Identifier, "b")
                 IsOptional: False
+                IsStatic: False
               )
             ]
             Token(Identifier, "a")
@@ -192,6 +204,7 @@ ExpressionStatement(
             Dot: Token(Dot, ".")
             Name: Token(Identifier, "d")
             IsOptional: False
+            IsStatic: False
           )
         ]
       )
@@ -219,6 +232,7 @@ ExpressionStatement(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "c")
         IsOptional: False
+        IsStatic: False
       )
     ]
   )
@@ -251,6 +265,7 @@ ExpressionStatement(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "bar")
         IsOptional: False
+        IsStatic: False
       )
     ]
   )

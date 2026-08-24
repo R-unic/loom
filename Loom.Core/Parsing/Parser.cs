@@ -82,6 +82,9 @@ public sealed partial class Parser(LexerResult lexerResult)
     }
 
     private bool Match([MaybeNullWhen(false)] out Token token, SyntaxKind kindA, SyntaxKind kindB) => Match(out token, kind => kind == kindA || kind == kindB);
+
+    private bool Match([MaybeNullWhen(false)] out Token token, SyntaxKind kindA, SyntaxKind kindB, SyntaxKind kindC) =>
+        Match(out token, kind => kind == kindA || kind == kindB || kind == kindC);
     private bool Match(SyntaxKind kind) => Match(out _, kind);
     private void Match(SyntaxKind kindA, SyntaxKind kindB) => Match(out _, kindA, kindB);
 

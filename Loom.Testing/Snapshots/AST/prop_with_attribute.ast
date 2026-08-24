@@ -6,6 +6,7 @@
     RightBrace: Token(RBrace, "}")
     Members: [
       PropertyDeclaration(
+        StaticKeyword: null
         MutKeyword: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
@@ -58,6 +59,7 @@
             )
           ]
         )
+        IsStatic: False
         Name: Token(Identifier, "some_prop")
       )
     ]

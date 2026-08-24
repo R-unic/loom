@@ -1,3 +1,4 @@
+using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
 
@@ -23,6 +24,7 @@ public sealed partial class Parser
             [SyntaxKind.EventKeyword] = keyword => ParseEventDeclaration(keyword, null),
             [SyntaxKind.DeclareKeyword] = ParseDeclare,
             [SyntaxKind.ImplementKeyword] = ParseImplement,
+            [SyntaxKind.StaticKeyword] = ParseStaticBlock,
             [SyntaxKind.TraitKeyword] = ParseTraitDeclaration,
             [SyntaxKind.InterfaceKeyword] = ParseInterfaceDeclaration,
             [SyntaxKind.SealedKeyword] = ParseInterfaceDeclaration,
@@ -159,6 +161,66 @@ public sealed partial class Parser
         }
 
         return members.OfType<FunctionDeclaration>().ToList();
+    }
+
+    private StaticBlock ParseStaticBlock(Token keyword)
+    {
+        var interfaceName = new TypeName(ExpectIdentifier("interface name"));
+        var body = ParseStaticBlockBody();
+
+        return new StaticBlock(keyword, interfaceName, body);
+    }
+
+    private StaticBlockBody ParseStaticBlockBody()
+    {
+        var leftBrace = Expect(SyntaxKind.LBrace);
+        var (fields, methods) = ParseStaticBlockMembers();
+        var rightBrace = Expect(SyntaxKind.RBrace);
+
+        return new StaticBlockBody(leftBrace, rightBrace, fields, methods);
+    }
+
+    private (List<StaticFieldDeclaration> Fields, List<FunctionDeclaration> Methods) ParseStaticBlockMembers()
+    {
+        var fields = new List<StaticFieldDeclaration>();
+        var methods = new List<Statement>();
+        while (!IsEof() && Current().Kind is not SyntaxKind.RBrace)
+        {
+            var previousPosition = _position;
+            if (Current().Kind is SyntaxKind.FnKeyword or SyntaxKind.AsyncKeyword)
+            {
+                var asyncKeyword = MatchAsyncKeyword();
+                methods.Add(ParseFunctionDeclaration(Expect(SyntaxKind.FnKeyword), null, asyncKeyword));
+            }
+            else if (ParseStaticFieldDeclaration() is { } field)
+            {
+                fields.Add(field);
+            }
+
+            Match(SyntaxKind.Comma, SyntaxKind.Semicolon);
+            EnsureProgress(previousPosition);
+        }
+
+        return (fields, methods.OfType<FunctionDeclaration>().ToList());
+    }
+
+    private StaticFieldDeclaration? ParseStaticFieldDeclaration()
+    {
+        var name = ExpectIdentifier("static field name");
+        var colonTypeClause = ParseColonTypeClause();
+        if (!Match(out var equals, SyntaxKind.Equals))
+        {
+            _diagnostics.Error(
+                Current(),
+                InternalCodes.MustHaveInitializer,
+                $"Static field '{name.Text}' must have an initializer, got {SafeTokenText(Current())}."
+            );
+
+            return null;
+        }
+
+        var value = ParseExpression();
+        return new StaticFieldDeclaration(name, colonTypeClause, new EqualsValueClause(equals, value));
     }
 
     private Return ParseReturn(Token keyword)

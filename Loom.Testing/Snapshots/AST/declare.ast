@@ -222,6 +222,7 @@ Declare(
       RightBrace: Token(RBrace, "}")
       Members: [
         PropertyDeclaration(
+          StaticKeyword: null
           MutKeyword: null
           ColonTypeClause(
             ColonToken: Token(Colon, ":")
@@ -232,6 +233,7 @@ Declare(
             )
           )
           Attributes: null
+          IsStatic: False
           Name: Token(Identifier, "balls")
         )
       ]

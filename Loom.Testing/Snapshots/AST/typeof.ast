@@ -30,6 +30,7 @@ VariableDeclaration(
             Dot: Token(Dot, ".")
             Name: Token(Identifier, "b")
             IsOptional: False
+            IsStatic: False
           )
         ]
         Token(Identifier, "a")
