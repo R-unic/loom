@@ -120,7 +120,7 @@ public sealed partial class Parser
             // an ordinary 'Direction.North' expression goes through, so it is exactly as name-resolvable,
             // renameable, and hoverable as one - the resolver and type checker never know it arrived through
             // a pattern rather than an expression.
-            if (identifier.Text != "_" && Match(out var dot, SyntaxKind.Dot))
+            if (identifier.Text != "_" && Match(out var dot, SyntaxKind.Dot, SyntaxKind.ColonColon))
                 return new QualifiedNamePattern((QualifiedName)ParseNamedAccess(dot, new Identifier(identifier)));
 
             var typeArguments = ParseTypeArguments();
