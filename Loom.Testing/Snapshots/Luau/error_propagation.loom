@@ -1,10 +1,10 @@
 fn some_other_unsafe_fn(): Result<number, string> {
-    return Result.ok(1);
+    return BaseResult::ok(1);
 }
 
 fn unsafe_fn(): Result<number, string> {
     let value = some_other_unsafe_fn()?;
-    return Result.ok(69 + value);
+    return BaseResult::ok(69 + value);
 }
 
 ## the same Result, read back out of a variable rather than propagated straight off the call - which
@@ -12,5 +12,5 @@ fn unsafe_fn(): Result<number, string> {
 fn stored_unsafe_fn(): Result<number, string> {
     let result: Result<number, string> = some_other_unsafe_fn();
     let value = result?;
-    return Result.ok(69 + value);
+    return BaseResult::ok(69 + value);
 }

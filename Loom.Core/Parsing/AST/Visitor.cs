@@ -55,6 +55,14 @@ public abstract class Visitor<T>(Func<Node?, T> defaultValue)
     public virtual T VisitImplement(Implement implement) => CombineResults([Visit(implement.TraitName), Visit(implement.InterfaceName), Visit(implement.Body)]);
     public virtual T VisitTraitBody(TraitBody traitBody) => VisitList(traitBody.Members);
 
+    public virtual T VisitStaticFieldDeclaration(StaticFieldDeclaration staticFieldDeclaration) =>
+        CombineResults([VisitWithDefault(staticFieldDeclaration.ColonTypeClause), Visit(staticFieldDeclaration.EqualsValueClause)]);
+
+    public virtual T VisitStaticBlockBody(StaticBlockBody staticBlockBody) =>
+        CombineResults([VisitList(staticBlockBody.Fields), VisitList(staticBlockBody.Methods)]);
+
+    public virtual T VisitStaticBlock(StaticBlock staticBlock) => CombineResults([Visit(staticBlock.InterfaceName), Visit(staticBlock.Body)]);
+
     public virtual T VisitTraitDeclaration(TraitDeclaration traitDeclaration) =>
         CombineResults([VisitWithDefault(traitDeclaration.TypeParameters), Visit(traitDeclaration.Body)]);
 

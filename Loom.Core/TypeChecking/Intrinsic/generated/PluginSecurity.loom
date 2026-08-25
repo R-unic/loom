@@ -147,38 +147,30 @@ declare sealed interface SecurityCapabilities;
 declare sealed interface DateTime {
     [luau_name("UnixTimestamp")] unix_timestamp: number;
     [luau_name("UnixTimestampMillis")] unix_timestamp_millis: number;
-    
+
     [luau_name("ToUniversalTime"), luau_method] to_universal_time: fn: TimeTable;
     [luau_name("ToLocalTime"), luau_method] to_local_time: fn: TimeTable;
     [luau_name("ToIsoDate"), luau_method] to_iso_date: fn: string;
     [luau_name("FormatUniversalTime"), luau_method] format_universal_time: fn(format: string, locale: string): string;
     [luau_name("FormatLocalTime"), luau_method] format_local_time: fn(format: string, locale: string): string;
-}
 
-declare sealed interface DateTimeStatic {
-    now: fn: DateTime;
-    [luau_name("fromIsoDate")] fromIsoDate: fn(isoDate: string): DateTime?;
-    [luau_name("fromLocalTime")] from_local_time: fn(year: number?, month: number?, day: number?, hour: number?, minute: number?, second: number?, millisecond: number?): DateTime;
-    [luau_name("fromUniversalTime")] from_universal_time: fn(year: number?, month: number?, day: number?, hour: number?, minute: number?, second: number?, millisecond: number?): DateTime;
-    [luau_name("fromUnixTimestamp")] from_unix_timestamp: fn(unixTimestamp: number): DateTime;
-    [luau_name("fromUnixTimestampMillis")] from_unix_timestampMillis: fn(unixTimestampMillis: number): DateTime;
+    static now: fn: DateTime;
+    [luau_name("fromIsoDate")] static fromIsoDate: fn(isoDate: string): DateTime?;
+    [luau_name("fromLocalTime")] static from_local_time: fn(year: number?, month: number?, day: number?, hour: number?, minute: number?, second: number?, millisecond: number?): DateTime;
+    [luau_name("fromUniversalTime")] static from_universal_time: fn(year: number?, month: number?, day: number?, hour: number?, minute: number?, second: number?, millisecond: number?): DateTime;
+    [luau_name("fromUnixTimestamp")] static from_unix_timestamp: fn(unixTimestamp: number): DateTime;
+    [luau_name("fromUnixTimestampMillis")] static from_unix_timestampMillis: fn(unixTimestampMillis: number): DateTime;
 }
-
-declare let DateTime: DateTimeStatic;
 
 declare sealed interface Content {
     [luau_name("SourceType")] source_type: Enum["ContentSourceType"];
     [luau_name("Uri")] uri: string?;
     [luau_name("Object")] object: Object?;
-}
 
-declare sealed interface ContentStatic {
-    [luau_name("none")] _none: Content;
-    [luau_name("fromUri")] from_uri: fn(uri: string): Content;
-    [luau_name("fromObject")] from_object: fn(object: Object): Content;
+    [luau_name("none")] static _none: Content;
+    [luau_name("fromUri")] static from_uri: fn(uri: string): Content;
+    [luau_name("fromObject")] static from_object: fn(object: Object): Content;
 }
-
-declare let Content: ContentStatic;
 
 declare sealed interface Vector2<T: number = f32> {
     [luau_name("X")] x: number;
@@ -208,19 +200,15 @@ declare sealed interface Vector2<T: number = f32> {
     div: fn(other: Vector3 | number): Vector3;
     [luau_metamethod("__idiv")]
     idiv: fn(other: Vector3 | number): Vector3;
-}
 
-declare sealed interface Vector2Static {
-    zero: Vector2;
-    one: Vector2;
-    [luau_name("yAxis")] y_axis: Vector2;
-    [luau_name("xAxis")] x_axis: Vector2;
-    [luau_name("zAxis")] z_axis: Vector2;
-    [luau_name("new")] create: fn: Vector2;
-    [luau_name("new")] create: fn(x: number, y: number): Vector2;
+    static zero: Vector2;
+    static one: Vector2;
+    [luau_name("yAxis")] static y_axis: Vector2;
+    [luau_name("xAxis")] static x_axis: Vector2;
+    [luau_name("zAxis")] static z_axis: Vector2;
+    [luau_name("new")] static create: fn: Vector2;
+    [luau_name("new")] static create: fn(x: number, y: number): Vector2;
 }
-
-declare let Vector2: Vector2Static;
 
 declare sealed interface Vector2int16 {
     [luau_name("X")] x: number;
@@ -265,21 +253,17 @@ declare sealed interface Vector3<T: number = f32> {
     div: fn(other: Vector3 | number): Vector3;
     [luau_metamethod("__idiv")]
     idiv: fn(other: Vector3 | number): Vector3;
-}
 
-declare sealed interface Vector3Static {
-    zero: Vector3;
-    one: Vector3;
-    [luau_name("xAxis")] x_axis: Vector3;
-    [luau_name("yAxis")] y_axis: Vector3;
-    [luau_name("zAxis")] z_axis: Vector3;
-    [luau_name("FromNormalId")] from_normal_id: fn(normal: Enum["NormalId"]): Vector3;
-    [luau_name("FromAxis")] from_axis: fn(axis: Enum["Axis"]): Vector3;
-    [luau_name("new")] create: fn: Vector3;
-    [luau_name("new")] create: fn(x: number, y: number, z: number): Vector3;
+    static zero: Vector3;
+    static one: Vector3;
+    [luau_name("xAxis")] static x_axis: Vector3;
+    [luau_name("yAxis")] static y_axis: Vector3;
+    [luau_name("zAxis")] static z_axis: Vector3;
+    [luau_name("FromNormalId")] static from_normal_id: fn(normal: Enum["NormalId"]): Vector3;
+    [luau_name("FromAxis")] static from_axis: fn(axis: Enum["Axis"]): Vector3;
+    [luau_name("new")] static create: fn: Vector3;
+    [luau_name("new")] static create: fn(x: number, y: number, z: number): Vector3;
 }
-
-declare let Vector3: Vector3Static;
 
 declare sealed interface Vector3int16 {
     [luau_name("X")] x: number;
@@ -331,33 +315,29 @@ declare sealed interface CFrame<T: number = f32> {
     [luau_name("ToEulerAnglesXYZ"), luau_method] to_euler_angles_xyz: fn: (number, number, number);
     [luau_name("ToEulerAnglesYXZ"), luau_method] to_euler_angles_yxz: fn: (number, number, number);
     [luau_name("ToAxisAngle"), luau_method] to_axis_angle: fn: (Vector3, number);
-}
 
-declare sealed interface CFrameStatic {
-    identity: CFrame;
-    [luau_name("Angles")] angles: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("lookAt")] look_at: fn(at: Vector3, lookAt: Vector3, up: Vector3?): CFrame;
-    [luau_name("lookAlong")] look_along: fn(at: Vector3, direction: Vector3, up: Vector3?): CFrame;
-    [luau_name("fromEulerAngles")] from_euler_angles: fn(x: number, y: number, z: number, order: Enum["RotationOrder"]?): CFrame;
-    [luau_name("fromEulerAnglesXYZ")] from_euler_angles_xyz: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("fromEulerAnglesYXZ")] from_euler_angles_yxz: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("fromOrientation")] from_orientation: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("fromAxisAngle")] from_axis_angle: fn(vector: Vector3, rotation: number): CFrame;
-    [luau_name("fromMatrix")] from_matrix: fn(pos: Vector3, vX: Vector3, vY: Vector3, vZ: Vector3): CFrame;
-    [luau_name("new")] create: fn: CFrame;
-    [luau_name("new")] create: fn(pos: Vector3): CFrame;
-    [luau_name("new")] create: fn(pos: Vector3, lookAt: Vector3): CFrame;
-    [luau_name("new")] create: fn(x: number, y: number, z: number): CFrame;
-    [luau_name("new")] create: fn(x: number, y: number, z: number, qX: number, qY: number, qZ: number, qW: number): CFrame;
-    [luau_name("new")] create: fn(
+    static identity: CFrame;
+    [luau_name("Angles")] static angles: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("lookAt")] static look_at: fn(at: Vector3, lookAt: Vector3, up: Vector3?): CFrame;
+    [luau_name("lookAlong")] static look_along: fn(at: Vector3, direction: Vector3, up: Vector3?): CFrame;
+    [luau_name("fromEulerAngles")] static from_euler_angles: fn(x: number, y: number, z: number, order: Enum["RotationOrder"]?): CFrame;
+    [luau_name("fromEulerAnglesXYZ")] static from_euler_angles_xyz: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("fromEulerAnglesYXZ")] static from_euler_angles_yxz: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("fromOrientation")] static from_orientation: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("fromAxisAngle")] static from_axis_angle: fn(vector: Vector3, rotation: number): CFrame;
+    [luau_name("fromMatrix")] static from_matrix: fn(pos: Vector3, vX: Vector3, vY: Vector3, vZ: Vector3): CFrame;
+    [luau_name("new")] static create: fn: CFrame;
+    [luau_name("new")] static create: fn(pos: Vector3): CFrame;
+    [luau_name("new")] static create: fn(pos: Vector3, lookAt: Vector3): CFrame;
+    [luau_name("new")] static create: fn(x: number, y: number, z: number): CFrame;
+    [luau_name("new")] static create: fn(x: number, y: number, z: number, qX: number, qY: number, qZ: number, qW: number): CFrame;
+    [luau_name("new")] static create: fn(
         x: number, y: number, z: number,
         r00: number, r01: number, r02: number,
         r10: number, r11: number, r12: number,
         r20: number, r21: number, r22: number
     ): CFrame;
 }
-
-declare let CFrame: CFrameStatic;
 
 declare sealed interface Region3int16 {
     [luau_name("Min")] min: Vector3int16;
@@ -367,28 +347,20 @@ declare sealed interface Region3int16 {
 declare sealed interface Region3 {
     [luau_name("CFrame")] cframe: CFrame;
     [luau_name("Size")] size: Vector3;
-}
 
-declare sealed interface Region3Static {
-    [luau_name("new")] create: fn(min: Vector3, max: Vector3): Region3;
+    [luau_name("new")] static create: fn(min: Vector3, max: Vector3): Region3;
 }
-
-declare let Region3: Region3Static;
 
 declare sealed interface Color3 {
     [luau_name("R")] r: number;
     [luau_name("G")] g: number;
     [luau_name("B")] b: number;
-}
 
-declare sealed interface Color3Static {
-    [luau_name("fromRGB")] from_rgb: fn(r: number?, g: number?, b: number?): Color3;
-    [luau_name("fromHSV")] from_hsv: fn(h: number?, s: number?, v: number?): Color3;
-    [luau_name("fromHex")] from_hex: fn(hex: string): Color3;
-    [luau_name("new")] create: fn(r: number?, g: number?, b: number?): Color3;
+    [luau_name("fromRGB")] static from_rgb: fn(r: number?, g: number?, b: number?): Color3;
+    [luau_name("fromHSV")] static from_hsv: fn(h: number?, s: number?, v: number?): Color3;
+    [luau_name("fromHex")] static from_hex: fn(hex: string): Color3;
+    [luau_name("new")] static create: fn(r: number?, g: number?, b: number?): Color3;
 }
-
-declare let Color3: Color3Static;
 
 declare sealed interface BrickColor {
     [luau_name("Number")] number: number;
@@ -397,38 +369,30 @@ declare sealed interface BrickColor {
     r: number;
     g: number;
     b: number;
-}
 
-declare sealed interface BrickColorStatic {
-    random: fn: BrickColor;
-    palette: fn(paletteValue: number): BrickColor;
-    White: fn: BrickColor;
-    Gray: fn: BrickColor;
-    DarkGray: fn: BrickColor;
-    Black: fn: BrickColor;
-    Red: fn: BrickColor;
-    Yellow: fn: BrickColor;
-    Green: fn: BrickColor;
-    Blue: fn: BrickColor;
-    [luau_name("new")] create: fn(name: string): BrickColor;
-    [luau_name("new")] create: fn(number: number): BrickColor;
-    [luau_name("new")] create: fn(color: Color3): BrickColor;
-    [luau_name("new")] create: fn(r: number, g: number, b: number): BrickColor;
+    static random: fn: BrickColor;
+    static palette: fn(paletteValue: number): BrickColor;
+    static White: fn: BrickColor;
+    static Gray: fn: BrickColor;
+    static DarkGray: fn: BrickColor;
+    static Black: fn: BrickColor;
+    static Red: fn: BrickColor;
+    static Yellow: fn: BrickColor;
+    static Green: fn: BrickColor;
+    static Blue: fn: BrickColor;
+    [luau_name("new")] static create: fn(name: string): BrickColor;
+    [luau_name("new")] static create: fn(number: number): BrickColor;
+    [luau_name("new")] static create: fn(color: Color3): BrickColor;
+    [luau_name("new")] static create: fn(r: number, g: number, b: number): BrickColor;
 }
-
-declare let BrickColor: BrickColorStatic;
 
 declare sealed interface Ray {
     [luau_name("Unit")] unit: Ray;
     [luau_name("Origin")] origin: Vector3;
     [luau_name("Direction")] direction: Vector3;
-}
 
-declare sealed interface RayStatic {
-    [luau_name("new")] create: fn(origin: Vector3, direction: Vector3): Ray;
+    [luau_name("new")] static create: fn(origin: Vector3, direction: Vector3): Ray;
 }
-
-declare let Ray: RayStatic;
 
 declare sealed interface RaycastResult {
     [luau_name("Distance")] distance: number;
@@ -445,13 +409,9 @@ declare sealed interface RaycastParams {
     [luau_name("CollisionGroup")] mut collision_group: string;
     [luau_name("RespectCanCollide")] mut respect_can_collide: bool?;
     [luau_name("BruteForceAllSlow")] mut brute_force_all_slow: bool?;
-}
 
-declare sealed interface RaycastParamsStatic {
-    [luau_name("new")] create: fn: RaycastParams;
+    [luau_name("new")] static create: fn: RaycastParams;
 }
-
-declare let RaycastParams: RaycastParamsStatic;
 
 declare sealed interface OverlapParams {
     [luau_name("FilterDescendantsInstances")] mut filter_descendants_instances: Instance[]?;
@@ -460,41 +420,29 @@ declare sealed interface OverlapParams {
     [luau_name("CollisionGroup")] mut collision_group: string;
     [luau_name("RespectCanCollide")] mut respect_can_collide: bool?;
     [luau_name("BruteForceAllSlow")] mut brute_force_all_slow: bool?;
-}
 
-declare sealed interface OverlapParamsStatic {
-    [luau_name("new")] create: fn: OverlapParams;
+    [luau_name("new")] static create: fn: OverlapParams;
 }
-
-declare let OverlapParams: OverlapParamsStatic;
 
 declare sealed interface UDim {
     [luau_name("Scale")] scale: number;
     [luau_name("Offset")] offset: number;
-}
 
-declare sealed interface UDimStatic {
-    [luau_name("new")] create: fn(scale: number?, offset: number?): UDim;
+    [luau_name("new")] static create: fn(scale: number?, offset: number?): UDim;
 }
-
-declare let UDim: UDimStatic;
 
 declare sealed interface UDim2 {
     [luau_name("X")] x: UDim;
     [luau_name("Y")] y: UDim;
     [luau_name("Width")] width: UDim;
     [luau_name("Height")] height: UDim;
-}
 
-declare sealed interface UDim2Static {
-    [luau_name("fromScale")] from_scale: fn(xScale: number?, yScale: number?): UDim2;
-    [luau_name("fromOffset")] from_offset: fn(xOffset: number?, yOffset: number?): UDim2;
-    [luau_name("new")] create: fn: UDim2;
-    [luau_name("new")] create: fn(xScale: number, xOffset: number, yScale: number, yOffset: number): UDim2;
-    [luau_name("new")] create: fn(xUDim: UDim, yUDim: UDim): UDim2;
+    [luau_name("fromScale")] static from_scale: fn(xScale: number?, yScale: number?): UDim2;
+    [luau_name("fromOffset")] static from_offset: fn(xOffset: number?, yOffset: number?): UDim2;
+    [luau_name("new")] static create: fn: UDim2;
+    [luau_name("new")] static create: fn(xScale: number, xOffset: number, yScale: number, yOffset: number): UDim2;
+    [luau_name("new")] static create: fn(xUDim: UDim, yUDim: UDim): UDim2;
 }
-
-declare let UDim2: UDim2Static;
 
 declare sealed interface Random;
 
@@ -523,13 +471,9 @@ declare sealed interface TimeTable {
 declare sealed interface NumberRange {
     [luau_name("Min")] min: number;
     [luau_name("Max")] max: number;
-}
 
-declare sealed interface NumberRangeStatic {
-    [luau_name("new")] create: fn(min: number, max: number?): NumberRange;
+    [luau_name("new")] static create: fn(min: number, max: number?): NumberRange;
 }
-
-declare let NumberRange: NumberRangeStatic;
 
 declare sealed interface NumberSequenceKeypoint {
     [luau_name("Envelope")] envelope: number;
@@ -539,15 +483,11 @@ declare sealed interface NumberSequenceKeypoint {
 
 declare sealed interface NumberSequence {
      [luau_name("Keypoints")] keypoints: NumberSequenceKeypoint[];
-}
 
-declare sealed interface NumberSequenceStatic {
-    [luau_name("new")] create: fn(value: number): NumberSequence;
-    [luau_name("new")] create: fn(min: number, max: number): NumberSequence;
-    [luau_name("new")] create: fn(keypoints: NumberSequenceKeypoint[]): NumberSequence;
+    [luau_name("new")] static create: fn(value: number): NumberSequence;
+    [luau_name("new")] static create: fn(min: number, max: number): NumberSequence;
+    [luau_name("new")] static create: fn(keypoints: NumberSequenceKeypoint[]): NumberSequence;
 }
-
-declare let NumberSequence: NumberSequenceStatic;
 
 declare sealed interface ColorSequenceKeypoint {
     [luau_name("Time")] time: number;
@@ -556,29 +496,21 @@ declare sealed interface ColorSequenceKeypoint {
 
 declare sealed interface ColorSequence {
     [luau_name("Keypoints")] keypoints: ColorSequenceKeypoint[];
-}
 
-declare sealed interface ColorSequenceStatic {
-    [luau_name("new")] create: fn(color: Color3): ColorSequence;
-    [luau_name("new")] create: fn(color0: Color3, color1: Color3): ColorSequence;
-    [luau_name("new")] create: fn(keypoints: ColorSequenceKeypoint[]): ColorSequence;
+    [luau_name("new")] static create: fn(color: Color3): ColorSequence;
+    [luau_name("new")] static create: fn(color0: Color3, color1: Color3): ColorSequence;
+    [luau_name("new")] static create: fn(keypoints: ColorSequenceKeypoint[]): ColorSequence;
 }
-
-declare let ColorSequence: ColorSequenceStatic;
 
 declare sealed interface Rect {
     [luau_name("Width")] width: number;
     [luau_name("Height")] height: number;
     [luau_name("Min")] min: Vector2;
     [luau_name("Max")] max: Vector2;
-}
 
-declare sealed interface RectStatic {
-    [luau_name("new")] create: fn(min: Vector2, max: Vector2): Rect;
-    [luau_name("new")] create: fn(minX: number, minY: number, maxX: number, maxY: number): Rect;
+    [luau_name("new")] static create: fn(min: Vector2, max: Vector2): Rect;
+    [luau_name("new")] static create: fn(minX: number, minY: number, maxX: number, maxY: number): Rect;
 }
-
-declare let Rect: RectStatic;
 
 declare sealed interface Axes {
     [luau_name("X")] x: bool;
@@ -607,14 +539,10 @@ declare sealed interface PhysicalProperties {
     [luau_name("Elasticity")] elasticity: number;
     [luau_name("FrictionWeight")] friction_weight: number;
     [luau_name("ElasticityWeight")] elasticity_weight: number;
-}
 
-declare sealed interface PhysicalPropertiesStatic {
-    [luau_name("new")] create: fn(material: Enum["Material"]): PhysicalProperties;
-    [luau_name("new")] create: fn(density: number, friction: number, elasticity: number, frictionWeight: number?, elasticityWeight: number?): PhysicalProperties;
+    [luau_name("new")] static create: fn(material: Enum["Material"]): PhysicalProperties;
+    [luau_name("new")] static create: fn(density: number, friction: number, elasticity: number, frictionWeight: number?, elasticityWeight: number?): PhysicalProperties;
 }
-
-declare let PhysicalProperties: PhysicalPropertiesStatic;
 
 declare sealed interface Path2DControlPoint {
     [luau_name("Position")] position: UDim2;
@@ -651,15 +579,11 @@ declare sealed interface Font {
     [luau_name("Weight")] weight: Enum["FontWeight"];
     [luau_name("Style")] style: Enum["FontStyle"];
     [luau_name("Bold")] bold: bool;
-}
 
-declare sealed interface FontStatic {
-    [luau_name("fromEnum")] from_enum: fn(font: Enum["Font"]): Font;
-    [luau_name("fromName")] from_name: fn(name: string, weight: Enum["FontWeight"]?, style: Enum["FontStyle"]?): Font;
-    [luau_name("fromId")] from_id: fn(id: number, weight: Enum["FontWeight"]?, style: Enum["FontStyle"]?): Font;
+    [luau_name("fromEnum")] static from_enum: fn(font: Enum["Font"]): Font;
+    [luau_name("fromName")] static from_name: fn(name: string, weight: Enum["FontWeight"]?, style: Enum["FontStyle"]?): Font;
+    [luau_name("fromId")] static from_id: fn(id: number, weight: Enum["FontWeight"]?, style: Enum["FontStyle"]?): Font;
 }
-
-declare let Font: FontStatic;
 
 declare sealed interface Secret;
 
@@ -694,10 +618,8 @@ declare sealed interface TweenInfo {
     [luau_name("DelayTime")] delay_time: number;
     [luau_name("RepeatCount")] repeat_count: number;
     [luau_name("Reverses")] reverses: bool;
-}
 
-declare sealed interface TweenInfoStatic {
-    [luau_name("new")] create: fn(
+    [luau_name("new")] static create: fn(
         time: number?,
         easingStyle: Enum["EasingStyle"]?,
         easingDirection: Enum["EasingDirection"]?,
@@ -706,8 +628,6 @@ declare sealed interface TweenInfoStatic {
         delayTime: number?
     ): TweenInfo;
 }
-
-declare let TweenInfo: TweenInfoStatic;
 
 declare sealed interface SharedTable {
     mut [string]: unknown;
@@ -6224,6 +6144,7 @@ declare interface EnumZIndexBehavior {
 	Global: EnumItem<"ZIndexBehavior">;
 	Sibling: EnumItem<"ZIndexBehavior">;
 }
+
 declare interface EnumStatic {
 	AccessModifierType: EnumAccessModifierType;
 	AccessoryType: EnumAccessoryType;
@@ -7465,7 +7386,6 @@ declare interface Enum {
 	WrapTargetDebugMode: EnumItem<"WrapTargetDebugMode">;
 	ZIndexBehavior: EnumItem<"ZIndexBehavior">;
 }
-
 declare let Enum: EnumStatic;
 ## Generated Roblox instance classes
 

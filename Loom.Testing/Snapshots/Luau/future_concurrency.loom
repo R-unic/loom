@@ -8,12 +8,12 @@ async fn sum_of(a: number, b: number): number {
     return await first + await second;
 }
 
-async fn all_of(a: number, b: number, c: number): number[] -> await Future.all([identity(a), identity(b), identity(c)]);
+async fn all_of(a: number, b: number, c: number): number[] -> await Future::all([identity(a), identity(b), identity(c)]);
 
-async fn first_of(a: number, b: number): number -> await Future.race([identity(a), identity(b)]);
+async fn first_of(a: number, b: number): number -> await Future::race([identity(a), identity(b)]);
 
 ## Already settled, so awaiting it never parks the caller.
-async fn settled(n: number): number -> await Future.resolved(n);
+async fn settled(n: number): number -> await Future::resolved(n);
 
 ## One 'await' covers the whole chain: every link is fused, so this is the plain Luau calls.
 async fn descendant(root: Instance): Instance -> await root.wait_for_child("a").wait_for_child("b");

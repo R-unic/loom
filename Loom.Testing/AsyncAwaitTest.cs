@@ -186,11 +186,11 @@ public class AsyncAwaitTest
     public void PropagatingThroughAnUnawaitedCallIsReported()
     {
         const string source = """
-            async fn load(): Result<number, string> -> Result.ok(1);
+            async fn load(): Result<number, string> -> BaseResult::ok(1);
 
             async fn caller(): Result<number, string> {
                 let value = load()?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """;
 
@@ -285,7 +285,7 @@ public class AsyncAwaitTest
             async fn load(key: string): Result<unknown, RobloxError> {
                 let store = data_store_service.get_data_store("players")?;
                 let value = await store.get_async(key)?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """;
 
@@ -488,7 +488,7 @@ public class AsyncAwaitTest
             async fn load(): number -> 1;
 
             async fn caller(): number[] {
-                return await Future.all([load(), load()]);
+                return await Future::all([load(), load()]);
             }
             """;
 

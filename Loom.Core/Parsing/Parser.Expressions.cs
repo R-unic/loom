@@ -123,7 +123,7 @@ public sealed partial class Parser
                 expression = ParseElementAccess(null, leftBracket, expression);
             else if (AtOptionalElementAccessStart())
                 expression = ParseElementAccess(Advance(), Expect(SyntaxKind.LBracket), expression);
-            else if (Match(out var dot, SyntaxKind.Dot, SyntaxKind.QuestionDot))
+            else if (Match(out var dot, SyntaxKind.Dot, SyntaxKind.QuestionDot, SyntaxKind.ColonColon))
                 expression = ParseNamedAccess(dot, expression);
             else if (Current().Kind == SyntaxKind.Bang && IsOnSameLine(expression.LastToken()!, Current()))
                 expression = new NullForgiving(expression, Advance());
@@ -313,7 +313,7 @@ public sealed partial class Parser
     {
         var name = ExpectIdentifier();
         var names = new List<DotName> { new(dot, name) };
-        while (Match(out var nextDot, SyntaxKind.Dot, SyntaxKind.QuestionDot))
+        while (Match(out var nextDot, SyntaxKind.Dot, SyntaxKind.QuestionDot, SyntaxKind.ColonColon))
             names.Add(new DotName(nextDot, ExpectIdentifier()));
 
         return expression is Identifier identifier

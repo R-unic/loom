@@ -154,7 +154,7 @@ public class SerializationSchemaTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             [serializable] interface MyData {
-                [cframe_type(CFrameType.Precise)]
+                [cframe_type(CFrameType::Precise)]
                 position: Vector3;
             }
             """
@@ -805,7 +805,7 @@ public class SerializationSchemaTest
                 [serializable, packed] interface Snapshot {
                     name: string;
                     velocity: Vector3<i16>;
-                    [cframe_type(CFrameType.Compressed)]
+                    [cframe_type(CFrameType::Compressed)]
                     aim: CFrame<f32>;
                 }
 
@@ -1169,7 +1169,7 @@ public class SerializationSchemaTest
         var schema = GetSchema(
             """
             [serializable] interface MyData {
-                [cframe_type(CFrameType.Precise)]
+                [cframe_type(CFrameType::Precise)]
                 frame: CFrame<f32>;
             }
             """

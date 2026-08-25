@@ -20,5 +20,5 @@ let generic = count_of(..xs);
 fn forward(..args: number[]): number -> count_of(..args);
 let forwarded = forward(..xs);
 
-let members = Set.of(..xs);
-let mixed_members = Set.of(9, ..xs);
+let members = Set::of(..xs);
+let mixed_members = Set::of(9, ..xs);

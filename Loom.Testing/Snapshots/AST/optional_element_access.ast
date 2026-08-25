@@ -107,6 +107,7 @@ ExpressionStatement(
           Dot: Token(QuestionDot, "?.")
           Name: Token(Identifier, "b")
           IsOptional: True
+          IsStatic: False
         )
       ]
       Token(Identifier, "a")
@@ -139,6 +140,7 @@ ExpressionStatement(
         Dot: Token(QuestionDot, "?.")
         Name: Token(Identifier, "b")
         IsOptional: True
+        IsStatic: False
       )
     ]
   )

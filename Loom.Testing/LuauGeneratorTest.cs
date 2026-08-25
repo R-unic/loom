@@ -216,11 +216,11 @@ public class LuauGeneratorTest
         // whatever they need (e.g. an error-propagation guard) into the same shared, unconditional scope.
         var luauTree = Utility.GetLuauAST(
             """
-            fn a(): Result<number, string> { return Result.ok(1); }
-            fn b(): Result<number, string> { return Result.ok(2); }
+            fn a(): Result<number, string> { return BaseResult::ok(1); }
+            fn b(): Result<number, string> { return BaseResult::ok(2); }
             fn pick(cond: bool): Result<number, string> {
                 let value = cond ? a()? : b()?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """,
             true
@@ -250,11 +250,11 @@ public class LuauGeneratorTest
         var rendered = Utility.GetLuauAST(
             """
             fn some_other_unsafe_fn(): Result<number, string> {
-                return Result.ok(1);
+                return BaseResult::ok(1);
             }
             fn unsafe_fn(): Result<number, string> {
                 let value = some_other_unsafe_fn()?;
-                return Result.ok(69 + value);
+                return BaseResult::ok(69 + value);
             }
             """,
             true
@@ -275,10 +275,10 @@ public class LuauGeneratorTest
         // and again for '.value'.
         var luauTree = Utility.GetLuauAST(
             """
-            fn get(): Result<number, string> { return Result.ok(1); }
+            fn get(): Result<number, string> { return BaseResult::ok(1); }
             fn use_it(): Result<number, string> {
                 let value = get()?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """,
             true
@@ -1199,6 +1199,65 @@ public class LuauGeneratorTest
         Assert.Equal("container", Assert.IsType<Identifier>(methodAccess.Target).Name);
         Assert.Equal("display", Assert.Single(methodAccess.Names));
         Assert.Equal(420, Assert.IsType<NumberLiteral>(Assert.Single(methodCall.Arguments)).Value);
+    }
+
+    [Fact]
+    public void Generates_StaticBlock_TableWithFieldAndFunction()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            interface Vector2 {
+                x: number
+                y: number
+                static zero: Vector2
+                static create: fn(x: number, y: number): Vector2
+            }
+
+            static Vector2 {
+                zero = new Vector2 { x: 0, y: 0 };
+                fn create(x, y) -> new Vector2 { x, y };
+            }
+            """,
+            true
+        );
+
+        var variable = Assert.IsType<LocalVariable>(luauTree.Statements[1]);
+        Assert.Equal("Vector2", variable.Name);
+        Assert.IsType<Table>(variable.Initializer);
+
+        var fieldAssignmentStatement = Assert.IsType<ExpressionStatement>(luauTree.Statements[2]);
+        var fieldAssignment = Assert.IsType<BinaryOperator>(fieldAssignmentStatement.Expression);
+        Assert.Equal("=", fieldAssignment.Operator);
+
+        var fieldAccess = Assert.IsType<PropertyAccess>(fieldAssignment.Left);
+        Assert.Equal("Vector2", Assert.IsType<Identifier>(fieldAccess.Target).Name);
+        Assert.Equal("zero", Assert.Single(fieldAccess.Names));
+        Assert.IsType<Table>(fieldAssignment.Right);
+
+        var createFunction = Assert.IsType<Function>(luauTree.Statements[3]);
+        Assert.Equal("Vector2.create", createFunction.Name);
+        Assert.Equal(2, createFunction.Parameters.Count);
+        Assert.Equal(["x", "y"], createFunction.Parameters.Select(p => p.Name));
+    }
+
+    [Fact]
+    public void Generates_AmbientInterfaceWithStatics_EmitsOnlyTheTypeAlias()
+    {
+        var luauTree = Utility.GetLuauAST(
+            """
+            declare interface Vector2 {
+                static zero: Vector2
+                static create: fn(x: number, y: number): Vector2
+            }
+
+            let v = Vector2::create(1, 2);
+            """,
+            true
+        );
+
+        Assert.Single(luauTree.Statements.OfType<TypeAlias>());
+        Assert.Empty(luauTree.Statements.OfType<LocalVariable>());
+        Assert.Empty(luauTree.Statements.OfType<Function>());
     }
 
     [Fact]
@@ -2501,7 +2560,7 @@ public class LuauGeneratorTest
     [Fact]
     public void Generates_EnumAccess_AsLiteralValue()
     {
-        var luauTree = Utility.GetLuauAST("enum Abc { A, B, C }; let x = Abc.A", true);
+        var luauTree = Utility.GetLuauAST("enum Abc { A, B, C }; let x = Abc::A", true);
         Assert.Equal(2, luauTree.Statements.Count);
 
         var typeAlias = Assert.IsType<TypeAlias>(luauTree.Statements[0]);
@@ -2563,7 +2622,7 @@ public class LuauGeneratorTest
     [Fact]
     public void Generates_EnumInVariableTypeAnnotation()
     {
-        var luauTree = Utility.GetLuauAST("enum Status { Active, Inactive }; let x: Status = Status.Active", true);
+        var luauTree = Utility.GetLuauAST("enum Status { Active, Inactive }; let x: Status = Status::Active", true);
         Assert.Equal(2, luauTree.Statements.Count);
 
         var typeAlias = Assert.IsType<TypeAlias>(luauTree.Statements[0]);
@@ -3945,8 +4004,8 @@ public class LuauGeneratorTest
         const string mainModule = """
             import * as ev from "./events"
             fn h(): void { }
-            ev.tick += h;
-            ev.tick -= h;
+            ev::tick += h;
+            ev::tick -= h;
             """;
 
         Utility.WithTempProject(
@@ -5799,7 +5858,7 @@ public class LuauGeneratorTest
             enum Level { Low = 1, High = 2 }
             fn tag(level: Level): void { }
             interface Account {
-                [tag(Level.High)]
+                [tag(Level::High)]
                 balance: number
             }
             let meta = get_metadata::<Account>("balance", tag);
@@ -5862,7 +5921,7 @@ public class LuauGeneratorTest
             """
             enum Level { Low = 1, High = 2 }
             fn tag(level: Level): void { }
-            [tag(Level.High)]
+            [tag(Level::High)]
             interface Account { balance: number }
             let meta = get_metadata::<Account>(none, tag);
             """,

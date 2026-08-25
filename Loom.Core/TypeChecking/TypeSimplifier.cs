@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 using InterfaceDeclaration = Loom.Core.Parsing.AST.InterfaceDeclaration;
 using TraitDeclaration = Loom.Core.Parsing.AST.TraitDeclaration;
@@ -58,12 +59,37 @@ public static class TypeSimplifier
         return simplified;
     }
 
-    public static Type? ResolveIndex(Type target, Type index)
+    /// <summary>
+    ///     Resolves indexing <paramref name="target" /> by <paramref name="index" />, optionally to the same
+    ///     receiver-kind/operator-kind rule <c>TypeChecker.MemberAccess.cs</c>'s <c>GetTypeAtIndexNative</c>
+    ///     applies to a member access - a static member only valid where <paramref name="isInterfaceNamespaceAccess" />
+    ///     says the receiver is the interface's own namespace value, an instance member only valid where it
+    ///     doesn't, and <paramref name="dotKind" /> (when given) required to agree with which kind was found.
+    ///     The two purely type-level callers (a deferred <c>T[K]</c>, a generic's <c>keyof</c> substitution)
+    ///     pass neither and get the old, unchecked behaviour - they resolve what a type is made of, with no
+    ///     receiver expression to reason about; only the intersection branch of <c>IndexType</c>, which is
+    ///     resolving a real member-access expression, opts in.
+    /// </summary>
+    public static Type? ResolveIndex(Type target, Type index, SyntaxKind? dotKind = null, bool? isInterfaceNamespaceAccess = null)
     {
         if (index is TypeParameter or KeyOfType)
-            return ResolveKeys(index) is { } keys ? ResolveIndex(target, keys) : null;
+            return ResolveKeys(index) is { } keys ? ResolveIndex(target, keys, dotKind, isInterfaceNamespaceAccess) : null;
 
-        return Expanded(target) is NativelyIndexableType indexable ? indexable.GetTypeAtIndex(index).BodyType?.ValueType : null;
+        if (Expanded(target) is not NativelyIndexableType indexable)
+            return null;
+
+        var (bodyType, _) = indexable.GetTypeAtIndex(index);
+        if (bodyType is ObjectProperty property && indexable is InterfaceType && isInterfaceNamespaceAccess.HasValue)
+        {
+            if (property.IsStatic != isInterfaceNamespaceAccess.Value)
+                return null;
+
+            if (dotKind is SyntaxKind.Dot or SyntaxKind.QuestionDot or SyntaxKind.ColonColon
+                && property.IsStatic != (dotKind == SyntaxKind.ColonColon))
+                return null;
+        }
+
+        return bodyType?.ValueType;
     }
 
     /// <summary>
@@ -162,7 +188,8 @@ public static class TypeSimplifier
                 {
                     var valueType = Normalize(new IntersectionType([existing.ValueType, property.ValueType]), expand);
                     var isMutable = existing.IsMutable && property.IsMutable;
-                    propertyDictionary[property.Name] = new ObjectProperty(isMutable, property.Name, valueType);
+                    var isStatic = existing.IsStatic && property.IsStatic;
+                    propertyDictionary[property.Name] = new ObjectProperty(isMutable, property.Name, valueType, isStatic);
                 }
                 else
                 {

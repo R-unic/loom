@@ -226,7 +226,7 @@ internal sealed class SetMacroProvider : IMacroProvider
         depth < 4
         && type switch
         {
-            InterfaceType { Name: "Set" or "MutSet" } => true,
+            InterfaceType { Name: "Set" or "MutSet", IsIntrinsic: true } => true,
             InstantiatedType instantiated => IsSet(instantiated.Expand(), depth + 1),
             _ => false
         };

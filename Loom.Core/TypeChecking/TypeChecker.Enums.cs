@@ -49,7 +49,7 @@ public sealed partial class TypeChecker
                 _semanticModel.TypeSolver.AddConstraint(explicitType, baseType, member.EqualsValueClause.Value);
             }
 
-            properties.Add(new ObjectProperty(false, member.Name.Text, new LiteralType(memberValue)));
+            properties.Add(new ObjectProperty(false, member.Name.Text, new LiteralType(memberValue), true));
             nextValue = Math.Floor(memberValue + 1);
         }
 
@@ -76,7 +76,7 @@ public sealed partial class TypeChecker
 
             var type = Visit(member.EqualsValueClause);
             _semanticModel.TypeSolver.AddConstraint(type, baseType, member.EqualsValueClause.Value);
-            properties.Add(new ObjectProperty(false, member.Name.Text, type));
+            properties.Add(new ObjectProperty(false, member.Name.Text, type, true));
         }
 
         return properties;

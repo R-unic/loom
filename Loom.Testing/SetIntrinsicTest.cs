@@ -11,25 +11,25 @@ namespace Loom.Testing;
 public class SetIntrinsicTest
 {
     [Theory]
-    [InlineData("Set.of(1).to_array()", "number[]")]
-    [InlineData("Set.of(1).has(1)", "bool")]
-    [InlineData("Set.of(1).size", "number")]
-    [InlineData("Set.of(1).is_empty", "bool")]
+    [InlineData("Set::of(1).to_array()", "number[]")]
+    [InlineData("Set::of(1).has(1)", "bool")]
+    [InlineData("Set::of(1).size", "number")]
+    [InlineData("Set::of(1).is_empty", "bool")]
     public void Infers(string expression, string expected) => Assert.Equal(expected, Utility.GetLastStatementType(expression).ToString());
 
     /// <summary>
     ///     A set's member type reaches the surface as its indexer's key, whichever way it was built.
-    ///     <c>Set.of(1)</c> widens to <c>number</c> the way <c>mut [1]</c> does - a one-element
+    ///     <c>Set::of(1)</c> widens to <c>number</c> the way <c>mut [1]</c> does - a one-element
     ///     <c>MutSet&lt;1&gt;</c> would have nothing that could be added to it.
     /// </summary>
     [Theory]
-    [InlineData("Set.of(1, 2, 3)", "number")]
-    [InlineData("Set.of(1)", "number")]
-    [InlineData("Set.of(\"a\")", "string")]
-    [InlineData("MutSet.of(1)", "number")]
-    [InlineData("Set.empty::<string>()", "string")]
+    [InlineData("Set::of(1, 2, 3)", "number")]
+    [InlineData("Set::of(1)", "number")]
+    [InlineData("Set::of(\"a\")", "string")]
+    [InlineData("MutSet::of(1)", "number")]
+    [InlineData("Set::empty::<string>()", "string")]
     [InlineData("[1, 2].to_set()", "number")]
-    [InlineData("Set.of(1).union(MutSet.of(2))", "number")]
+    [InlineData("Set::of(1).union(MutSet::of(2))", "number")]
     public void InfersMemberType(string expression, string expected)
     {
         // Whether a set surfaces already expanded or still as an instantiation depends on how it was
@@ -48,26 +48,26 @@ public class SetIntrinsicTest
     /// </summary>
     [Fact]
     public void MutableSetIsAssignableToImmutableSet() =>
-        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics("let both = Set.of(1).union(MutSet.of(2)); let sub = MutSet.of(1).is_subset_of(Set.of(1));"));
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics("let both = Set::of(1).union(MutSet::of(2)); let sub = MutSet::of(1).is_subset_of(Set::of(1));"));
 
     [Fact]
     public void ImmutableSetHasNoMutators()
     {
-        var diagnostics = Utility.GetAnalysisDiagnostics("Set.of(1).add(2);");
+        var diagnostics = Utility.GetAnalysisDiagnostics("Set::of(1).add(2);");
         Assert.Contains(diagnostics.Set, d => d.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
     public void ImmutableSetHasNoClear()
     {
-        var diagnostics = Utility.GetAnalysisDiagnostics("Set.of(1).clear();");
+        var diagnostics = Utility.GetAnalysisDiagnostics("Set::of(1).clear();");
         Assert.Contains(diagnostics.Set, d => d.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
     public void ThrowsFor_MemberOfTheWrongElementType()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("Set.of(1, 2).has(\"three\");");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("Set::of(1, 2).has(\"three\");");
         Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.TypeMismatch);
     }
 
@@ -87,7 +87,7 @@ public class SetIntrinsicTest
 
     /// <summary>
     ///     Referencing a macro emits a lambda with one parameter per declared parameter, which cannot stand
-    ///     for a variadic one - it would take a single argument and silently drop the rest. <c>Set.of</c> is
+    ///     for a variadic one - it would take a single argument and silently drop the rest. <c>Set::of</c> is
     ///     the first variadic macro, so this had no way of coming up before.
     /// </summary>
     [Fact]
@@ -95,7 +95,7 @@ public class SetIntrinsicTest
     {
         const string source = """
             declare fn consume<T>(make: fn(..values: T[]): Set<T>): void;
-            consume(Set.of);
+            consume(Set::of);
             """;
 
         Utility.AssertDiagnostic(
@@ -109,7 +109,7 @@ public class SetIntrinsicTest
     [Fact]
     public void IndexesWithTheElementType()
     {
-        Assert.Equal(PrimitiveType.Bool, Utility.GetLastStatementType("Set.of(1, 2)[1]"));
-        Assert.Contains(Utility.GetTypeCheckerDiagnostics("Set.of(1, 2)[\"a\"];").Set, d => d.Severity == DiagnosticSeverity.Error);
+        Assert.Equal(PrimitiveType.Bool, Utility.GetLastStatementType("Set::of(1, 2)[1]"));
+        Assert.Contains(Utility.GetTypeCheckerDiagnostics("Set::of(1, 2)[\"a\"];").Set, d => d.Severity == DiagnosticSeverity.Error);
     }
 }

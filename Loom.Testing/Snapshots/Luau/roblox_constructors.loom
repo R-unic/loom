@@ -1,7 +1,7 @@
-let origin = Vector3.create();
-let pos = Vector3.create(1, 2, 3);
-let identity = CFrame.create();
-let lookingAt = CFrame.create(pos, origin);
-let fromNumbers = CFrame.create(1, 2, 3);
-let brick = BrickColor.create("Really red");
-let size = UDim2.create(0.5, 0, 0.5, 0);
+let origin = Vector3::create();
+let pos = Vector3::create(1, 2, 3);
+let identity = CFrame::create();
+let lookingAt = CFrame::create(pos, origin);
+let fromNumbers = CFrame::create(1, 2, 3);
+let brick = BrickColor::create("Really red");
+let size = UDim2::create(0.5, 0, 0.5, 0);

@@ -6,6 +6,7 @@
     RightBrace: Token(RBrace, "}")
     Members: [
       PropertyDeclaration(
+        StaticKeyword: null
         MutKeyword: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
@@ -16,9 +17,11 @@
           )
         )
         Attributes: null
+        IsStatic: False
         Name: Token(Identifier, "name")
       )
       PropertyDeclaration(
+        StaticKeyword: null
         MutKeyword: null
         ColonTypeClause(
           ColonToken: Token(Colon, ":")
@@ -29,6 +32,7 @@
           )
         )
         Attributes: null
+        IsStatic: False
         Name: Token(Identifier, "age")
       )
     ]

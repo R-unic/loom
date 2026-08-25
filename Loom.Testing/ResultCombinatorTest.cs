@@ -7,7 +7,7 @@ public class ResultCombinatorTest
 {
     private const string Fetch = """
         fn fetch(): Result<number, string> {
-            return Result.ok(1);
+            return BaseResult::ok(1);
         }
 
 
@@ -95,7 +95,7 @@ public class ResultCombinatorTest
     {
         var rendered = Render("""
             fn step(n: number): Result<number, string> {
-                return Result.ok(n);
+                return BaseResult::ok(n);
             }
 
             let chained = fetch().and_then(step);
@@ -127,7 +127,7 @@ public class ResultCombinatorTest
     {
         var rendered = Render("""
             fn recover(message: string): Result<number, string> {
-                return Result.ok(0);
+                return BaseResult::ok(0);
             }
 
             let recovered = fetch().or_else(recover);

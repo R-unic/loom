@@ -292,8 +292,16 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
     public IReadOnlyList<PropertySymbol> GetPropertySymbols(Type objectType, IReadOnlyList<string> path)
     {
         objectType = objectType.NonNullable();
-        if (objectType is InstantiatedType instantiated)
-            objectType = instantiated.Expand();
+        objectType = objectType switch
+        {
+            InstantiatedType instantiated => instantiated.Expand(),
+            // Bare, uninstantiated - a generic interface's own name used as a value (its static-holder
+            // symbol) resolves to this. Only the interface's Name is read below, which its own
+            // UnderlyingType already carries, so unwrapping this far - rather than filling defaults and
+            // substituting, as a real access needs - is enough and cannot fail for a parameter with none.
+            GenericType generic => generic.UnderlyingType,
+            _ => objectType
+        };
 
         if (objectType is not InterfaceType interfaceType)
             return [];
@@ -316,8 +324,12 @@ public sealed record SemanticModel(Tree Tree, DiagnosticBag Diagnostics, SymbolT
             return property;
 
         objectType = objectType.NonNullable();
-        if (objectType is InstantiatedType instantiated)
-            objectType = instantiated.Expand();
+        objectType = objectType switch
+        {
+            InstantiatedType instantiated => instantiated.Expand(),
+            GenericType generic => generic.UnderlyingType,
+            _ => objectType
+        };
 
         if (objectType is not InterfaceType interfaceType)
             return null;

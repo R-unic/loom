@@ -82,11 +82,11 @@ public class RecursiveTypeAliasTest
     {
         const string prefix = """
             fn step(n: number): Result<number, string> {
-                return Result.ok(n + 1);
+                return BaseResult::ok(n + 1);
             }
 
             fn start(): Result<number, string> {
-                return Result.ok(1);
+                return BaseResult::ok(1);
             }
 
 

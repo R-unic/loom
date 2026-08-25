@@ -154,6 +154,15 @@ public static class InternalCodes
     public const string AmbiguousTraitDefault = "L430";
     public const string ConstructedBeforeImplement = "L431";
     public const string ImplementOutsideModuleScope = "L432";
+    public const string WrongOperatorForMemberKind = "L433";
+    public const string StaticBlockOutsideModuleScope = "L434";
+    public const string DuplicateStaticBlock = "L435";
+    public const string StaticBlockOnAmbientInterface = "L436";
+    public const string StaticBlockMissingMember = "L437";
+    public const string StaticBlockExtraMember = "L438";
+    public const string InstanceMemberViaInterfaceName = "L439";
+    public const string StaticMemberViaInstance = "L440";
+    public const string StaticMemberInObjectLiteral = "L441";
 
     public const string SimplifiableCode = "L500";
 }

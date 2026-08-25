@@ -64,7 +64,7 @@ public class ImportGeneratorTest
     [Fact]
     public void Aliases_ImportedEnum_WithoutBindingAValue() =>
         AssertGenerated(
-            "import { Color } from \"./geometry\"\nlet c: Color = Color.Blue;\nprint(c);",
+            "import { Color } from \"./geometry\"\nlet c: Color = Color::Blue;\nprint(c);",
             """
             const geometry = require("./geometry")
             type Color = geometry.Color

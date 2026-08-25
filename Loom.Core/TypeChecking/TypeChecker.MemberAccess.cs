@@ -1,6 +1,7 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Macros;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 
 namespace Loom.Core.TypeChecking;
@@ -66,7 +67,21 @@ public sealed partial class TypeChecker
 
         var indexIsRangeOrNumber = indexType.IsAssignableTo(IntrinsicTypes.Range) || indexType.IsAssignableTo(Types.PrimitiveType.Number);
         if (!indexIsRangeOrNumber || !type.IsAssignableTo(Types.PrimitiveType.String))
-            return IndexType(elementAccess, type, indexType, $"Cannot index value of type '{type}'.");
+        {
+            // Bracket access has no '.'/'::' token to check the operator against, but the receiver-kind rule
+            // still applies: a static member is reachable only through the interface's own namespace value,
+            // never through a real instance, whichever syntax reaches for it.
+            var isInterfaceNamespaceAccess = elementAccess.Expression is Identifier identifier
+                && _semanticModel.GetSymbol(identifier) is { Declaration: InterfaceDeclaration };
+
+            return IndexType(
+                elementAccess,
+                type,
+                indexType,
+                $"Cannot index value of type '{type}'.",
+                isInterfaceNamespaceAccess: isInterfaceNamespaceAccess
+            );
+        }
 
         CheckInvalidAccessAssignment(elementAccess, type, indexType);
         return Types.PrimitiveType.String;
@@ -89,13 +104,20 @@ public sealed partial class TypeChecker
         return tupleType.ElementTypes[index - 1];
     }
 
-    private Type IndexType(Node node, Type type, Type indexType, string errorMessage)
+    private Type IndexType(Node node, Type type, Type indexType, string errorMessage, SyntaxKind? dotKind = null, bool isInterfaceNamespaceAccess = false)
     {
         if (IsUnawaitedFutureMember(node, type, indexType))
             return ReportCannotUseToIndex(node, type, indexType);
 
-        if (type is InstantiatedType instantiated)
-            type = instantiated.Expand();
+        switch (type)
+        {
+            case InstantiatedType instantiated:
+                type = instantiated.Expand();
+                break;
+            case GenericType generic:
+                type = ExpandBareGenericType(generic);
+                break;
+        }
 
         switch (type)
         {
@@ -104,7 +126,7 @@ public sealed partial class TypeChecker
                 var results = new List<Type>();
                 foreach (var member in union.Types)
                 {
-                    var memberType = GetTypeAtIndexSingle(node, member, indexType);
+                    var memberType = GetTypeAtIndexSingle(node, member, indexType, dotKind, isInterfaceNamespaceAccess);
                     if (Type.IsNever(memberType))
                     {
                         _diagnostics.Error(
@@ -135,7 +157,7 @@ public sealed partial class TypeChecker
             case Types.IntersectionType intersection:
             {
                 var found = intersection.Types
-                    .Select(member => TypeSimplifier.ResolveIndex(member, indexType))
+                    .Select(member => TypeSimplifier.ResolveIndex(member, indexType, dotKind, isInterfaceNamespaceAccess))
                     .OfType<Type>()
                     .ToList();
 
@@ -146,10 +168,10 @@ public sealed partial class TypeChecker
             }
 
             case NativelyIndexableType:
-                return GetTypeAtIndex(node, type, indexType);
+                return GetTypeAtIndex(node, type, indexType, dotKind, isInterfaceNamespaceAccess);
 
             case Types.PrimitiveType { Kind: PrimitiveTypeKind.String }:
-                return GetTypeAtIndex(node, IntrinsicTypes.StringMembers, indexType);
+                return GetTypeAtIndex(node, IntrinsicTypes.StringMembers, indexType, dotKind, isInterfaceNamespaceAccess);
         }
 
         _diagnostics.Error(node, InternalCodes.InvalidAccess, errorMessage);
@@ -162,7 +184,16 @@ public sealed partial class TypeChecker
         if (TryGetNarrowedType(accessExpression, out var narrowedType))
             return BindType(accessExpression, narrowedType);
 
+        // The interface's own name, used bare as a value, resolves to the same static-holder symbol
+        // 'new Foo { ... }' does - see ResolveInterfaceBody. Its type carries every property, static and
+        // instance alike, so only the first step of the chain needs telling apart from a real instance:
+        // 'Foo.someInstanceField' would otherwise pass the operator-kind check below same as 'foo.someField'
+        // does on an actual value, since '.' agrees with a non-static property either way.
+        var targetNamesItsOwnInterface = targetExpression is Identifier { } targetIdentifier
+            && _semanticModel.GetSymbol(targetIdentifier) is { Declaration: InterfaceDeclaration };
+
         var isOptionalChain = false;
+        var isFirstStep = true;
         foreach (var name in names)
         {
             if (name.IsOptional)
@@ -184,7 +215,16 @@ public sealed partial class TypeChecker
             if (!name.IsOptional && TryReadThroughFuture(accessExpression, type, names.Count, out var settled))
                 type = settled;
 
-            type = IndexType(accessExpression, type, indexType, $"Cannot access property '{indexType.Value}' on type '{type}'.");
+            type = IndexType(
+                accessExpression,
+                type,
+                indexType,
+                $"Cannot access property '{indexType.Value}' on type '{type}'.",
+                name.Dot.Kind,
+                isFirstStep && targetNamesItsOwnInterface
+            );
+
+            isFirstStep = false;
             if (Type.IsNever(type))
                 return type;
         }
@@ -201,12 +241,12 @@ public sealed partial class TypeChecker
         return BindType(accessExpression, type);
     }
 
-    private Type GetTypeAtIndex(Node node, Type type, Type indexType)
+    private Type GetTypeAtIndex(Node node, Type type, Type indexType, SyntaxKind? dotKind = null, bool isInterfaceNamespaceAccess = false)
     {
         if (type is Types.UnionType union)
         {
             var results = union.Types
-                .Select(member => GetTypeAtIndexSingle(node, member, indexType))
+                .Select(member => GetTypeAtIndexSingle(node, member, indexType, dotKind, isInterfaceNamespaceAccess))
                 .Where(memberResult => !Type.IsNever(memberResult) && !Type.IsUnknown(memberResult))
                 .ToList();
 
@@ -216,10 +256,10 @@ public sealed partial class TypeChecker
         }
 
         if (indexType is not Types.UnionType indexUnion || !indexUnion.Types.All(t => t is Types.LiteralType { Value: string }))
-            return GetTypeAtIndexSingle(node, type, indexType);
+            return GetTypeAtIndexSingle(node, type, indexType, dotKind, isInterfaceNamespaceAccess);
 
         var stringLiteralResults = indexUnion.Types
-            .Select(t => GetTypeAtIndexSingle(node, type, t))
+            .Select(t => GetTypeAtIndexSingle(node, type, t, dotKind, isInterfaceNamespaceAccess))
             .Where(r => !Type.IsNever(r) && !Type.IsUnknown(r))
             .ToList();
 
@@ -241,21 +281,99 @@ public sealed partial class TypeChecker
         && TypeSimplifier.Expanded(type) is NativelyIndexableType future
         && future.GetTypeAtIndex(indexType).BodyType == null;
 
-    private Type GetTypeAtIndexSingle(Node node, Type type, Type indexType) =>
+    /// <summary>
+    ///     A generic interface's own name resolves to the bare <see cref="GenericType" /> (its static-holder
+    ///     value symbol is published against the uninstantiated definition - nothing ever supplies its type
+    ///     arguments for a static access). Filling every parameter the same way a bare use in type position
+    ///     already does (<see cref="FillGenericArguments" /> - declared default, or 'unknown' where there is
+    ///     none) and expanding that is exactly the body a member lookup needs: statics never reference the
+    ///     interface's own type parameters, and an instance member reached this way (a hard error
+    ///     <see cref="GetTypeAtIndexNative" /> catches once it sees the property) never needed a real one
+    ///     either, so which concrete arguments back the expansion is immaterial - only that one exists,
+    ///     without throwing, for the walk to reach the property list at all.
+    /// </summary>
+    private Type ExpandBareGenericType(GenericType generic) => generic.Construct(FillGenericArguments(generic.Parameters, [])).Expand();
+
+    private Type GetTypeAtIndexSingle(Node node, Type type, Type indexType, SyntaxKind? dotKind = null, bool isInterfaceNamespaceAccess = false) =>
         type switch
         {
-            NativelyIndexableType indexable => GetTypeAtIndexNative(node, indexable, indexType),
-            InstantiatedType instantiated => GetTypeAtIndex(node, instantiated.Expand(), indexType),
+            NativelyIndexableType indexable => GetTypeAtIndexNative(node, indexable, indexType, dotKind, isInterfaceNamespaceAccess),
+            InstantiatedType instantiated => GetTypeAtIndex(node, instantiated.Expand(), indexType, dotKind, isInterfaceNamespaceAccess),
+            GenericType generic => GetTypeAtIndex(node, ExpandBareGenericType(generic), indexType, dotKind, isInterfaceNamespaceAccess),
             _ => type
         };
 
-    private Type GetTypeAtIndexNative(Node node, NativelyIndexableType indexable, Type indexType)
+    /// <summary>
+    ///     A static member is only ever valid to find through the interface's own namespace value - the
+    ///     synthesized static-holder value symbol a bare interface name resolves to
+    ///     (<paramref name="isInterfaceNamespaceAccess" />) - and never through a genuine
+    ///     instance, whichever step of a chain it is reached from; a non-static member is exactly the
+    ///     reverse. This is the receiver-kind check, separate from and in addition to the operator-kind check
+    ///     below ('.' vs '::'): the receiver check catches 'v::zero' and 'Vector2.x' (wrong receiver for the
+    ///     member's kind, whatever operator was used), the operator check still catches 'Vector2.create'
+    ///     (correct receiver, wrong operator). Gated to <see cref="InterfaceType" /> because a namespace
+    ///     import's synthesized <see cref="ObjectType" /> (<c>GetNamespaceType</c>) has no non-static half to
+    ///     confuse a real instance with - every property on it is static and reached the same way every time.
+    /// </summary>
+    private Type GetTypeAtIndexNative(Node node, NativelyIndexableType indexable, Type indexType, SyntaxKind? dotKind = null, bool isInterfaceNamespaceAccess = false)
     {
         var result = indexable.GetTypeAtIndex(indexType);
         var (bodyType, cannotFindReason) = result;
-        return bodyType != null
-            ? BindType(node, bodyType.ValueType)
-            : ReportCannotUseToIndex(node, indexable, indexType, cannotFindReason);
+        if (bodyType == null)
+            return ReportCannotUseToIndex(node, indexable, indexType, cannotFindReason);
+
+        if (bodyType is ObjectProperty property)
+        {
+            if (indexable is InterfaceType && property.IsStatic != isInterfaceNamespaceAccess)
+            {
+                return property.IsStatic
+                    ? ReportStaticMemberViaInstance(node, indexable, property)
+                    : ReportInstanceMemberViaInterfaceName(node, indexable, property);
+            }
+
+            if (dotKind is SyntaxKind.Dot or SyntaxKind.QuestionDot or SyntaxKind.ColonColon
+                && property.IsStatic != (dotKind == SyntaxKind.ColonColon))
+                return ReportWrongOperatorForMemberKind(node, indexable, property);
+        }
+
+        return BindType(node, bodyType.ValueType);
+    }
+
+    private Type ReportWrongOperatorForMemberKind(Node node, NativelyIndexableType indexable, ObjectProperty property)
+    {
+        var (usedOperator, wantedOperator) = property.IsStatic ? (".", "::") : ("::", ".");
+        _diagnostics.Error(
+            node,
+            InternalCodes.WrongOperatorForMemberKind,
+            $"'{property.Name}' is {(property.IsStatic ? "a static" : "an instance")} member of '{indexable}' - '{usedOperator}' cannot access it.",
+            $"use '{wantedOperator}{property.Name}' instead"
+        );
+
+        return BindType(node, Types.PrimitiveType.Never);
+    }
+
+    private Type ReportInstanceMemberViaInterfaceName(Node node, NativelyIndexableType indexable, ObjectProperty property)
+    {
+        _diagnostics.Error(
+            node,
+            InternalCodes.InstanceMemberViaInterfaceName,
+            $"'{property.Name}' is an instance member of '{indexable}' - '{indexable}' names the interface itself, not a value of it.",
+            $"construct one first, e.g. 'new {indexable} {{ ... }}'"
+        );
+
+        return BindType(node, Types.PrimitiveType.Never);
+    }
+
+    private Type ReportStaticMemberViaInstance(Node node, NativelyIndexableType indexable, ObjectProperty property)
+    {
+        _diagnostics.Error(
+            node,
+            InternalCodes.StaticMemberViaInstance,
+            $"'{property.Name}' is a static member of '{indexable}' - it is not reachable through an instance of '{indexable}'.",
+            $"use '{indexable}::{property.Name}' instead"
+        );
+
+        return BindType(node, Types.PrimitiveType.Never);
     }
 
     private static Type GetObjectValueType(Type type) =>

@@ -11,7 +11,7 @@ public class TypeCheckerTest
     [Fact]
     public void ThrowsFor_MacroReference_InVariableDeclaration()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = Result.ok;");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = BaseResult::ok;");
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.InvalidMacroReference,
@@ -22,7 +22,7 @@ public class TypeCheckerTest
     [Fact]
     public void ThrowsFor_MacroReference_InArrayLiteral()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = [Result.ok];");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = [BaseResult::ok];");
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.InvalidMacroReference,
@@ -56,7 +56,7 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             declare fn consume<T, E>(callback: fn(value: T): Result<T, E>): void;
-            consume(Result.ok);
+            consume(BaseResult::ok);
             """
         );
 
@@ -81,7 +81,7 @@ public class TypeCheckerTest
     public void WarnsFor_ToSetOnAnArrayLiteral()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("[1, 2, 1].to_set();");
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.SimplifiableCode, "Use 'Set.of(...)' instead of '.to_set()' on an array literal.");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.SimplifiableCode, "Use 'Set::of(...)' instead of '.to_set()' on an array literal.");
     }
 
     [Theory]
@@ -779,7 +779,7 @@ public class TypeCheckerTest
                 """
                 enum Flags { A = 1 << 0, B = 1 << 1, C = 1 << 2 }
                 fn accept(flags: Flags): void { }
-                accept(Flags.A | Flags.B)
+                accept(Flags::A | Flags::B)
                 """
             )
         );
@@ -792,7 +792,7 @@ public class TypeCheckerTest
             enum Flags { A = 1, B = 2 }
             enum Other { X = 1, Y = 2 }
             fn accept(flags: Flags): void { }
-            accept(Flags.A | Other.X)
+            accept(Flags::A | Other::X)
             """
         );
 
@@ -1276,10 +1276,10 @@ public class TypeCheckerTest
         const string declaration = "interface Named { a: number, b: string }\ndeclare fn pick<T, K>(key: K): T[K];\n";
 
         Assert.Equal("number", Utility.GetLastStatementType($"{declaration}pick::<Named, \"a\">(\"a\")").ToString());
-        Assert.Equal("ShootGunPacket", Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, Message[\"ShootGun\"]>(Message.ShootGun)").ToString());
+        Assert.Equal("ShootGunPacket", Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, Message[\"ShootGun\"]>(Message::ShootGun)").ToString());
         Assert.Equal(
             "ShootGunPacket | ReloadPacket",
-            Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, keyof(MessageData)>(Message.ShootGun)").ToString()
+            Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, keyof(MessageData)>(Message::ShootGun)").ToString()
         );
     }
 
@@ -1736,6 +1736,391 @@ public class TypeCheckerTest
         );
     }
 
+    private const string Vector2WithStaticCreate = """
+        interface Vector2 {
+            x: number
+            y: number
+            static create: fn(x: number, y: number): Vector2
+        }
+
+        static Vector2 {
+            fn create(x, y) { return new Vector2 { x, y }; }
+        }
+        """;
+
+    [Fact]
+    public void Allows_StaticAccess_WithColonColon() =>
+        Utility.AssertNoErrors(Utility.TypeCheck($"{Vector2WithStaticCreate}\nlet v: Vector2 = Vector2::create(1, 2);"));
+
+    [Fact]
+    public void ThrowsFor_StaticMember_AccessedWithDot()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics($"{Vector2WithStaticCreate}\nlet v: Vector2 = Vector2.create(1, 2);");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.WrongOperatorForMemberKind,
+            "'create' is a static member of 'Vector2' - '.' cannot access it.",
+            "use '::create' instead"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_InstanceMember_AccessedWithColonColon()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 { x: number }
+            let v: Vector2 = new Vector2 { x: 1 };
+            v::x;
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.WrongOperatorForMemberKind,
+            "'x' is an instance member of 'Vector2' - '::' cannot access it.",
+            "use '.x' instead"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_InstanceMember_AccessedThroughInterfaceName()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics($"{Vector2WithStaticCreate}\nlet x = Vector2.x;");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InstanceMemberViaInterfaceName,
+            "'x' is an instance member of 'Vector2' - 'Vector2' names the interface itself, not a value of it.",
+            "construct one first, e.g. 'new Vector2 { ... }'"
+        );
+    }
+
+    [Fact]
+    public void Allows_EnumMemberAccess_WithColonColon() =>
+        Utility.AssertNoErrors(Utility.TypeCheck("enum Status { Active, Inactive }\nlet x: Status = Status::Active;"));
+
+    [Fact]
+    public void ThrowsFor_EnumMember_AccessedWithDot()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("enum Status { Active, Inactive }\nlet x: Status = Status.Active;");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.WrongOperatorForMemberKind,
+            "'Active' is a static member of '{ Active: 0, Inactive: 1 }' - '.' cannot access it.",
+            "use '::Active' instead"
+        );
+    }
+
+    [Fact]
+    public void Allows_StaticAccess_OnGenericInterface() =>
+        Utility.AssertNoErrors(
+            Utility.TypeCheck(
+                """
+                interface Box<T: number = f32> {
+                    x: T
+                    static zero: Box
+                }
+
+                static Box {
+                    zero = new Box { x: 0 };
+                }
+
+                let b = Box::zero;
+                let x = b.x;
+                """
+            )
+        );
+
+    /// <summary>Bug #231-1: a generic static block was entirely unchecked - neither missing nor mistyped members were ever reported.</summary>
+    [Fact]
+    public void ThrowsFor_StaticBlock_MissingMember_OnGenericInterface()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Box<T = number> {
+                value: T
+                static empty: Box
+                static wrap: fn(v: T): Box
+            }
+
+            static Box {
+                fn wrap(v) { return new Box { value: v }; }
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockMissingMember,
+            "Static block for interface 'Box' is missing member 'empty'."
+        );
+    }
+
+    /// <summary>Bug #231-7 (return-type half): a generic static method's body was never checked against its declared signature.</summary>
+    [Fact]
+    public void ThrowsFor_StaticBlockMethod_ReturnTypeMismatch_OnGenericInterface()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Box<T = number> {
+                value: T
+                static wrap: fn(v: T): Box
+            }
+
+            static Box {
+                fn wrap(v) -> "not a Box";
+            }
+            """
+        );
+
+        Assert.Contains(diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.TypeMismatch);
+    }
+
+    /// <summary>Bug #231-2: TypeChecker.Generics.cs's SubstituteObjectType rebuilt every property without forwarding IsStatic, silently demoting statics to instance fields under generic substitution.</summary>
+    [Fact]
+    public void Allows_InterfaceInvocation_OmittingStaticMembers_OnGenericInterface() =>
+        Utility.AssertNoErrors(
+            Utility.TypeCheck(
+                """
+                interface Box<T = number> {
+                    x: T
+                    static make: fn(x: number): Box
+                }
+
+                let b = new Box { x: 1 };
+                """
+            )
+        );
+
+    /// <summary>Bug #231-3: an object-literal field name resolving to a static member corrupted the emitted per-instance table with no diagnostic.</summary>
+    [Fact]
+    public void ThrowsFor_StaticMember_InObjectLiteral()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                x: number
+                y: number
+                static zero: Vector2
+            }
+
+            static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+
+            let v = new Vector2 { x: 1, y: 2, zero: Vector2::zero };
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticMemberInObjectLiteral,
+            "'zero' is a static member of 'Vector2' - it cannot be set on an instance literal."
+        );
+    }
+
+    /// <summary>Bug #231-6: a static member reached through a real instance via '::' resolved cleanly since only the reverse direction (instance member via the interface name) was checked.</summary>
+    [Fact]
+    public void ThrowsFor_StaticMember_AccessedThroughInstance()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                x: number
+                y: number
+                static zero: Vector2
+            }
+
+            static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+
+            let v = new Vector2 { x: 1, y: 2 };
+            let z = v::zero;
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticMemberViaInstance,
+            "'zero' is a static member of 'Vector2' - it is not reachable through an instance of 'Vector2'."
+        );
+    }
+
+    /// <summary>Bug #231-8: bracket access built no dotKind/receiver-kind arguments at all, so it bypassed both the operator-kind and receiver-kind checks entirely.</summary>
+    [Fact]
+    public void ThrowsFor_StaticMember_AccessedThroughInstance_WithBrackets()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                x: number
+                y: number
+                static zero: Vector2
+            }
+
+            static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+
+            let v = new Vector2 { x: 1, y: 2 };
+            let z = v["zero"];
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticMemberViaInstance,
+            "'zero' is a static member of 'Vector2' - it is not reachable through an instance of 'Vector2'."
+        );
+    }
+
+    /// <summary>Bracket access through the interface's own namespace value is still valid - only a real instance is rejected.</summary>
+    [Fact]
+    public void Allows_StaticAccess_WithBrackets_ThroughInterfaceName() =>
+        Utility.AssertNoErrors(
+            Utility.TypeCheck(
+                """
+                interface Vector2 {
+                    x: number
+                    y: number
+                    static zero: Vector2
+                }
+
+                static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+
+                let z = Vector2["zero"];
+                """
+            )
+        );
+
+    /// <summary>Bug #231-9: TypeSimplifier.ResolveIndex, used for an intersection-typed receiver, took no dotKind/receiver-kind parameters at all, so 'A &amp; B' bypassed the check entirely.</summary>
+    [Fact]
+    public void ThrowsFor_StaticMember_AccessedThroughIntersectionInstance()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface A { static shared: number }
+            interface B { static shared: number }
+
+            static A { shared = 1; }
+            static B { shared = 2; }
+
+            fn use_it(v: A & B) {
+                v.shared;
+            }
+            """
+        );
+
+        Assert.Contains(diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.InvalidAccess);
+    }
+
+    /// <summary>
+    ///     Bug #231-1: the Enum migration merged an instance member ('Material: EnumItem&lt;"Material"&gt;')
+    ///     and a static member ('static Material: EnumMaterial') into the same 'declare interface Enum'
+    ///     under the identical name - InterfaceType.EnsureCaches' first-wins TryAdd then permanently shadowed
+    ///     the static half, hard-failing the single most common Roblox enum-access pattern. Enum alone was
+    ///     reverted to the original two-interface (EnumStatic/Enum) shape; every other migrated intrinsic
+    ///     stays on 'static'.
+    /// </summary>
+    [Fact]
+    public void Allows_Enum_InstanceAndStaticAccess() =>
+        Utility.AssertNoErrors(Utility.TypeCheck("let m = Enum.Material.Plastic;"));
+
+    [Fact]
+    public void Allows_InterfaceInvocation_OmittingStaticMembers() =>
+        Utility.AssertNoErrors(
+            Utility.TypeCheck(
+                """
+                interface Vector2 {
+                    x: number
+                    y: number
+                    static zero: Vector2
+                }
+
+                static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+                """
+            )
+        );
+
+    [Fact]
+    public void ThrowsFor_StaticBlockField_TypeMismatch()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                static zero: number
+            }
+
+            static Vector2 { zero = "hello"; }
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"hello\"' is not assignable to type 'number'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_StaticBlock_MissingMember()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                static zero: Vector2
+                static one: Vector2
+                x: number
+                y: number
+            }
+
+            static Vector2 { zero = new Vector2 { x: 0, y: 0 }; }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockMissingMember,
+            "Static block for interface 'Vector2' is missing member 'one'."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_StaticBlock_ExtraMember()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                static zero: Vector2
+                x: number
+                y: number
+            }
+
+            static Vector2 {
+                zero = new Vector2 { x: 0, y: 0 };
+                one = new Vector2 { x: 1, y: 1 };
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockExtraMember,
+            "Interface 'Vector2' does not declare a static member 'one'."
+        );
+    }
+
+    [Fact]
+    public void Allows_NamespaceAccess_WithColonColon() =>
+        Utility.WithTempProject(
+            [
+                ("main.loom", "import * as math from \"./math\"\nlet total: number = math::square(math::pi);\nprint(total);"),
+                ("math.loom", "export let pi: number = 3;\nexport fn square(x: number): number -> x * x;")
+            ],
+            (_, result) => Utility.AssertNoErrors(result)
+        );
+
+    [Fact]
+    public void ThrowsFor_NamespaceAccess_WithDot() =>
+        Utility.WithTempProject(
+            [
+                ("main.loom", "import * as math from \"./math\"\nlet total: number = math.square(math.pi);\nprint(total);"),
+                ("math.loom", "export let pi: number = 3;\nexport fn square(x: number): number -> x * x;")
+            ],
+            (_, result) => Assert.Contains(result.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.WrongOperatorForMemberKind)
+        );
+
     [Fact]
     public void Checks_SelfExpression_IndexerAccess_MatchesTraitReturnType()
     {
@@ -1983,8 +2368,8 @@ public class TypeCheckerTest
     }
 
     [Theory]
-    [InlineData("Message.ShootGun", "ShootGunPacket")]
-    [InlineData("Message.Reload", "ReloadPacket")]
+    [InlineData("Message::ShootGun", "ShootGunPacket")]
+    [InlineData("Message::Reload", "ReloadPacket")]
     public void Checks_Generic_IndexedType_ResolvesEachConstraintsIndexer(string key, string expectedInterface)
     {
         // MessageData is two single-key interfaces merged through inheritance - each key has to resolve
@@ -2597,7 +2982,7 @@ public class TypeCheckerTest
             type U = WithChild<A> | WithChild<B>
 
             let x: U = none as never;
-            if x.child.kind == Kind.A {
+            if x.child.kind == Kind::A {
                 x.child.value
             }
             """;
@@ -2620,7 +3005,7 @@ public class TypeCheckerTest
 
             let xs: (A | B)[] = [];
 
-            if xs[0].kind == Kind.A {
+            if xs[0].kind == Kind::A {
                 xs[0].value
             }
             """;
@@ -2642,7 +3027,7 @@ public class TypeCheckerTest
             interface B { kind: Kind['B'], value: string }
 
             let x: A | B = none as never;
-            if x.kind == Kind.A {
+            if x.kind == Kind::A {
                 x.value
             }
             """;
@@ -3166,7 +3551,7 @@ public class TypeCheckerTest
         const string source = """
             enum Status { Active = 69.420, Inactive }
             fn id<T>(value: T): T -> value
-            let x = id(Status.Inactive)
+            let x = id(Status::Inactive)
             x
             """;
 
@@ -3271,7 +3656,7 @@ public class TypeCheckerTest
                 DoSomethingFailed = "do_something failed to execute"
             }
 
-            let result = Result.ok::<number, MyErrors>(69);
+            let result = BaseResult::ok::<number, MyErrors>(69);
             if {{(ok ? "" : "!")}}result.ok
                 result.{{property}}
             """;
@@ -4033,7 +4418,7 @@ public class TypeCheckerTest
     )]
     [InlineData(
         """
-        let x = Result.ok(69);
+        let x = BaseResult::ok(69);
         while true {
             if !x.ok break;
             x.value;
@@ -4059,7 +4444,7 @@ public class TypeCheckerTest
     )]
     [InlineData(
         """
-        let x = Result.ok(69);
+        let x = BaseResult::ok(69);
         while true {
             if x.ok continue;
             x.error;
@@ -4643,10 +5028,10 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return Result.ok(1); }
+            fn get(): Result<number, string> { return BaseResult::ok(1); }
             fn use_it(): Result<number, string> {
                 let value: number = get()?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """
         );
@@ -4659,11 +5044,11 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return Result.ok(1); }
+            fn get(): Result<number, string> { return BaseResult::ok(1); }
             fn use_it(): Result<number, string> {
                 let result = get();
                 let value: number = result?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """
         );
@@ -4676,11 +5061,11 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return Result.ok(1); }
+            fn get(): Result<number, string> { return BaseResult::ok(1); }
             fn use_it(): Result<number, string> {
                 let result: Result<number, string> = get();
                 let value: number = result?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """
         );
@@ -4695,7 +5080,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return Result.ok(1); }
+            fn get(): Result<number, string> { return BaseResult::ok(1); }
             let result = get();
             let taken: number = result;
             """
@@ -4713,7 +5098,7 @@ public class TypeCheckerTest
             """
             fn use_it(): Result<number, string> {
                 let value = 5?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """
         );
@@ -4730,7 +5115,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return Result.ok(1); }
+            fn get(): Result<number, string> { return BaseResult::ok(1); }
             fn use_it(): number {
                 let value = get()?;
                 return value;
@@ -4751,10 +5136,10 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             interface MyError { message: string }
-            fn get(): Result<number, string> { return Result.ok(1); }
+            fn get(): Result<number, string> { return BaseResult::ok(1); }
             fn use_it(): Result<number, MyError> {
                 let value = get()?;
-                return Result.ok(value);
+                return BaseResult::ok(value);
             }
             """
         );
@@ -4867,8 +5252,8 @@ public class TypeCheckerTest
     {
         const string source = """
             enum Status { Active, Inactive }
-            let x: Status = Status.Active
-            if x == Status.Active { x }
+            let x: Status = Status::Active
+            if x == Status::Active { x }
             """;
 
         var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
@@ -5422,9 +5807,9 @@ public class TypeCheckerTest
             fn find<K, V>(entries: Entry<K, V>[], key: K): Result<V, string> {
                 for entry : entries
                     if entry.key == key
-                        return Result.ok(entry.value);
+                        return BaseResult::ok(entry.value);
 
-                return Result.err("missing key");
+                return BaseResult::err("missing key");
             }
 
             let entries = [
@@ -6014,12 +6399,12 @@ public class TypeCheckerTest
     }
 
     [Theory]
-    [InlineData("CFrame.create()")]
-    [InlineData("CFrame.create(Vector3.create())")]
-    [InlineData("CFrame.create(Vector3.create(), Vector3.create())")]
-    [InlineData("CFrame.create(1, 2, 3)")]
-    [InlineData("CFrame.create(1, 2, 3, 0, 0, 0, 1)")]
-    [InlineData("CFrame.create(1, 2, 3, 1, 0, 0, 0, 1, 0, 0, 0, 1)")]
+    [InlineData("CFrame::create()")]
+    [InlineData("CFrame::create(Vector3::create())")]
+    [InlineData("CFrame::create(Vector3::create(), Vector3::create())")]
+    [InlineData("CFrame::create(1, 2, 3)")]
+    [InlineData("CFrame::create(1, 2, 3, 0, 0, 0, 1)")]
+    [InlineData("CFrame::create(1, 2, 3, 1, 0, 0, 0, 1, 0, 0, 0, 1)")]
     public void Checks_CFrameCreate_ResolvesEachOverloadShape(string source)
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
@@ -6029,7 +6414,7 @@ public class TypeCheckerTest
     [Fact]
     public void ThrowsFor_CFrameCreate_NoOverloadMatches()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("CFrame.create(\"not a number\")");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("CFrame::create(\"not a number\")");
         var diagnostic = diagnostics.Find(d => d.Code == InternalCodes.NoOverloadMatch);
         Assert.NotNull(diagnostic);
     }
@@ -6221,7 +6606,7 @@ public class TypeCheckerTest
     [Fact]
     public void Checks_EnumTypeAnnotation()
     {
-        var type = Utility.GetLastStatementType("enum Status { Active, Inactive } let x: Status = Status.Active");
+        var type = Utility.GetLastStatementType("enum Status { Active, Inactive } let x: Status = Status::Active");
         var union = Assert.IsType<UnionType>(type);
         Assert.Equal(2, union.Types.Count);
         Assert.Equal(0d, Assert.IsType<LiteralType>(union.Types.First()).Value);
@@ -6231,7 +6616,7 @@ public class TypeCheckerTest
     [Fact]
     public void Checks_IndexedEnumTypeAnnotation()
     {
-        var type = Utility.GetLastStatementType("enum Status { Active, Inactive } let x: Status['Active'] = Status.Active");
+        var type = Utility.GetLastStatementType("enum Status { Active, Inactive } let x: Status['Active'] = Status::Active");
         var literal = Assert.IsType<LiteralType>(type);
         Assert.Equal(0d, literal.Value);
     }
@@ -6361,7 +6746,7 @@ public class TypeCheckerTest
     [Fact]
     public void Checks_EnumMemberAccess()
     {
-        var type = Utility.GetLastStatementType("enum Status { Active, Inactive }; Status.Active");
+        var type = Utility.GetLastStatementType("enum Status { Active, Inactive }; Status::Active");
         var literal = Assert.IsType<LiteralType>(type);
         Assert.Equal(0d, literal.Value);
     }
@@ -6369,7 +6754,7 @@ public class TypeCheckerTest
     [Fact]
     public void Checks_EnumMemberAccess_WithExplicitValue()
     {
-        var type = Utility.GetLastStatementType("enum Priority { Low = 10, High = 20 } Priority.High");
+        var type = Utility.GetLastStatementType("enum Priority { Low = 10, High = 20 } Priority::High");
         var literal = Assert.IsType<LiteralType>(type);
         Assert.Equal(20d, literal.Value);
     }
@@ -9164,9 +9549,9 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             enum Direction { North, South, East, West }
-            let d: Direction = Direction.North;
+            let d: Direction = Direction::North;
             match d {
-                Direction.North -> "n",
+                Direction::North -> "n",
                 _ -> "other",
             }
             """
@@ -9181,12 +9566,12 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             enum Direction { North, South, East, West }
-            let d: Direction = Direction.North;
+            let d: Direction = Direction::North;
             match d {
-                Direction.North -> 1,
-                Direction.South -> 2,
-                Direction.East -> 3,
-                Direction.West -> 4,
+                Direction::North -> 1,
+                Direction::South -> 2,
+                Direction::East -> 3,
+                Direction::West -> 4,
             }
             """
         );
@@ -9200,10 +9585,10 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             enum Direction { North, South, East, West }
-            let d: Direction = Direction.North;
+            let d: Direction = Direction::North;
             match d {
-                Direction.North -> 1,
-                Direction.South -> 2,
+                Direction::North -> 1,
+                Direction::South -> 2,
             }
             """
         );
@@ -9222,9 +9607,9 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             enum Direction { North, South }
-            let d: Direction = Direction.North;
+            let d: Direction = Direction::North;
             match d {
-                Direction.NotAMember -> 1,
+                Direction::NotAMember -> 1,
                 _ -> 0,
             }
             """
@@ -9282,7 +9667,7 @@ public class TypeCheckerTest
             """
             enum Direction { North, South }
             match "hello" {
-                Direction.North -> "n",
+                Direction::North -> "n",
                 _ -> "other",
             }
             """
@@ -9844,7 +10229,7 @@ public class TypeCheckerTest
                 enum Level { Low = 1, High = 2 }
                 fn tag(level: Level): void { }
                 interface Account {
-                    [tag(Level.High)]
+                    [tag(Level::High)]
                     balance: number
                 }
                 """
@@ -9875,7 +10260,7 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(
                 """
-                [attribute_usage(AttributeTargets.Property)]
+                [attribute_usage(AttributeTargets::Property)]
                 fn tag(): void { }
                 interface Account {
                     [tag]
@@ -9890,7 +10275,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            [attribute_usage(AttributeTargets.Function)]
+            [attribute_usage(AttributeTargets::Function)]
             fn tag(): void { }
             interface Account {
                 [tag]
@@ -9907,7 +10292,7 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(
                 """
-                [attribute_usage(AttributeTargets.Property | AttributeTargets.Event)]
+                [attribute_usage(AttributeTargets::Property | AttributeTargets::Event)]
                 fn tag(): void { }
                 interface Account {
                     [tag]
@@ -9924,7 +10309,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            [attribute_usage(AttributeTargets.Property)]
+            [attribute_usage(AttributeTargets::Property)]
             interface Account {
                 balance: number
             }
@@ -9939,7 +10324,7 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(
                 """
-                [attribute_usage(AttributeTargets.Function)]
+                [attribute_usage(AttributeTargets::Function)]
                 fn log(f: fn(): void, name: string): void { f(); }
                 [log]
                 fn do_something() { }
@@ -9952,7 +10337,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            [attribute_usage(AttributeTargets.Property)]
+            [attribute_usage(AttributeTargets::Property)]
             fn log(f: fn(): void, name: string): void { f(); }
             [log]
             fn do_something() { }

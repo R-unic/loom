@@ -254,7 +254,7 @@ public class ImportResolverTest
 
     [Fact]
     public void Binds_NamespaceImports_BeforeTheStatementsAboveThem() =>
-        WithImportingModule("print(math.pi);\nimport * as math from \"./math\"", (result, _) => Utility.AssertNoErrors(result));
+        WithImportingModule("print(math::pi);\nimport * as math from \"./math\"", (result, _) => Utility.AssertNoErrors(result));
 
     [Fact]
     public void Reports_ASpecifierThatDiffersOnlyInCase_WithTheModuleItMeant() =>

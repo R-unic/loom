@@ -40,7 +40,7 @@ public class LanguageServerSymbolKindTest
         type Alias = number;
 
         fn main(p: Packet): void {
-            let colour = Colour.Red;
+            let colour = Colour::Red;
             let described = p.describe();
             let aliased: Alias = 1;
             fired += fn(v) { print(v); };

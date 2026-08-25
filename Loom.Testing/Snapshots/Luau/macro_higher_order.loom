@@ -1,1 +1,1 @@
-print(Result.ok);
+print(BaseResult::ok);

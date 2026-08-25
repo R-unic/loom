@@ -21,6 +21,7 @@ ExpressionStatement(
         Dot: Token(Dot, ".")
         Name: Token(Identifier, "field")
         IsOptional: False
+        IsStatic: False
       )
     ]
   )

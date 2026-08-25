@@ -228,7 +228,8 @@ public sealed partial class TypeChecker
         var newProperties = objectType.Properties.ConvertAll(property => new ObjectProperty(
                 property.IsMutable,
                 property.Name,
-                SubstituteTypeParameters(failNode, property.ValueType, substitution)
+                SubstituteTypeParameters(failNode, property.ValueType, substitution),
+                property.IsStatic
             )
         );
 

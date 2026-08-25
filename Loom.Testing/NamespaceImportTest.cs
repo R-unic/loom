@@ -45,7 +45,7 @@ public class NamespaceImportTest
     [Fact]
     public void TypeChecks_MemberAccess_ThroughTheNamespace() =>
         WithImportingModule(
-            "import * as math from \"./math\"\nlet total: number = math.square(math.pi);\nprint(total);",
+            "import * as math from \"./math\"\nlet total: number = math::square(math::pi);\nprint(total);",
             (result, _) => Utility.AssertNoErrors(result)
         );
 
@@ -62,7 +62,7 @@ public class NamespaceImportTest
     [Fact]
     public void Requires_TheModule_UnderTheNamespaceName() =>
         AssertGenerated(
-            "import * as math from \"./math\"\nlet total = math.square(math.pi);\nprint(total);",
+            "import * as math from \"./math\"\nlet total = math::square(math::pi);\nprint(total);",
             """
             const math = require("./math")
             const total = math.square(math.pi)
@@ -73,7 +73,7 @@ public class NamespaceImportTest
     [Fact]
     public void Shares_OneRequire_WithNamedImportsOfTheSameModule() =>
         AssertGenerated(
-            "import * as math from \"./math\"\nimport { square } from \"./math\"\nprint(square(math.pi));",
+            "import * as math from \"./math\"\nimport { square } from \"./math\"\nprint(square(math::pi));",
             """
             const math = require("./math")
             const square = math.square

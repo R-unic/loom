@@ -60,7 +60,7 @@ public class ModuleEventTest
     [Fact]
     public void Reaches_TheStore_ThroughANamespaceImport() =>
         AssertRenderedAgainstBus(
-            "import * as bus from \"./bus\"\nbus.message += bus.handler;\nbus.message -= bus.handler;",
+            "import * as bus from \"./bus\"\nbus::message += bus::handler;\nbus::message -= bus::handler;",
             """
             const Loom = require("@game/ReplicatedStorage/include/loom_runtime")
             const bus = require("./bus")

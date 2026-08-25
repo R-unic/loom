@@ -4,7 +4,7 @@ using NuLua.Luau;
 namespace Loom.Testing;
 
 /// <summary>
-///     <c>match</c> against an enum member by name (<c>Direction.North -> ...</c>) rather than its raw
+///     <c>match</c> against an enum member by name (<c>Direction::North -> ...</c>) rather than its raw
 ///     underlying value. The emitted comparison is executed, not just read: what has to be right is that
 ///     each arm compares against the member's actual declared value, matching declaration order for a
 ///     plain enum and an explicit initializer for one that has it - neither is visible in the text of
@@ -21,18 +21,18 @@ public class EnumMatchPatternTest
 
             fn opposite(d: Direction): Direction {
                 return match d {
-                    Direction.North -> Direction.South,
-                    Direction.South -> Direction.North,
-                    Direction.East -> Direction.West,
-                    Direction.West -> Direction.East,
+                    Direction::North -> Direction::South,
+                    Direction::South -> Direction::North,
+                    Direction::East -> Direction::West,
+                    Direction::West -> Direction::East,
                 };
             }
 
             let results = [
-                opposite(Direction.North),
-                opposite(Direction.South),
-                opposite(Direction.East),
-                opposite(Direction.West),
+                opposite(Direction::North),
+                opposite(Direction::South),
+                opposite(Direction::East),
+                opposite(Direction::West),
             ];
             """,
             """
@@ -51,12 +51,12 @@ public class EnumMatchPatternTest
 
             fn label(s: Status): string {
                 return match s {
-                    Status.Active -> "running",
-                    Status.Inactive -> "stopped",
+                    Status::Active -> "running",
+                    Status::Inactive -> "stopped",
                 };
             }
 
-            let results = [label(Status.Active), label(Status.Inactive)];
+            let results = [label(Status::Active), label(Status::Inactive)];
             """,
             """
             assert(results[1] == "running", "Active should label as running, got " .. results[1])
@@ -73,16 +73,16 @@ public class EnumMatchPatternTest
 
             fn isNorthOrSouth(d: Direction): bool {
                 return match d {
-                    Direction.North -> true,
-                    Direction.South -> true,
+                    Direction::North -> true,
+                    Direction::South -> true,
                     _ -> false,
                 };
             }
 
             let results = [
-                isNorthOrSouth(Direction.North),
-                isNorthOrSouth(Direction.East),
-                isNorthOrSouth(Direction.West),
+                isNorthOrSouth(Direction::North),
+                isNorthOrSouth(Direction::East),
+                isNorthOrSouth(Direction::West),
             ];
             """,
             """
@@ -109,8 +109,8 @@ public class EnumMatchPatternTest
     }
 
     /// <summary>
-    ///     Drops what only the compiler's own output needs — the runtime require and the type aliases,
-    ///     which name types the interpreter has no declarations for — and spells <c>const</c> the way
+    ///     Drops what only the compiler's own output needs â€” the runtime require and the type aliases,
+    ///     which name types the interpreter has no declarations for â€” and spells <c>const</c> the way
     ///     Luau does. Neither has any bearing on how the match runs.
     /// </summary>
     private static string Strip(string emitted) =>

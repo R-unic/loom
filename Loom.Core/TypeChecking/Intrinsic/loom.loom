@@ -90,6 +90,9 @@ declare interface Set<T> {
     difference: fn(other: Set<T>): Set<T>;
     is_subset_of: fn(other: Set<T>): bool;
     to_array: fn(): T[];
+
+    static of: fn<T>(..values: T[]): Set<T>;
+    static empty: fn<T>(): Set<T>;
 }
 
 declare interface MutSet<T> {
@@ -105,20 +108,10 @@ declare interface MutSet<T> {
     difference: fn(other: Set<T>): Set<T>;
     is_subset_of: fn(other: Set<T>): bool;
     to_array: fn(): T[];
-}
 
-declare sealed interface SetStatic {
-    of: fn<T>(..values: T[]): Set<T>;
-    empty: fn<T>(): Set<T>;
+    static of: fn<T>(..values: T[]): MutSet<T>;
+    static empty: fn<T>(): MutSet<T>;
 }
-
-declare sealed interface MutSetStatic {
-    of: fn<T>(..values: T[]): MutSet<T>;
-    empty: fn<T>(): MutSet<T>;
-}
-
-declare let Set: SetStatic;
-declare let MutSet: MutSetStatic;
 
 ### Produces a sequence one element at a time. Implementing this makes a type usable directly in a
 ### 'for' loop: the loop calls 'next' until it answers none, so the iterator carries its own position
@@ -140,7 +133,7 @@ enum CFrameType {
 }
 
 declare fn attribute_usage(targets: AttributeTargets): void;
-[attribute_usage(AttributeTargets.Function)]
+[attribute_usage(AttributeTargets::Function)]
 declare fn metadata_only: void;
 
 type LuauMetamethod = 
@@ -154,32 +147,32 @@ type LuauMetamethod =
     | "__lt"
     | "__le";
 
-[attribute_usage(AttributeTargets.Function | AttributeTargets.Property)]
+[attribute_usage(AttributeTargets::Function | AttributeTargets::Property)]
 declare fn luau_metamethod(name: LuauMetamethod): void;
-[attribute_usage(AttributeTargets.Function | AttributeTargets.Event | AttributeTargets.Property)]
+[attribute_usage(AttributeTargets::Function | AttributeTargets::Event | AttributeTargets::Property)]
 declare fn luau_name(name: string): void;
-[attribute_usage(AttributeTargets.Property)]
+[attribute_usage(AttributeTargets::Property)]
 declare fn luau_method: void;
-[attribute_usage(AttributeTargets.Property)]
+[attribute_usage(AttributeTargets::Property)]
 declare fn override: void;
 
 ### Declares that a function may panic - that it calls unwrap/expect, error(), or another
 ### [fallible] function. Panicking anywhere else is an error, so a signature never hides the
 ### fact that calling it can end the thread. Metadata only: it wraps nothing at runtime.
-[attribute_usage(AttributeTargets.Function), metadata_only]
+[attribute_usage(AttributeTargets::Function), metadata_only]
 declare fn fallible: void;
 
 ### Declares that a call to this method raises rather than returning, and that the compiler should
 ### catch that instead of letting it end the thread: the call is lowered to an xpcall and its result
 ### becomes 'Result<T, RobloxError>'. Generated onto every Roblox API method classified as fallible,
 ### which is why the return type on those is already a Result. Metadata only.
-[attribute_usage(AttributeTargets.Function | AttributeTargets.Property), metadata_only]
+[attribute_usage(AttributeTargets::Function | AttributeTargets::Property), metadata_only]
 declare fn wraps_errors: void;
 
 ### Marks a member whose use should be warned about. Generated onto every API member the Roblox
 ### dump tags Deprecated; 'message' carries a hand-written replacement hint where one is known,
 ### since Roblox's metadata supplies none. Metadata only.
-[attribute_usage(AttributeTargets.Function | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
+[attribute_usage(AttributeTargets::Function | AttributeTargets::Property | AttributeTargets::Event), metadata_only]
 declare fn deprecated(message: string?): void;
 
 ### Declares that this function runs somewhere yielding is not allowed - a metamethod, or a callback
@@ -188,17 +181,17 @@ declare fn deprecated(message: string?): void;
 ### than suspends. Metadata only: it wraps nothing at runtime.
 ### Only on a function: what it forbids is awaiting inside a body, and a property declares a
 ### signature rather than a body, so permitting it there would accept the attribute and enforce nothing.
-[attribute_usage(AttributeTargets.Function), metadata_only]
+[attribute_usage(AttributeTargets::Function), metadata_only]
 declare fn no_yield: void;
 
 ### Narrows which realm may use this declaration, below whatever [realms] says about the directory
 ### it is written in. A shared module still replicates in full - marking a declaration inside one
 ### does not stop its code reaching the client - so this says who may *reach* it, and the guarantee
 ### that server code is never delivered at all remains the directory's to make. Metadata only.
-[attribute_usage(AttributeTargets.Function | AttributeTargets.Interface | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
+[attribute_usage(AttributeTargets::Function | AttributeTargets::Interface | AttributeTargets::Property | AttributeTargets::Event), metadata_only]
 declare fn server: void;
 ### Narrows this declaration to client code. See 'server'. Metadata only.
-[attribute_usage(AttributeTargets.Function | AttributeTargets.Interface | AttributeTargets.Property | AttributeTargets.Event), metadata_only]
+[attribute_usage(AttributeTargets::Function | AttributeTargets::Interface | AttributeTargets::Property | AttributeTargets::Event), metadata_only]
 declare fn client: void;
 
 ## Serialization attributes. See TypeChecker.Serialization.cs for the co-requirement rules
@@ -206,19 +199,19 @@ declare fn client: void;
 ## containing interface to be 'serializable', and 'number_step' requires 'number_range'.
 
 ### Gives the interface a binary wire format, and emits the serializer and deserializer for it.
-[attribute_usage(AttributeTargets.Interface)] declare fn serializable: void;
+[attribute_usage(AttributeTargets::Interface)] declare fn serializable: void;
 ### Packs the interface's booleans into shared bits rather than a byte each. Requires 'serializable'.
-[attribute_usage(AttributeTargets.Interface)] declare fn packed: void;
+[attribute_usage(AttributeTargets::Interface)] declare fn packed: void;
 ### Leaves the property out of the wire format entirely.
-[attribute_usage(AttributeTargets.Property)] declare fn ignore_serialization: void;
+[attribute_usage(AttributeTargets::Property)] declare fn ignore_serialization: void;
 ### Narrows the property to a known range, so it serializes in as few bits as that range needs.
 ### @param min the smallest value the property may hold
 ### @param max the largest value the property may hold
-[attribute_usage(AttributeTargets.Property)] declare fn number_range(min: number, max: number): void;
+[attribute_usage(AttributeTargets::Property)] declare fn number_range(min: number, max: number): void;
 ### Quantizes the property to multiples of 'step' within its range. Requires 'number_range'.
-[attribute_usage(AttributeTargets.Property)] declare fn number_step(step: number): void;
+[attribute_usage(AttributeTargets::Property)] declare fn number_step(step: number): void;
 ### Chooses how the CFrame property is encoded - compressed, or with full precision.
-[attribute_usage(AttributeTargets.Property)] declare fn cframe_type(ty: CFrameType): void;
+[attribute_usage(AttributeTargets::Property)] declare fn cframe_type(ty: CFrameType): void;
 
 ### Parks the calling thread for at least 'seconds', or until the next frame when given none.
 ###

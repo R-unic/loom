@@ -77,7 +77,7 @@ public class ResolverTest
 
     [Fact]
     public void Resolves_AnIntrinsic_ThatNothingShadows() =>
-        Utility.AssertNoErrors(Utility.GetSemanticModel("let v: Vector3 = Vector3.zero;\nprint(v.x);").Diagnostics);
+        Utility.AssertNoErrors(Utility.GetSemanticModel("let v: Vector3 = Vector3::zero;\nprint(v.x);").Diagnostics);
 
     [Fact]
     public void Allows_AModuleDeclaration_ToShadowAnAmbientGlobal() =>
@@ -738,6 +738,41 @@ public class ResolverTest
             )
         );
 
+    /// <summary>
+    ///     Bug #231-5: VisitImplement injected a bare-name variable symbol for every one of the interface's
+    ///     FullProperties, including statics - which have no self-relative meaning inside a trait method
+    ///     body - so a body could reference a static member by its bare name and the generator would emit
+    ///     'self.&lt;name&gt;', always nil at runtime. Filtering statics out of the injection means the bare
+    ///     name is simply undeclared, same as any other name the body never brought into scope.
+    /// </summary>
+    [Fact]
+    public void ThrowsFor_TraitMethodBody_ReferencingStaticMemberByBareName()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+                """
+                interface Vector2 {
+                    x: number
+                    static origin_label: string
+                }
+
+                static Vector2 { origin_label = "origin"; }
+
+                trait Describable {
+                    fn describe(): string
+                }
+
+                implement Describable for Vector2 {
+                    fn describe(): string {
+                        return origin_label;
+                    }
+                }
+                """
+            )
+            .Diagnostics;
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find name 'origin_label'.");
+    }
+
     [Fact]
     public void ThrowsFor_ImplementOutsideModuleScope()
     {
@@ -761,6 +796,158 @@ public class ResolverTest
             "move the 'implement' block out of the enclosing block"
         );
     }
+
+    [Fact]
+    public void Resolves_StaticAndInstanceMembers_IntoCorrectlyFlaggedPropertySymbols()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                interface Vector2 {
+                    x: number
+                    static zero: Vector2
+                }
+                """
+            )
+        );
+
+        var iface = Assert.IsType<InterfaceDeclaration>(model.Tree.Statements[0]);
+        var symbol = Assert.IsType<InterfaceSymbol>(model.GetDeclarationSymbol(iface, SymbolKind.Interface));
+
+        var instanceProperty = Assert.Single(symbol.Properties, p => p.Name == "x");
+        var staticProperty = Assert.Single(symbol.Properties, p => p.Name == "zero");
+
+        Assert.False(instanceProperty.IsStatic);
+        Assert.True(staticProperty.IsStatic);
+    }
+
+    [Fact]
+    public void SynthesizesValueSymbol_ForInterfaceWithStaticMembers()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                interface Vector2 {
+                    static zero: Vector2
+                }
+
+                Vector2
+                """
+            )
+        );
+
+        var statement = Assert.IsType<ExpressionStatement>(model.Tree.Statements[1]);
+        var reference = Assert.IsType<Identifier>(statement.Expression);
+        var symbol = model.GetSymbol(reference);
+
+        Assert.NotNull(symbol);
+        Assert.True(symbol.IsValueSymbol);
+    }
+
+    [Fact]
+    public void SynthesizesValueSymbol_ForDeclaredInterfaceWithStaticMembers()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                declare interface Vector2 {
+                    static zero: Vector2
+                }
+
+                Vector2
+                """
+            )
+        );
+
+        var statement = Assert.IsType<ExpressionStatement>(model.Tree.Statements[1]);
+        var reference = Assert.IsType<Identifier>(statement.Expression);
+        var symbol = model.GetSymbol(reference);
+
+        Assert.NotNull(symbol);
+        Assert.True(symbol.IsValueSymbol);
+    }
+
+    [Fact]
+    public void ThrowsFor_SynthesizedValueSymbol_CollidingWithExplicitLet()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            declare let Vector2: number;
+            declare interface Vector2 {
+                static zero: Vector2
+            }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.DuplicateName, "Variable 'Vector2' is already declared in this scope.");
+    }
+
+    [Fact]
+    public void ThrowsFor_StaticBlockOutsideModuleScope()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            interface Vector2 { static zero: Vector2 }
+
+            fn f() {
+                static Vector2 { zero = new Vector2 { }; }
+            }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockOutsideModuleScope,
+            "Static blocks can only be declared at the top level of a module.",
+            "move the 'static' block out of the enclosing block"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_DuplicateStaticBlock()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            interface Vector2 { static zero: Vector2 }
+
+            static Vector2 { zero = new Vector2 { }; }
+            static Vector2 { zero = new Vector2 { }; }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.DuplicateStaticBlock, "Interface 'Vector2' already has a 'static' block.");
+    }
+
+    [Fact]
+    public void ThrowsFor_StaticBlockOnAmbientInterface()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            declare interface Vector2 { static zero: Vector2 }
+
+            static Vector2 { zero = new Vector2 { }; }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockOnAmbientInterface,
+            "Interface 'Vector2' is ambient, so its static members need no companion block.",
+            "remove the 'static' block - an ambient interface's static signatures are trusted as-is"
+        );
+    }
+
+    [Fact]
+    public void Allows_StaticBlock_OnNonAmbientInterfaceWithStatics() =>
+        Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                interface Vector2 { static zero: Vector2 }
+
+                static Vector2 { zero = new Vector2 { }; }
+                """
+            )
+        );
 
     [Theory]
     [InlineData("deep_equal")]
@@ -2175,7 +2362,7 @@ public class ResolverTest
     [Fact]
     public void Declares_Enum_VariableSymbol()
     {
-        var model = Utility.GetSemanticModel("enum Colors { Red, Green, Blue }; Colors.Red");
+        var model = Utility.GetSemanticModel("enum Colors { Red, Green, Blue }; Colors::Red");
         Utility.AssertNoErrors(model);
 
         var declaration = model.Tree.Statements.First();
@@ -2535,7 +2722,7 @@ public class ResolverTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            let cf = CFrame.create(1, 2, 3);
+            let cf = CFrame::create(1, 2, 3);
             let (x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22) = cf.get_components();
             let (rx, ry, rz) = cf.to_orientation();
             let (axis, angle) = cf.to_axis_angle();
@@ -2551,7 +2738,7 @@ public class ResolverTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            let cf = CFrame.create(1, 2, 3);
+            let cf = CFrame::create(1, 2, 3);
             let (ax, ay, az) = cf.to_euler_angles_xyz();
             let (bx, by, bz) = cf.to_euler_angles_yxz();
             print(ax, ay, az, bx, by, bz);
@@ -2566,12 +2753,12 @@ public class ResolverTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            let cf = CFrame.create(1, 2, 3);
+            let cf = CFrame::create(1, 2, 3);
             print(cf.inverse());
-            print(cf.lerp(CFrame.identity, 0.5));
-            print(cf.to_world_space(CFrame.identity));
-            print(cf.point_to_object_space(Vector3.zero));
-            print(cf.vector_to_world_space(Vector3.one));
+            print(cf.lerp(CFrame::identity, 0.5));
+            print(cf.to_world_space(CFrame::identity));
+            print(cf.point_to_object_space(Vector3::zero));
+            print(cf.vector_to_world_space(Vector3::one));
             """
         );
 
@@ -2581,7 +2768,7 @@ public class ResolverTest
     [Fact]
     public void Resolves_CFrameDecomposition_ToMethodCalls()
     {
-        var luau = Utility.GetLuauAST("let cf = CFrame.create(1, 2, 3); let (rx, ry, rz) = cf.to_orientation();", true).Render();
+        var luau = Utility.GetLuauAST("let cf = CFrame::create(1, 2, 3); let (rx, ry, rz) = cf.to_orientation();", true).Render();
 
         Assert.Contains("CFrame.new(1, 2, 3)", luau);
         Assert.Contains("cf:ToOrientation()", luau);

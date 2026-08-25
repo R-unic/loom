@@ -268,7 +268,7 @@ public sealed partial class Resolver
             null,
             moduleModel.Exports
                 .FindAll(export => export.EmitsRuntimeBinding)
-                .ConvertAll(export => new ObjectProperty(false, export.Name, moduleModel.GetType(export.Symbol.Declaration)))
+                .ConvertAll(export => new ObjectProperty(false, export.Name, moduleModel.GetType(export.Symbol.Declaration), IsStatic: true))
         );
 
     /// <summary>Exports a name the module already declares, without introducing a new binding.</summary>

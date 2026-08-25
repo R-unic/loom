@@ -14,6 +14,7 @@ public sealed class InterfaceSymbol(InterfaceDeclaration declaration, string nam
     public List<TraitSymbol> Implements { get; } = [];
     public IReadOnlyList<Implement> FullImplementations => field ??= [..Implementations, ..GetFieldAndConstraintFields(i => i.Implementations)];
     public List<Implement> Implementations { get; } = [];
+    public List<StaticBlock> StaticBlocks { get; } = [];
 
     /// <summary>Metamethod name (e.g. "__add") to property name, for own properties tagged with [luau_metamethod(...)].</summary>
     public IReadOnlyDictionary<string, string> Metamethods { get; } =

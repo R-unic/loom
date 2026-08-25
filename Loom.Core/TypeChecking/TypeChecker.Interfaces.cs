@@ -60,6 +60,129 @@ public sealed partial class TypeChecker
         return TypeSimplifier.Expanded(new IntersectionType([traitType, interfaceType]));
     }
 
+    public override Type VisitStaticBlock(StaticBlock staticBlock)
+    {
+        var interfaceType = Visit(staticBlock.InterfaceName);
+        // A generic interface's own name, visited as a TypeName, comes back either as the bare GenericType
+        // (no arguments could be filled in) or - whenever every parameter has a default, as is the common
+        // case - as a real InstantiatedType built from those defaults. Either way this needs the interface's
+        // *substituted* property list, not the raw template: a member signature that self-references the
+        // interface (a static 'make' returning 'Box') was already resolved against the default the same way
+        // at declaration time, so comparing a static block body's real, inferred instantiation against that
+        // requires the same substitution here too - the raw template's bare type parameters would otherwise
+        // never structurally match a concrete field the checker just inferred. Expand() is exactly that
+        // substitution, the same one ExpandBareGenericType applies for the sibling member-access problem.
+        interfaceType = interfaceType switch
+        {
+            GenericType genericInterfaceType => ExpandBareGenericType(genericInterfaceType),
+            InstantiatedType instantiatedInterfaceType => instantiatedInterfaceType.Expand(),
+            _ => interfaceType
+        };
+
+        if (interfaceType is not InterfaceType nonGenericInterfaceType)
+            return BindType(staticBlock, PrimitiveType.Never);
+
+        var staticProperties = nonGenericInterfaceType.ObjectType.Properties
+            .Where(property => property.IsStatic)
+            .ToDictionary(property => property.Name);
+
+        var providedNames = new HashSet<string>();
+        foreach (var field in staticBlock.Body.Fields)
+            CheckStaticField(field, nonGenericInterfaceType, staticProperties, providedNames);
+
+        foreach (var method in staticBlock.Body.Methods)
+            CheckStaticMethod(method, nonGenericInterfaceType, staticProperties, providedNames);
+
+        foreach (var missing in staticProperties.Keys.Except(providedNames).Order())
+            _diagnostics.Error(
+                staticBlock.InterfaceName,
+                InternalCodes.StaticBlockMissingMember,
+                $"Static block for interface '{nonGenericInterfaceType.Name}' is missing member '{missing}'."
+            );
+
+        return BindType(staticBlock, nonGenericInterfaceType);
+    }
+
+    private void CheckStaticField(
+        StaticFieldDeclaration field,
+        InterfaceType interfaceType,
+        Dictionary<string, ObjectProperty> staticProperties,
+        HashSet<string> providedNames)
+    {
+        var name = field.Name.Text;
+        providedNames.Add(name);
+
+        if (!staticProperties.TryGetValue(name, out var declared))
+        {
+            _diagnostics.Error(
+                field,
+                InternalCodes.StaticBlockExtraMember,
+                $"Interface '{interfaceType.Name}' does not declare a static member '{name}'."
+            );
+
+            MaybeVisit(field.ColonTypeClause);
+            Visit(field.EqualsValueClause.Value);
+            return;
+        }
+
+        var explicitType = field.ColonTypeClause != null ? Visit(field.ColonTypeClause) : null;
+        if (explicitType != null)
+            _semanticModel.TypeSolver.AddConstraint(explicitType, declared.ValueType, field.ColonTypeClause!.Type);
+
+        var valueType = Check(field.EqualsValueClause.Value, explicitType ?? declared.ValueType);
+        BindType(field, valueType);
+    }
+
+    private void CheckStaticMethod(
+        FunctionDeclaration method,
+        InterfaceType interfaceType,
+        Dictionary<string, ObjectProperty> staticProperties,
+        HashSet<string> providedNames)
+    {
+        var name = method.Name.Text;
+        providedNames.Add(name);
+
+        if (!staticProperties.TryGetValue(name, out var declared) || declared.ValueType is not FunctionType declaredSignature)
+        {
+            _diagnostics.Error(
+                method,
+                InternalCodes.StaticBlockExtraMember,
+                $"Interface '{interfaceType.Name}' does not declare a static member '{name}'."
+            );
+
+            return;
+        }
+
+        BindType(method, declaredSignature);
+        MaybeVisit(method.TypeParameters);
+
+        var parameterCount = Math.Min(declaredSignature.ParameterTypes.Count, method.Parameters?.ParameterList.Count ?? 0);
+        for (var i = 0; i < parameterCount; i++)
+        {
+            var parameter = method.Parameters!.ParameterList[i];
+            var explicitType = MaybeVisit(parameter.ColonTypeClause);
+            var initializerType = MaybeVisit(parameter.EqualsValueClause);
+            var type = declaredSignature.ParameterTypes[i];
+            if (parameter.EqualsValueClause != null)
+                _semanticModel.TypeSolver.AddConstraint(initializerType!, type, parameter.EqualsValueClause.Value);
+
+            if (parameter.EqualsValueClause != null && Type.IsOptional(type))
+                type = type.NonNullable();
+
+            if (explicitType != null)
+                _semanticModel.TypeSolver.AddConstraint(explicitType, type, parameter.ColonTypeClause!.Type);
+
+            BindType(parameter, type);
+        }
+
+        var actualType = GetReturnType(method);
+        _semanticModel.TypeSolver.AddConstraint(actualType, declaredSignature.ReturnType, method.ReturnType?.Type.LocationSpan ?? method.LocationSpan);
+        if (method.ReturnType != null)
+            BindType(method.ReturnType, declaredSignature.ReturnType);
+
+        Visit(method.Body);
+    }
+
     public override Type VisitSelfExpression(SelfExpression selfExpression)
     {
         var implement = selfExpression.FirstAncestorOfType<Implement>();
@@ -87,7 +210,8 @@ public sealed partial class TypeChecker
         {
             TraitMethodNames = traitProperties.ConvertAll(property => property.Name).ToHashSet(),
             Metamethods = nonGenericInterfaceType.Metamethods,
-            IteratedElementType = nonGenericInterfaceType.IteratedElementType
+            IteratedElementType = nonGenericInterfaceType.IteratedElementType,
+            IsIntrinsic = nonGenericInterfaceType.IsIntrinsic
         };
 
         return BindType(selfExpression, selfType);
@@ -151,7 +275,8 @@ public sealed partial class TypeChecker
         var interfaceType = new InterfaceType(name, constraints, objectType)
         {
             Metamethods = CollectMetamethods(interfaceSymbol),
-            IteratedElementType = CollectIteratedElementType(interfaceSymbol)
+            IteratedElementType = CollectIteratedElementType(interfaceSymbol),
+            IsIntrinsic = interfaceSymbol.IsIntrinsic
         };
         Type publishedType = typeParameters == null
             ? interfaceType
@@ -290,7 +415,8 @@ public sealed partial class TypeChecker
         {
             TraitMethodNames = traitMethodNames,
             Metamethods = interfaceType.Metamethods,
-            IteratedElementType = interfaceType.IteratedElementType
+            IteratedElementType = interfaceType.IteratedElementType,
+            IsIntrinsic = interfaceType.IsIntrinsic
         };
 
         return BindType(node, boundType);
@@ -346,7 +472,12 @@ public sealed partial class TypeChecker
         }
 
         var substitutedObject = SubstituteObjectType(node, underlying.ObjectType, substitution);
-        substituted = new InterfaceType(underlying.Name, underlying.Constraints, substitutedObject) { Metamethods = underlying.Metamethods, IteratedElementType = underlying.IteratedElementType };
+        substituted = new InterfaceType(underlying.Name, underlying.Constraints, substitutedObject)
+        {
+            Metamethods = underlying.Metamethods,
+            IteratedElementType = underlying.IteratedElementType,
+            IsIntrinsic = underlying.IsIntrinsic
+        };
         return true;
     }
 
@@ -496,7 +627,7 @@ public sealed partial class TypeChecker
                     );
             }
 
-            properties.Add(new ObjectProperty(isMutable, name, valueType));
+            properties.Add(new ObjectProperty(isMutable, name, valueType, IsStatic: property.IsStatic));
         }
 
         return MergeOverloadedProperties(properties);
@@ -514,7 +645,7 @@ public sealed partial class TypeChecker
                 && TryGetSignatures(merged[index].ValueType, out var existingSignatures))
             {
                 existingSignatures.Add(newSignature);
-                merged[index] = new ObjectProperty(merged[index].IsMutable, property.Name, new IntersectionType([..existingSignatures]));
+                merged[index] = new ObjectProperty(merged[index].IsMutable, property.Name, new IntersectionType([..existingSignatures]), merged[index].IsStatic);
                 continue;
             }
 
@@ -596,7 +727,7 @@ public sealed partial class TypeChecker
         foreach (var property in node.Body.Initializers.SelectMany(initializer => CheckInterfaceInvocationInitializer(interfaceType, initializer)))
             providedProperties.Add(property);
 
-        foreach (var property in objectType.Properties.Where(property => !providedProperties.Contains(property.Name)))
+        foreach (var property in objectType.Properties.Where(property => !property.IsStatic && !providedProperties.Contains(property.Name)))
             _diagnostics.Error(
                 node.Body,
                 InternalCodes.IncompleteInterfaceInvocation,
@@ -650,6 +781,19 @@ public sealed partial class TypeChecker
                 $"Property '{name}' does not exist on interface '{interfaceType.Name}'."
             );
 
+            return null;
+        }
+
+        if (property.IsStatic)
+        {
+            _diagnostics.Error(
+                node,
+                InternalCodes.StaticMemberInObjectLiteral,
+                $"'{name}' is a static member of '{interfaceType.Name}' - it cannot be set on an instance literal.",
+                $"assign it in a 'static {interfaceType.Name} {{ ... }}' block instead"
+            );
+
+            Check(expression, property.ValueType);
             return null;
         }
 

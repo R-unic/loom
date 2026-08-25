@@ -12,12 +12,13 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 /// <summary>
 ///     Lowers the <c>Set</c>/<c>MutSet</c> constructors declared in <c>loom.loom</c>. A set is a plain
-///     table whose keys are its members, so <c>Set.of(1, 2)</c> is a table literal and needs no runtime
+///     table whose keys are its members, so <c>Set::of(1, 2)</c> is a table literal and needs no runtime
 ///     support - the same trade the <c>Result</c> constructors make.
 /// </summary>
 internal sealed class SetStaticMacroProvider : IMacroProvider
 {
-    public bool Supports(SemanticModel _, Type type) => type is InterfaceType { Name: "SetStatic" or "MutSetStatic" };
+    public bool Supports(SemanticModel _, Type type) =>
+        type is InterfaceType { Name: "Set" or "MutSet", IsIntrinsic: true } or GenericType { UnderlyingType: InterfaceType { Name: "Set" or "MutSet", IsIntrinsic: true } };
     public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) => memberName is "of" or "empty";

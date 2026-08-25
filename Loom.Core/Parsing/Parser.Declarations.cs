@@ -112,20 +112,22 @@ public sealed partial class Parser
             Statement? member;
             if (token.Kind != SyntaxKind.LBracket)
             {
+                var staticKeyword = Match(out var stk, SyntaxKind.StaticKeyword) ? stk : null;
                 var mutKeyword = Match(out var kw, SyntaxKind.MutKeyword) ? kw : null;
-                member = ParseInterfaceMember(mutKeyword);
+                member = ParseInterfaceMember(staticKeyword, mutKeyword);
             }
             else if (LooksLikeIndexer())
             {
-                member = ParseInterfaceMember(null);
+                member = ParseInterfaceMember(null, null);
             }
             else
             {
                 Advance();
                 var attributes = ParseAttributes(token);
-                member = Match(out var eventKeyword, SyntaxKind.EventKeyword)
+                var staticKeyword = Match(out var stk, SyntaxKind.StaticKeyword) ? stk : null;
+                member = staticKeyword == null && Match(out var eventKeyword, SyntaxKind.EventKeyword)
                     ? ParseEventDeclaration(eventKeyword, attributes)
-                    : ParsePropertyDeclaration(Match(out var mutKeyword, SyntaxKind.MutKeyword) ? mutKeyword : null, attributes);
+                    : ParsePropertyDeclaration(staticKeyword, Match(out var mutKeyword, SyntaxKind.MutKeyword) ? mutKeyword : null, attributes);
             }
 
             if (member != null)
@@ -138,15 +140,15 @@ public sealed partial class Parser
         return members;
     }
 
-    private Statement? ParseInterfaceMember(Token? mutKeyword)
+    private Statement? ParseInterfaceMember(Token? staticKeyword, Token? mutKeyword)
     {
         if (Match(out var leftBracket, SyntaxKind.LBracket))
             return ParseIndexerDeclaration(mutKeyword, leftBracket);
 
-        if (mutKeyword == null && Match(out var keyword, SyntaxKind.EventKeyword))
+        if (staticKeyword == null && mutKeyword == null && Match(out var keyword, SyntaxKind.EventKeyword))
             return ParseEventDeclaration(keyword, null);
 
-        return ParsePropertyDeclaration(mutKeyword, null);
+        return ParsePropertyDeclaration(staticKeyword, mutKeyword, null);
     }
 
     private Statement? ParseIndexerDeclaration(Token? mutKeyword, Token leftBracket)
@@ -173,11 +175,11 @@ public sealed partial class Parser
             : new MappedTypeDeclaration(mutKeyword, leftBracket, rightBracket, name, fromKeyword, sourceType, colonTypeClause);
     }
 
-    private PropertyDeclaration? ParsePropertyDeclaration(Token? mutKeyword, Attributes? attributes)
+    private PropertyDeclaration? ParsePropertyDeclaration(Token? staticKeyword, Token? mutKeyword, Attributes? attributes)
     {
         var name = ExpectIdentifier("property name");
         var propertyType = ExpectInterfaceMemberColonTypeClause($"Expected indexer type, got {SafeTokenText(Current())}.");
-        return propertyType == null ? null : new PropertyDeclaration(mutKeyword, name, propertyType, attributes);
+        return propertyType == null ? null : new PropertyDeclaration(staticKeyword, mutKeyword, name, propertyType, attributes);
     }
 
     private Attributes ParseAttributes(Token leftBracket)
