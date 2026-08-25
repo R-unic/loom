@@ -244,14 +244,23 @@ public static class TypeSimplifier
         return new IntersectionType(types);
     }
 
+    // Both callers hand this an already-deduplicated list (RemoveDuplicates runs first in both
+    // SimplifyUnion and SimplifyIntersection), so no two distinct indices can be structurally equal -
+    // excluding t1 from its own comparison by index rather than by Equals is exactly the same exclusion
+    // without paying for a structural comparison (thread-static cycle guard included) on every pair. This
+    // still uses the same Equals-based RemoveDuplicates above, so the invariant holds.
     private static List<Type> ApplyAbsorption(List<Type> types, bool isUnion)
     {
-        var result = new List<Type>();
-        foreach (var t1 in types)
+        var result = new List<Type>(types.Count);
+        for (var i = 0; i < types.Count; i++)
         {
+            var t1 = types[i];
             var isAbsorbed = false;
-            foreach (var t2 in types.Where(t2 => !t1.Equals(t2)))
+            for (var j = 0; j < types.Count; j++)
             {
+                if (i == j) continue;
+
+                var t2 = types[j];
                 if (isUnion)
                 {
                     if (!IsSubsetOf(t1, t2)) continue;
@@ -295,6 +304,11 @@ public static class TypeSimplifier
             }
         };
 
+    // Not HashSet-based: TypeParameter.GetHashCode includes Name while TypeParameter.Equals is
+    // deliberately name-blind (see its doc comment), so two differently-named, otherwise-identical type
+    // parameters are Equal but hash unequal - a HashSet would treat them as distinct and stop
+    // deduplicating them. Fixing that inconsistency is a correctness change belonging to its own commit,
+    // not folded silently into a performance pass, so this keeps the pairwise Equals scan.
     private static List<Type> RemoveDuplicates(List<Type> types, bool isUnion) =>
         types
             .Aggregate(
