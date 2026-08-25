@@ -1,7 +1,7 @@
 using Loom.Core.TypeChecking.Types;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Solving;
 
 /// <summary>
 ///     Measures a type against a <see cref="ConditionalArm" />'s pattern, binding whatever the pattern's

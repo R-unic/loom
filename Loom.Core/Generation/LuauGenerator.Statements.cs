@@ -17,6 +17,8 @@ using Identifier = Loom.Core.Parsing.AST.Identifier;
 using Return = Loom.Core.Parsing.AST.Return;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
 using TupleType = Loom.Core.TypeChecking.Types.TupleType;
+using Loom.Core.TypeChecking.Solving;
+using Loom.Core.TypeChecking.Intrinsic;
 
 namespace Loom.Core.Generation;
 

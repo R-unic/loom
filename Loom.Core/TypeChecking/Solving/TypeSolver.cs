@@ -14,7 +14,7 @@ using ConditionalType = Loom.Core.TypeChecking.Types.ConditionalType;
 using TupleType = Loom.Core.TypeChecking.Types.TupleType;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Solving;
 
 public sealed class TypeSolver(DiagnosticBag diagnostics)
 {
@@ -145,7 +145,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
     ///     Every node this solver has actually bound a type to - never a node merely asked about, which
     ///     <see cref="GetType" /> would otherwise answer with a freshly minted, permanently unconstrained
     ///     <see cref="TypeVariable" />. Read-only and reflects live state, so a caller taking a snapshot
-    ///     (<see cref="Intrinsics.CollectNodeBindings" />, sharing an intrinsic file's bindings with every
+    ///     (<see cref="Intrinsic.Intrinsics.CollectNodeBindings" />, sharing an intrinsic file's bindings with every
     ///     other file) must copy it before this solver keeps running.
     /// </summary>
     internal IReadOnlyDictionary<NodeId, Type> BoundTypes => _nodeTypes;

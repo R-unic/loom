@@ -1,3 +1,5 @@
+using Loom.Core.TypeChecking.Solving;
+
 namespace Loom.Core.TypeChecking.Types;
 
 public sealed class TupleType(List<Type> elementTypes) : NativelyIndexableType

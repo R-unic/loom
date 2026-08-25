@@ -7,6 +7,7 @@ using TypeMatch = Loom.Core.Parsing.AST.TypeMatch;
 using TypePredicateType = Loom.Core.Parsing.AST.TypePredicateType;
 using WildcardType = Loom.Core.Parsing.AST.WildcardType;
 using LoomType = Loom.Core.TypeChecking.Types.Type;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Testing;
 

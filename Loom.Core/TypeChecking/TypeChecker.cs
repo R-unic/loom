@@ -5,12 +5,14 @@ using Loom.Core.Generation.Macros;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;
+using Loom.Core.TypeChecking.Solving;
 using Loom.Core.TypeChecking.Types;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
 
 namespace Loom.Core.TypeChecking;
 
 using Type = Types.Type;
+using Loom.Core.TypeChecking.Intrinsic;
 
 /// <summary>
 ///     Fifth stage of the compiler pipeline (Lexer -&gt; Parser -&gt; Resolver -&gt; FlowAnalyzer -&gt; TypeChecker

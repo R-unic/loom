@@ -7,6 +7,7 @@ using LiteralType = Loom.Core.TypeChecking.Types.LiteralType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.TypeChecking;
 

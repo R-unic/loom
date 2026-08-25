@@ -18,7 +18,7 @@ public sealed record ConditionalArm(Type Pattern, Type Result, IReadOnlyList<Typ
 ///     <para>
 ///         Deferred the same way <see cref="KeyOfType" /> and <see cref="IndexedType" /> are - what a
 ///         parameter stands for is known only once the generic is instantiated, and substitution is where
-///         <see cref="ConditionalTypeEvaluator" /> answers it. Answering at the declaration would make
+///         <see cref="Solving.ConditionalTypeEvaluator" /> answers it. Answering at the declaration would make
 ///         every conditional written over its own parameter wrong before it was ever used.
 ///     </para>
 ///     <para>

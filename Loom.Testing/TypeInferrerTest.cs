@@ -16,6 +16,7 @@ using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 namespace Loom.Testing;
 
 using TypeParameterSubstitution = Dictionary<TypeParameter, Type>;
+using Loom.Core.TypeChecking.Solving;
 
 [Collection("Assembly")]
 public class TypeInferrerTest

@@ -1,3 +1,5 @@
+using Loom.Core.TypeChecking.Solving;
+
 namespace Loom.Core.TypeChecking.Types;
 
 public class UnionType(List<Type> types) : Type

@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Diagnostics;
-using Loom.Core.FlowAnalysis;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking.Types;
@@ -10,6 +9,7 @@ using LiteralType = Loom.Core.TypeChecking.Types.LiteralType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using TypePredicateType = Loom.Core.Parsing.AST.TypePredicateType;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.TypeChecking;
 
@@ -58,129 +58,6 @@ public sealed partial class TypeChecker
         }
 
         return TypeSimplifier.Expanded(new IntersectionType([traitType, interfaceType]));
-    }
-
-    public override Type VisitStaticBlock(StaticBlock staticBlock)
-    {
-        var interfaceType = Visit(staticBlock.InterfaceName);
-        // A generic interface's own name, visited as a TypeName, comes back either as the bare GenericType
-        // (no arguments could be filled in) or - whenever every parameter has a default, as is the common
-        // case - as a real InstantiatedType built from those defaults. Either way this needs the interface's
-        // *substituted* property list, not the raw template: a member signature that self-references the
-        // interface (a static 'make' returning 'Box') was already resolved against the default the same way
-        // at declaration time, so comparing a static block body's real, inferred instantiation against that
-        // requires the same substitution here too - the raw template's bare type parameters would otherwise
-        // never structurally match a concrete field the checker just inferred. Expand() is exactly that
-        // substitution, the same one ExpandBareGenericType applies for the sibling member-access problem.
-        interfaceType = interfaceType switch
-        {
-            GenericType genericInterfaceType => ExpandBareGenericType(genericInterfaceType),
-            InstantiatedType instantiatedInterfaceType => instantiatedInterfaceType.Expand(),
-            _ => interfaceType
-        };
-
-        if (interfaceType is not InterfaceType nonGenericInterfaceType)
-            return BindType(staticBlock, PrimitiveType.Never);
-
-        var staticProperties = nonGenericInterfaceType.ObjectType.Properties
-            .Where(property => property.IsStatic)
-            .ToDictionary(property => property.Name);
-
-        var providedNames = new HashSet<string>();
-        foreach (var field in staticBlock.Body.Fields)
-            CheckStaticField(field, nonGenericInterfaceType, staticProperties, providedNames);
-
-        foreach (var method in staticBlock.Body.Methods)
-            CheckStaticMethod(method, nonGenericInterfaceType, staticProperties, providedNames);
-
-        foreach (var missing in staticProperties.Keys.Except(providedNames).Order())
-            _diagnostics.Error(
-                staticBlock.InterfaceName,
-                InternalCodes.StaticBlockMissingMember,
-                $"Static block for interface '{nonGenericInterfaceType.Name}' is missing member '{missing}'."
-            );
-
-        return BindType(staticBlock, nonGenericInterfaceType);
-    }
-
-    private void CheckStaticField(
-        StaticFieldDeclaration field,
-        InterfaceType interfaceType,
-        Dictionary<string, ObjectProperty> staticProperties,
-        HashSet<string> providedNames)
-    {
-        var name = field.Name.Text;
-        providedNames.Add(name);
-
-        if (!staticProperties.TryGetValue(name, out var declared))
-        {
-            _diagnostics.Error(
-                field,
-                InternalCodes.StaticBlockExtraMember,
-                $"Interface '{interfaceType.Name}' does not declare a static member '{name}'."
-            );
-
-            MaybeVisit(field.ColonTypeClause);
-            Visit(field.EqualsValueClause.Value);
-            return;
-        }
-
-        var explicitType = field.ColonTypeClause != null ? Visit(field.ColonTypeClause) : null;
-        if (explicitType != null)
-            _semanticModel.TypeSolver.AddConstraint(explicitType, declared.ValueType, field.ColonTypeClause!.Type);
-
-        var valueType = Check(field.EqualsValueClause.Value, explicitType ?? declared.ValueType);
-        BindType(field, valueType);
-    }
-
-    private void CheckStaticMethod(
-        FunctionDeclaration method,
-        InterfaceType interfaceType,
-        Dictionary<string, ObjectProperty> staticProperties,
-        HashSet<string> providedNames)
-    {
-        var name = method.Name.Text;
-        providedNames.Add(name);
-
-        if (!staticProperties.TryGetValue(name, out var declared) || declared.ValueType is not FunctionType declaredSignature)
-        {
-            _diagnostics.Error(
-                method,
-                InternalCodes.StaticBlockExtraMember,
-                $"Interface '{interfaceType.Name}' does not declare a static member '{name}'."
-            );
-
-            return;
-        }
-
-        BindType(method, declaredSignature);
-        MaybeVisit(method.TypeParameters);
-
-        var parameterCount = Math.Min(declaredSignature.ParameterTypes.Count, method.Parameters?.ParameterList.Count ?? 0);
-        for (var i = 0; i < parameterCount; i++)
-        {
-            var parameter = method.Parameters!.ParameterList[i];
-            var explicitType = MaybeVisit(parameter.ColonTypeClause);
-            var initializerType = MaybeVisit(parameter.EqualsValueClause);
-            var type = declaredSignature.ParameterTypes[i];
-            if (parameter.EqualsValueClause != null)
-                _semanticModel.TypeSolver.AddConstraint(initializerType!, type, parameter.EqualsValueClause.Value);
-
-            if (parameter.EqualsValueClause != null && Type.IsOptional(type))
-                type = type.NonNullable();
-
-            if (explicitType != null)
-                _semanticModel.TypeSolver.AddConstraint(explicitType, type, parameter.ColonTypeClause!.Type);
-
-            BindType(parameter, type);
-        }
-
-        var actualType = GetReturnType(method);
-        _semanticModel.TypeSolver.AddConstraint(actualType, declaredSignature.ReturnType, method.ReturnType?.Type.LocationSpan ?? method.LocationSpan);
-        if (method.ReturnType != null)
-            BindType(method.ReturnType, declaredSignature.ReturnType);
-
-        Visit(method.Body);
     }
 
     public override Type VisitSelfExpression(SelfExpression selfExpression)
@@ -311,55 +188,6 @@ public sealed partial class TypeChecker
         return BindType(interfaceDeclaration, publishedType);
     }
 
-    public override Type VisitInterfaceInvocation(InterfaceInvocation interfaceInvocation) =>
-        CheckOrVisitInterfaceInvocation(interfaceInvocation, null);
-
-    private Type CheckInterfaceInvocation(InterfaceInvocation interfaceInvocation, Type expected, FlowState state)
-    {
-        var lastState = _flowState;
-        _flowState = state;
-        var result = CheckOrVisitInterfaceInvocation(interfaceInvocation, expected);
-        _flowState = lastState;
-
-        return result;
-    }
-
-    private Type CheckOrVisitInterfaceInvocation(InterfaceInvocation interfaceInvocation, Type? expected)
-    {
-        var type = Visit(interfaceInvocation.Name);
-        if (type.Equals(IntrinsicTypes.Range))
-            _diagnostics.Warn(interfaceInvocation, InternalCodes.SimplifiableCode, "Use a range literal.");
-
-        var traitProperties = new List<ObjectProperty>();
-        if (_semanticModel.GetSymbol(interfaceInvocation.Name, SymbolKind.Interface) is InterfaceSymbol interfaceSymbol)
-            traitProperties.AddRange(CollectEffectiveTraitProperties(interfaceSymbol.Implementations));
-
-        if (type is InterfaceType nonGeneric)
-        {
-            var boundType = BindInterfaceInvocation(interfaceInvocation, nonGeneric, traitProperties);
-
-            // A non-generic invocation has nothing to infer from 'expected', but 'new X { ... }' used
-            // where a different, structurally incompatible type is expected still needs to be flagged -
-            // deferred to TypeSolver rather than reported directly, same as every other Check case, so
-            // it composes with whatever else is still being inferred around it.
-            if (expected != null && !boundType.IsAssignableTo(expected))
-                _semanticModel.TypeSolver.AddConstraint(boundType, expected, interfaceInvocation);
-
-            return boundType;
-        }
-
-        if (type is not GenericType { UnderlyingType: InterfaceType underlying } generic)
-        {
-            _diagnostics.Error(interfaceInvocation, InternalCodes.InvalidInvocation, $"Type '{type}' is not an interface.");
-            return BindType(interfaceInvocation, PrimitiveType.Never);
-        }
-
-        if (!TrySubstituteGenericInterface(interfaceInvocation, generic, underlying, expected, out var interfaceType))
-            return BindType(interfaceInvocation, PrimitiveType.Never);
-
-        return BindInterfaceInvocation(interfaceInvocation, interfaceType, traitProperties);
-    }
-
     /// <summary>
     ///     Every trait method reachable through <paramref name="implementations" />: an explicit override
     ///     wins, and a trait method neither this interface nor its constraints ever overrode falls back to
@@ -402,85 +230,12 @@ public sealed partial class TypeChecker
         return effective.Values.ToList();
     }
 
-    private InterfaceType BindInterfaceInvocation(InterfaceInvocation node, InterfaceType interfaceType, List<ObjectProperty> traitProperties)
-    {
-        CheckInterfaceInvocationInitializers(node, interfaceType);
-
-        // A fresh ObjectType/InterfaceType is built here rather than mutating interfaceType.ObjectType in place,
-        // since interfaceType is the shared instance cached for the interface declaration; mutating it would leak
-        // trait methods into the structural property list for every other construction site of the same interface.
-        var traitMethodNames = traitProperties.Select(p => p.Name).ToHashSet();
-        var objectType = new ObjectType(interfaceType.ObjectType.Indexer, [..interfaceType.ObjectType.Properties, ..traitProperties]);
-        var boundType = new InterfaceType(interfaceType.Name, interfaceType.Constraints, objectType)
-        {
-            TraitMethodNames = traitMethodNames,
-            Metamethods = interfaceType.Metamethods,
-            IteratedElementType = interfaceType.IteratedElementType,
-            IsIntrinsic = interfaceType.IsIntrinsic
-        };
-
-        return BindType(node, boundType);
-    }
-
     /// <summary>
     ///     Non-destructive struct update: every field the '{ ... }' block lists is checked against the left
     ///     operand's own type the same way a <c>new X { ... }</c> initializer is, but a field it leaves out is
     ///     never an error here - it just keeps the left operand's value at generation time, so completeness
     ///     never applies to 'with' the way it does to construction.
     /// </summary>
-    public override Type VisitWithOperator(WithOperator withOperator)
-    {
-        var expressionType = Visit(withOperator.Expression);
-        if (expressionType is not InterfaceType interfaceType)
-        {
-            if (Type.IsNotNever(expressionType))
-                _diagnostics.Error(
-                    withOperator.Expression,
-                    InternalCodes.InvalidWithOperand,
-                    $"'with' requires an interface value, got '{expressionType}'."
-                );
-
-            return BindType(withOperator, PrimitiveType.Never);
-        }
-
-        foreach (var initializer in withOperator.Body.Initializers)
-            CheckInterfaceInvocationInitializer(interfaceType, initializer);
-
-        return BindType(withOperator, expressionType);
-    }
-
-    private bool TrySubstituteGenericInterface(
-        InterfaceInvocation node,
-        GenericType generic,
-        InterfaceType underlying,
-        Type? expected,
-        [MaybeNullWhen(false)] out InterfaceType substituted)
-    {
-        substituted = null;
-        var substitution = node.TypeArguments != null
-            ? ResolveExplicitInterfaceTypeArguments(node, generic)
-            : _inferrer.InferInterfaceTypeArguments(node, generic, underlying, expected);
-
-        if (substitution == null)
-            return false;
-
-        foreach (var tp in generic.Parameters)
-        {
-            if (tp.Constraint == null || !substitution.TryGetValue(tp, out var arg)) continue;
-            if (!CheckTypeParameterConstraints(node, arg, tp))
-                return false;
-        }
-
-        var substitutedObject = SubstituteObjectType(node, underlying.ObjectType, substitution);
-        substituted = new InterfaceType(underlying.Name, underlying.Constraints, substitutedObject)
-        {
-            Metamethods = underlying.Metamethods,
-            IteratedElementType = underlying.IteratedElementType,
-            IsIntrinsic = underlying.IsIntrinsic
-        };
-        return true;
-    }
-
     private static readonly HashSet<string> _supportedMetamethods = ["__add", "__sub", "__mul", "__div", "__idiv", "__mod", "__pow"];
 
     private List<ObjectProperty> ResolveTraitProperties(List<DeclareFunctionSignature> signatures)
@@ -718,104 +473,5 @@ public sealed partial class TypeChecker
 
         _diagnostics.Error(indexerDeclaration, InternalCodes.ConstraintIndexerOverride, $"An indexer is already declared within constraint '{subclass}'.");
         return null;
-    }
-
-    private void CheckInterfaceInvocationInitializers(InterfaceInvocation node, InterfaceType interfaceType)
-    {
-        var objectType = interfaceType.ObjectType;
-        var providedProperties = new HashSet<string>();
-        foreach (var property in node.Body.Initializers.SelectMany(initializer => CheckInterfaceInvocationInitializer(interfaceType, initializer)))
-            providedProperties.Add(property);
-
-        foreach (var property in objectType.Properties.Where(property => !property.IsStatic && !providedProperties.Contains(property.Name)))
-            _diagnostics.Error(
-                node.Body,
-                InternalCodes.IncompleteInterfaceInvocation,
-                $"Missing property initializer for '{property.Name}' in interface '{interfaceType.Name}'."
-            );
-    }
-
-    private HashSet<string> CheckInterfaceInvocationInitializer(InterfaceType interfaceType, InterfaceInvocationInitializer initializer)
-    {
-        var providedProperties = new HashSet<string>();
-        switch (initializer)
-        {
-            case PropertyInitializer propertyInitializer:
-            {
-                var propertyName = CheckPropertyInitializer(propertyInitializer, propertyInitializer.Name.Text, propertyInitializer.Expression, interfaceType);
-                if (propertyName != null)
-                    providedProperties.Add(propertyName);
-
-                break;
-            }
-            case ShorthandPropertyInitializer shorthandPropertyInitializer:
-                var shorthandPropertyName = CheckPropertyInitializer(
-                    shorthandPropertyInitializer,
-                    shorthandPropertyInitializer.Identifier.Name.Text,
-                    shorthandPropertyInitializer.Identifier,
-                    interfaceType
-                );
-
-                if (shorthandPropertyName != null)
-                    providedProperties.Add(shorthandPropertyName);
-
-                break;
-            case IndexInitializer indexInitializer:
-            {
-                CheckIndexInitializer(indexInitializer, interfaceType);
-                break;
-            }
-        }
-
-        return providedProperties;
-    }
-
-    private string? CheckPropertyInitializer(Node node, string name, Expression expression, InterfaceType interfaceType)
-    {
-        var property = interfaceType.GetProperty(name);
-        if (property == null)
-        {
-            _diagnostics.Error(
-                node,
-                InternalCodes.InvalidAccess,
-                $"Property '{name}' does not exist on interface '{interfaceType.Name}'."
-            );
-
-            return null;
-        }
-
-        if (property.IsStatic)
-        {
-            _diagnostics.Error(
-                node,
-                InternalCodes.StaticMemberInObjectLiteral,
-                $"'{name}' is a static member of '{interfaceType.Name}' - it cannot be set on an instance literal.",
-                $"assign it in a 'static {interfaceType.Name} {{ ... }}' block instead"
-            );
-
-            Check(expression, property.ValueType);
-            return null;
-        }
-
-        Check(expression, property.ValueType);
-        return name;
-    }
-
-    private void CheckIndexInitializer(IndexInitializer initializer, InterfaceType interfaceType)
-    {
-        var indexer = interfaceType.Indexer;
-        if (indexer == null)
-        {
-            _diagnostics.Error(
-                initializer,
-                InternalCodes.InvalidAccess,
-                $"Interface '{interfaceType.Name}' does not have an indexer."
-            );
-
-            return;
-        }
-
-        Check(initializer.IndexExpression, indexer.KeyType);
-        Check(initializer.Expression, indexer.ValueType);
     }
 }

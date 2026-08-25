@@ -3,6 +3,7 @@ using Loom.Config;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking;
+using Loom.Core.TypeChecking.Intrinsic;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Core.Resolving;
@@ -31,7 +32,7 @@ internal sealed class AmbientIntrinsics
     /// <summary>Which symbols each intrinsic declaration node declares, for <see cref="SemanticModel" /> to fall back to.</summary>
     public SymbolTable Declarations { get; } = [];
 
-    /// <summary>The type of each intrinsic declaration node, for <see cref="TypeChecking.TypeSolver" /> to fall back to.</summary>
+    /// <summary>The type of each intrinsic declaration node, for <see cref="TypeChecking.Solving.TypeSolver" /> to fall back to.</summary>
     public Dictionary<NodeId, Type> Types { get; } = [];
 
     /// <summary>

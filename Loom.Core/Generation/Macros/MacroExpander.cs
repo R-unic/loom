@@ -13,6 +13,7 @@ using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
 using OptionalType = Loom.Core.TypeChecking.Types.OptionalType;
 using Return = Loom.Luau.AST.Return;
 using Parameter = Loom.Luau.AST.Parameter;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.Generation.Macros;
 

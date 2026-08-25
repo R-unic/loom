@@ -11,6 +11,7 @@ using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using PropertyAccess = Loom.Luau.AST.PropertyAccess;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using UnaryOperator = Loom.Luau.AST.UnaryOperator;
+using Loom.Core.TypeChecking.Intrinsic;
 
 namespace Loom.Core.Generation.Macros.Providers;
 

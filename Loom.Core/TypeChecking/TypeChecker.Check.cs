@@ -2,6 +2,7 @@ using Loom.Core.Diagnostics;
 using Loom.Core.FlowAnalysis;
 using Loom.Core.Parsing.AST;
 using Loom.Core.TypeChecking.Serialization;
+using Loom.Core.TypeChecking.Solving;
 using Loom.Core.Text;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;

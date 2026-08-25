@@ -6,7 +6,7 @@ using TraitDeclaration = Loom.Core.Parsing.AST.TraitDeclaration;
 using TypeAlias = Loom.Core.Parsing.AST.TypeAlias;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Solving;
 
 public static class TypeSimplifier
 {

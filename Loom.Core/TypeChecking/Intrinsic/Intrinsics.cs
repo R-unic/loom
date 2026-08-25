@@ -10,7 +10,7 @@ using IWithAttributes = Loom.Core.Parsing.AST.IWithAttributes;
 using NodeId = Loom.Core.Parsing.AST.NodeId;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Intrinsic;
 
 public static class Intrinsics
 {
@@ -105,7 +105,7 @@ public static class Intrinsics
     ///     walked this node - tries to read it back out.
     /// </summary>
     /// <remarks>
-    ///     Merges each file's own <see cref="SemanticModel.References" />/<see cref="TypeSolver.BoundTypes" />
+    ///     Merges each file's own <see cref="SemanticModel.References" />/<see cref="Solving.TypeSolver.BoundTypes" />
     ///     wholesale rather than re-deriving them node by node: a node can carry more than one recorded
     ///     symbol (an interface-invocation name resolves both a value and a type symbol on the same node),
     ///     which a single <c>GetSymbol(node)</c> call would collapse to the first; and re-querying

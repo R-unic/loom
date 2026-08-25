@@ -5,6 +5,7 @@ using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Serialization;
+using Loom.Core.TypeChecking.Solving;
 using Loom.Core.TypeChecking.Types;
 using LiteralType = Loom.Core.TypeChecking.Types.LiteralType;
 using Type = Loom.Core.TypeChecking.Types.Type;

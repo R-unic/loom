@@ -6,7 +6,7 @@ using OptionalType = Loom.Core.TypeChecking.Types.OptionalType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Solving;
 
 /// <summary>
 ///     Infers each type parameter's variance from how it's used within a generic declaration's body.
