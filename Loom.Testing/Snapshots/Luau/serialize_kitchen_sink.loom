@@ -24,7 +24,7 @@ interface KitchenSink {
     points: Vector3<i16>[];
     payload: Ping | Chat;
     owner: Part;
-    [cframe_type(CFrameType.Precise)]
+    [cframe_type(CFrameType::Precise)]
     frame: CFrame<f32>;
 }
 

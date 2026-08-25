@@ -480,8 +480,8 @@ public class TypeNarrowerTest
     {
         const string source = """
             enum Status { Active, Inactive }
-            let x: Status = Status.Active;
-            if x == Status.Active { }
+            let x: Status = Status::Active;
+            if x == Status::Active { }
             """;
 
         var (model, condition) = GetCondition(source);

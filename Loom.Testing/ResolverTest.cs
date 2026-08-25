@@ -2362,7 +2362,7 @@ public class ResolverTest
     [Fact]
     public void Declares_Enum_VariableSymbol()
     {
-        var model = Utility.GetSemanticModel("enum Colors { Red, Green, Blue }; Colors.Red");
+        var model = Utility.GetSemanticModel("enum Colors { Red, Green, Blue }; Colors::Red");
         Utility.AssertNoErrors(model);
 
         var declaration = model.Tree.Statements.First();

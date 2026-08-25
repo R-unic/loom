@@ -2560,7 +2560,7 @@ public class LuauGeneratorTest
     [Fact]
     public void Generates_EnumAccess_AsLiteralValue()
     {
-        var luauTree = Utility.GetLuauAST("enum Abc { A, B, C }; let x = Abc.A", true);
+        var luauTree = Utility.GetLuauAST("enum Abc { A, B, C }; let x = Abc::A", true);
         Assert.Equal(2, luauTree.Statements.Count);
 
         var typeAlias = Assert.IsType<TypeAlias>(luauTree.Statements[0]);
@@ -2622,7 +2622,7 @@ public class LuauGeneratorTest
     [Fact]
     public void Generates_EnumInVariableTypeAnnotation()
     {
-        var luauTree = Utility.GetLuauAST("enum Status { Active, Inactive }; let x: Status = Status.Active", true);
+        var luauTree = Utility.GetLuauAST("enum Status { Active, Inactive }; let x: Status = Status::Active", true);
         Assert.Equal(2, luauTree.Statements.Count);
 
         var typeAlias = Assert.IsType<TypeAlias>(luauTree.Statements[0]);
@@ -5858,7 +5858,7 @@ public class LuauGeneratorTest
             enum Level { Low = 1, High = 2 }
             fn tag(level: Level): void { }
             interface Account {
-                [tag(Level.High)]
+                [tag(Level::High)]
                 balance: number
             }
             let meta = get_metadata::<Account>("balance", tag);
@@ -5921,7 +5921,7 @@ public class LuauGeneratorTest
             """
             enum Level { Low = 1, High = 2 }
             fn tag(level: Level): void { }
-            [tag(Level.High)]
+            [tag(Level::High)]
             interface Account { balance: number }
             let meta = get_metadata::<Account>(none, tag);
             """,

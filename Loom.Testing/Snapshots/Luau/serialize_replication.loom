@@ -31,7 +31,7 @@ interface PlayerSnapshot {
     alive: bool;
     team: Team;
     velocity: Vector3<i16>;
-    [cframe_type(CFrameType.Compressed)]
+    [cframe_type(CFrameType::Compressed)]
     aim: CFrame<f32>;
     loadout: Loadout;
     recent: (Damaged | Respawned)[];

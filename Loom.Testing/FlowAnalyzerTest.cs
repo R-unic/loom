@@ -152,7 +152,7 @@ public class FlowAnalyzerTest
         x;
         """
     )]
-    [InlineData("enum Colors { Red, Green, Blue }; Colors.Red;")]
+    [InlineData("enum Colors { Red, Green, Blue }; Colors::Red;")]
     [InlineData("mut x: number; if x = 69 { x += 1; }")]
     [InlineData("mut x: number; if x = 69 { }; x += 1;")]
     [InlineData(

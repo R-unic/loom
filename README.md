@@ -824,9 +824,9 @@ Enums are named compile-time constants.
 
 ```rs
 enum Abc { A, B = 69, C }
-let a = Abc.A;
-let b = Abc.B;
-let c = Abc.C;
+let a = Abc::A;
+let b = Abc::B;
+let c = Abc::C;
 ```
 
 ```luau
@@ -845,7 +845,7 @@ enum Tag: string {
     Lava = "lava",
     Something = "something"
 }
-let tag = Tag.Lava
+let tag = Tag::Lava
 ```
 
 ```luau
@@ -1999,7 +1999,7 @@ end
 On an interface, a property, or an interface-nested event, a decorator is purely passive metadata — it never runs, never wraps anything, and costs nothing at runtime. Its arguments must be compile-time constants, and nothing is emitted for it anywhere except at an actual query. `get_metadata` resolves entirely at compile time, folding straight to the matched attribute's arguments (or `none` if it isn't present); `has_attribute` folds the same way to a plain `true`/`false`.
 
 ```rs
-[attribute_usage(AttributeTargets.Property)]
+[attribute_usage(AttributeTargets::Property)]
 fn replicated(): void {}
 
 interface Player {
@@ -2032,7 +2032,7 @@ enum AttributeTargets {
     Event = 1 << 3,
 }
 
-[attribute_usage(AttributeTargets.Property | AttributeTargets.Event)]
+[attribute_usage(AttributeTargets::Property | AttributeTargets::Event)]
 fn replicated(): void {}
 ```
 

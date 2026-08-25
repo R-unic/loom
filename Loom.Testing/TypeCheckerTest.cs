@@ -762,7 +762,7 @@ public class TypeCheckerTest
                 """
                 enum Flags { A = 1 << 0, B = 1 << 1, C = 1 << 2 }
                 fn accept(flags: Flags): void { }
-                accept(Flags.A | Flags.B)
+                accept(Flags::A | Flags::B)
                 """
             )
         );
@@ -775,7 +775,7 @@ public class TypeCheckerTest
             enum Flags { A = 1, B = 2 }
             enum Other { X = 1, Y = 2 }
             fn accept(flags: Flags): void { }
-            accept(Flags.A | Other.X)
+            accept(Flags::A | Other::X)
             """
         );
 
@@ -1259,10 +1259,10 @@ public class TypeCheckerTest
         const string declaration = "interface Named { a: number, b: string }\ndeclare fn pick<T, K>(key: K): T[K];\n";
 
         Assert.Equal("number", Utility.GetLastStatementType($"{declaration}pick::<Named, \"a\">(\"a\")").ToString());
-        Assert.Equal("ShootGunPacket", Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, Message[\"ShootGun\"]>(Message.ShootGun)").ToString());
+        Assert.Equal("ShootGunPacket", Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, Message[\"ShootGun\"]>(Message::ShootGun)").ToString());
         Assert.Equal(
             "ShootGunPacket | ReloadPacket",
-            Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, keyof(MessageData)>(Message.ShootGun)").ToString()
+            Utility.GetLastStatementType($"{MergedMapping}{declaration}pick::<MessageData, keyof(MessageData)>(Message::ShootGun)").ToString()
         );
     }
 
@@ -1775,6 +1775,22 @@ public class TypeCheckerTest
             InternalCodes.InstanceMemberViaInterfaceName,
             "'x' is an instance member of 'Vector2' - 'Vector2' names the interface itself, not a value of it.",
             "construct one first, e.g. 'new Vector2 { ... }'"
+        );
+    }
+
+    [Fact]
+    public void Allows_EnumMemberAccess_WithColonColon() =>
+        Utility.AssertNoErrors(Utility.TypeCheck("enum Status { Active, Inactive }\nlet x: Status = Status::Active;"));
+
+    [Fact]
+    public void ThrowsFor_EnumMember_AccessedWithDot()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("enum Status { Active, Inactive }\nlet x: Status = Status.Active;");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.WrongOperatorForMemberKind,
+            "'Active' is a static member of '{ Active: 0, Inactive: 1 }' - '.' cannot access it.",
+            "use '::Active' instead"
         );
     }
 
@@ -2335,8 +2351,8 @@ public class TypeCheckerTest
     }
 
     [Theory]
-    [InlineData("Message.ShootGun", "ShootGunPacket")]
-    [InlineData("Message.Reload", "ReloadPacket")]
+    [InlineData("Message::ShootGun", "ShootGunPacket")]
+    [InlineData("Message::Reload", "ReloadPacket")]
     public void Checks_Generic_IndexedType_ResolvesEachConstraintsIndexer(string key, string expectedInterface)
     {
         // MessageData is two single-key interfaces merged through inheritance - each key has to resolve
@@ -2949,7 +2965,7 @@ public class TypeCheckerTest
             type U = WithChild<A> | WithChild<B>
 
             let x: U = none as never;
-            if x.child.kind == Kind.A {
+            if x.child.kind == Kind::A {
                 x.child.value
             }
             """;
@@ -2972,7 +2988,7 @@ public class TypeCheckerTest
 
             let xs: (A | B)[] = [];
 
-            if xs[0].kind == Kind.A {
+            if xs[0].kind == Kind::A {
                 xs[0].value
             }
             """;
@@ -2994,7 +3010,7 @@ public class TypeCheckerTest
             interface B { kind: Kind['B'], value: string }
 
             let x: A | B = none as never;
-            if x.kind == Kind.A {
+            if x.kind == Kind::A {
                 x.value
             }
             """;
@@ -3518,7 +3534,7 @@ public class TypeCheckerTest
         const string source = """
             enum Status { Active = 69.420, Inactive }
             fn id<T>(value: T): T -> value
-            let x = id(Status.Inactive)
+            let x = id(Status::Inactive)
             x
             """;
 
@@ -5219,8 +5235,8 @@ public class TypeCheckerTest
     {
         const string source = """
             enum Status { Active, Inactive }
-            let x: Status = Status.Active
-            if x == Status.Active { x }
+            let x: Status = Status::Active
+            if x == Status::Active { x }
             """;
 
         var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
@@ -6573,7 +6589,7 @@ public class TypeCheckerTest
     [Fact]
     public void Checks_EnumTypeAnnotation()
     {
-        var type = Utility.GetLastStatementType("enum Status { Active, Inactive } let x: Status = Status.Active");
+        var type = Utility.GetLastStatementType("enum Status { Active, Inactive } let x: Status = Status::Active");
         var union = Assert.IsType<UnionType>(type);
         Assert.Equal(2, union.Types.Count);
         Assert.Equal(0d, Assert.IsType<LiteralType>(union.Types.First()).Value);
@@ -6583,7 +6599,7 @@ public class TypeCheckerTest
     [Fact]
     public void Checks_IndexedEnumTypeAnnotation()
     {
-        var type = Utility.GetLastStatementType("enum Status { Active, Inactive } let x: Status['Active'] = Status.Active");
+        var type = Utility.GetLastStatementType("enum Status { Active, Inactive } let x: Status['Active'] = Status::Active");
         var literal = Assert.IsType<LiteralType>(type);
         Assert.Equal(0d, literal.Value);
     }
@@ -6713,7 +6729,7 @@ public class TypeCheckerTest
     [Fact]
     public void Checks_EnumMemberAccess()
     {
-        var type = Utility.GetLastStatementType("enum Status { Active, Inactive }; Status.Active");
+        var type = Utility.GetLastStatementType("enum Status { Active, Inactive }; Status::Active");
         var literal = Assert.IsType<LiteralType>(type);
         Assert.Equal(0d, literal.Value);
     }
@@ -6721,7 +6737,7 @@ public class TypeCheckerTest
     [Fact]
     public void Checks_EnumMemberAccess_WithExplicitValue()
     {
-        var type = Utility.GetLastStatementType("enum Priority { Low = 10, High = 20 } Priority.High");
+        var type = Utility.GetLastStatementType("enum Priority { Low = 10, High = 20 } Priority::High");
         var literal = Assert.IsType<LiteralType>(type);
         Assert.Equal(20d, literal.Value);
     }
@@ -9462,9 +9478,9 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             enum Direction { North, South, East, West }
-            let d: Direction = Direction.North;
+            let d: Direction = Direction::North;
             match d {
-                Direction.North -> "n",
+                Direction::North -> "n",
                 _ -> "other",
             }
             """
@@ -9479,12 +9495,12 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             enum Direction { North, South, East, West }
-            let d: Direction = Direction.North;
+            let d: Direction = Direction::North;
             match d {
-                Direction.North -> 1,
-                Direction.South -> 2,
-                Direction.East -> 3,
-                Direction.West -> 4,
+                Direction::North -> 1,
+                Direction::South -> 2,
+                Direction::East -> 3,
+                Direction::West -> 4,
             }
             """
         );
@@ -9498,10 +9514,10 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             enum Direction { North, South, East, West }
-            let d: Direction = Direction.North;
+            let d: Direction = Direction::North;
             match d {
-                Direction.North -> 1,
-                Direction.South -> 2,
+                Direction::North -> 1,
+                Direction::South -> 2,
             }
             """
         );
@@ -9520,9 +9536,9 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             enum Direction { North, South }
-            let d: Direction = Direction.North;
+            let d: Direction = Direction::North;
             match d {
-                Direction.NotAMember -> 1,
+                Direction::NotAMember -> 1,
                 _ -> 0,
             }
             """
@@ -9580,7 +9596,7 @@ public class TypeCheckerTest
             """
             enum Direction { North, South }
             match "hello" {
-                Direction.North -> "n",
+                Direction::North -> "n",
                 _ -> "other",
             }
             """
@@ -10142,7 +10158,7 @@ public class TypeCheckerTest
                 enum Level { Low = 1, High = 2 }
                 fn tag(level: Level): void { }
                 interface Account {
-                    [tag(Level.High)]
+                    [tag(Level::High)]
                     balance: number
                 }
                 """
@@ -10173,7 +10189,7 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(
                 """
-                [attribute_usage(AttributeTargets.Property)]
+                [attribute_usage(AttributeTargets::Property)]
                 fn tag(): void { }
                 interface Account {
                     [tag]
@@ -10188,7 +10204,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            [attribute_usage(AttributeTargets.Function)]
+            [attribute_usage(AttributeTargets::Function)]
             fn tag(): void { }
             interface Account {
                 [tag]
@@ -10205,7 +10221,7 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(
                 """
-                [attribute_usage(AttributeTargets.Property | AttributeTargets.Event)]
+                [attribute_usage(AttributeTargets::Property | AttributeTargets::Event)]
                 fn tag(): void { }
                 interface Account {
                     [tag]
@@ -10222,7 +10238,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            [attribute_usage(AttributeTargets.Property)]
+            [attribute_usage(AttributeTargets::Property)]
             interface Account {
                 balance: number
             }
@@ -10237,7 +10253,7 @@ public class TypeCheckerTest
         Utility.AssertNoErrors(
             Utility.GetTypeCheckerDiagnostics(
                 """
-                [attribute_usage(AttributeTargets.Function)]
+                [attribute_usage(AttributeTargets::Function)]
                 fn log(f: fn(): void, name: string): void { f(); }
                 [log]
                 fn do_something() { }
@@ -10250,7 +10266,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            [attribute_usage(AttributeTargets.Property)]
+            [attribute_usage(AttributeTargets::Property)]
             fn log(f: fn(): void, name: string): void { f(); }
             [log]
             fn do_something() { }
