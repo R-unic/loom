@@ -127,7 +127,7 @@ public class ResultCombinatorTest
     {
         var rendered = Render("""
             fn recover(message: string): Result<number, string> {
-                return Result.ok(0);
+                return BaseResult::ok(0);
             }
 
             let recovered = fetch().or_else(recover);

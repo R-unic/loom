@@ -60,7 +60,7 @@ public class SetIntrinsicTest
     [Fact]
     public void ImmutableSetHasNoClear()
     {
-        var diagnostics = Utility.GetAnalysisDiagnostics("Set.of(1).clear();");
+        var diagnostics = Utility.GetAnalysisDiagnostics("Set::of(1).clear();");
         Assert.Contains(diagnostics.Set, d => d.Severity == DiagnosticSeverity.Error);
     }
 

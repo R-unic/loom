@@ -81,7 +81,7 @@ public class TypeCheckerTest
     public void WarnsFor_ToSetOnAnArrayLiteral()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("[1, 2, 1].to_set();");
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.SimplifiableCode, "Use 'Set.of(...)' instead of '.to_set()' on an array literal.");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.SimplifiableCode, "Use 'Set::of(...)' instead of '.to_set()' on an array literal.");
     }
 
     [Theory]

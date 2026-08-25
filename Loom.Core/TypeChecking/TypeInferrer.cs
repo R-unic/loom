@@ -112,7 +112,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
     ///     element of a homogeneous run rather than a value in its own right.
     ///     <para>
     ///         That is the same shape as an array literal, whose elements the checker widens one by one, so
-    ///         the type parameter is inferred from the widened argument: <c>Set.of(1)</c> is a
+    ///         the type parameter is inferred from the widened argument: <c>Set::of(1)</c> is a
     ///         <c>Set&lt;number&gt;</c>, matching <c>mut [1]</c> being a <c>number[mut]</c>. Left narrow, a
     ///         one-element set was unusable - nothing else could be added to a <c>MutSet&lt;1&gt;</c>.
     ///     </para>

@@ -68,7 +68,7 @@ public sealed partial class TypeChecker
     }
 
     /// <summary>
-    ///     <c>Set.of(...)</c> folds straight to a table literal at compile time; <c>.to_set()</c> on
+    ///     <c>Set::of(...)</c> folds straight to a table literal at compile time; <c>.to_set()</c> on
     ///     anything else has to build the array first and then walk it in a runtime loop
     ///     (<c>ArrayMacroProvider.GenerateToSet</c>). The two are only equivalent when the receiver
     ///     really is an array literal - a variable or a call result still needs the loop.
@@ -79,7 +79,7 @@ public sealed partial class TypeChecker
             return;
 
         if (receiver is ArrayLiteral { Expressions: var elements } && elements.TrueForAll(element => element is not SpreadElement))
-            _diagnostics.Warn(invocation, InternalCodes.SimplifiableCode, "Use 'Set.of(...)' instead of '.to_set()' on an array literal.");
+            _diagnostics.Warn(invocation, InternalCodes.SimplifiableCode, "Use 'Set::of(...)' instead of '.to_set()' on an array literal.");
     }
 
     private static bool IsOptionalChainAccess(Expression expression) =>

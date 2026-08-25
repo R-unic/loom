@@ -37,7 +37,7 @@ public class ResultCombinatorRuntimeTest
         }
 
         fn recovered(message: string): Result<number, string> {
-            return Result.ok(9);
+            return BaseResult::ok(9);
         }
 
 
@@ -107,7 +107,7 @@ public class ResultCombinatorRuntimeTest
             }
 
             fn ok(n: number): Result<number, string> {
-                return Result.ok(n);
+                return BaseResult::ok(n);
             }
 
             let outcome = ok(21).map_err(boom);
@@ -122,11 +122,11 @@ public class ResultCombinatorRuntimeTest
         const string source = """
             fn boom(message: string): Result<number, string> {
                 error("fallback ran");
-                return Result.ok(0);
+                return BaseResult::ok(0);
             }
 
             fn ok(n: number): Result<number, string> {
-                return Result.ok(n);
+                return BaseResult::ok(n);
             }
 
             let outcome = ok(21).or_else(boom);
