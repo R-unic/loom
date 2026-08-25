@@ -311,10 +311,10 @@ public sealed partial class TypeChecker
         return BindType(parameter, declaredType ?? initializerType ?? Types.PrimitiveType.Unknown);
     }
 
-    private static bool IsArrayType(Type type) => (type is InstantiatedType instantiated ? instantiated.Expand() : type) is Types.ArrayType;
+    private static bool IsArrayType(Type type) => TypeSimplifier.Expanded(type) is Types.ArrayType;
 
     private static bool IsTupleRestType(Type type) =>
-        (type is InstantiatedType instantiated ? instantiated.Expand() : type) switch
+        TypeSimplifier.Expanded(type) switch
         {
             Types.TupleType => true,
             Types.TypeParameter { Constraint: TupleMarkerType } => true,

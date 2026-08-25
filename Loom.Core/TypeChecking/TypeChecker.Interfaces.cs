@@ -109,19 +109,43 @@ public sealed partial class TypeChecker
         var typeParameters = traitDeclaration.TypeParameters?.ParameterList.ConvertAll(VisitTypeParameter);
         var objectType = new ObjectType(null, []);
         var interfaceType = new InterfaceType(name, [], objectType);
+
+        return PublishGenericOrInterface(
+            traitDeclaration,
+            typeParameters,
+            interfaceType,
+            () => objectType.AddProperties(ResolveTraitProperties(traitDeclaration.Body.Members))
+        );
+    }
+
+    /// <summary>
+    ///     Wraps <paramref name="interfaceType" /> in a <see cref="GenericType" /> when
+    ///     <paramref name="typeParameters" /> is non-null, binds that to <paramref name="declaration" />,
+    ///     runs <paramref name="populateMembers" /> - which fills in <paramref name="interfaceType" />'s
+    ///     members, indexer, etc., reading back the bound type where a member's own signature
+    ///     self-references the declaration - and finally applies <see cref="VarianceInferrer" /> if generic
+    ///     before binding and returning the finished type. Binding before <paramref name="populateMembers" />
+    ///     runs (rather than once, after) is what lets a member self-reference the interface/trait it
+    ///     belongs to while its own body is still being resolved.
+    /// </summary>
+    private Type PublishGenericOrInterface(
+        GenericNamedDeclaration declaration,
+        List<Types.TypeParameter>? typeParameters,
+        InterfaceType interfaceType,
+        Action populateMembers)
+    {
         Type publishedType = typeParameters == null
             ? interfaceType
-            : new GenericType(traitDeclaration, typeParameters, interfaceType);
+            : new GenericType(declaration, typeParameters, interfaceType);
 
-        BindType(traitDeclaration, publishedType);
+        BindType(declaration, publishedType);
 
-        var properties = ResolveTraitProperties(traitDeclaration.Body.Members);
-        objectType.AddProperties(properties);
+        populateMembers();
 
         if (publishedType is GenericType generic)
             publishedType = VarianceInferrer.ApplyInferredVariance(generic);
 
-        return BindType(traitDeclaration, publishedType);
+        return BindType(declaration, publishedType);
     }
 
     public override Type VisitInterfaceDeclaration(InterfaceDeclaration interfaceDeclaration)
@@ -164,37 +188,29 @@ public sealed partial class TypeChecker
             IteratedElementType = CollectIteratedElementType(interfaceSymbol),
             IsIntrinsic = interfaceSymbol.IsIntrinsic
         };
-        Type publishedType = typeParameters == null
-            ? interfaceType
-            : new GenericType(interfaceDeclaration, typeParameters, interfaceType);
+        return PublishGenericOrInterface(interfaceDeclaration, typeParameters, interfaceType, () =>
+        {
+            var indexerDeclaration = interfaceDeclaration.Body?.Members.OfType<IndexerDeclaration>().FirstOrDefault();
+            var indexer = ResolveInterfaceIndexer(constraints, indexerDeclaration);
+            objectType.Indexer = indexer;
 
-        BindType(interfaceDeclaration, publishedType);
+            var eventDeclarations = interfaceDeclaration.Body?.Members.OfType<EventDeclaration>().ToList() ?? [];
+            var propertyDeclarations = interfaceDeclaration.Body?.Members.OfType<PropertyDeclaration>().ToList() ?? [];
+            var events = ResolveInterfaceEvents(eventDeclarations);
+            var properties = ResolveInterfaceProperties(constraints, propertyDeclarations);
+            objectType.AddProperties(events);
+            objectType.AddProperties(properties);
 
-        var indexerDeclaration = interfaceDeclaration.Body?.Members.OfType<IndexerDeclaration>().FirstOrDefault();
-        var indexer = ResolveInterfaceIndexer(constraints, indexerDeclaration);
-        objectType.Indexer = indexer;
+            if (interfaceDeclaration.Attributes != null)
+                foreach (var attribute in interfaceDeclaration.Attributes.AttributeList)
+                {
+                    CheckPassiveDecorator(attribute);
+                    CheckAttributeUsage(attribute, AttributeTargetsFlag.Interface);
+                }
 
-        var eventDeclarations = interfaceDeclaration.Body?.Members.OfType<EventDeclaration>().ToList() ?? [];
-        var propertyDeclarations = interfaceDeclaration.Body?.Members.OfType<PropertyDeclaration>().ToList() ?? [];
-        var events = ResolveInterfaceEvents(eventDeclarations);
-        var properties = ResolveInterfaceProperties(constraints, propertyDeclarations);
-        objectType.AddProperties(events);
-        objectType.AddProperties(properties);
-
-        if (interfaceDeclaration.Attributes != null)
-            foreach (var attribute in interfaceDeclaration.Attributes.AttributeList)
-            {
-                CheckPassiveDecorator(attribute);
-                CheckAttributeUsage(attribute, AttributeTargetsFlag.Interface);
-            }
-
-        if (_resolvingHoisted.Count == 0)
-            _interfaceDeclarations.Add(interfaceDeclaration);
-
-        if (publishedType is GenericType generic)
-            publishedType = VarianceInferrer.ApplyInferredVariance(generic);
-
-        return BindType(interfaceDeclaration, publishedType);
+            if (_resolvingHoisted.Count == 0)
+                _interfaceDeclarations.Add(interfaceDeclaration);
+        });
     }
 
     /// <summary>
