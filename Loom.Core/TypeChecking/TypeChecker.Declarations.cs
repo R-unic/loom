@@ -224,21 +224,29 @@ public sealed partial class TypeChecker
     {
         foreach (var field in target.Fields)
         {
-            var propertyType = TypeSimplifier.GetMemberPropertyType(subjectType, field.Name.Text);
-            if (propertyType == null)
-            {
-                if (Type.IsNotUnknown(subjectType) && Type.IsNotNever(subjectType))
-                    _diagnostics.Error(
-                        field,
-                        InternalCodes.UnknownDestructureProperty,
-                        $"Property '{field.Name.Text}' does not exist on type '{subjectType}'."
-                    );
-
-                propertyType = Types.PrimitiveType.Unknown;
-            }
-
+            var propertyType = ResolveDestructuredPropertyType(field, subjectType, field.Name.Text, InternalCodes.UnknownDestructureProperty);
             BindType(field, propertyType);
         }
+    }
+
+    /// <summary>
+    ///     A field named by an object pattern or an object destructuring target, looked up against
+    ///     <paramref name="subjectType" /> and falling back to <see cref="PrimitiveType.Unknown" /> - with a
+    ///     diagnostic under <paramref name="code" /> - when it names no property there. <paramref name="code" />
+    ///     is the one thing the two callers disagree about: a pattern match reports
+    ///     <see cref="InternalCodes.InvalidAccess" />, a destructuring target
+    ///     <see cref="InternalCodes.UnknownDestructureProperty" />.
+    /// </summary>
+    private Type ResolveDestructuredPropertyType(Node node, Type subjectType, string name, string code)
+    {
+        var propertyType = TypeSimplifier.GetMemberPropertyType(subjectType, name);
+        if (propertyType != null)
+            return propertyType;
+
+        if (Type.IsNotUnknown(subjectType) && Type.IsNotNever(subjectType))
+            _diagnostics.Error(node, code, $"Property '{name}' does not exist on type '{subjectType}'.");
+
+        return Types.PrimitiveType.Unknown;
     }
 
     /// <remarks>

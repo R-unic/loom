@@ -322,19 +322,7 @@ public sealed partial class TypeChecker
 
     private void CheckObjectPatternField(ObjectPatternField field, Type inputType)
     {
-        var propertyType = TypeSimplifier.GetMemberPropertyType(inputType, field.Name.Text);
-        if (propertyType == null)
-        {
-            if (Type.IsNotUnknown(inputType) && Type.IsNotNever(inputType))
-                _diagnostics.Error(
-                    field,
-                    InternalCodes.InvalidAccess,
-                    $"Property '{field.Name.Text}' does not exist on type '{inputType}'."
-                );
-
-            propertyType = PrimitiveType.Unknown;
-        }
-
+        var propertyType = ResolveDestructuredPropertyType(field, inputType, field.Name.Text, InternalCodes.InvalidAccess);
         CheckPattern(field.Pattern, propertyType);
     }
 

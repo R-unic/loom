@@ -181,16 +181,7 @@ public sealed partial class TypeChecker
         switch (binaryOperator.Operator.Kind)
         {
             case SyntaxKind.QuestionQuestion or SyntaxKind.QuestionQuestionEquals:
-            {
-                if (!Type.IsOptional(leftType))
-                    _diagnostics.Warn(
-                        binaryOperator,
-                        InternalCodes.RedundantCode,
-                        $"Null coalescing has no effect since '{leftType}' is not optional."
-                    );
-
-                return BindType(binaryOperator, TypeSimplifier.Simplify(new Types.UnionType([leftType, rightType]).NonNullable()));
-            }
+                return BindType(binaryOperator, ResolveNullCoalesceType(binaryOperator, leftType, rightType));
         }
 
         var suggestion = BinaryOperatorBinder.GetSuggestion(binaryOperator, leftType, rightType);

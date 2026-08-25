@@ -246,9 +246,21 @@ public sealed partial class TypeChecker
         var leftType = Visit(nullCoalesce.Left, state);
         var rightType = Check(nullCoalesce.Right, expected, state);
 
-        if (!Type.IsOptional(leftType))
-            _diagnostics.Warn(nullCoalesce, InternalCodes.RedundantCode, $"Null coalescing has no effect since '{leftType}' is not optional.");
+        return BindType(nullCoalesce, ResolveNullCoalesceType(nullCoalesce, leftType, rightType));
+    }
 
-        return BindType(nullCoalesce, TypeSimplifier.Simplify(new UnionType([leftType, rightType]).NonNullable()));
+    /// <summary>
+    ///     The result type of <c>??</c>/<c>??=</c>: the non-nullable union of both operands, since either
+    ///     one may be what the expression evaluates to. Warns when the left operand is not itself optional.
+    ///     Shared between <see cref="CheckNullCoalesce" /> (reached with an expected type in hand) and
+    ///     <see cref="VisitBinaryOperator" />'s own <c>??</c> case (reached with none) - the same computation
+    ///     either way, only how the two operand types were obtained differs.
+    /// </summary>
+    private Type ResolveNullCoalesceType(Node node, Type leftType, Type rightType)
+    {
+        if (!Type.IsOptional(leftType))
+            _diagnostics.Warn(node, InternalCodes.RedundantCode, $"Null coalescing has no effect since '{leftType}' is not optional.");
+
+        return TypeSimplifier.Simplify(new UnionType([leftType, rightType]).NonNullable());
     }
 }
