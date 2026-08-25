@@ -154,10 +154,13 @@ public sealed partial class TypeChecker
             // intersected: the value is all of those things at once, which is what the intersection says.
             case Types.IntersectionType intersection:
             {
-                var found = intersection.Types
-                    .Select(member => TypeSimplifier.ResolveIndex(member, indexType, dotKind, isInterfaceNamespaceAccess))
-                    .OfType<Type>()
-                    .ToList();
+                var found = new List<Type>(intersection.Types.Count);
+                foreach (var member in intersection.Types)
+                {
+                    var resolved = TypeSimplifier.ResolveIndex(member, indexType, dotKind, isInterfaceNamespaceAccess);
+                    if (resolved != null)
+                        found.Add(resolved);
+                }
 
                 if (found.Count == 0)
                     break;
@@ -261,10 +264,13 @@ public sealed partial class TypeChecker
     {
         if (type is Types.UnionType union)
         {
-            var results = union.Types
-                .Select(member => GetTypeAtIndexSingle(node, member, indexType, dotKind, isInterfaceNamespaceAccess))
-                .Where(memberResult => !Type.IsNever(memberResult) && !Type.IsUnknown(memberResult))
-                .ToList();
+            var results = new List<Type>(union.Types.Count);
+            foreach (var member in union.Types)
+            {
+                var memberResult = GetTypeAtIndexSingle(node, member, indexType, dotKind, isInterfaceNamespaceAccess);
+                if (!Type.IsNever(memberResult) && !Type.IsUnknown(memberResult))
+                    results.Add(memberResult);
+            }
 
             return results.Count == 0
                 ? ReportCannotUseToIndex(node, type, indexType)
@@ -274,10 +280,13 @@ public sealed partial class TypeChecker
         if (indexType is not Types.UnionType indexUnion || !indexUnion.Types.All(t => t is Types.LiteralType { Value: string }))
             return GetTypeAtIndexSingle(node, type, indexType, dotKind, isInterfaceNamespaceAccess);
 
-        var stringLiteralResults = indexUnion.Types
-            .Select(t => GetTypeAtIndexSingle(node, type, t, dotKind, isInterfaceNamespaceAccess))
-            .Where(r => !Type.IsNever(r) && !Type.IsUnknown(r))
-            .ToList();
+        var stringLiteralResults = new List<Type>(indexUnion.Types.Count);
+        foreach (var t in indexUnion.Types)
+        {
+            var r = GetTypeAtIndexSingle(node, type, t, dotKind, isInterfaceNamespaceAccess);
+            if (!Type.IsNever(r) && !Type.IsUnknown(r))
+                stringLiteralResults.Add(r);
+        }
 
         return stringLiteralResults.Count != 0
             ? BindType(node, TypeSimplifier.Simplify(new Types.UnionType(stringLiteralResults)))
