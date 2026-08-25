@@ -34,17 +34,13 @@ public sealed partial class TypeChecker
             return BindType(elementAccess, narrowedType);
 
         var type = Visit(elementAccess.Expression);
-        var isOptionalChain = elementAccess.IsOptional;
-        if (elementAccess.IsOptional)
-        {
-            type = type.NonNullable();
-        }
-        else if (Type.IsOptional(type))
-        {
-            _diagnostics.Error(elementAccess, InternalCodes.PossiblyNoneAccess, $"'{type}' is possibly 'none'. Use '?[' to index a value that might be 'none'.");
-            isOptionalChain = true;
-            type = type.NonNullable();
-        }
+        var (steppedType, isOptionalChain) = AdvanceOptionalStep(
+            elementAccess,
+            type,
+            elementAccess.IsOptional,
+            $"'{type}' is possibly 'none'. Use '?[' to index a value that might be 'none'."
+        );
+        type = steppedType;
 
         var indexType = Visit(elementAccess.IndexExpression);
         var result = GetElementAccessType(elementAccess, type, indexType);
@@ -180,6 +176,26 @@ public sealed partial class TypeChecker
         return BindType(node, Types.PrimitiveType.Never);
     }
 
+    /// <summary>
+    ///     One step of an access chain (a single <c>[...]</c> or <c>.name</c>) narrowed past its own
+    ///     optionality: <paramref name="isExplicitOptional" /> (that step written with <c>?</c>) strips
+    ///     nullability outright, and an *implicit* optional (the type was already nullable, with no
+    ///     <c>?</c> at this step) reports <paramref name="possiblyNoneMessage" /> before doing the same -
+    ///     both leave the step counted as "optional" for the chain's own final union-with-none. A step that
+    ///     was neither returns <paramref name="type" /> unchanged and reports nothing.
+    /// </summary>
+    private (Type Type, bool IsOptionalStep) AdvanceOptionalStep(Node node, Type type, bool isExplicitOptional, string possiblyNoneMessage)
+    {
+        if (isExplicitOptional)
+            return (type.NonNullable(), true);
+
+        if (!Type.IsOptional(type))
+            return (type, false);
+
+        _diagnostics.Error(node, InternalCodes.PossiblyNoneAccess, possiblyNoneMessage);
+        return (type.NonNullable(), true);
+    }
+
     private Type GetTypeOfNamedAccess(Expression accessExpression, Expression targetExpression, List<DotName> names)
     {
         var type = Visit(targetExpression);
@@ -198,17 +214,15 @@ public sealed partial class TypeChecker
         var isFirstStep = true;
         foreach (var name in names)
         {
-            if (name.IsOptional)
-            {
+            var (steppedType, stepIsOptional) = AdvanceOptionalStep(
+                accessExpression,
+                type,
+                name.IsOptional,
+                $"'{type}' is possibly 'none'. Use '?.' to access '{name.Name.Text}'."
+            );
+            type = steppedType;
+            if (stepIsOptional)
                 isOptionalChain = true;
-                type = type.NonNullable();
-            }
-            else if (Type.IsOptional(type))
-            {
-                _diagnostics.Error(accessExpression, InternalCodes.PossiblyNoneAccess, $"'{type}' is possibly 'none'. Use '?.' to access '{name.Name.Text}'.");
-                isOptionalChain = true;
-                type = type.NonNullable();
-            }
 
             var indexType = new Types.LiteralType(name.Name.Text);
 

@@ -142,6 +142,36 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         return interfaceType.WithObjectType(objectType, interfaceType.TraitMethodNames, constraints);
     }
 
+    /// <summary>
+    ///     Walks every type reachable from <paramref name="root" /> through <see cref="Transform" />,
+    ///     exactly once each by reference identity. <paramref name="visit" /> answers for the current node:
+    ///     <c>true</c> descends into its children, <c>false</c> leaves them unwalked - the node itself is
+    ///     still marked visited either way, so a reference reached again through another path is skipped
+    ///     regardless of which answer stopped it the first time. <paramref name="visit" /> is expected to
+    ///     accumulate whatever the caller is walking for (a diagnostic, a found flag) as a side effect;
+    ///     nothing about the walk itself is returned.
+    /// </summary>
+    public static void WalkTypeTreeOnce(Type root, Func<Type, bool> visit)
+    {
+        var visited = new HashSet<Type>(ReferenceEqualityComparer.Instance);
+        Walk(root);
+
+        void Walk(Type current)
+        {
+            if (!visited.Add(current))
+                return;
+
+            if (!visit(current))
+                return;
+
+            Transform(current, child =>
+            {
+                Walk(child);
+                return child;
+            });
+        }
+    }
+
     public void SetType(Node node, Type type) => _nodeTypes[node.Id] = type;
 
     /// <summary>

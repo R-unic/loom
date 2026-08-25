@@ -133,34 +133,15 @@ public sealed partial class TypeChecker
     ///     a parameter and there is nothing to complain about until an argument arrives - so
     ///     <c>type Keys&lt;T&gt; = keyof(T); Keys&lt;number&gt;</c> would otherwise be silently inert.
     /// </remarks>
-    private void ReportUnresolvableKeyOf(Node node, Type type)
-    {
-        var visited = new HashSet<Type>(ReferenceEqualityComparer.Instance);
-        report(type);
-
-        return;
-
-        void report(Type current)
+    private void ReportUnresolvableKeyOf(Node node, Type type) =>
+        TypeSolver.WalkTypeTreeOnce(type, current =>
         {
-            if (!visited.Add(current))
-                return;
+            if (current is not KeyOfType { Target: not (TypeParameter or TypeVariable or IndexedType or KeyOfType) } unresolved)
+                return true;
 
-            if (current is KeyOfType { Target: not (TypeParameter or TypeVariable or IndexedType or KeyOfType) } unresolved)
-            {
-                _diagnostics.Error(node, InternalCodes.InvalidKeyOf, $"Cannot access keys of type '{unresolved.Target.Widen()}'.");
-                return;
-            }
-
-            TypeSolver.Transform(
-                current,
-                child =>
-                {
-                    report(child);
-                    return child;
-                }
-            );
-        }
-    }
+            _diagnostics.Error(node, InternalCodes.InvalidKeyOf, $"Cannot access keys of type '{unresolved.Target.Widen()}'.");
+            return false;
+        });
 
     /// <summary>
     ///     Each parameter's constraint with every parameter of the same generic substituted, so one written
@@ -182,29 +163,17 @@ public sealed partial class TypeChecker
 
     private static bool ContainsDeferredOperator(Type type)
     {
-        var visited = new HashSet<Type>(ReferenceEqualityComparer.Instance);
-        return contains(type);
-
-        bool contains(Type current)
+        var found = false;
+        TypeSolver.WalkTypeTreeOnce(type, current =>
         {
-            if (current is KeyOfType or IndexedType or ConditionalType or MappedType)
+            if (current is not (KeyOfType or IndexedType or ConditionalType or MappedType))
                 return true;
 
-            if (!visited.Add(current))
-                return false;
+            found = true;
+            return false;
+        });
 
-            var found = false;
-            TypeSolver.Transform(
-                current,
-                child =>
-                {
-                    found |= contains(child);
-                    return child;
-                }
-            );
-
-            return found;
-        }
+        return found;
     }
 
     private bool CheckGenericArity(Node node, List<TypeParameter> parameters, List<Type> arguments, string genericKind)
