@@ -301,14 +301,14 @@ public sealed partial class TypeChecker
     ///     A generic interface's own name resolves to the bare <see cref="GenericType" /> (its static-holder
     ///     value symbol is published against the uninstantiated definition - nothing ever supplies its type
     ///     arguments for a static access). Filling every parameter the same way a bare use in type position
-    ///     already does (<see cref="FillGenericArguments" /> - declared default, or 'unknown' where there is
-    ///     none) and expanding that is exactly the body a member lookup needs: statics never reference the
+    ///     already does (<see cref="GenericType.GetDefaultArguments" /> - declared default, or 'unknown' where
+    ///     there is none) and expanding that is exactly the body a member lookup needs: statics never reference the
     ///     interface's own type parameters, and an instance member reached this way (a hard error
     ///     <see cref="GetTypeAtIndexNative" /> catches once it sees the property) never needed a real one
     ///     either, so which concrete arguments back the expansion is immaterial - only that one exists,
     ///     without throwing, for the walk to reach the property list at all.
     /// </summary>
-    private Type ExpandBareGenericType(GenericType generic) => generic.Construct(FillGenericArguments(generic.Parameters, [])).Expand();
+    private Type ExpandBareGenericType(GenericType generic) => generic.Construct(generic.GetDefaultArguments()).Expand();
 
     private Type GetTypeAtIndexSingle(Node node, Type type, Type indexType, SyntaxKind? dotKind = null, bool isInterfaceNamespaceAccess = false) =>
         type switch

@@ -11,6 +11,7 @@ public sealed class GenericType(GenericNamedDeclaration declaration, List<TypePa
     /// </summary>
     private readonly ConditionalWeakTable<Type, List<InstantiatedType>> _instantiations = [];
     private InstantiatedType? _uninstantiated;
+    private List<Type>? _defaultArguments;
 
     public GenericNamedDeclaration Declaration { get; } = declaration;
     public List<TypeParameter> Parameters { get; } = parameters;
@@ -69,6 +70,15 @@ public sealed class GenericType(GenericNamedDeclaration declaration, List<TypePa
             return instantiated;
         }
     }
+
+    /// <summary>
+    ///     Each parameter's own declared default (or <see cref="PrimitiveType.Unknown" /> where it has none) -
+    ///     the argument list a bare, uninstantiated use of this definition instantiates against. Fixed for
+    ///     the life of the definition, so it is computed once and reused rather than rebuilt on every bare
+    ///     access.
+    /// </summary>
+    public List<Type> GetDefaultArguments() =>
+        _defaultArguments ??= Parameters.ConvertAll(p => p.DefaultType ?? PrimitiveType.Unknown);
 
     private static bool SameArguments(List<Type> arguments, List<Type> otherArguments)
     {
