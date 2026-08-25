@@ -1,5 +1,6 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Text;
 using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
@@ -719,5 +720,182 @@ public class TypeSolverTest
         Assert.True(success);
     }
 
+    // Characterization tests for issue #235 PR 3 items 7-8 (worklist-based incremental solving,
+    // free-variable subtree skipping in Transform): these lock down SolveConstraints' current
+    // behavior on the shapes its own doc comments and GenericType.Construct's doc comments call out
+    // as needing careful cycle handling, so a regression in either optimization is caught here rather
+    // than surfacing later as a silently wrong inference. Run and confirmed green BEFORE and AFTER
+    // implementing 7-8, not just after.
+
+    /// <summary>
+    ///     A type variable constrained against a self-referential generic instantiation (mirrors
+    ///     <see cref="GenericTypesTest.Expand_SelfReferentialGeneric_ClosesTheCycleOnItself" /> but reached
+    ///     through <see cref="TypeSolver.SolveConstraints" /> instead of <see cref="InstantiatedType.Expand" />
+    ///     directly) has to resolve to the concrete instantiation and still be safely expandable afterwards -
+    ///     the back-edge <see cref="GenericType.Construct" /> relies on has to survive a trip through
+    ///     <c>Substitute</c>/<c>Transform</c>, which is exactly what a worklist rewrite of the fixpoint loop
+    ///     risks disturbing if it stops re-visiting a constraint that still references the bound variable.
+    /// </summary>
+    [Fact]
+    public void Unify_SelfReferentialGenericThroughVariable_ResolvesAndExpandsWithoutHanging()
+    {
+        var diagnostics = CreateDiagnostics();
+        var solver = new TypeSolver(diagnostics);
+
+        var paramT = new TypeParameter("T");
+        var decl = new MockGenericNamedDeclaration("Bag");
+        var body = new ObjectType(new ObjectIndexer(false, paramT, PrimitiveType.Bool), []);
+        var generic = new GenericType(decl, [paramT], body);
+        body.AddProperties([new ObjectProperty(false, "merge", new FunctionType([], [generic.Construct([paramT])], generic.Construct([paramT])))]);
+
+        var node = Identifier("bag");
+        var variable = solver.GetType(Identifier("t"));
+        solver.SetType(node, generic.Construct([variable]));
+        solver.AddConstraint(variable, PrimitiveType.Number, Utility.Span);
+
+        var success = solver.SolveConstraints();
+        Assert.True(success);
+        Utility.AssertNoErrors(diagnostics);
+
+        var solved = Assert.IsType<InstantiatedType>(solver.GetType(node));
+        Assert.True(solved.Arguments.Single().Equals(PrimitiveType.Number));
+
+        var expanded = Assert.IsType<ObjectType>(solved.Expand());
+        var merge = Assert.IsType<FunctionType>(expanded.Properties.Single(p => p.Name == "merge").ValueType);
+        Assert.Same(solved, merge.ReturnType);
+        Assert.Same(solved, merge.ParameterTypes.Single());
+    }
+
+    /// <summary>
+    ///     Two generics whose bodies reference each other through a function member (the same shape
+    ///     <see cref="GenericTypesTest.Expand_SelfReferentialGeneric_ClosesTheCycleOnItself" /> uses for a
+    ///     single self-reference, generalised to two) resolve through the solver without hanging.
+    ///     Deliberately NOT built as a raw union of the two instantiations - <c>TypeSimplifier.Normalize</c>'s
+    ///     expansion cache only remembers a type once its own <c>Normalize</c> call finishes, so two
+    ///     different instantiations that mutually expand into each other through <em>union</em> members can
+    ///     revisit one another before either finishes caching. Behind a function parameter/return type (which
+    ///     <c>Normalize</c> does not walk into at all) sidesteps that - see the standalone follow-up filed for
+    ///     the union-shaped case.
+    /// </summary>
+    [Fact]
+    public void Unify_MutuallyReferentialGenericsThroughFunctionMembers_ResolvesWithoutHanging()
+    {
+        var diagnostics = CreateDiagnostics();
+        var solver = new TypeSolver(diagnostics);
+
+        var declA = new MockGenericNamedDeclaration("A");
+        var declB = new MockGenericNamedDeclaration("B");
+        var bodyA = new ObjectType(null, []);
+        var bodyB = new ObjectType(null, []);
+        var genericA = new GenericType(declA, [], bodyA);
+        var genericB = new GenericType(declB, [], bodyB);
+        bodyA.AddProperties([new ObjectProperty(false, "asB", new FunctionType([], [], genericB.Construct([])))]);
+        bodyB.AddProperties([new ObjectProperty(false, "asA", new FunctionType([], [], genericA.Construct([])))]);
+
+        var node = Identifier("a");
+        var variable = solver.GetType(node);
+        solver.AddConstraint(variable, genericA.Construct([]), Utility.Span);
+
+        var success = solver.SolveConstraints();
+        Assert.True(success);
+        Utility.AssertNoErrors(diagnostics);
+
+        // TypeSolver.Substitute unifies on the expanded form, so the variable binds to A's structural
+        // body (an ObjectType), not the InstantiatedType it was written against - see Substitute's own
+        // doc comment. The interesting cyclic-safety property is one level down: 'asB's return type is
+        // still the un-expanded InstantiatedType back-edge (TypeSubstitution.Apply doesn't eagerly
+        // dereference a nested instantiation), and expanding THAT by hand closes the loop back to A
+        // without needing to walk through TypeSimplifier.Normalize's union-shaped hazard.
+        var solvedBody = Assert.IsType<ObjectType>(solver.GetType(node));
+        var asB = Assert.IsType<FunctionType>(solvedBody.Properties.Single(p => p.Name == "asB").ValueType);
+        var bInstantiated = Assert.IsType<InstantiatedType>(asB.ReturnType);
+        Assert.Same(genericB.Construct([]), bInstantiated);
+
+        var expandedB = Assert.IsType<ObjectType>(bInstantiated.Expand());
+        var asA = Assert.IsType<FunctionType>(expandedB.Properties.Single(p => p.Name == "asA").ValueType);
+        var aInstantiated = Assert.IsType<InstantiatedType>(asA.ReturnType);
+        Assert.Same(genericA.Construct([]), aInstantiated);
+    }
+
+    /// <summary>
+    ///     Four variables constrained in a diamond - z depends on w through two independent chains (via x
+    ///     and via y) - with the constraint that actually binds w to a concrete type listed <em>last</em>, so
+    ///     a single left-to-right pass over the constraint list cannot resolve everything: the fixpoint loop
+    ///     has to run at least twice for x, y and z to see w's binding. A worklist rewrite that only
+    ///     re-examines constraints touching a variable that changed in the *previous* pass has to still catch
+    ///     both of z's paths, not just whichever one happened to update first.
+    /// </summary>
+    [Fact]
+    public void Unify_DiamondDependency_PropagatesThroughBothPaths()
+    {
+        var diagnostics = CreateDiagnostics();
+        var solver = new TypeSolver(diagnostics);
+        var nodeW = Identifier("w");
+        var nodeX = Identifier("x");
+        var nodeY = Identifier("y");
+        var nodeZ = Identifier("z");
+
+        var w = solver.GetType(nodeW);
+        var x = solver.GetType(nodeX);
+        var y = solver.GetType(nodeY);
+        var z = solver.GetType(nodeZ);
+
+        solver.AddConstraint(z, x, Utility.Span);
+        solver.AddConstraint(z, y, Utility.Span);
+        solver.AddConstraint(x, w, Utility.Span);
+        solver.AddConstraint(y, w, Utility.Span);
+        solver.AddConstraint(w, PrimitiveType.Number, Utility.Span);
+
+        var success = solver.SolveConstraints();
+        Assert.True(success);
+        Utility.AssertNoErrors(diagnostics);
+
+        Assert.True(solver.GetType(nodeW).Equals(PrimitiveType.Number), $"Expected 'number', got '{solver.GetType(nodeW)}'");
+        Assert.True(solver.GetType(nodeX).Equals(PrimitiveType.Number), $"Expected 'number', got '{solver.GetType(nodeX)}'");
+        Assert.True(solver.GetType(nodeY).Equals(PrimitiveType.Number), $"Expected 'number', got '{solver.GetType(nodeY)}'");
+        Assert.True(solver.GetType(nodeZ).Equals(PrimitiveType.Number), $"Expected 'number', got '{solver.GetType(nodeZ)}'");
+    }
+
+    /// <summary>
+    ///     Two constraints referencing the same pair of overlapping variables through different member
+    ///     positions (an object's two properties, each independently unified) - a worklist scheme that marks
+    ///     "changed" too coarsely (e.g. per-constraint instead of per-variable) or too narrowly (missing that
+    ///     a variable appears nested inside an object property rather than bare) would under- or over-process
+    ///     this relative to the full re-scan.
+    /// </summary>
+    [Fact]
+    public void Unify_OverlappingVariablesInsideObjectProperties_AllResolve()
+    {
+        var diagnostics = CreateDiagnostics();
+        var solver = new TypeSolver(diagnostics);
+        var nodeA = Identifier("a");
+        var nodeB = Identifier("b");
+        var varA = solver.GetType(nodeA);
+        var varB = solver.GetType(nodeB);
+
+        var actual = new ObjectType(null, [new ObjectProperty(false, "x", varA), new ObjectProperty(false, "y", varB)]);
+        var expected = new ObjectType(null, [new ObjectProperty(false, "x", PrimitiveType.Number), new ObjectProperty(false, "y", varA)]);
+
+        solver.AddConstraint(actual, expected, Utility.Span);
+
+        var success = solver.SolveConstraints();
+        Assert.True(success);
+        Utility.AssertNoErrors(diagnostics);
+
+        Assert.True(solver.GetType(nodeA).Equals(PrimitiveType.Number), $"Expected 'number', got '{solver.GetType(nodeA)}'");
+        Assert.True(solver.GetType(nodeB).Equals(PrimitiveType.Number), $"Expected 'number', got '{solver.GetType(nodeB)}'");
+    }
+
     private static Identifier Identifier(string name) => new(Utility.IdentifierToken(name));
+
+    private class MockGenericNamedDeclaration(string name)
+        : GenericNamedDeclaration(
+            [],
+            new Token(SyntaxKind.TypeKeyword, LocationSpan.Empty(), "type"),
+            new Token(SyntaxKind.Identifier, LocationSpan.Empty(), name),
+            new TypeParameters(new Token(SyntaxKind.LArrow, LocationSpan.Empty(), "<"), new Token(SyntaxKind.LArrow, LocationSpan.Empty(), ">"), [])
+        )
+    {
+        public override T Accept<T>(Visitor<T> visitor) => default!;
+    }
 }
