@@ -4,7 +4,6 @@ using Loom.Core.FlowAnalysis;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking.Types;
-using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Intrinsic;
@@ -15,6 +14,27 @@ public sealed partial class TypeChecker
 {
     public override Type VisitInterfaceInvocation(InterfaceInvocation interfaceInvocation) =>
         CheckOrVisitInterfaceInvocation(interfaceInvocation, null);
+
+    public override Type VisitWithOperator(WithOperator withOperator)
+    {
+        var expressionType = Visit(withOperator.Expression);
+        if (expressionType is not InterfaceType interfaceType)
+        {
+            if (Type.IsNotNever(expressionType))
+                _diagnostics.Error(
+                    withOperator.Expression,
+                    InternalCodes.InvalidWithOperand,
+                    $"'with' requires an interface value, got '{expressionType}'."
+                );
+
+            return BindType(withOperator, PrimitiveType.Never);
+        }
+
+        foreach (var initializer in withOperator.Body.Initializers)
+            CheckInterfaceInvocationInitializer(interfaceType, initializer);
+
+        return BindType(withOperator, expressionType);
+    }
 
     private Type CheckInterfaceInvocation(InterfaceInvocation interfaceInvocation, Type expected, FlowState state)
     {

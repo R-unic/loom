@@ -236,27 +236,6 @@ public sealed partial class TypeChecker
     ///     never an error here - it just keeps the left operand's value at generation time, so completeness
     ///     never applies to 'with' the way it does to construction.
     /// </summary>
-    public override Type VisitWithOperator(WithOperator withOperator)
-    {
-        var expressionType = Visit(withOperator.Expression);
-        if (expressionType is not InterfaceType interfaceType)
-        {
-            if (Type.IsNotNever(expressionType))
-                _diagnostics.Error(
-                    withOperator.Expression,
-                    InternalCodes.InvalidWithOperand,
-                    $"'with' requires an interface value, got '{expressionType}'."
-                );
-
-            return BindType(withOperator, PrimitiveType.Never);
-        }
-
-        foreach (var initializer in withOperator.Body.Initializers)
-            CheckInterfaceInvocationInitializer(interfaceType, initializer);
-
-        return BindType(withOperator, expressionType);
-    }
-
     private static readonly HashSet<string> _supportedMetamethods = ["__add", "__sub", "__mul", "__div", "__idiv", "__mod", "__pow"];
 
     private List<ObjectProperty> ResolveTraitProperties(List<DeclareFunctionSignature> signatures)
