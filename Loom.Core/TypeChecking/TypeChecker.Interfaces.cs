@@ -11,6 +11,7 @@ using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using TypePredicateType = Loom.Core.Parsing.AST.TypePredicateType;
 using Loom.Core.TypeChecking.Solving;
+using Loom.Core.TypeChecking.Intrinsic;
 
 namespace Loom.Core.TypeChecking;
 

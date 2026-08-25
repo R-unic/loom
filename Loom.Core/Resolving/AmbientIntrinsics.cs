@@ -3,6 +3,7 @@ using Loom.Config;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking;
+using Loom.Core.TypeChecking.Intrinsic;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Core.Resolving;

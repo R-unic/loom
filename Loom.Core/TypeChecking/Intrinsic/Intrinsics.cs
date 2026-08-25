@@ -10,7 +10,7 @@ using IWithAttributes = Loom.Core.Parsing.AST.IWithAttributes;
 using NodeId = Loom.Core.Parsing.AST.NodeId;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Intrinsic;
 
 public static class Intrinsics
 {

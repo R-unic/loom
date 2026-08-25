@@ -1,7 +1,7 @@
 using Loom.Core.TypeChecking.Types;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Intrinsic;
 
 /// <summary>
 ///     The intrinsic types the compiler builds in C# rather than reading out of a <c>.loom</c> source, for

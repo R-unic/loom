@@ -12,6 +12,7 @@ using Attribute = Loom.Core.Parsing.AST.Attribute;
 namespace Loom.Core.TypeChecking;
 
 using Type = Types.Type;
+using Loom.Core.TypeChecking.Intrinsic;
 
 /// <summary>
 ///     Fifth stage of the compiler pipeline (Lexer -&gt; Parser -&gt; Resolver -&gt; FlowAnalyzer -&gt; TypeChecker
