@@ -117,7 +117,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
     ///         one-element set was unusable - nothing else could be added to a <c>MutSet&lt;1&gt;</c>.
     ///     </para>
     ///     <para>
-    ///         A fixed parameter keeps the literal, so <c>BaseResult::ok(1)</c> is still <c>Result&lt;1, E&gt;</c>,
+    ///         A fixed parameter keeps the literal, so <c>Result::ok(1)</c> is still <c>Result&lt;1, E&gt;</c>,
     ///         and so does a tuple rest, whose positions are separately typed rather than a run of one type.
     ///     </para>
     /// </summary>

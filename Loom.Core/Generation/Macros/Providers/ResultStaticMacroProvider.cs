@@ -9,7 +9,7 @@ namespace Loom.Core.Generation.Macros.Providers;
 
 internal sealed class ResultStaticMacroProvider : IMacroProvider
 {
-    public bool Supports(SemanticModel _, Type type) => type is InterfaceType { Name: "BaseResult" };
+    public bool Supports(SemanticModel _, Type type) => type is InterfaceType { Name: "Result", IsIntrinsic: true };
     public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) => memberName is "ok" or "err";
