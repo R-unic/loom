@@ -149,7 +149,7 @@ public sealed class InterfaceType(
     ///     caller with nothing new to say about either one would otherwise have copied by hand.
     /// </summary>
     public InterfaceType WithObjectType(ObjectType newObjectType, HashSet<string>? traitMethodNames = null, List<InterfaceType>? constraints = null) =>
-        new(Name, constraints ?? Constraints, newObjectType, traitMethodNames, Metamethods)
+        new(Name, constraints ?? Constraints, newObjectType, traitMethodNames ?? TraitMethodNames, Metamethods)
         {
             IteratedElementType = IteratedElementType,
             IsIntrinsic = IsIntrinsic
