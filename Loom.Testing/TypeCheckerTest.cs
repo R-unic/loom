@@ -855,7 +855,7 @@ public class TypeCheckerTest
     public void ThrowsFor_Never_InUnaryOperation()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = none; if x != none { -x }");
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidUnaryOp, "No unary operation for -never.");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidUnaryOp, "No unary operation for -'never'.");
     }
 
     [Fact]

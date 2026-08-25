@@ -248,7 +248,7 @@ public sealed partial class TypeChecker
                 return GetTypeAtIndexNative(identifier, interfaceType, new Types.LiteralType(propertyVariableSymbol.Name));
             }
 
-            var declaredType = ResolveHoistedType(symbol);
+            var declaredType = GetHoistedType(symbol);
             return BindType(identifier, declaredType);
         }
 

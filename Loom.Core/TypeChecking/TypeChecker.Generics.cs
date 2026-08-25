@@ -75,6 +75,10 @@ public sealed partial class TypeChecker
         for (var i = 0; i < genericType.Parameters.Count; i++)
             substitution[genericType.Parameters[i]] = fullArguments[i];
 
+        // Unlike a call/interface substitution's own use of this same check, nothing here gates on the
+        // result: instantiation always proceeds (there is no substitute for 'Box<BadArg>' to fall back to),
+        // so short-circuiting the loop on the first violation would only hide every constraint violation
+        // after it - worse diagnostics for no behavioral gain, since construction below runs either way.
         var resolvedConstraints = ResolveConstraints(node, genericType.Parameters, substitution);
         for (var i = 0; i < genericType.Parameters.Count; i++)
         {

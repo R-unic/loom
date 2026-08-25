@@ -280,7 +280,7 @@ public sealed partial class TypeChecker
 
             if (signature.TryGetIntrinsicAttribute(_semanticModel, "luau_metamethod", out var metamethodAttribute))
             {
-                ValidateMetamethodAttribute(metamethodAttribute);
+                CheckMetamethodAttribute(metamethodAttribute);
                 CheckMetamethodDoesNotYield(signature);
             }
         }
@@ -306,7 +306,7 @@ public sealed partial class TypeChecker
         );
     }
 
-    private void ValidateMetamethodAttribute(AttributeSymbol attribute)
+    private void CheckMetamethodAttribute(AttributeSymbol attribute)
     {
         if (attribute.Attribute.Arguments.ArgumentList is not [Literal { Value: string metamethodName }])
         {
@@ -387,7 +387,7 @@ public sealed partial class TypeChecker
 
             if (property.TryGetIntrinsicAttribute(_semanticModel, "luau_metamethod", out var metamethodAttribute))
             {
-                ValidateMetamethodAttribute(metamethodAttribute);
+                CheckMetamethodAttribute(metamethodAttribute);
 
                 // Same rule as a trait's metamethod: Luau invokes it across a C-call boundary, and a
                 // declare interface is the one other place a metamethod may be written.

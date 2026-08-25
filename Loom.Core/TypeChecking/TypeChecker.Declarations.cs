@@ -354,7 +354,7 @@ public sealed partial class TypeChecker
         }
     }
 
-    private Type ResolveHoistedType(Symbol symbol)
+    private Type GetHoistedType(Symbol symbol)
     {
         if (!_resolvingHoisted.Add(symbol))
             return _semanticModel.GetType(symbol.Declaration);

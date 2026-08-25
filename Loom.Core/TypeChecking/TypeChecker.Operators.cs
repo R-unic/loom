@@ -108,12 +108,12 @@ public sealed partial class TypeChecker
 
         var display = bodyType switch
         {
-            ObjectProperty property => $"property '{property.Name}'.",
-            ObjectIndexer indexer => $"index '{indexer.KeyType}'.",
+            ObjectProperty property => $"property '{property.Name}'",
+            ObjectIndexer indexer => $"index '{indexer.KeyType}'",
             _ => ""
         };
 
-        _diagnostics.Error(assignmentOperator, InternalCodes.AssignToImmutable, $"Cannot assign to immutable {display}");
+        _diagnostics.Error(assignmentOperator, InternalCodes.AssignToImmutable, $"Cannot assign to immutable {display}.");
 
         // Dropping AddConstraint here because the Check method already does it
         return BindType(assignmentOperator, valueType);
@@ -205,7 +205,7 @@ public sealed partial class TypeChecker
 
         var suggestion = UnaryOperatorBinder.GetSuggestion(unaryOperator, operandType);
         var hint = Diagnostic.FormatUnaryHint(unaryOperator, operandType, suggestion);
-        _diagnostics.Error(unaryOperator, InternalCodes.InvalidUnaryOp, $"No unary operation for {unaryOperator.Operator.Text}{operandType.Widen()}.", hint);
+        _diagnostics.Error(unaryOperator, InternalCodes.InvalidUnaryOp, $"No unary operation for {unaryOperator.Operator.Text}'{operandType.Widen()}'.", hint);
 
         return BindType(unaryOperator, Types.PrimitiveType.Never);
     }

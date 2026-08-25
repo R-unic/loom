@@ -43,14 +43,14 @@ public sealed partial class TypeChecker
         type = steppedType;
 
         var indexType = Visit(elementAccess.IndexExpression);
-        var result = GetElementAccessType(elementAccess, type, indexType);
+        var result = GetTypeOfElementAccess(elementAccess, type, indexType);
         if (isOptionalChain && !Type.IsNever(result))
             result = TypeSimplifier.Simplify(new Types.UnionType([result, Types.PrimitiveType.None]));
 
         return BindType(elementAccess, result);
     }
 
-    private Type GetElementAccessType(ElementAccess elementAccess, Type type, Type indexType)
+    private Type GetTypeOfElementAccess(ElementAccess elementAccess, Type type, Type indexType)
     {
         switch (type)
         {
