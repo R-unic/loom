@@ -3,7 +3,7 @@ using Loom.Core.Text;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Operators;
 
 internal static class BinaryOperatorBinder
 {
