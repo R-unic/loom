@@ -64,6 +64,13 @@ public sealed partial class TypeChecker
         return substitution;
     }
 
+    /// <remarks>
+    ///     Unlike a call/interface substitution's own use of <see cref="CheckTypeParameterConstraints" />,
+    ///     nothing here gates on the result: instantiation always proceeds (there is no substitute for
+    ///     <c>Box&lt;BadArg&gt;</c> to fall back to), so short-circuiting the loop below on the first
+    ///     violation would only hide every constraint violation after it - worse diagnostics for no
+    ///     behavioral gain, since construction runs either way.
+    /// </remarks>
     private Type InstantiateGenericType(Node node, TypeArguments? typeArguments, GenericType genericType)
     {
         var arguments = typeArguments?.ArgumentsList.ConvertAll(Visit) ?? [];
@@ -75,10 +82,6 @@ public sealed partial class TypeChecker
         for (var i = 0; i < genericType.Parameters.Count; i++)
             substitution[genericType.Parameters[i]] = fullArguments[i];
 
-        // Unlike a call/interface substitution's own use of this same check, nothing here gates on the
-        // result: instantiation always proceeds (there is no substitute for 'Box<BadArg>' to fall back to),
-        // so short-circuiting the loop on the first violation would only hide every constraint violation
-        // after it - worse diagnostics for no behavioral gain, since construction below runs either way.
         var resolvedConstraints = ResolveConstraints(node, genericType.Parameters, substitution);
         for (var i = 0; i < genericType.Parameters.Count; i++)
         {
@@ -138,7 +141,7 @@ public sealed partial class TypeChecker
     ///     <c>type Keys&lt;T&gt; = keyof(T); Keys&lt;number&gt;</c> would otherwise be silently inert.
     /// </remarks>
     private void ReportUnresolvableKeyOf(Node node, Type type) =>
-        TypeSolver.WalkTypeTreeOnce(type, current =>
+        WalkTypeTreeOnce(type, current =>
         {
             if (current is not KeyOfType { Target: not (TypeParameter or TypeVariable or IndexedType or KeyOfType) } unresolved)
                 return true;
@@ -168,7 +171,7 @@ public sealed partial class TypeChecker
     private static bool ContainsDeferredOperator(Type type)
     {
         var found = false;
-        TypeSolver.WalkTypeTreeOnce(type, current =>
+        WalkTypeTreeOnce(type, current =>
         {
             if (current is not (KeyOfType or IndexedType or ConditionalType or MappedType))
                 return true;
@@ -324,5 +327,35 @@ public sealed partial class TypeChecker
         var substitutedReturnType = SubstituteTypeParameters(failNode, genericFunction.ReturnType, substitution);
         instantiated = new FunctionType([], substitutedParameterTypes, substitutedReturnType, genericFunction.HasRestParameter, genericFunction.IsAsync);
         return true;
+    }
+
+    /// <summary>
+    ///     Walks every type reachable from <paramref name="root" /> through <see cref="TypeSolver.Transform" />,
+    ///     exactly once each by reference identity. <paramref name="visit" /> answers for the current node:
+    ///     <c>true</c> descends into its children, <c>false</c> leaves them unwalked - the node itself is
+    ///     still marked visited either way, so a reference reached again through another path is skipped
+    ///     regardless of which answer stopped it the first time. <paramref name="visit" /> is expected to
+    ///     accumulate whatever the caller is walking for (a diagnostic, a found flag) as a side effect;
+    ///     nothing about the walk itself is returned.
+    /// </summary>
+    private static void WalkTypeTreeOnce(Type root, Func<Type, bool> visit)
+    {
+        var visited = new HashSet<Type>(ReferenceEqualityComparer.Instance);
+        Walk(root);
+
+        void Walk(Type current)
+        {
+            if (!visited.Add(current))
+                return;
+
+            if (!visit(current))
+                return;
+
+            TypeSolver.Transform(current, child =>
+            {
+                Walk(child);
+                return child;
+            });
+        }
     }
 }
