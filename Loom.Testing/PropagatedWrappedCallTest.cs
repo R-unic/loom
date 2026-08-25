@@ -20,7 +20,7 @@ public class PropagatedWrappedCallTest
 
         fn load(key: string): Result<string, RobloxError> {
             let value = store.get_async(key)?;
-            return BaseResult::ok(value);
+            return Result::ok(value);
         }
 
         let outcome = load("k");

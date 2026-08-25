@@ -1366,7 +1366,7 @@ mutable, so writing `false` through it directly means what it says.
 
 ```rs
 fn unsafe_function(condition: bool): Result<number, string> ->
-    condition ? BaseResult::ok(69) : BaseResult::err("function failed!");
+    condition ? Result::ok(69) : Result::err("function failed!");
     
 let result = unsafe_function(true);
 print(result.ok ? result.value : result.error);
@@ -1420,7 +1420,7 @@ A method that also *yields* is `async fn` on top of this, so it is awaited as we
 async fn load(key: string): Result<unknown, RobloxError> {
     let store = data_store_service.get_data_store("players")?;
     let value = await store.get_async(key)?;
-    return BaseResult::ok(value);
+    return Result::ok(value);
 }
 ```
 
@@ -1456,7 +1456,7 @@ fn load_or_die(): number {
 
 fn load(): Result<number, string> {
     let value = unsafe_function(true)?;     ## ok - propagates, never panics
-    return BaseResult::ok(value);
+    return Result::ok(value);
 }
 
 fn careless(): number {
@@ -1554,7 +1554,7 @@ already means `(await call())?`:
 async fn load(key: string): Result<unknown, RobloxError> {
     let store = data_store_service.get_data_store("players")?;
     let value = await store.get_async(key)?;
-    return BaseResult::ok(value);
+    return Result::ok(value);
 }
 ```
 
@@ -1637,12 +1637,12 @@ enclosing function to declare a `Result<T, E>` return type, and the propagated e
 
 ```rs
 fn some_other_unsafe_fn(): Result<number, string> {
-    return BaseResult::ok(1);
+    return Result::ok(1);
 }
 
 fn unsafe_fn(): Result<number, string> {
     let value = some_other_unsafe_fn()?;
-    return BaseResult::ok(69 + value);
+    return Result::ok(69 + value);
 }
 ```
 

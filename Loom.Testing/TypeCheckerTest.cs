@@ -11,7 +11,7 @@ public class TypeCheckerTest
     [Fact]
     public void ThrowsFor_MacroReference_InVariableDeclaration()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = BaseResult::ok;");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = Result::ok;");
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.InvalidMacroReference,
@@ -22,7 +22,7 @@ public class TypeCheckerTest
     [Fact]
     public void ThrowsFor_MacroReference_InArrayLiteral()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = [BaseResult::ok];");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = [Result::ok];");
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.InvalidMacroReference,
@@ -56,7 +56,7 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             declare fn consume<T, E>(callback: fn(value: T): Result<T, E>): void;
-            consume(BaseResult::ok);
+            consume(Result::ok);
             """
         );
 
@@ -3656,7 +3656,7 @@ public class TypeCheckerTest
                 DoSomethingFailed = "do_something failed to execute"
             }
 
-            let result = BaseResult::ok::<number, MyErrors>(69);
+            let result = Result::ok::<number, MyErrors>(69);
             if {{(ok ? "" : "!")}}result.ok
                 result.{{property}}
             """;
@@ -4418,7 +4418,7 @@ public class TypeCheckerTest
     )]
     [InlineData(
         """
-        let x = BaseResult::ok(69);
+        let x = Result::ok(69);
         while true {
             if !x.ok break;
             x.value;
@@ -4444,7 +4444,7 @@ public class TypeCheckerTest
     )]
     [InlineData(
         """
-        let x = BaseResult::ok(69);
+        let x = Result::ok(69);
         while true {
             if x.ok continue;
             x.error;
@@ -5028,10 +5028,10 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return BaseResult::ok(1); }
+            fn get(): Result<number, string> { return Result::ok(1); }
             fn use_it(): Result<number, string> {
                 let value: number = get()?;
-                return BaseResult::ok(value);
+                return Result::ok(value);
             }
             """
         );
@@ -5044,11 +5044,11 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return BaseResult::ok(1); }
+            fn get(): Result<number, string> { return Result::ok(1); }
             fn use_it(): Result<number, string> {
                 let result = get();
                 let value: number = result?;
-                return BaseResult::ok(value);
+                return Result::ok(value);
             }
             """
         );
@@ -5061,11 +5061,11 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return BaseResult::ok(1); }
+            fn get(): Result<number, string> { return Result::ok(1); }
             fn use_it(): Result<number, string> {
                 let result: Result<number, string> = get();
                 let value: number = result?;
-                return BaseResult::ok(value);
+                return Result::ok(value);
             }
             """
         );
@@ -5080,7 +5080,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return BaseResult::ok(1); }
+            fn get(): Result<number, string> { return Result::ok(1); }
             let result = get();
             let taken: number = result;
             """
@@ -5098,7 +5098,7 @@ public class TypeCheckerTest
             """
             fn use_it(): Result<number, string> {
                 let value = 5?;
-                return BaseResult::ok(value);
+                return Result::ok(value);
             }
             """
         );
@@ -5115,7 +5115,7 @@ public class TypeCheckerTest
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
-            fn get(): Result<number, string> { return BaseResult::ok(1); }
+            fn get(): Result<number, string> { return Result::ok(1); }
             fn use_it(): number {
                 let value = get()?;
                 return value;
@@ -5136,10 +5136,10 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(
             """
             interface MyError { message: string }
-            fn get(): Result<number, string> { return BaseResult::ok(1); }
+            fn get(): Result<number, string> { return Result::ok(1); }
             fn use_it(): Result<number, MyError> {
                 let value = get()?;
-                return BaseResult::ok(value);
+                return Result::ok(value);
             }
             """
         );
@@ -5807,9 +5807,9 @@ public class TypeCheckerTest
             fn find<K, V>(entries: Entry<K, V>[], key: K): Result<V, string> {
                 for entry : entries
                     if entry.key == key
-                        return BaseResult::ok(entry.value);
+                        return Result::ok(entry.value);
 
-                return BaseResult::err("missing key");
+                return Result::err("missing key");
             }
 
             let entries = [

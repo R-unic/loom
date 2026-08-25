@@ -8,7 +8,7 @@ public class FlowAnalyzerTest
     [Fact]
     public void Allows_IntrinsicResultReference()
     {
-        var diagnostics = Utility.FlowAnalyze("some_fn(BaseResult::ok);").AnalyzerResult.Diagnostics;
+        var diagnostics = Utility.FlowAnalyze("some_fn(Result::ok);").AnalyzerResult.Diagnostics;
         Utility.AssertNoErrors(diagnostics);
     }
 
