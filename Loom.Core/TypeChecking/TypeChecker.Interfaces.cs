@@ -42,13 +42,21 @@ public sealed partial class TypeChecker
     ///     an <c>implement</c> block's method against the trait/interface member it satisfies, or a static
     ///     block's method against the static member it provides. Parameter and return-type constraints are
     ///     added against <paramref name="signature" /> rather than re-inferred, and the body is visited
-    ///     under that binding. <c>Math.Min</c> bounds the loop rather than assuming the parameter list and
-    ///     signature agree in length - a mismatch is reported by whichever check established the signature
-    ///     match in the first place, and this only needs to not run past either list.
+    ///     under that binding. Neither caller checks arity before this runs, so a mismatched parameter count
+    ///     is reported here - the alternative, silently bounding the loop to the shorter of the two lists,
+    ///     would accept a method that does not actually fulfill the signature it claims to.
     /// </summary>
     private void CheckFunctionBodyAgainstSignature(FunctionDeclaration node, FunctionType signature)
     {
-        var parameterCount = Math.Min(signature.ParameterTypes.Count, node.Parameters?.ParameterList.Count ?? 0);
+        var actualParameterCount = node.Parameters?.ParameterList.Count ?? 0;
+        if (actualParameterCount != signature.ParameterTypes.Count)
+            _diagnostics.Error(
+                node,
+                InternalCodes.SignatureArityMismatch,
+                $"'{node.Name.Text}' has {actualParameterCount} parameter(s), but the signature it implements declares {signature.ParameterTypes.Count}."
+            );
+
+        var parameterCount = Math.Min(signature.ParameterTypes.Count, actualParameterCount);
         for (var i = 0; i < parameterCount; i++)
         {
             var parameter = node.Parameters!.ParameterList[i];

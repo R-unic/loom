@@ -163,6 +163,7 @@ public static class InternalCodes
     public const string InstanceMemberViaInterfaceName = "L439";
     public const string StaticMemberViaInstance = "L440";
     public const string StaticMemberInObjectLiteral = "L441";
+    public const string SignatureArityMismatch = "L442";
 
     public const string SimplifiableCode = "L500";
 }

@@ -1738,6 +1738,30 @@ public class TypeCheckerTest
         );
     }
 
+    [Fact]
+    public void ThrowsFor_Implement_ParameterArityMismatch()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            trait Eq {
+                fn equals(other: unknown): bool
+            }
+
+            interface Foo;
+
+            implement Eq for Foo {
+                fn equals(): bool -> true;
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.SignatureArityMismatch,
+            "'equals' has 0 parameter(s), but the signature it implements declares 1."
+        );
+    }
+
     private const string Vector2WithStaticCreate = """
         interface Vector2 {
             x: number
