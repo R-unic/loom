@@ -24,7 +24,8 @@ namespace Loom.Core.Generation.Macros.Providers;
 /// </remarks>
 internal sealed class ResultMacroProvider : IMacroProvider
 {
-    private static readonly HashSet<string> _members = ["unwrap", "expect", "unwrap_or", "unwrap_or_else", "map", "and_then"];
+    private static readonly HashSet<string> _members =
+        ["unwrap", "expect", "unwrap_err", "expect_err", "unwrap_or", "unwrap_or_else", "map", "map_err", "and_then", "or_else"];
 
     public bool Supports(SemanticModel _, Type type) => IsResult(type);
     public bool Supports(SemanticModel semanticModel, Expression expression) => IsResult(semanticModel.GetType(expression));
@@ -52,10 +53,16 @@ internal sealed class ResultMacroProvider : IMacroProvider
         switch (name)
         {
             case "unwrap":
-                expression = Raise(context, isOk, error, value);
+                expression = Raise(context, new UnaryOperator("not ", isOk), error, value);
                 return true;
             case "expect":
-                expression = Raise(context, isOk, call.Arguments.Single(), value);
+                expression = Raise(context, new UnaryOperator("not ", isOk), call.Arguments.Single(), value);
+                return true;
+            case "unwrap_err":
+                expression = Raise(context, isOk, value, error);
+                return true;
+            case "expect_err":
+                expression = Raise(context, isOk, call.Arguments.Single(), error);
                 return true;
             case "unwrap_or":
                 expression = new IfExpression(isOk, value, [], call.Arguments.Single());
@@ -72,8 +79,20 @@ internal sealed class ResultMacroProvider : IMacroProvider
                 );
 
                 return true;
+            case "map_err":
+                expression = new IfExpression(
+                    isOk,
+                    result,
+                    [],
+                    new Table([new PropertyTableInitializer("ok", new BooleanLiteral(false)), new PropertyTableInitializer("error", new Call(call.Arguments.Single(), [error]))])
+                );
+
+                return true;
             case "and_then":
                 expression = new IfExpression(isOk, new Call(call.Arguments.Single(), [value]), [], result);
+                return true;
+            case "or_else":
+                expression = new IfExpression(isOk, result, [], new Call(call.Arguments.Single(), [error]));
                 return true;
         }
 
@@ -81,11 +100,12 @@ internal sealed class ResultMacroProvider : IMacroProvider
         return false;
     }
 
-    private static LuauExpression Raise(MacroContext context, LuauExpression isOk, LuauExpression raised, LuauExpression value)
+    /// <summary>Raises <paramref name="raised" /> when <paramref name="condition" /> holds, otherwise yields <paramref name="value" />.</summary>
+    private static LuauExpression Raise(MacroContext context, LuauExpression condition, LuauExpression raised, LuauExpression value)
     {
         context.State.Prereq(
             new IfStatement(
-                new UnaryOperator("not ", isOk),
+                condition,
                 new Chunk([new ExpressionStatement(new Call(new Identifier("error"), [raised]))]),
                 [],
                 null

@@ -22,8 +22,8 @@ internal sealed class ArrayMacroProvider : IMacroProvider
     public bool Supports(SemanticModel _, Expression __) => false;
 
     public bool IsInvocationOnlyMember(string memberName) =>
-        memberName is "join" or "push" or "pop" or "insert" or "remove" or "index_of" or "has" or "select" or "where" or "aggregate" or "select_many"
-            or "any" or "all" or "count" or "flatten" or "to_set";
+        memberName is "join" or "push" or "pop" or "insert" or "remove" or "remove_value" or "clear" or "index_of" or "has" or "select" or "where"
+            or "aggregate" or "select_many" or "any" or "all" or "count" or "find" or "find_index" or "flatten" or "to_set" or "reverse" or "clone";
 
     public bool TryProperty(MacroContext context, string name, LuauExpression target, [MaybeNullWhen(false)] out LuauExpression expression)
     {
@@ -63,6 +63,16 @@ internal sealed class ArrayMacroProvider : IMacroProvider
             case "pop" or "remove":
             {
                 expression = LuauFactory.TableCall("remove", [array, ..call.Arguments]);
+                return true;
+            }
+            case "remove_value":
+            {
+                expression = GenerateRemoveValue(context, array, call.Arguments[0]);
+                return true;
+            }
+            case "clear":
+            {
+                expression = LuauFactory.TableCall("clear", [array]);
                 return true;
             }
             case "index_of":
@@ -115,9 +125,29 @@ internal sealed class ArrayMacroProvider : IMacroProvider
                 expression = GenerateCount(context.State, array, call.Arguments[0]);
                 return true;
             }
+            case "find":
+            {
+                expression = GenerateFind(context.State, array, call.Arguments[0]);
+                return true;
+            }
+            case "find_index":
+            {
+                expression = GenerateFindIndex(context.State, array, call.Arguments[0]);
+                return true;
+            }
             case "to_set":
             {
                 expression = GenerateToSet(context.State, array);
+                return true;
+            }
+            case "reverse":
+            {
+                expression = GenerateReverse(context.State, array);
+                return true;
+            }
+            case "clone":
+            {
+                expression = LuauFactory.TableCall("clone", [array]);
                 return true;
             }
         }
@@ -330,6 +360,112 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         state.Prereq(new ForStatement([index, element], source, new Chunk(body)));
 
         return answer;
+    }
+
+    /// <summary>
+    ///     Removes the first occurrence of <paramref name="value" />, if any - <c>table.find</c> to locate
+    ///     it, <c>table.remove</c> to drop it. Bare-statement calls (<c>xs.remove_value(v);</c>) split the
+    ///     lookup into a prereq and the removal into a postreq, so the elided-placeholder pass in
+    ///     <c>LuauGenerator</c> can drop the trailing binding - it only recognizes that shape when the
+    ///     returned identifier's declaration is the last prereq statement.
+    /// </summary>
+    private static LuauExpression GenerateRemoveValue(MacroContext context, LuauExpression array, LuauExpression value)
+    {
+        var indexName = context.State.Scope.AddIdentifier(IndexName);
+        var index = new Identifier(indexName);
+        var indexOf = new ConstVariable(indexName, null, LuauFactory.TableCall("find", [array, value]));
+        var removeIfFound = new IfStatement(
+            new BinaryOperator(index, "~=", new NilLiteral()),
+            new Chunk([new ExpressionStatement(LuauFactory.TableCall("remove", [array, index]))]),
+            [],
+            null
+        );
+
+        if (context.Node.Parent is Parsing.AST.ExpressionStatement)
+        {
+            context.State.Prereq(indexOf);
+            context.State.Postreq(removeIfFound);
+            return index;
+        }
+
+        context.State.Prereq(indexOf, removeIfFound);
+        return new NilLiteral();
+    }
+
+    private static LuauExpression GenerateFind(LuauState state, LuauExpression array, LuauExpression predicate)
+    {
+        var foundName = state.Scope.AddIdentifier(FoundName);
+        var found = new Identifier(foundName);
+        var callback = BindCallback(state, predicate, 2, [foundName]);
+        var source = callback.Inlined == null ? state.PushToVariable(SourceName, array) : array;
+        var applied = callback.Inlined == null ? state.PushToVariable(CallbackName, predicate) : null;
+        state.Prereq(new LocalVariable(foundName, null, new NilLiteral()));
+
+        var element = callback.RequiredName(state, 0, ElementName);
+        var index = callback.OptionalName(state, 1, IndexName);
+        var body = new List<LuauStatement>();
+        LuauExpression condition;
+        if (callback.Inlined is { } inlined)
+        {
+            body.AddRange(inlined.Prelude);
+            condition = inlined.Value;
+        }
+        else
+        {
+            condition = new Call(applied!, [new Identifier(element), new Identifier(index)]);
+        }
+
+        var decide = new Chunk([new ExpressionStatement(new BinaryOperator(found, "=", new Identifier(element))), new Break()]);
+        body.Add(new IfStatement(condition, decide, [], null));
+        state.Prereq(new ForStatement([index, element], source, new Chunk(body)));
+
+        return found;
+    }
+
+    private static LuauExpression GenerateFindIndex(LuauState state, LuauExpression array, LuauExpression predicate)
+    {
+        var foundName = state.Scope.AddIdentifier(FoundName);
+        var found = new Identifier(foundName);
+        var callback = BindCallback(state, predicate, 2, [foundName]);
+        var source = callback.Inlined == null ? state.PushToVariable(SourceName, array) : array;
+        var applied = callback.Inlined == null ? state.PushToVariable(CallbackName, predicate) : null;
+        state.Prereq(new LocalVariable(foundName, null, new NilLiteral()));
+
+        var element = callback.RequiredName(state, 0, ElementName);
+        var index = callback.RequiredName(state, 1, IndexName);
+        var body = new List<LuauStatement>();
+        LuauExpression condition;
+        if (callback.Inlined is { } inlined)
+        {
+            body.AddRange(inlined.Prelude);
+            condition = inlined.Value;
+        }
+        else
+        {
+            condition = new Call(applied!, [new Identifier(element), new Identifier(index)]);
+        }
+
+        var decide = new Chunk([new ExpressionStatement(new BinaryOperator(found, "=", new Identifier(index))), new Break()]);
+        body.Add(new IfStatement(condition, decide, [], null));
+        state.Prereq(new ForStatement([index, element], source, new Chunk(body)));
+
+        return found;
+    }
+
+    /// <summary>Allocates the result up front, so this is one pass rather than a build-then-swap.</summary>
+    private static LuauExpression GenerateReverse(LuauState state, LuauExpression array)
+    {
+        var source = state.PushToVariable(SourceName, array);
+        var length = state.PushToVariable(LengthName, new UnaryOperator("#", source));
+        var result = state.PushToVariable(ResultName, LuauFactory.TableCall("create", [length]));
+
+        var indexName = state.Scope.AddIdentifier(IndexName);
+        var index = new Identifier(indexName);
+        var fromEnd = new BinaryOperator(new BinaryOperator(length, "-", index), "+", new NumberLiteral(1));
+        var body = new Chunk([new ExpressionStatement(new BinaryOperator(new ElementAccess(result, index), "=", new ElementAccess(source, fromEnd)))]);
+        state.Prereq(new NumericForStatement(indexName, new NumberLiteral(1), length, null, body));
+
+        return result;
     }
 
     private static LuauExpression GenerateCount(LuauState state, LuauExpression array, LuauExpression predicate)

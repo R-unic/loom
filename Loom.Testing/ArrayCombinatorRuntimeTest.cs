@@ -298,12 +298,33 @@ public class ArrayCombinatorRuntimeTest
     [InlineData("let xs = [1, 2, 3]; let outcome = xs.has(9);", "false")]
     [InlineData("let xs = [1, 2, 3]; let outcome = xs.length;", "3")]
     [InlineData("let xs = [\"a\", \"b\"]; let outcome = xs.join(\"-\");", "a-b")]
+    [InlineData("let xs = mut [1, 2, 3]; xs.remove_value(2); let outcome = xs.join(\",\");", "1,3")]
+    [InlineData("let xs = mut [1, 2, 3]; xs.remove_value(9); let outcome = xs.join(\",\");", "1,2,3")]
+    [InlineData("let xs = mut [1, 2, 3]; xs.clear(); let outcome = xs.length;", "0")]
+    [InlineData("let xs = [1, 2, 3]; let outcome = xs.reverse().join(\",\");", "3,2,1")]
+    [InlineData("let xs: number[] = []; let outcome = xs.reverse().join(\",\");", "")]
     public void ComputesTheTableBackedMembers(string source, string expected) => Assert.Equal(expected, Run(source));
 
     /// <remarks>A set is a table keyed by its members, so membership is a lookup rather than a scan.</remarks>
     [Fact]
     public void ToSet_KeysTheTableByItsMembers() =>
         Assert.Equal("true", Run("let xs = [1, 2, 2, 3]; let s = xs.to_set(); let outcome = s.has(2) && !s.has(9);"));
+
+    /// <summary>Cloning copies into a new table, so mutating the source afterwards leaves the clone untouched.</summary>
+    [Fact]
+    public void Clone_IsIndependentOfTheSource() =>
+        Assert.Equal(
+            "1,2,3,4|1,2,3",
+            Run("let xs = mut [1, 2, 3]; let cloned = xs.clone(); xs.push(4); let outcome = xs.join(\",\") + \"|\" + cloned.join(\",\");")
+        );
+
+    [Theory]
+    [InlineData("[1, 2, 3].find(fn(n) -> n > 1)", "2")]
+    [InlineData("[1, 2, 3].find(fn(n) -> n > 9)", "nil")]
+    [InlineData("[1, 2, 3].find_index(fn(n) -> n > 1)", "2")]
+    [InlineData("[1, 2, 3].find_index(fn(n) -> n > 9)", "nil")]
+    public void FindAndFindIndex_StopAtTheFirstMatch(string expression, string expected) =>
+        Assert.Equal(expected, Run($"let outcome = {expression};"));
 
     private static string Run(string source)
     {

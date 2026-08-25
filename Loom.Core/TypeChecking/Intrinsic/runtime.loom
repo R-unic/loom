@@ -17,10 +17,14 @@ interface ResultOk<T, Error> {
     value: T;
     unwrap: fn(): T;
     expect: fn(message: string): T;
+    unwrap_err: fn(): Error;
+    expect_err: fn(message: string): Error;
     unwrap_or: fn<U>(fallback: U): T | U;
     unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
     map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
+    map_err: fn<F>(transform: fn(error: Error): F): Result<T, F>;
     and_then: fn<U>(transform: fn(value: T): Result<U, Error>): Result<U, Error>;
+    or_else: fn<F>(fallback: fn(error: Error): Result<T, F>): Result<T, F>;
 }
 
 interface ResultError<T, Error> {
@@ -28,10 +32,14 @@ interface ResultError<T, Error> {
     error: Error;
     unwrap: fn(): T;
     expect: fn(message: string): T;
+    unwrap_err: fn(): Error;
+    expect_err: fn(message: string): Error;
     unwrap_or: fn<U>(fallback: U): T | U;
     unwrap_or_else: fn<U>(compute: fn(error: Error): U): T | U;
     map: fn<U>(transform: fn(value: T): U): Result<U, Error>;
+    map_err: fn<F>(transform: fn(error: Error): F): Result<T, F>;
     and_then: fn<U>(transform: fn(value: T): Result<U, Error>): Result<U, Error>;
+    or_else: fn<F>(fallback: fn(error: Error): Result<T, F>): Result<T, F>;
 }
 
 type Result<T, Error> = ResultOk<T, Error> | ResultError<T, Error>;

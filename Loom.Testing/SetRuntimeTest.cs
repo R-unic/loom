@@ -47,6 +47,10 @@ public class SetRuntimeTest
     public void RemoveClearsMembership() =>
         Assert.Equal("false", Run("let m = MutSet::of(1, 2);\nm.remove(2);\nlet answer = m.has(2);", "return tostring(answer)"));
 
+    [Fact]
+    public void ClearEmptiesTheSet() =>
+        Assert.Equal("0", Run("let m = MutSet.of(1, 2, 3);\nm.clear();\nlet answer = m.size;", "return tostring(answer)"));
+
     /// <summary>A mutable set is assignable to an immutable one, so the algebra members accept one directly.</summary>
     [Fact]
     public void MutableSetPassesToAnImmutableParameter() =>

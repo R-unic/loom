@@ -65,7 +65,11 @@ public sealed class ArrayType(Type elementType, bool isMutable)
             ),
             new(false, "any", new FunctionType([], [predicate], PrimitiveType.Bool)),
             new(false, "all", new FunctionType([], [predicate], PrimitiveType.Bool)),
-            new(false, "count", new FunctionType([], [predicate], PrimitiveType.Number))
+            new(false, "count", new FunctionType([], [predicate], PrimitiveType.Number)),
+            new(false, "find", new FunctionType([], [predicate], optionalElement)),
+            new(false, "find_index", new FunctionType([], [predicate], new OptionalType(index))),
+            new(false, "reverse", new FunctionType([], [], new ArrayType(elementType, false))),
+            new(false, "clone", new FunctionType([], [], new ArrayType(elementType, false)))
         };
 
         if (elementType is ArrayType nested)
@@ -81,6 +85,8 @@ public sealed class ArrayType(Type elementType, bool isMutable)
         properties.Add(new ObjectProperty(false, "pop", new FunctionType([], [], optionalElement)));
         properties.Add(new ObjectProperty(false, "insert", new FunctionType([], [PrimitiveType.Number, elementType], PrimitiveType.Void)));
         properties.Add(new ObjectProperty(false, "remove", new FunctionType([], [PrimitiveType.Number], optionalElement)));
+        properties.Add(new ObjectProperty(false, "remove_value", new FunctionType([], [elementType], PrimitiveType.Void)));
+        properties.Add(new ObjectProperty(false, "clear", new FunctionType([], [], PrimitiveType.Void)));
 
         return properties;
     }

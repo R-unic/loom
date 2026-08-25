@@ -33,7 +33,7 @@ internal sealed class SetMacroProvider : IMacroProvider
     private const string SubsetName = "_subset";
 
     private static readonly HashSet<string> _members =
-        ["has", "add", "remove", "union", "intersect", "difference", "is_subset_of", "to_array"];
+        ["has", "add", "remove", "clear", "union", "intersect", "difference", "is_subset_of", "to_array"];
 
     public bool Supports(SemanticModel _, Type type) => IsSet(type);
     public bool Supports(SemanticModel semanticModel, Expression expression) => IsSet(semanticModel.GetType(expression));
@@ -81,6 +81,9 @@ internal sealed class SetMacroProvider : IMacroProvider
                 return true;
             case "remove":
                 expression = Mutate(context, new ElementAccess(set, call.Arguments.Single()), new NilLiteral());
+                return true;
+            case "clear":
+                expression = LuauFactory.TableCall("clear", [set]);
                 return true;
             case "union":
                 expression = GenerateUnion(context, set, call.Arguments.Single());

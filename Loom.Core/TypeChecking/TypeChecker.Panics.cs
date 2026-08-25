@@ -22,7 +22,7 @@ public sealed partial class TypeChecker
     private const string FallibleAttribute = "fallible";
     private const string DeprecatedAttribute = "deprecated";
     private const string WrapsErrorsAttribute = "wraps_errors";
-    private static readonly HashSet<string> _panickingResultMembers = ["unwrap", "expect"];
+    private static readonly HashSet<string> _panickingResultMembers = ["unwrap", "expect", "unwrap_err", "expect_err"];
 
     private void CheckPanicIsDeclared(Invocation invocation)
     {

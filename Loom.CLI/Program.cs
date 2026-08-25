@@ -1,7 +1,5 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Loom.CLI;
-using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Pipeline;
 using Loom.Packages;
@@ -12,6 +10,8 @@ return command switch
     CliCommand.RunBuild build => compile(build.Options.Directory, build.Options.DependencyDiagnostics, watch: false),
     CliCommand.RunWatch watchCommand => compile(watchCommand.Options.Directory, watchCommand.Options.DependencyDiagnostics, watch: true),
     CliCommand.RunNew newCommand => Scaffolder.NewProject(newCommand.Options.Directory),
+    CliCommand.RunAdd add => PackageCommands.Add(add.Options),
+    CliCommand.RunPublish publish => PackageCommands.Publish(publish.Options),
     CliCommand.Done done => reportDone(done.ExitCode),
     _ => 1
 };
@@ -22,19 +22,6 @@ static int reportDone(int exitCode)
         Log.Fatal("invalid command");
 
     return exitCode;
-}
-
-static bool tryGetConfig(string directory, [NotNullWhen(true)] out LoomConfig? config)
-{
-    config = ConfigReader.LocateFromDirectory(directory, out var configDiagnostics);
-    if (config != null)
-        return true;
-
-    if (configDiagnostics.Count == 0)
-        Log.Fatal($"could not locate Loom configuration file in directory '{directory}'.");
-
-    Console.WriteLine(string.Join(Environment.NewLine, configDiagnostics.Select(diagnostic => $"({ConfigReader.ConfigFileName}) {diagnostic}")));
-    return false;
 }
 
 static int compile(string directory, bool dependencyDiagnostics, bool watch)
@@ -48,7 +35,7 @@ static int compile(string directory, bool dependencyDiagnostics, bool watch)
         OnFatalError = watch ? null : printAndExit, ReportDependencyDiagnostics = dependencyDiagnostics
     };
 
-    if (!tryGetConfig(directory, out var config))
+    if (!Projects.TryLocate(directory, out var config))
         return 1;
 
     FileManager.WriteIncludeFolder(config.ProjectDirectory);
@@ -56,14 +43,14 @@ static int compile(string directory, bool dependencyDiagnostics, bool watch)
     {
         if (!PackageManager.Restore(config, out var restoreDiagnostics))
         {
-            printProjectDiagnostics(restoreDiagnostics);
+            Projects.Report(restoreDiagnostics);
             return 1;
         }
 
         var roots = ProjectLoader.Load(config, out var projectDiagnostics);
         if (roots == null)
         {
-            printProjectDiagnostics(projectDiagnostics);
+            Projects.Report(projectDiagnostics);
             return 1;
         }
 
@@ -74,16 +61,6 @@ static int compile(string directory, bool dependencyDiagnostics, bool watch)
 
     var watcher = new Watcher(diagnosticOptions);
     return watcher.Start(config);
-}
-
-/// <summary>
-///     Reports what stopped the build before a file was read: a lock file that cannot be trusted, a dependency
-///     that is not installed. Each names the file it is about, so none is prefixed with one.
-/// </summary>
-static void printProjectDiagnostics(IEnumerable<ConfigDiagnostic> diagnostics)
-{
-    foreach (var diagnostic in diagnostics)
-        Log.Fatal(diagnostic.ToString());
 }
 
 static void printAndExit(Diagnostic diagnostic)

@@ -33,6 +33,25 @@ public class ResultCombinatorTest
     }
 
     [Fact]
+    public void UnwrapErr_RaisesTheValueAndYieldsTheError()
+    {
+        var rendered = Render("let e = fetch().unwrap_err();");
+
+        Assert.Contains("if _result.ok then", rendered);
+        Assert.Contains("error(_result.value)", rendered);
+        Assert.Contains("_result.error", rendered);
+    }
+
+    [Fact]
+    public void ExpectErr_RaisesTheSuppliedMessage()
+    {
+        var rendered = Render("""let e = fetch().expect_err("expected a failure");""");
+
+        Assert.Contains("""error("expected a failure")""", rendered);
+        Assert.DoesNotContain("error(_result.value)", rendered);
+    }
+
+    [Fact]
     public void UnwrapOr_SelectsTheFallbackWithoutRaising()
     {
         var rendered = Render("let n = fetch().unwrap_or(0);");
@@ -85,6 +104,37 @@ public class ResultCombinatorTest
         Assert.Contains("step(_result.value)", rendered);
         Assert.Contains("else _result", rendered);
         Assert.DoesNotContain("ok = true, value = step", rendered);
+    }
+
+    [Fact]
+    public void MapErr_RebuildsTheErrorArmAndPassesTheOkArmThrough()
+    {
+        var rendered = Render("""
+            fn rename(message: string): string {
+                return "renamed: " + message;
+            }
+
+            let renamed = fetch().map_err(rename);
+            """);
+
+        Assert.Contains("rename(_result.error)", rendered);
+        Assert.Contains("ok = false", rendered);
+        Assert.Contains("if _result.ok then _result else", rendered);
+    }
+
+    [Fact]
+    public void OrElse_ChainsWithoutRewrappingTheOkArm()
+    {
+        var rendered = Render("""
+            fn recover(message: string): Result<number, string> {
+                return Result.ok(0);
+            }
+
+            let recovered = fetch().or_else(recover);
+            """);
+
+        Assert.Contains("recover(_result.error)", rendered);
+        Assert.Contains("if _result.ok then _result else", rendered);
     }
 
     [Fact]
