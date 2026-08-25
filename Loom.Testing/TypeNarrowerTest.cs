@@ -5,6 +5,7 @@ using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using LiteralType = Loom.Core.TypeChecking.Types.LiteralType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Testing;
 

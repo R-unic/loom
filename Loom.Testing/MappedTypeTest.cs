@@ -6,6 +6,7 @@ using IndexerDeclaration = Loom.Core.Parsing.AST.IndexerDeclaration;
 using KeyOf = Loom.Core.Parsing.AST.KeyOf;
 using MappedTypeDeclaration = Loom.Core.Parsing.AST.MappedTypeDeclaration;
 using Type = Loom.Core.TypeChecking.Types.Type;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Testing;
 

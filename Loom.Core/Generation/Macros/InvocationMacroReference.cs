@@ -6,6 +6,7 @@ using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking;
 using OptionalType = Loom.Core.TypeChecking.Types.OptionalType;
 using Type = Loom.Core.TypeChecking.Types.Type;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.Generation.Macros;
 

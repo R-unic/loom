@@ -1,7 +1,7 @@
 using Loom.Core.TypeChecking.Types;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Solving;
 
 /// <summary>
 ///     Answers a <see cref="ConditionalType" /> once its subject is concrete, and leaves it standing

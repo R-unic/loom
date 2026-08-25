@@ -13,6 +13,7 @@ using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 namespace Loom.Testing;
 
 using static PrimitiveType;
+using Loom.Core.TypeChecking.Solving;
 
 [Collection("Assembly")]
 public class TypesTest

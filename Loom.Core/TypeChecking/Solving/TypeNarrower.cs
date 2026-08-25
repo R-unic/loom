@@ -10,7 +10,7 @@ using Type = Loom.Core.TypeChecking.Types.Type;
 using TypePredicateType = Loom.Core.TypeChecking.Types.TypePredicateType;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Solving;
 
 public sealed class TypeNarrower
 {

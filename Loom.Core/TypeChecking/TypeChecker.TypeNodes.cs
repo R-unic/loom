@@ -18,6 +18,7 @@ using UnionType = Loom.Core.Parsing.AST.UnionType;
 namespace Loom.Core.TypeChecking;
 
 using Type = Types.Type;
+using Loom.Core.TypeChecking.Solving;
 
 public sealed partial class TypeChecker
 {

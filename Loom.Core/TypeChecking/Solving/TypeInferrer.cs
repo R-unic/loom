@@ -9,7 +9,7 @@ using Type = Loom.Core.TypeChecking.Types.Type;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Solving;
 
 public sealed class TypeInferrer(Func<Node, Type> getType)
 {

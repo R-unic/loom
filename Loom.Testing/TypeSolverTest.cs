@@ -10,6 +10,7 @@ using LoomType = Loom.Core.TypeChecking.Types.Type;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Testing;
 

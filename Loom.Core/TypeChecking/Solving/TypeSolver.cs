@@ -14,7 +14,7 @@ using ConditionalType = Loom.Core.TypeChecking.Types.ConditionalType;
 using TupleType = Loom.Core.TypeChecking.Types.TupleType;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 
-namespace Loom.Core.TypeChecking;
+namespace Loom.Core.TypeChecking.Solving;
 
 public sealed class TypeSolver(DiagnosticBag diagnostics)
 {

@@ -5,6 +5,7 @@ using Loom.Core.Generation.Macros;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;
+using Loom.Core.TypeChecking.Solving;
 using Loom.Core.TypeChecking.Types;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
 

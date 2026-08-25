@@ -10,6 +10,7 @@ using TupleType = Loom.Core.TypeChecking.Types.TupleType;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.Generation;
 

@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.TypeChecking.Types;
 

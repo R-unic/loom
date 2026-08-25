@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.TypeChecking.Types;
 

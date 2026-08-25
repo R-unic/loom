@@ -5,6 +5,7 @@ using Loom.Core.TypeChecking.Types;
 namespace Loom.Core.TypeChecking;
 
 using Type = Types.Type;
+using Loom.Core.TypeChecking.Solving;
 
 public sealed partial class TypeChecker
 {

@@ -9,6 +9,7 @@ using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using ConditionalType = Loom.Core.TypeChecking.Types.ConditionalType;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.TypeChecking;
 
