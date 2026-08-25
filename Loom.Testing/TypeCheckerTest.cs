@@ -1796,6 +1796,36 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Allows_ResultOk_ViaColonColon() => Utility.AssertNoErrors(Utility.TypeCheck("let x: Result<number, string> = Result::ok(69);"));
+
+    [Fact]
+    public void Allows_ResultErr_ViaColonColon() => Utility.AssertNoErrors(Utility.TypeCheck("let x: Result<number, string> = Result::err(\"msg\");"));
+
+    [Fact]
+    public void ThrowsFor_ResultOk_AccessedWithDot()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = Result.ok(69);");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.WrongOperatorForMemberKind,
+            "'ok' is a static member of 'Result' - '.' cannot access it.",
+            "use '::ok' instead"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_ResultErr_AccessedWithDot()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x = Result.err(\"msg\");");
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.WrongOperatorForMemberKind,
+            "'err' is a static member of 'Result' - '.' cannot access it.",
+            "use '::err' instead"
+        );
+    }
+
+    [Fact]
     public void Allows_EnumMemberAccess_WithColonColon() =>
         Utility.AssertNoErrors(Utility.TypeCheck("enum Status { Active, Inactive }\nlet x: Status = Status::Active;"));
 

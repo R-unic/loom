@@ -949,6 +949,126 @@ public class ResolverTest
             )
         );
 
+    [Fact]
+    public void Allows_DeclareStaticBlock_OnTypeAlias() =>
+        Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                type Outcome<T, E> = T | E;
+
+                declare static Outcome {
+                    ok: fn<T, E>(value: T): Outcome<T, E>;
+                    err: fn<T, E>(error: E): Outcome<T, E>;
+                }
+                """
+            )
+        );
+
+    [Fact]
+    public void SynthesizesValueSymbol_ForTypeAliasWithDeclareStaticBlock()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                """
+                type Outcome<T, E> = T | E;
+
+                declare static Outcome {
+                    ok: fn<T, E>(value: T): Outcome<T, E>;
+                }
+
+                Outcome
+                """
+            )
+        );
+
+        var statement = Assert.IsType<ExpressionStatement>(model.Tree.Statements[2]);
+        var reference = Assert.IsType<Identifier>(statement.Expression);
+        var symbol = model.GetSymbol(reference);
+
+        Assert.NotNull(symbol);
+        Assert.True(symbol.IsValueSymbol);
+    }
+
+    [Fact]
+    public void ThrowsFor_DeclareStaticBlock_OutsideModuleScope()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            type Outcome<T, E> = T | E;
+
+            fn f() {
+                declare static Outcome { ok: fn<T, E>(value: T): Outcome<T, E>; }
+            }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockOutsideModuleScope,
+            "'declare static' blocks can only be declared at the top level of a module.",
+            "move the 'declare static' block out of the enclosing block"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_DeclareStaticBlock_TargetingInterface()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            interface Vector2 { x: number }
+
+            declare static Vector2 { zero: fn(): Vector2; }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.DeclareStaticBlockTargetsInterface,
+            "'declare static' targets an ambient type alias - interface 'Vector2' already declares its ambient statics inline.",
+            "add 'static' members directly inside 'declare interface Vector2 { ... }' instead"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_DeclareStaticBlock_TargetingNonAlias()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            enum Color { Red, Green }
+
+            declare static Color { of: fn(name: string): Color; }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.DeclareStaticBlockTargetsNonAlias,
+            "'declare static' may only target a type alias, but 'Color' is not one."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_DeclareStaticBlock_UnknownTarget()
+    {
+        var diagnostics = Utility.GetSemanticModel("declare static Nope { of: fn(): number; }").Diagnostics;
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindSymbol, "Cannot find type symbol 'Nope'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_DuplicateDeclareStaticBlock()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            type Outcome<T, E> = T | E;
+
+            declare static Outcome { ok: fn<T, E>(value: T): Outcome<T, E>; }
+            declare static Outcome { err: fn<T, E>(error: E): Outcome<T, E>; }
+            """
+        ).Diagnostics;
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.DuplicateDeclareStaticBlock, "Type alias 'Outcome' already has a 'declare static' block.");
+    }
+
     [Theory]
     [InlineData("deep_equal")]
     [InlineData("deep_hash")]

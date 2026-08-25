@@ -267,10 +267,12 @@ public sealed partial class Resolver
 
         aliasSymbol.StaticBlocks.Add(declareStaticBlock);
 
-        using var _ = InScope();
         var success = true;
-        foreach (var member in declareStaticBlock.Members)
-            success &= Visit(member);
+        using (var _ = InScope())
+        {
+            foreach (var member in declareStaticBlock.Members)
+                success &= Visit(member);
+        }
 
         if (!success)
             return false;
