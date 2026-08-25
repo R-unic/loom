@@ -199,6 +199,93 @@ public sealed partial class Resolver
         return Visit(staticBlock.Body);
     }
 
+    /// <summary>
+    ///     The companion-block form for a type alias's statics (see <see cref="DeclareStaticBlock" />) -
+    ///     sibling to <see cref="VisitStaticBlock" />, but targeting a <see cref="TypeAliasSymbol" /> instead
+    ///     of an <see cref="InterfaceSymbol" /> and signature-only throughout, the same trust level a
+    ///     <c>declare interface</c>'s own inline statics already get. Builds one <see cref="PropertySymbol" />
+    ///     per member (always <c>IsStatic</c>, mirroring <see cref="ResolveInterfaceBody" />'s static
+    ///     properties) and synthesizes the same kind of static-holder value symbol under the alias's name, so
+    ///     'Result::ok(...)' resolves 'Result' to a value the same way a bare interface name with statics
+    ///     does.
+    /// </summary>
+    public override bool VisitDeclareStaticBlock(DeclareStaticBlock declareStaticBlock)
+    {
+        if (!AtModuleScope())
+        {
+            _diagnostics.Error(
+                declareStaticBlock,
+                InternalCodes.StaticBlockOutsideModuleScope,
+                "'declare static' blocks can only be declared at the top level of a module.",
+                "move the 'declare static' block out of the enclosing block"
+            );
+
+            return false;
+        }
+
+        var name = declareStaticBlock.Name.Text;
+        var targetSymbol = LookupTypeSymbol(name);
+        switch (targetSymbol)
+        {
+            case null:
+                _diagnostics.Error(declareStaticBlock.Name, InternalCodes.CannotFindSymbol, $"Cannot find type symbol '{name}'.");
+                return false;
+
+            case InterfaceSymbol:
+                _diagnostics.Error(
+                    declareStaticBlock.Name,
+                    InternalCodes.DeclareStaticBlockTargetsInterface,
+                    $"'declare static' targets an ambient type alias - interface '{name}' already declares its ambient statics inline.",
+                    $"add 'static' members directly inside 'declare interface {name} {{ ... }}' instead"
+                );
+
+                return false;
+
+            case not TypeAliasSymbol:
+                _diagnostics.Error(
+                    declareStaticBlock.Name,
+                    InternalCodes.DeclareStaticBlockTargetsNonAlias,
+                    $"'declare static' may only target a type alias, but '{name}' is not one."
+                );
+
+                return false;
+        }
+
+        var aliasSymbol = (TypeAliasSymbol)targetSymbol;
+        AddReference(declareStaticBlock, aliasSymbol);
+
+        if (aliasSymbol.StaticBlocks.Count > 0)
+        {
+            _diagnostics.Error(
+                declareStaticBlock.Name,
+                InternalCodes.DuplicateDeclareStaticBlock,
+                $"Type alias '{name}' already has a 'declare static' block."
+            );
+
+            return false;
+        }
+
+        aliasSymbol.StaticBlocks.Add(declareStaticBlock);
+
+        using var _ = InScope();
+        var success = true;
+        foreach (var member in declareStaticBlock.Members)
+            success &= Visit(member);
+
+        if (!success)
+            return false;
+
+        foreach (var symbol in
+                 from member in declareStaticBlock.Members
+                 let attributeSymbols = member.Attributes?.AttributeList.Select(DeclareAttribute).ToList() ?? []
+                 let propertyType = member.ColonTypeClause.Type is OptionalType optionalType ? optionalType.NonNullableType : member.ColonTypeClause.Type
+                 let pointsTo = _semanticModel.GetSymbol(propertyType, SymbolKind.Interface) as InterfaceSymbol
+                 select new PropertySymbol(member, pointsTo, attributeSymbols) { IsIntrinsic = aliasSymbol.IsIntrinsic, IsStatic = true })
+            AddDeclaration(symbol);
+
+        return DeclareVariable(declareStaticBlock);
+    }
+
     public override bool VisitSelfExpression(SelfExpression selfExpression)
     {
         var implement = selfExpression.FirstAncestorOfType<Implement>();

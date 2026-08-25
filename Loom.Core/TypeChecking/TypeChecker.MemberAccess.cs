@@ -70,9 +70,11 @@ public sealed partial class TypeChecker
         {
             // Bracket access has no '.'/'::' token to check the operator against, but the receiver-kind rule
             // still applies: a static member is reachable only through the interface's own namespace value,
-            // never through a real instance, whichever syntax reaches for it.
+            // never through a real instance, whichever syntax reaches for it. A 'declare static' block
+            // synthesizes the same kind of static-holder value for a type alias (see VisitDeclareStaticBlock),
+            // so it counts here too.
             var isInterfaceNamespaceAccess = elementAccess.Expression is Identifier identifier
-                && _semanticModel.GetSymbol(identifier) is { Declaration: InterfaceDeclaration };
+                && _semanticModel.GetSymbol(identifier) is { Declaration: InterfaceDeclaration or DeclareStaticBlock };
 
             return IndexType(
                 elementAccess,
@@ -188,9 +190,12 @@ public sealed partial class TypeChecker
         // 'new Foo { ... }' does - see ResolveInterfaceBody. Its type carries every property, static and
         // instance alike, so only the first step of the chain needs telling apart from a real instance:
         // 'Foo.someInstanceField' would otherwise pass the operator-kind check below same as 'foo.someField'
-        // does on an actual value, since '.' agrees with a non-static property either way.
+        // does on an actual value, since '.' agrees with a non-static property either way. A type alias's own
+        // name behaves the same way when it has a 'declare static' companion block (see
+        // VisitDeclareStaticBlock) - every property that block produces is static, so it needs the same
+        // telling-apart even though there is no real instance of an alias to confuse it with.
         var targetNamesItsOwnInterface = targetExpression is Identifier { } targetIdentifier
-            && _semanticModel.GetSymbol(targetIdentifier) is { Declaration: InterfaceDeclaration };
+            && _semanticModel.GetSymbol(targetIdentifier) is { Declaration: InterfaceDeclaration or DeclareStaticBlock };
 
         var isOptionalChain = false;
         var isFirstStep = true;

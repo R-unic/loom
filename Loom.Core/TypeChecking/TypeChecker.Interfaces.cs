@@ -183,6 +183,35 @@ public sealed partial class TypeChecker
         Visit(method.Body);
     }
 
+    /// <summary>
+    ///     Types a <see cref="DeclareStaticBlock" /> the way <see cref="VisitInterfaceDeclaration" /> types an
+    ///     interface's own static properties, minus everything an alias's companion block cannot have -
+    ///     constraints, an indexer, events, mutability. Every member is static by construction (the block
+    ///     itself is what says so), so <see cref="ObjectProperty.IsStatic" /> is forced rather than read off
+    ///     the member. Bound to a plain <see cref="InterfaceType" /> (no <see cref="GenericType" /> wrapper,
+    ///     even where the alias itself is generic) since the alias's own type parameters mean nothing to its
+    ///     statics and nothing ever constructs a 'Result' value the way 'new Future&lt;T&gt; { ... }' does -
+    ///     matching how 'BaseResult', the anchor interface this replaces, was typed.
+    /// </summary>
+    public override Type VisitDeclareStaticBlock(DeclareStaticBlock declareStaticBlock)
+    {
+        var resolvedType = _semanticModel.GetType(declareStaticBlock);
+        if (resolvedType is not TypeVariable)
+            return resolvedType;
+
+        var isIntrinsic = _semanticModel.GetSymbol(declareStaticBlock, SymbolKind.Type) is { IsIntrinsic: true };
+        var properties = declareStaticBlock.Members.ConvertAll(member =>
+        {
+            MaybeVisit(member.Attributes);
+            return new ObjectProperty(false, member.Name.Text, Visit(member.ColonTypeClause), IsStatic: true);
+        });
+
+        var objectType = new ObjectType(null, MergeOverloadedProperties(properties));
+        var interfaceType = new InterfaceType(declareStaticBlock.Name.Text, [], objectType) { IsIntrinsic = isIntrinsic };
+
+        return BindType(declareStaticBlock, interfaceType);
+    }
+
     public override Type VisitSelfExpression(SelfExpression selfExpression)
     {
         var implement = selfExpression.FirstAncestorOfType<Implement>();
