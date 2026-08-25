@@ -32,7 +32,7 @@ public sealed class FunctionType(
     ///     <para>
     ///         Past the fixed parameters, a rest parameter answers for every remaining argument: an array rest
     ///         with its element type, a tuple rest with the type at that position. Both the type checker (to
-    ///         decide what to check an argument against) and <see cref="TypeInferrer" /> (to decide what to
+    ///         decide what to check an argument against) and <see cref="Solving.TypeInferrer" /> (to decide what to
     ///         infer it against) have to agree on this, so it lives here rather than in either of them.
     ///     </para>
     /// </summary>
@@ -73,7 +73,7 @@ public sealed class FunctionType(
     ///     against, or null where the target has none there.
     /// </summary>
     /// <remarks>
-    ///     <see cref="IsAssignableTo" /> and <see cref="TypeSolver.UnifyFunctionTypes" /> answer the same
+    ///     <see cref="IsAssignableTo" /> and <see cref="Solving.TypeSolver.UnifyFunctionTypes" /> answer the same
     ///     question and must not diverge, so which parameter faces which lives here rather than in either.
     /// </remarks>
     public static Type? CounterpartParameterType(List<Type> targetParameterTypes, bool targetHasRestParameter, bool sourceHasRestParameter, int index) =>

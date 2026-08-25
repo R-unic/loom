@@ -14,7 +14,7 @@ namespace Loom.Core.Pipeline;
 ///     what it exports, which is versioned, named at the import site and shadowable, none of which is true of
 ///     a name that simply appears in scope. Intrinsics are not partitioned this way — they belong to the
 ///     language rather than to any project, and reach every file of every root through
-///     <see cref="TypeChecking.Intrinsics.Register" />.
+///     <see cref="TypeChecking.Intrinsic.Intrinsics.Register" />.
 /// </remarks>
 public sealed class GlobalSymbols(SourceRootSet roots)
 {

@@ -43,7 +43,7 @@ public sealed class GenericType(GenericNamedDeclaration declaration, List<TypePa
     ///     <para>
     ///         Arguments are matched by <em>reference</em>, not by <see cref="Type.Equals(Type)" />, for two reasons.
     ///         Structural matching would fuse two interfaces that merely look alike into one instantiation, and
-    ///         since intrinsic definitions are cached for the process (see <see cref="Intrinsics" />) that fusion
+    ///         since intrinsic definitions are cached for the process (see <see cref="Intrinsic.Intrinsics" />) that fusion
     ///         would reach across compilations and hand one project's type to another. It also keeps the table
     ///         from outliving what it describes: bucketing on the first argument in a
     ///         <see cref="ConditionalWeakTable{TKey,TValue}" /> lets a compilation's entries die with the types they name,
