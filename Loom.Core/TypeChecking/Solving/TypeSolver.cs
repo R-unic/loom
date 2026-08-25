@@ -189,8 +189,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             {
                 var resolvedA = Substitute(constraint.Actual, true);
                 var resolvedB = Substitute(constraint.Expected, true);
-                var trace = TraceThroughExpansion(constraint, resolvedA, resolvedB);
-                if (!TryUnify(resolvedA, resolvedB, constraint.Span, out var updated, trace))
+                if (!TryUnify(resolvedA, resolvedB, constraint.Span, out var updated, () => TraceThroughExpansion(constraint, resolvedA, resolvedB)))
                     return false;
 
                 if (updated)
@@ -215,10 +214,10 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         var namedB = Substitute(constraint.Expected, false);
         return ReferenceEquals(namedA, resolvedA) && ReferenceEquals(namedB, resolvedB)
             ? constraint.Trace
-            : new TypeMismatchTrace(namedA, namedB, constraint.Trace);
+            : new TypeMismatchTrace(namedA, namedB, () => constraint.Trace);
     }
 
-    private bool TryUnify(Type a, Type b, LocationSpan span, out bool updated, TypeMismatchTrace? trace = null)
+    private bool TryUnify(Type a, Type b, LocationSpan span, out bool updated, Func<TypeMismatchTrace?>? trace = null)
     {
         updated = false;
         var pair = (a, b);
@@ -240,8 +239,8 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 // side is the interface and which is the plain object has to carry through in the same
                 // order it arrived in - collapsing both orderings onto one helper with a fixed argument
                 // order silently swapped actual and expected for one of the two orderings.
-                (ObjectType o, InterfaceType i) => TryUnify(o, i.AssignabilityType, span, out updated, new TypeMismatchTrace(o, i, trace)),
-                (InterfaceType i, ObjectType o) => TryUnify(i.AssignabilityType, o, span, out updated, new TypeMismatchTrace(i, o, trace)),
+                (ObjectType o, InterfaceType i) => TryUnify(o, i.AssignabilityType, span, out updated, () => new TypeMismatchTrace(o, i, trace)),
+                (InterfaceType i, ObjectType o) => TryUnify(i.AssignabilityType, o, span, out updated, () => new TypeMismatchTrace(i, o, trace)),
                 (InterfaceType i1, InterfaceType i2) => UnifyInterfaceTypes(i1, i2, span, out updated, trace),
                 (TypeParameter p1, TypeParameter p2) => UnifyTypeParameters(p1, p2, span, out updated, trace),
 
@@ -255,7 +254,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         }
     }
 
-    private bool UnifyTypeParameters(TypeParameter p1, TypeParameter p2, LocationSpan span, out bool updated, TypeMismatchTrace? trace)
+    private bool UnifyTypeParameters(TypeParameter p1, TypeParameter p2, LocationSpan span, out bool updated, Func<TypeMismatchTrace?>? trace)
     {
         updated = false;
         if (p1.Constraint != null && p2.Constraint != null && !p1.Constraint.IsAssignableTo(p2.Constraint))
@@ -264,7 +263,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         if (p1.Constraint == null || p2.Constraint == null)
             return true;
 
-        return TryUnify(p1.Constraint, p2.Constraint, span, out updated, new TypeMismatchTrace(p1, p2, trace));
+        return TryUnify(p1.Constraint, p2.Constraint, span, out updated, () => new TypeMismatchTrace(p1, p2, trace));
     }
 
     // Array element assignability is covariant against an immutable target and invariant against a
@@ -272,7 +271,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
     // only the diagnostic gains a "why" trace into the element types on failure. Intrinsic array methods
     // (push/pop/join/etc.) are deliberately NOT unified structurally here (unlike UnifyObjectTypes) since
     // they redundantly re-derive the same element-type mismatch through several unrelated-looking paths.
-    private bool UnifyArrayTypes(ArrayType a, ArrayType b, LocationSpan span, out bool updated, TypeMismatchTrace? trace)
+    private bool UnifyArrayTypes(ArrayType a, ArrayType b, LocationSpan span, out bool updated, Func<TypeMismatchTrace?>? trace)
     {
         updated = false;
         if (a.IsAssignableTo(b))
@@ -287,7 +286,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             return ReportTypeMismatch(a, b, span, reason, trace);
         }
 
-        return TryUnify(a.ElementType, b.ElementType, span, out updated, new TypeMismatchTrace(a, b, trace));
+        return TryUnify(a.ElementType, b.ElementType, span, out updated, () => new TypeMismatchTrace(a, b, trace));
     }
 
     private bool UnifyBothVariables(TypeVariable va, TypeVariable vb, out bool updated)
@@ -314,7 +313,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         return true;
     }
 
-    private bool UnifyInstantiatedPair(InstantiatedType a, InstantiatedType b, LocationSpan span, out bool updated, TypeMismatchTrace? trace)
+    private bool UnifyInstantiatedPair(InstantiatedType a, InstantiatedType b, LocationSpan span, out bool updated, Func<TypeMismatchTrace?>? trace)
     {
         updated = false;
         if (!a.GenericType.Equals(b.GenericType) || a.Arguments.Count != b.Arguments.Count)
@@ -322,22 +321,24 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
         var success = true;
         var childTrace = new TypeMismatchTrace(a, b, trace);
+        Func<TypeMismatchTrace?> childTraceFn = () => childTrace;
         for (var i = 0; i < a.Arguments.Count; i++)
-            CombineUnify(a.Arguments[i], b.Arguments[i], span, ref success, ref updated, childTrace);
+            CombineUnify(a.Arguments[i], b.Arguments[i], span, ref success, ref updated, childTraceFn);
 
         return success;
     }
 
-    private bool UnifyObjectTypes(ObjectType a, ObjectType b, LocationSpan span, out bool updated, TypeMismatchTrace? trace)
+    private bool UnifyObjectTypes(ObjectType a, ObjectType b, LocationSpan span, out bool updated, Func<TypeMismatchTrace?>? trace)
     {
         updated = false;
         var success = true;
         var childTrace = new TypeMismatchTrace(a, b, trace);
+        Func<TypeMismatchTrace?> childTraceFn = () => childTrace;
 
         if (a.Indexer != null && b.Indexer != null)
         {
-            CombineUnify(a.Indexer.KeyType, b.Indexer.KeyType, span, ref success, ref updated, childTrace);
-            CombineUnify(a.Indexer.ValueType, b.Indexer.ValueType, span, ref success, ref updated, childTrace);
+            CombineUnify(a.Indexer.KeyType, b.Indexer.KeyType, span, ref success, ref updated, childTraceFn);
+            CombineUnify(a.Indexer.ValueType, b.Indexer.ValueType, span, ref success, ref updated, childTraceFn);
 
             // Only the unsound direction, matching ObjectType.IsAssignableTo: giving up 'mut' is safe,
             // gaining it is not. Demanding the two agree exactly made this the stricter of two rules for
@@ -371,7 +372,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 continue;
             }
 
-            CombineUnify(propA.ValueType, propB.ValueType, span, ref success, ref updated, childTrace);
+            CombineUnify(propA.ValueType, propB.ValueType, span, ref success, ref updated, childTraceFn);
 
             if (propA.IsMutable || !propB.IsMutable) continue;
             if (!ReportTypeMismatch(a, b, span, $"Property '{propB.Name}' is immutable on type '{a}', but type '{b}' requires a mutable one.", trace))
@@ -381,7 +382,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         return success;
     }
 
-    private void CombineUnify(Type a, Type b, LocationSpan span, ref bool success, ref bool updated, TypeMismatchTrace? trace = null)
+    private void CombineUnify(Type a, Type b, LocationSpan span, ref bool success, ref bool updated, Func<TypeMismatchTrace?>? trace = null)
     {
         if (!TryUnify(a, b, span, out var stepUpdated, trace))
             success = false;
@@ -389,13 +390,13 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             updated = true;
     }
 
-    private bool UnifyInterfaceTypes(InterfaceType a, InterfaceType b, LocationSpan span, out bool updated, TypeMismatchTrace? trace)
+    private bool UnifyInterfaceTypes(InterfaceType a, InterfaceType b, LocationSpan span, out bool updated, Func<TypeMismatchTrace?>? trace)
     {
         updated = false;
-        return TryUnify(a.AssignabilityType, b.AssignabilityType, span, out updated, new TypeMismatchTrace(a, b, trace));
+        return TryUnify(a.AssignabilityType, b.AssignabilityType, span, out updated, () => new TypeMismatchTrace(a, b, trace));
     }
 
-    private bool UnifyFunctionTypes(FunctionType a, FunctionType b, LocationSpan span, out bool updated, TypeMismatchTrace? trace)
+    private bool UnifyFunctionTypes(FunctionType a, FunctionType b, LocationSpan span, out bool updated, Func<TypeMismatchTrace?>? trace)
     {
         updated = false;
 
@@ -412,8 +413,9 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
         var success = true;
         var childTrace = new TypeMismatchTrace(a, b, trace);
+        Func<TypeMismatchTrace?> childTraceFn = () => childTrace;
         for (var i = 0; i < a.TypeParameters.Count; i++)
-            CombineUnify(a.TypeParameters[i], b.TypeParameters[i], span, ref success, ref updated, childTrace);
+            CombineUnify(a.TypeParameters[i], b.TypeParameters[i], span, ref success, ref updated, childTraceFn);
 
         var freshVars = a.TypeParameters.Select(_ => CreateTypeVariable()).ToList();
         var aMapping = a.TypeParameters.Zip(freshVars).ToDictionary(p => p.First, p => p.Second);
@@ -430,10 +432,10 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 break;
             }
 
-            CombineUnify(aParamTypes[i], bParamType, span, ref success, ref updated, childTrace);
+            CombineUnify(aParamTypes[i], bParamType, span, ref success, ref updated, childTraceFn);
         }
 
-        CombineUnify(aReturnType, bReturnType, span, ref success, ref updated, childTrace);
+        CombineUnify(aReturnType, bReturnType, span, ref success, ref updated, childTraceFn);
 
         return success;
     }
@@ -524,10 +526,15 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         return type;
     }
 
-    private bool ReportTypeMismatch(Type a, Type b, LocationSpan span, string? info = null, TypeMismatchTrace? trace = null)
+    private bool ReportTypeMismatch(Type a, Type b, LocationSpan span, string? info = null, Func<TypeMismatchTrace?>? trace = null)
     {
+        // The chain of parent frames is only ever needed once a mismatch has actually been confirmed
+        // (this method only runs on that path), so it is forced here rather than by whoever built the
+        // thunk - a constraint that unifies cleanly, the common case, never pays for it at all.
+        var initialFrame = trace?.Invoke();
+
         var frames = new List<string>();
-        for (var frame = trace; frame != null; frame = frame.Parent)
+        for (var frame = initialFrame; frame != null; frame = frame.Parent?.Invoke())
         {
             // Two different instantiations of the same generic (e.g. Box<number> vs Box<string>) can
             // expand to types that render identically on both sides (both just "Box") - such a frame
@@ -553,7 +560,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         // expanded - 'Future<number>' then 'Future' - and the frame is the more informative of the two.
         // A frame whose expected type differs (a generic alias against its own body) is still explaining
         // something, so its leaf stays.
-        var leafRestatesFrame = info == null && lines.Count > 0 && trace != null && trace.OuterExpected.ToString() == b.ToString();
+        var leafRestatesFrame = info == null && lines.Count > 0 && initialFrame != null && initialFrame.OuterExpected.ToString() == b.ToString();
         if (!leafRestatesFrame && (lines.Count == 0 || lines[^1] != leaf))
             lines.Add(leaf);
 
@@ -592,5 +599,5 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
 
     // A chain of ancestor type-pairs, outermost reachable via repeated .Parent, that a mismatch was
     // discovered underneath - rendered as an indented "why" trail above the leaf mismatch message.
-    public sealed record TypeMismatchTrace(Type Outer, Type OuterExpected, TypeMismatchTrace? Parent = null);
+    public sealed record TypeMismatchTrace(Type Outer, Type OuterExpected, Func<TypeMismatchTrace?>? Parent = null);
 }
