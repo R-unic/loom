@@ -1726,5 +1726,32 @@ public class ParserTest
         var diagnostics = Utility.GetParserDiagnostics("static x = 1;");
         Utility.AssertDiagnostic(diagnostics, InternalCodes.UnexpectedToken, "Expected '{', got '='.");
     }
+
+    [Fact]
+    public void Parses_DeclareStaticBlock_WithSignatureMembers()
+    {
+        const string source = """
+            declare static Result {
+                ok: fn<T, Error>(value: T): Result<T, Error>;
+                err: fn<T, Error>(error: Error): Result<T, Error>;
+            }
+            """;
+
+        var tree = Utility.GetAST(source);
+        var declare = Assert.IsType<Declare>(Assert.Single(tree.Statements));
+        var staticBlock = Assert.IsType<DeclareStaticBlock>(declare.Signature);
+
+        Assert.Equal("Result", staticBlock.Name.Text);
+        Assert.Equal(2, staticBlock.Members.Count);
+        Assert.Equal("ok", staticBlock.Members[0].Name.Text);
+        Assert.Equal("err", staticBlock.Members[1].Name.Text);
+    }
+
+    [Fact]
+    public void ThrowsFor_DeclareStaticBlockMember_MissingType()
+    {
+        var diagnostics = Utility.GetParserDiagnostics("declare static Result { ok }");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.ExpectedInterfaceMemberType, "Expected indexer type, got '}'.");
+    }
     #endregion Static Members
 }

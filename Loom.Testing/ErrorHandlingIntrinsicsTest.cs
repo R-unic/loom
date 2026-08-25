@@ -11,7 +11,7 @@ public class ErrorHandlingIntrinsicsTest
     {
         const string source = """
             fn fetch(): Result<number, RobloxError> {
-                return BaseResult::ok(1);
+                return Result::ok(1);
             }
 
             let outcome = fetch();

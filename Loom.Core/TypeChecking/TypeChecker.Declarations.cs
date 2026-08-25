@@ -259,6 +259,7 @@ public sealed partial class TypeChecker
             DeclareVariableSignature variableSignature => Visit(variableSignature.ColonTypeClause!),
             DeclareFunctionSignature functionSignature => Visit(functionSignature),
             EventDeclaration eventDeclaration => Visit(eventDeclaration),
+            DeclareStaticBlock declareStaticBlock => Visit(declareStaticBlock),
             _ => Types.PrimitiveType.Never
         };
 

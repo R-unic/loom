@@ -237,6 +237,9 @@ public sealed partial class Parser
         if (Match(out var interfaceKeyword, SyntaxKind.InterfaceKeyword, SyntaxKind.SealedKeyword))
             return ParseInterfaceDeclaration(interfaceKeyword);
 
+        if (Match(out var staticKeyword, SyntaxKind.StaticKeyword))
+            return ParseDeclareStaticBlock(staticKeyword);
+
         _diagnostics.Error(
             Current(),
             InternalCodes.ExpectedDeclarationSignature,
@@ -251,6 +254,32 @@ public sealed partial class Parser
         var name = ExpectIdentifier();
         var colonTypeClause = ParseColonTypeClause();
         return new DeclareVariableSignature(variableKeyword, name, colonTypeClause!);
+    }
+
+    private DeclareStaticBlock ParseDeclareStaticBlock(Token staticKeyword)
+    {
+        var name = ExpectIdentifier("type alias name");
+        var leftBrace = Expect(SyntaxKind.LBrace);
+        var members = ParseDeclareStaticBlockMembers();
+        var rightBrace = Expect(SyntaxKind.RBrace);
+
+        return new DeclareStaticBlock(staticKeyword, name, leftBrace, rightBrace, members);
+    }
+
+    private List<PropertyDeclaration> ParseDeclareStaticBlockMembers()
+    {
+        var members = new List<PropertyDeclaration>();
+        while (!IsEof() && Current().Kind is not SyntaxKind.RBrace)
+        {
+            var previousPosition = _position;
+            if (ParsePropertyDeclaration(null, null, null) is { } member)
+                members.Add(member);
+
+            Match(SyntaxKind.Comma, SyntaxKind.Semicolon);
+            EnsureProgress(previousPosition);
+        }
+
+        return members;
     }
 
     private Statement ParseDeclareFunctionSignature(Token fnKeyword, Attributes? attributes = null, Token? asyncKeyword = null)

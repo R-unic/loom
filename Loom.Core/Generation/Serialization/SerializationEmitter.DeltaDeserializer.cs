@@ -19,7 +19,7 @@ internal sealed partial class SerializationEmitter
     ///     moments earlier, so nearly every read would need one. Instead <see cref="EmitDeltaDeserializer" />
     ///     calls this under <c>pcall</c>, catching an out-of-bounds buffer access the same way a malformed
     ///     length prefix already is inside the reused <see cref="EmitRead" /> paths (strings, arrays, maps,
-    ///     unions), which still return their own precise <c>BaseResult::err</c> rather than throwing.
+    ///     unions), which still return their own precise <c>Result::err</c> rather than throwing.
     /// </summary>
     public Function EmitDeltaReadHelper()
     {

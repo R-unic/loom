@@ -124,6 +124,8 @@ public abstract class Visitor<T>(Func<Node?, T> defaultValue)
 
     public virtual T VisitDeclareVariableSignature(DeclareVariableSignature declareVariableSignature) => VisitWithDefault(declareVariableSignature.ColonTypeClause);
 
+    public virtual T VisitDeclareStaticBlock(DeclareStaticBlock declareStaticBlock) => VisitList(declareStaticBlock.Members);
+
     public virtual T VisitDeclareFunctionSignature(DeclareFunctionSignature declareFunctionSignature) =>
         CombineResults(
             [

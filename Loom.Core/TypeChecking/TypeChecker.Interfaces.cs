@@ -21,16 +21,11 @@ public sealed partial class TypeChecker
         var interfaceType = Visit(implement.InterfaceName);
         foreach (var declaration in implement.Body.Implementations)
         {
-            // not a FunctionType only when the trait/interface name itself failed to resolve (the
-            // resolver already reported why - most commonly ImplementOutsideModuleScope - and
-            // GetTypeAtIndex has already reported its own diagnostic for indexing into the fallback
-            // type that leaves); nothing left here can be checked safely against a made-up signature
             if (GetTypeAtIndex(declaration, traitType, new LiteralType(declaration.Name.Text)) is not FunctionType declarationType)
                 continue;
 
             BindType(declaration, declarationType);
             MaybeVisit(declaration.TypeParameters);
-
             for (var i = 0; i < declarationType.ParameterTypes.Count; i++)
             {
                 var parameter = declaration.Parameters!.ParameterList[i];
@@ -65,10 +60,6 @@ public sealed partial class TypeChecker
         var implement = selfExpression.FirstAncestorOfType<Implement>();
         if (implement == null)
         {
-            // outside an 'implement' block, '@' names no concrete interface - only 'unknown', and only
-            // where a value of an unknown, opaque shape is legal: a type predicate subject, or the value
-            // passed through a default method's own body (shared verbatim by every implementer, so it can
-            // assume nothing about which interface's fields it will actually run against)
             if ((selfExpression.Parent is TypePredicateType || selfExpression.IsInsideDefaultMethodBody())
                 && (selfExpression.FirstAncestorOfType<InterfaceDeclaration>() != null || selfExpression.FirstAncestorOfType<TraitDeclaration>() != null))
                 return BindType(selfExpression, PrimitiveType.Unknown);
@@ -138,9 +129,7 @@ public sealed partial class TypeChecker
         var typeParameters = interfaceDeclaration.TypeParameters?.ParameterList.ConvertAll(VisitTypeParameter);
         if (interfaceDeclaration.Body?.Members.OfType<MappedTypeDeclaration>().FirstOrDefault() is { } mappedDeclaration)
             return BindType(interfaceDeclaration, PublishMappedType(interfaceDeclaration, typeParameters, mappedDeclaration));
-
-        // Expanded, since a base written as an instantiation ('interface Click: IAction<"Click">') is only
-        // an InterfaceType once expanded, and anything that is not one is dropped on the next line.
+        
         var constraints = interfaceDeclaration.ColonTypeListClause?.Types
                 .Select(Visit)
                 .Select(TypeSimplifier.Expanded)
@@ -207,12 +196,7 @@ public sealed partial class TypeChecker
             if (_semanticModel.GetSymbol(implement.TraitName, SymbolKind.Trait) is not TraitSymbol traitSymbol
                 || traitSymbol.Defaults.Count == 0)
                 continue;
-
-            // indexed off the trait's own published type rather than read straight off
-            // 'defaultDeclaration' by node: an intrinsic (or any cross-file) trait's default body was
-            // bound by a different SemanticModel, whose per-node type cache this one never shares -
-            // only the trait's type itself crosses that boundary, the same way an ordinary cross-file
-            // interface property already does.
+            
             var traitType = _semanticModel.GetType(traitSymbol.Declaration) switch
             {
                 InterfaceType direct => direct,
