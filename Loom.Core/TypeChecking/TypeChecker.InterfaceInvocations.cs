@@ -86,6 +86,12 @@ public sealed partial class TypeChecker
     {
         CheckInterfaceInvocationInitializers(node, interfaceType);
 
+        // No trait implementation contributed a property (the common case) - interfaceType already reads
+        // exactly the way the merge below would rebuild it, so return it unchanged rather than paying for a
+        // fresh ObjectType/InterfaceType on every construction site.
+        if (traitProperties.Count == 0)
+            return BindType(node, interfaceType);
+
         // A fresh ObjectType/InterfaceType is built here rather than mutating interfaceType.ObjectType in place,
         // since interfaceType is the shared instance cached for the interface declaration; mutating it would leak
         // trait methods into the structural property list for every other construction site of the same interface.
