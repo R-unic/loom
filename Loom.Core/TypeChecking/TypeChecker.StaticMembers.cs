@@ -105,30 +105,6 @@ public sealed partial class TypeChecker
         BindType(method, declaredSignature);
         MaybeVisit(method.TypeParameters);
 
-        var parameterCount = Math.Min(declaredSignature.ParameterTypes.Count, method.Parameters?.ParameterList.Count ?? 0);
-        for (var i = 0; i < parameterCount; i++)
-        {
-            var parameter = method.Parameters!.ParameterList[i];
-            var explicitType = MaybeVisit(parameter.ColonTypeClause);
-            var initializerType = MaybeVisit(parameter.EqualsValueClause);
-            var type = declaredSignature.ParameterTypes[i];
-            if (parameter.EqualsValueClause != null)
-                _semanticModel.TypeSolver.AddConstraint(initializerType!, type, parameter.EqualsValueClause.Value);
-
-            if (parameter.EqualsValueClause != null && Type.IsOptional(type))
-                type = type.NonNullable();
-
-            if (explicitType != null)
-                _semanticModel.TypeSolver.AddConstraint(explicitType, type, parameter.ColonTypeClause!.Type);
-
-            BindType(parameter, type);
-        }
-
-        var actualType = GetReturnType(method);
-        _semanticModel.TypeSolver.AddConstraint(actualType, declaredSignature.ReturnType, method.ReturnType?.Type.LocationSpan ?? method.LocationSpan);
-        if (method.ReturnType != null)
-            BindType(method.ReturnType, declaredSignature.ReturnType);
-
-        Visit(method.Body);
+        CheckFunctionBodyAgainstSignature(method, declaredSignature);
     }
 }

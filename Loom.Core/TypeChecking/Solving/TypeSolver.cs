@@ -96,17 +96,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
                 conditionalType.Distributes
             ),
             ArrayType arrayType => new ArrayType(Map(arrayType.ElementType), arrayType.IsMutable),
-            InterfaceType interfaceType => new InterfaceType(
-                interfaceType.Name,
-                interfaceType.Constraints.ConvertAll(Map).OfType<InterfaceType>().ToList(),
-                (ObjectType)Map(interfaceType.ObjectType),
-                interfaceType.TraitMethodNames
-            )
-            {
-                Metamethods = interfaceType.Metamethods,
-                IteratedElementType = interfaceType.IteratedElementType,
-                IsIntrinsic = interfaceType.IsIntrinsic
-            },
+            InterfaceType interfaceType => MapInterfaceType(interfaceType, Map),
             ObjectType objectType => new ObjectType(
                 objectType.Indexer != null
                     ? new ObjectIndexer(objectType.Indexer.IsMutable, Map(objectType.Indexer.KeyType), Map(objectType.Indexer.ValueType))
@@ -137,6 +127,19 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             transformed = type;
 
         return simplify ? TypeSimplifier.Simplify(transformed) : transformed;
+    }
+
+    /// <summary>
+    ///     Constraints mapped before <see cref="InterfaceType.ObjectType" />, preserving the order the two
+    ///     were visited in back when both were positional constructor arguments evaluated left to right - a
+    ///     caller walking every reachable type exactly once (<see cref="TypeChecker.ReportUnresolvableKeyOf" />)
+    ///     depends on which of two reference-equal branches is reached first.
+    /// </summary>
+    private static InterfaceType MapInterfaceType(InterfaceType interfaceType, Converter<Type, Type> map)
+    {
+        var constraints = interfaceType.Constraints.ConvertAll(map).OfType<InterfaceType>().ToList();
+        var objectType = (ObjectType)map(interfaceType.ObjectType);
+        return interfaceType.WithObjectType(objectType, interfaceType.TraitMethodNames, constraints);
     }
 
     public void SetType(Node node, Type type) => _nodeTypes[node.Id] = type;

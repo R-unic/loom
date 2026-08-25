@@ -91,13 +91,7 @@ public sealed partial class TypeChecker
         // trait methods into the structural property list for every other construction site of the same interface.
         var traitMethodNames = traitProperties.Select(p => p.Name).ToHashSet();
         var objectType = new ObjectType(interfaceType.ObjectType.Indexer, [..interfaceType.ObjectType.Properties, ..traitProperties]);
-        var boundType = new InterfaceType(interfaceType.Name, interfaceType.Constraints, objectType)
-        {
-            TraitMethodNames = traitMethodNames,
-            Metamethods = interfaceType.Metamethods,
-            IteratedElementType = interfaceType.IteratedElementType,
-            IsIntrinsic = interfaceType.IsIntrinsic
-        };
+        var boundType = interfaceType.WithObjectType(objectType, traitMethodNames);
 
         return BindType(node, boundType);
     }
@@ -125,12 +119,7 @@ public sealed partial class TypeChecker
         }
 
         var substitutedObject = SubstituteObjectType(node, underlying.ObjectType, substitution);
-        substituted = new InterfaceType(underlying.Name, underlying.Constraints, substitutedObject)
-        {
-            Metamethods = underlying.Metamethods,
-            IteratedElementType = underlying.IteratedElementType,
-            IsIntrinsic = underlying.IsIntrinsic
-        };
+        substituted = underlying.WithObjectType(substitutedObject);
         return true;
     }
 

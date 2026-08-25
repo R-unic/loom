@@ -31,33 +31,48 @@ public sealed partial class TypeChecker
             BindType(declaration, declarationType);
             MaybeVisit(declaration.TypeParameters);
 
-            for (var i = 0; i < declarationType.ParameterTypes.Count; i++)
-            {
-                var parameter = declaration.Parameters!.ParameterList[i];
-                var explicitType = MaybeVisit(parameter.ColonTypeClause);
-                var initializerType = MaybeVisit(parameter.EqualsValueClause);
-                var type = declarationType.ParameterTypes[i];
-                if (parameter.EqualsValueClause != null)
-                    _semanticModel.TypeSolver.AddConstraint(initializerType!, type, parameter.EqualsValueClause.Value);
-
-                if (parameter.EqualsValueClause != null && Type.IsOptional(type))
-                    type = type.NonNullable();
-
-                if (explicitType != null)
-                    _semanticModel.TypeSolver.AddConstraint(explicitType, type, parameter.ColonTypeClause!.Type);
-
-                BindType(parameter, type);
-            }
-
-            var actualType = GetReturnType(declaration);
-            _semanticModel.TypeSolver.AddConstraint(actualType, declarationType.ReturnType, declaration.ReturnType?.Type.LocationSpan ?? declaration.LocationSpan);
-            if (declaration.ReturnType != null)
-                BindType(declaration.ReturnType, declarationType.ReturnType);
-
-            Visit(declaration.Body);
+            CheckFunctionBodyAgainstSignature(declaration, declarationType);
         }
 
         return TypeSimplifier.Expanded(new IntersectionType([traitType, interfaceType]));
+    }
+
+    /// <summary>
+    ///     Checks a function's parameters and body against a signature it is already known to implement -
+    ///     an <c>implement</c> block's method against the trait/interface member it satisfies, or a static
+    ///     block's method against the static member it provides. Parameter and return-type constraints are
+    ///     added against <paramref name="signature" /> rather than re-inferred, and the body is visited
+    ///     under that binding. <c>Math.Min</c> bounds the loop rather than assuming the parameter list and
+    ///     signature agree in length - a mismatch is reported by whichever check established the signature
+    ///     match in the first place, and this only needs to not run past either list.
+    /// </summary>
+    private void CheckFunctionBodyAgainstSignature(FunctionDeclaration node, FunctionType signature)
+    {
+        var parameterCount = Math.Min(signature.ParameterTypes.Count, node.Parameters?.ParameterList.Count ?? 0);
+        for (var i = 0; i < parameterCount; i++)
+        {
+            var parameter = node.Parameters!.ParameterList[i];
+            var explicitType = MaybeVisit(parameter.ColonTypeClause);
+            var initializerType = MaybeVisit(parameter.EqualsValueClause);
+            var type = signature.ParameterTypes[i];
+            if (parameter.EqualsValueClause != null)
+                _semanticModel.TypeSolver.AddConstraint(initializerType!, type, parameter.EqualsValueClause.Value);
+
+            if (parameter.EqualsValueClause != null && Type.IsOptional(type))
+                type = type.NonNullable();
+
+            if (explicitType != null)
+                _semanticModel.TypeSolver.AddConstraint(explicitType, type, parameter.ColonTypeClause!.Type);
+
+            BindType(parameter, type);
+        }
+
+        var actualType = GetReturnType(node);
+        _semanticModel.TypeSolver.AddConstraint(actualType, signature.ReturnType, node.ReturnType?.Type.LocationSpan ?? node.LocationSpan);
+        if (node.ReturnType != null)
+            BindType(node.ReturnType, signature.ReturnType);
+
+        Visit(node.Body);
     }
 
     public override Type VisitSelfExpression(SelfExpression selfExpression)
@@ -83,13 +98,7 @@ public sealed partial class TypeChecker
 
         var traitProperties = CollectEffectiveTraitProperties(interfaceSymbol.FullImplementations);
         var objectType = new ObjectType(nonGenericInterfaceType.ObjectType.Indexer, [..nonGenericInterfaceType.ObjectType.Properties, ..traitProperties]);
-        var selfType = new InterfaceType(nonGenericInterfaceType.Name, nonGenericInterfaceType.Constraints, objectType)
-        {
-            TraitMethodNames = traitProperties.ConvertAll(property => property.Name).ToHashSet(),
-            Metamethods = nonGenericInterfaceType.Metamethods,
-            IteratedElementType = nonGenericInterfaceType.IteratedElementType,
-            IsIntrinsic = nonGenericInterfaceType.IsIntrinsic
-        };
+        var selfType = nonGenericInterfaceType.WithObjectType(objectType, traitProperties.ConvertAll(property => property.Name).ToHashSet());
 
         return BindType(selfExpression, selfType);
     }

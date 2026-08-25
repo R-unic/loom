@@ -137,4 +137,21 @@ public sealed class InterfaceType(
     public override string ToString() => Name;
 
     internal bool MatchOrMatchConstraint(Predicate<InterfaceType> predicate) => predicate(this) || Constraints.Any(c => c.MatchOrMatchConstraint(predicate));
+
+    /// <summary>
+    ///     A fresh <see cref="InterfaceType" /> carrying <paramref name="newObjectType" /> in place of
+    ///     <see cref="ObjectType" />, with <see cref="Name" />, <see cref="Metamethods" />,
+    ///     <see cref="IteratedElementType" /> and <see cref="IsIntrinsic" /> copied across unchanged - never
+    ///     mutated in place, since the receiver is typically the shared instance cached for an interface's
+    ///     own declaration, and mutating it would leak into every other use of that same interface.
+    ///     <paramref name="traitMethodNames" /> and <paramref name="constraints" /> default to an empty set
+    ///     and to this type's own <see cref="Constraints" /> respectively when omitted, matching what a
+    ///     caller with nothing new to say about either one would otherwise have copied by hand.
+    /// </summary>
+    public InterfaceType WithObjectType(ObjectType newObjectType, HashSet<string>? traitMethodNames = null, List<InterfaceType>? constraints = null) =>
+        new(Name, constraints ?? Constraints, newObjectType, traitMethodNames, Metamethods)
+        {
+            IteratedElementType = IteratedElementType,
+            IsIntrinsic = IsIntrinsic
+        };
 }
