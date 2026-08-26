@@ -112,7 +112,7 @@ public class AutoImportTest
             TestContext.Current.CancellationToken
         );
 
-        return result.ToArray();
+        return [.. result];
     }
 
     private static Task WithMathAsync(

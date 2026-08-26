@@ -24,7 +24,7 @@ internal record MacroContext(SemanticModel SemanticModel, LuauState State, Diagn
             ElementAccess elementAccess => LuauFactory.UnwrapParentheses(elementAccess.Target),
             PropertyAccess propertyAccess =>
                 propertyAccess.Names.Count > 1
-                    ? new PropertyAccess(LuauFactory.UnwrapParentheses(propertyAccess.Target), propertyAccess.Names.SkipLast(1).ToList())
+                    ? new PropertyAccess(LuauFactory.UnwrapParentheses(propertyAccess.Target), [.. propertyAccess.Names.SkipLast(1)])
                     : LuauFactory.UnwrapParentheses(propertyAccess.Target),
 
             var callee => LuauFactory.UnwrapParentheses(callee)

@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
-using Loom.Core.TypeChecking;
 using Loom.Luau;
 using Loom.Luau.AST;
 using BinaryOperator = Loom.Luau.AST.BinaryOperator;

@@ -65,11 +65,10 @@ public sealed class DiagnosticPublisher(Action<PublishDiagnosticsParams> send)
 
     /// <summary>Every file this compile had an answer for, whether or not it found anything wrong with it.</summary>
     private static HashSet<DocumentUri> CoveredBy(CompilationResult result) =>
-        result.Files.Select(file => file.SourceFile)
+        [.. result.Files.Select(file => file.SourceFile)
             .Concat(result.Failures.Select(failure => failure.File))
             .Where(file => Path.IsPathRooted(file.AbsolutePath))
-            .Select(file => DocumentUri.FromFileSystemPath(file.AbsolutePath))
-            .ToHashSet();
+            .Select(file => DocumentUri.FromFileSystemPath(file.AbsolutePath))];
 
     /// <summary>
     ///     Clears one file, for a document whose diagnostics stop being the server's business - it closed, or

@@ -406,7 +406,7 @@ public class CompletionHandlerTest
                     TestContext.Current.CancellationToken
                 );
 
-                completions = result.ToArray();
+                completions = [.. result];
             },
             source
         );

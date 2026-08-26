@@ -64,7 +64,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         // them made the second's every position look already visited before it was ever measured, so it
         // came back 'unknown' instead of unified.
         foreach (var (parameterType, argumentType) in pairs)
-            TryInferTypes(parameterType, argumentType, inferred, new HashSet<(Type, Type)>());
+            TryInferTypes(parameterType, argumentType, inferred, []);
 
         var substitution = new TypeParameterSubstitution();
         foreach (var typeParameter in generic.Parameters)
@@ -82,7 +82,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
     {
         var inferred = new TypeParameterSubstitution();
         if (contextualType != null)
-            TryInferTypes(functionType.ReturnType, contextualType, inferred, new HashSet<(Type, Type)>());
+            TryInferTypes(functionType.ReturnType, contextualType, inferred, []);
 
         // Every argument against the parameter it actually binds to, which past the fixed parameters is the
         // rest parameter's element type rather than the rest parameter itself. Walking the two lists straight
@@ -96,7 +96,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
         // and it came back 'unknown' instead of unified.
         for (var i = 0; i < argumentTypes.Count; i++)
             if (functionType.ParameterTypeAt(i) is { } parameterType)
-                TryInferTypes(parameterType, WidensAt(functionType, i) ? argumentTypes[i].Widen() : argumentTypes[i], inferred, new HashSet<(Type, Type)>());
+                TryInferTypes(parameterType, WidensAt(functionType, i) ? argumentTypes[i].Widen() : argumentTypes[i], inferred, []);
 
         var substitution = new TypeParameterSubstitution();
         foreach (var typeParameter in functionType.TypeParameters)
@@ -203,7 +203,7 @@ public sealed class TypeInferrer(Func<Node, Type> getType)
                 return BindTypeParameter(typeParameter, argumentType, inferredTypes);
 
             var trial = new TypeParameterSubstitution(inferredTypes);
-            if (!TryInferTypes(member, argumentType, trial, new HashSet<(Type, Type)>(visitedPairs)))
+            if (!TryInferTypes(member, argumentType, trial, [.. visitedPairs]))
                 continue;
 
             foreach (var (parameter, type) in trial)

@@ -111,63 +111,38 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
 
     private SerializationField? TryBuildField(string path, Type type, FieldOptions options, bool isPacked, Node reportNode)
     {
-        switch (type)
+        return type switch
         {
             // LiteralType derives from PrimitiveType, so it has to be matched first - the value is pinned
             // by the type and costs nothing on the wire.
-            case Types.LiteralType literal:
-                return new ConstantField(path, type, literal.Value);
-
+            Types.LiteralType literal => new ConstantField(path, type, literal.Value),
             // OptionalType derives from UnionType; matching it first keeps 'T?' from falling into the
             // general union path, where 'none' would become just another variant.
-            case Types.OptionalType optional:
-                return TryBuildField(path, optional.NonNullableType, options, isPacked, reportNode) is { } inner
-                    ? new OptionalField(path, type, inner)
-                    : null;
-
-            case Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.Bool }:
-                return new BoolField(path, type);
-
-            case Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.Number }:
-                return BuildNumberField(path, type, options, reportNode);
-
+            Types.OptionalType optional => TryBuildField(path, optional.NonNullableType, options, isPacked, reportNode) is { } inner
+                                ? new OptionalField(path, type, inner)
+                                : null,
+            Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.Bool } => new BoolField(path, type),
+            Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.Number } => BuildNumberField(path, type, options, reportNode),
             // length_type is gone - a sized string carries its own length width; anything else defaults.
-            case Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.String }:
-                return new StringField(path, type, type is Types.SizedStringType sized ? sized.LengthType : DefaultLengthType);
-
+            Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.String } => new StringField(path, type, type is Types.SizedStringType sized ? sized.LengthType : DefaultLengthType),
             // 'unknown' is the deliberate escape hatch: nothing can be checked about it, so it rides along
             // in the blobs array with only a count check on the way back.
-            case Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.Unknown }:
-                return new BlobField(path, type, null, null);
-
-            case Types.FunctionType:
-                return new BlobField(path, type, "function", null);
-
+            Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.Unknown } => new BlobField(path, type, null, null),
+            Types.FunctionType => new BlobField(path, type, "function", null),
             // Bracket syntax always means the default length now - a non-default width only ever
             // reaches here through Array<T, L>, handled in TryBuildInstantiatedField below. Elements do
             // not take sentinels: those resolve once per field before the allocation, which cannot
             // express a different choice for every entry.
-            case Types.ArrayType array:
-                return TryBuildField(path + "[]", array.ElementType, options, false, reportNode) is { } element
-                    ? new ArrayField(path, type, DefaultLengthType, element)
-                    : null;
-
+            Types.ArrayType array => TryBuildField(path + "[]", array.ElementType, options, false, reportNode) is { } element
+                                ? new ArrayField(path, type, DefaultLengthType, element)
+                                : null,
             // Tuple length is static, so unlike an array it writes no length prefix at all.
-            case Types.TupleType tuple:
-                return BuildTupleField(path, type, tuple, options, isPacked, reportNode);
-
-            case Types.UnionType union:
-                return BuildUnionField(path, type, union, options, isPacked, reportNode);
-
-            case Types.InstantiatedType instantiated:
-                return TryBuildInstantiatedField(path, instantiated, options, isPacked, reportNode);
-
-            case Types.InterfaceType interfaceType:
-                return BuildInterfaceField(path, interfaceType, options, isPacked, reportNode);
-
-            default:
-                return ReportNotSerializable(path, type, reportNode);
-        }
+            Types.TupleType tuple => BuildTupleField(path, type, tuple, options, isPacked, reportNode),
+            Types.UnionType union => BuildUnionField(path, type, union, options, isPacked, reportNode),
+            Types.InstantiatedType instantiated => TryBuildInstantiatedField(path, instantiated, options, isPacked, reportNode),
+            Types.InterfaceType interfaceType => BuildInterfaceField(path, interfaceType, options, isPacked, reportNode),
+            _ => ReportNotSerializable(path, type, reportNode),
+        };
     }
 
     /// <summary>

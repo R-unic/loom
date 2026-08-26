@@ -25,8 +25,8 @@ public struct Location(SourceFile file, int position) : IEquatable<Location>
     public static bool operator ==(Location left, Location right) => left.Equals(right);
     public static bool operator !=(Location left, Location right) => !(left == right);
 
-    public bool Equals(Location other) => File.Equals(other.File) && Position == other.Position;
+    public readonly bool Equals(Location other) => File.Equals(other.File) && Position == other.Position;
     public override bool Equals(object? obj) => obj is Location other && Equals(other);
-    public override int GetHashCode() => HashCode.Combine(File, Position);
+    public override readonly int GetHashCode() => HashCode.Combine(File, Position);
     public override string ToString() => $"{File.Name}:{Line}:{Column}";
 }

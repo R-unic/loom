@@ -8,7 +8,7 @@ public class InterpolatedStringLiteral(Token startToken, List<InterpolationPart>
     public Token StartToken { get; } = startToken;
     public List<InterpolationPart> Parts { get; } = parts;
     public Token EndToken { get; } = endToken;
-    public List<Expression> Expressions { get; } = Holes(parts).ToList();
+    public List<Expression> Expressions { get; } = [.. Holes(parts)];
 
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitInterpolatedStringLiteral(this);
 

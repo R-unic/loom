@@ -1,4 +1,3 @@
-using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Serialization;
 using Loom.Core.TypeChecking.Types;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;

@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using Loom.Config;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
-using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Intrinsic;
 using Type = Loom.Core.TypeChecking.Types.Type;
 
@@ -39,7 +38,7 @@ internal sealed class AmbientIntrinsics
     ///     What every node below an intrinsic file's own hand-written declarations resolves to - not just
     ///     the declarations themselves - for <see cref="SemanticModel.GetSymbol" /> to fall back to. A
     ///     defaulted trait method's body is real code a consuming file's own generator reads back out (see
-    ///     <see cref="Symbols.TraitSymbol.Defaults" /> and <see cref="Generation.LuauGenerator" />'s
+    ///     <see cref="TraitSymbol.Defaults" /> and <see cref="Generation.LuauGenerator" />'s
     ///     <c>GetOrCreateTraitDefault</c>), and any name or type it uses was only ever resolved by the
     ///     intrinsic bootstrap's own <see cref="SemanticModel" />, never by the consuming file's.
     /// </summary>

@@ -127,7 +127,7 @@ public class LuauRenderingTest
         );
 
         return;
-        ExpressionStatement setX(int x) => new(new BinaryOperator(new Identifier("x"), "=", new NumberLiteral(x)));
+        static ExpressionStatement setX(int x) => new(new BinaryOperator(new Identifier("x"), "=", new NumberLiteral(x)));
     }
 
     [Fact]
@@ -331,7 +331,7 @@ public class LuauRenderingTest
         );
 
         var table = new Table(
-            [..innerTable.Initializers, new TableInitializer(new Table(innerTable.Initializers.Take(3).ToList())), new TableInitializer(innerTable)]
+            [..innerTable.Initializers, new TableInitializer(new Table([.. innerTable.Initializers.Take(3)])), new TableInitializer(innerTable)]
         );
 
         Assert.Equal("{\n  1,\n  2,\n  3,\n  4,\n  5,\n  6,\n  {1, 2, 3},\n  {\n    1,\n    2,\n    3,\n    4,\n    5,\n    6,\n  },\n}", table.Render());

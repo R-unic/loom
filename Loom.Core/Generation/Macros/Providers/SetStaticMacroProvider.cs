@@ -72,7 +72,7 @@ internal sealed class SetStaticMacroProvider : IMacroProvider
             statements.Add(new ExpressionStatement(new BinaryOperator(new ElementAccess(result, argument), "=", new BooleanLiteral(true))));
         }
 
-        state.Prereq(statements.ToArray());
+        state.Prereq([.. statements]);
         return result;
     }
 }

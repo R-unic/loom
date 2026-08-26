@@ -6,7 +6,6 @@ using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.Text;
-using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using Loom.Luau;
 using Loom.Luau.AST;

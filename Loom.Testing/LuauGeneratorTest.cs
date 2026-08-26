@@ -1639,7 +1639,7 @@ public class LuauGeneratorTest
 
         var y = Assert.IsType<PropertyTableInitializer>(table.Initializers[1]);
         Assert.Equal("y", y.PropertyName);
-        var access = Assert.IsType<Luau.AST.PropertyAccess>(y.Value);
+        var access = Assert.IsType<PropertyAccess>(y.Value);
         Assert.Equal("y", Assert.Single(access.Names));
         Assert.Equal("i", Assert.IsType<Identifier>(access.Target).Name);
     }
@@ -1658,7 +1658,7 @@ public class LuauGeneratorTest
 
         var x = Assert.IsType<PropertyTableInitializer>(table.Initializers[0]);
         Assert.Equal("x", x.PropertyName);
-        var access = Assert.IsType<Luau.AST.PropertyAccess>(x.Value);
+        var access = Assert.IsType<PropertyAccess>(x.Value);
         Assert.Equal("i", Assert.IsType<Identifier>(access.Target).Name);
 
         var indexInit = Assert.IsType<ComputedPropertyTableInitializer>(table.Initializers[1]);
@@ -1698,7 +1698,7 @@ public class LuauGeneratorTest
         var variable = Assert.IsType<ConstVariable>(luauTree.Statements[^1]);
         var table = Assert.IsType<Table>(variable.Initializer);
         var y = Assert.IsType<PropertyTableInitializer>(table.Initializers[1]);
-        var access = Assert.IsType<Luau.AST.PropertyAccess>(y.Value);
+        var access = Assert.IsType<PropertyAccess>(y.Value);
         Assert.Equal("with_subject", Assert.IsType<Identifier>(access.Target).Name);
     }
 

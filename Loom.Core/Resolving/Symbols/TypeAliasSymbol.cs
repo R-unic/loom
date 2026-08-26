@@ -7,6 +7,6 @@ public sealed class TypeAliasSymbol(Node declaration, string name) : TypeSymbol(
 {
     public override SymbolKind Kind => SymbolKind.Type;
 
-    /// <summary>The alias's own <c>declare static</c> companion block, if it has declared one (at most one - see <see cref="Resolving.Resolver.VisitDeclareStaticBlock" />).</summary>
+    /// <summary>The alias's own <c>declare static</c> companion block, if it has declared one (at most one - see <see cref="Resolver.VisitDeclareStaticBlock" />).</summary>
     public List<DeclareStaticBlock> StaticBlocks { get; } = [];
 }

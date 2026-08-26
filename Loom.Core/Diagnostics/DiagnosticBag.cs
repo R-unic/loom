@@ -16,7 +16,7 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
     ///     compilation shares them.
     /// </summary>
     public static DiagnosticBag Concat(List<DiagnosticBag> bags, DiagnosticOptions? options = null) =>
-        new(bags.SelectMany(bag => bag.Set).ToHashSet(), options ?? bags.FirstOrDefault()?.Options);
+        new([.. bags.SelectMany(bag => bag.Set)], options ?? bags.FirstOrDefault()?.Options);
 
     public void Info(Node node, string message) => Info(node.LocationSpan, message);
     public void Info(LocationSpan span, string message) => Report(span, DiagnosticSeverity.Info, null, message, null);
@@ -102,8 +102,8 @@ public sealed class DiagnosticBag(HashSet<Diagnostic>? diagnostics = null, Diagn
             .ToList();
 
     public Diagnostic? Find(Func<Diagnostic, bool> predicate) => Set.FirstOrDefault(predicate);
-    public DiagnosticBag WithoutInfo() => new(Set.Where(d => d.Severity > DiagnosticSeverity.Info).ToHashSet(), Options);
-    public DiagnosticBag Errors() => new(Set.Where(d => d.Severity == DiagnosticSeverity.Error).ToHashSet(), Options);
+    public DiagnosticBag WithoutInfo() => new([.. Set.Where(d => d.Severity > DiagnosticSeverity.Info)], Options);
+    public DiagnosticBag Errors() => new([.. Set.Where(d => d.Severity == DiagnosticSeverity.Error)], Options);
     public bool ContainsErrors() => Set.Any(d => d.Severity == DiagnosticSeverity.Error);
 
     public override string ToString() => string.Join('\n', InSourceOrder());

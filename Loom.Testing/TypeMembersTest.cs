@@ -13,9 +13,9 @@ namespace Loom.Testing;
 public class TypeMembersTest
 {
     private static ObjectType Object(params string[] names) =>
-        new(null, names.Select(name => new ObjectProperty(false, name, PrimitiveType.Number)).ToList());
+        new(null, [.. names.Select(name => new ObjectProperty(false, name, PrimitiveType.Number))]);
 
-    private static string[] NamesOf(Type? type) => TypeMembers.Of(type).Select(property => property.Name).OrderBy(name => name).ToArray();
+    private static string[] NamesOf(Type? type) => [.. TypeMembers.Of(type).Select(property => property.Name).OrderBy(name => name)];
 
     [Fact]
     public void NoType_HasNoMembers() => Assert.Empty(TypeMembers.Of(null));

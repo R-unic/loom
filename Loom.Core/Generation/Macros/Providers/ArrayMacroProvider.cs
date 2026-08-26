@@ -320,7 +320,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         var result = state.PushToVariable(ResultName, new Table([]));
         var body = new List<LuauStatement>();
         AddElementsToSet(state, body, result, array);
-        state.Prereq(body.ToArray());
+        state.Prereq([.. body]);
 
         return result;
     }

@@ -12,9 +12,7 @@ namespace Loom.Testing;
 /// </summary>
 public class SymbolHierarchyTest
 {
-    private static readonly List<Type> _concreteSymbolClasses = typeof(Symbol).Assembly.GetTypes()
-        .Where(type => type.IsSubclassOf(typeof(Symbol)) && !type.IsAbstract)
-        .ToList();
+    private static readonly List<Type> _concreteSymbolClasses = [.. typeof(Symbol).Assembly.GetTypes().Where(type => type.IsSubclassOf(typeof(Symbol)) && !type.IsAbstract)];
 
     [Fact]
     public void EveryKind_HasExactlyOneClass()

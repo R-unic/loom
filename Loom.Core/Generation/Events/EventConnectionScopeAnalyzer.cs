@@ -7,9 +7,9 @@ namespace Loom.Core.Generation.Events;
 
 /// <summary>
 ///     Resolves which event a '+='/'-='/'^=' targets, and performs the static, Luau-scope-reachability
-///     analysis <see cref="Generation.LuauGenerator" /> needs to decide whether an event connection can become a
+///     analysis <see cref="LuauGenerator" /> needs to decide whether an event connection can become a
 ///     plain Luau local instead of an entry in the hidden per-event connection store. Pure functions of
-///     a <see cref="Resolving.SemanticModel" />/the source tree - no generation state involved.
+///     a <see cref="SemanticModel" />/the source tree - no generation state involved.
 /// </summary>
 internal static class EventConnectionScopeAnalyzer
 {

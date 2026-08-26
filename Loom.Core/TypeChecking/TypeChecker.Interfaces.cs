@@ -85,7 +85,7 @@ public sealed partial class TypeChecker
         var objectType = new ObjectType(nonGenericInterfaceType.ObjectType.Indexer, [..nonGenericInterfaceType.ObjectType.Properties, ..traitProperties]);
         var selfType = new InterfaceType(nonGenericInterfaceType.Name, nonGenericInterfaceType.Constraints, objectType)
         {
-            TraitMethodNames = traitProperties.ConvertAll(property => property.Name).ToHashSet(),
+            TraitMethodNames = [.. traitProperties.ConvertAll(property => property.Name)],
             Metamethods = nonGenericInterfaceType.Metamethods,
             IteratedElementType = nonGenericInterfaceType.IteratedElementType,
             IsIntrinsic = nonGenericInterfaceType.IsIntrinsic
@@ -256,7 +256,7 @@ public sealed partial class TypeChecker
                     effective[name] = property;
         }
 
-        return effective.Values.ToList();
+        return [.. effective.Values];
     }
 
     /// <summary>

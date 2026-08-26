@@ -134,7 +134,7 @@ public class LanguageServerHandlerContractTest
             var method = type.GetMethod("CreateRegistrationOptions", BindingFlags.Instance | BindingFlags.NonPublic);
             if (method == null) continue;
 
-            var options = method.Invoke(Construct(type), method.GetParameters().Select(_ => (object?)null).ToArray());
+            var options = method.Invoke(Construct(type), [.. method.GetParameters().Select(_ => (object?)null)]);
             var selector = options?.GetType().GetProperty("DocumentSelector")?.GetValue(options);
             if (selector == null) continue;
 

@@ -372,7 +372,7 @@ public sealed partial class Parser
         }
 
         if (MatchClosingArrow(out var rightArrow))
-            return new TypeArguments<T>(leftArrow, rightArrow, arguments.OfType<T>().ToList());
+            return new TypeArguments<T>(leftArrow, rightArrow, [.. arguments.OfType<T>()]);
 
         Expect(SyntaxKind.RArrow);
         return null;

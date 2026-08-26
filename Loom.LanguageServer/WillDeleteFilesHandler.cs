@@ -11,20 +11,14 @@ namespace Loom.LanguageServer;
 ///     at, and the protocol gives <c>willDeleteFiles</c> no way to refuse the operation - a warning shown
 ///     before the file is gone is the whole of what the server can do about it.
 /// </summary>
-public sealed class WillDeleteFilesHandler : WillDeleteFileHandlerBase
+/// <remarks>For tests: nothing here reaches a real connection.</remarks>
+public sealed class WillDeleteFilesHandler(DocumentStore documents, Action<string> warn) : WillDeleteFileHandlerBase
 {
-    private readonly DocumentStore _documents;
-    private readonly Action<string> _warn;
+    private readonly DocumentStore _documents = documents;
+    private readonly Action<string> _warn = warn;
 
     public WillDeleteFilesHandler(DocumentStore documents, ILanguageServerFacade server)
         : this(documents, message => server.Window.ShowWarning(message)) { }
-
-    /// <summary>For tests: nothing here reaches a real connection.</summary>
-    public WillDeleteFilesHandler(DocumentStore documents, Action<string> warn)
-    {
-        _documents = documents;
-        _warn = warn;
-    }
 
     public override Task<WorkspaceEdit?> Handle(WillDeleteFileParams request, CancellationToken cancellationToken)
     {

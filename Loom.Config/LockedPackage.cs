@@ -11,47 +11,39 @@ namespace Loom.Config;
 ///     resolved package lands is the package manager's job, and the compiler asks it for that directory
 ///     separately (see <c>DependencyResolver</c>).
 /// </remarks>
-public sealed class LockedPackage
-{
-    public LockedPackage(
-        PackageName name,
-        Version version,
-        string? source = null,
-        string? checksum = null,
-        IEnumerable<PackageName>? dependencies = null
+public sealed class LockedPackage(
+    PackageName name,
+    Version version,
+    string? source = null,
+    string? checksum = null,
+    IEnumerable<PackageName>? dependencies = null
     )
-    {
-        Name = name;
-        Version = version;
-        Source = source;
-        Checksum = checksum;
-        Dependencies = dependencies?.Distinct().Order().ToArray() ?? [];
-    }
+{
 
     /// <summary>The package this entry locks.</summary>
-    public PackageName Name { get; }
+    public PackageName Name { get; } = name;
 
     /// <summary>The exact version every dependent in the build resolved to; never a requirement.</summary>
-    public Version Version { get; }
+    public Version Version { get; } = version;
 
     /// <summary>
     ///     Where the version came from, e.g. the index that published it, so a lock resolved against one registry
     ///     is not silently reused against another. <see langword="null" /> when the package manager records none.
     /// </summary>
-    public string? Source { get; }
+    public string? Source { get; } = source;
 
     /// <summary>
     ///     Integrity of the fetched package, in whatever form the package manager writes it (e.g.
     ///     <c>"sha256:…"</c>). Opaque to the compiler, which hashes nothing and verifies nothing.
     /// </summary>
-    public string? Checksum { get; }
+    public string? Checksum { get; } = checksum;
 
     /// <summary>
     ///     The packages this one depends on, so the lock file is the resolved graph rather than a flat list — a
     ///     package manager can tell whether a lock still covers a build without reading every manifest in it.
     ///     Every name here is itself locked; <see cref="LockFileReader" /> rejects a lock where one is not.
     /// </summary>
-    public IReadOnlyList<PackageName> Dependencies { get; }
+    public IReadOnlyList<PackageName> Dependencies { get; } = dependencies?.Distinct().Order().ToArray() ?? [];
 
     public override string ToString() => $"{Name} {Version}";
 }

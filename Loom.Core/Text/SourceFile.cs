@@ -61,6 +61,6 @@ public sealed class SourceFile
             if (SourceText[i] == '\n')
                 list.Add(i + 1);
 
-        _lineStarts = list.ToArray();
+        _lineStarts = [.. list];
     }
 }

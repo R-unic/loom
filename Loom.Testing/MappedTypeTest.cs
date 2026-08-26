@@ -1,5 +1,4 @@
 using Loom.Core.Diagnostics;
-using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using AstIndexedType = Loom.Core.Parsing.AST.IndexedType;
 using IndexerDeclaration = Loom.Core.Parsing.AST.IndexerDeclaration;

@@ -37,11 +37,11 @@ internal sealed class Watcher(DiagnosticOptions diagnosticOptions)
 
         using var sourceWatcher = CreateSourceWatcher(config, events);
         using var projectWatcher = CreateProjectWatcher(config, events);
-        ConsoleCancelEventHandler cancelHandler = (_, e) =>
+        void cancelHandler(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             events.CompleteAdding();
-        };
+        }
 
         Console.CancelKeyPress += cancelHandler;
         try

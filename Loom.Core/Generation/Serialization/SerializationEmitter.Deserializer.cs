@@ -167,9 +167,7 @@ internal sealed partial class SerializationEmitter
             StringField stringField => EmitStringRead(stringField, cursor, statements),
             DatatypeField { UseSentinels: false } datatypeField => new Call(
                 new Identifier(datatypeField.Datatype.Constructor),
-                datatypeField.Datatype.Components
-                    .Select(component => ReadNumber(cursor, datatypeField.NumberType, statements, ComponentName(datatypeField.Path, component)))
-                    .ToList()
+                [.. datatypeField.Datatype.Components.Select(component => ReadNumber(cursor, datatypeField.NumberType, statements, ComponentName(datatypeField.Path, component)))]
             ),
             CFrameField { UseSentinels: false } cframeField => EmitCFrameRead(cframeField, cursor, statements),
             DatatypeField or CFrameField => EmitSentinelRead(serializationField, cursor, statements),
@@ -431,9 +429,7 @@ internal sealed partial class SerializationEmitter
         var rebuilt = serializationField is DatatypeField datatypeField
             ? new Call(
                 new Identifier(datatypeField.Datatype.Constructor),
-                datatypeField.Datatype.Components
-                    .Select(component => ReadNumber(cursor, datatypeField.NumberType, componentBody, ComponentName(datatypeField.Path, component)))
-                    .ToList()
+                [.. datatypeField.Datatype.Components.Select(component => ReadNumber(cursor, datatypeField.NumberType, componentBody, ComponentName(datatypeField.Path, component)))]
             )
             : EmitCFrameRead((CFrameField)serializationField, cursor, componentBody);
 

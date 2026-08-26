@@ -8,7 +8,7 @@ internal readonly record struct NewOptions(string Directory);
 
 /// <param name="Packages">
 ///     The packages to add, each written <c>name</c> or <c>name@requirement</c>. Read into a
-///     <see cref="Loom.Packages.PackageRequest" /> once the project is known, so that an unreadable one is reported
+///     <see cref="Packages.PackageRequest" /> once the project is known, so that an unreadable one is reported
 ///     with the project's other problems rather than as a parse error.
 /// </param>
 internal readonly record struct AddOptions(IReadOnlyList<string> Packages, bool DevelopmentOnly, string Directory);

@@ -94,7 +94,7 @@ public static class DeclarationDisplay
 
     /// <summary>The attribute list written above a declaration, as source text, or null when it has none.</summary>
     public static string? AttributesOf(Symbol symbol) =>
-        (symbol.Declaration as IWithAttributes)?.Attributes is { AttributeList.Count: > 0 } attributes ? attributes.ToString() : null;
+        symbol.Declaration is IWithAttributes { Attributes: { AttributeList.Count: > 0 } attributes } ? attributes.ToString() : null;
 
     /// <summary>
     ///     The <c>[deprecated]</c> notice for a symbol, message included when the attribute carries one, or
@@ -142,7 +142,7 @@ public static class DeclarationDisplay
         type switch
         {
             FunctionType function => [function],
-            IntersectionType intersection => intersection.Types.OfType<FunctionType>().ToList(),
+            IntersectionType intersection => [.. intersection.Types.OfType<FunctionType>()],
             InstantiatedType instantiated => FunctionTypesOf(instantiated.Expand()),
             OptionalType optional => FunctionTypesOf(optional.NonNullableType),
             _ => []

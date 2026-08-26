@@ -77,7 +77,7 @@ internal static class Scaffolder
 
         return;
 
-        string colorFileName(string fileName) => $"{Colors.Cyan}{fileName}{Colors.Reset}";
+        static string colorFileName(string fileName) => $"{Colors.Cyan}{fileName}{Colors.Reset}";
     }
 
     private static string GetConfigContent(ProjectType projectType) =>

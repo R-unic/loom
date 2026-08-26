@@ -75,7 +75,7 @@ public static class PackageManager
 
     /// <summary>Every locked package whose directory does not hold the version locked.</summary>
     private static List<LockedPackage> NotInstalled(LoomConfig project, LockFile lockFile) =>
-        lockFile.Packages.Where(locked => !PackageInstaller.IsInstalled(PackageLayout.DirectoryOf(project, locked.Name), locked)).ToList();
+        [.. lockFile.Packages.Where(locked => !PackageInstaller.IsInstalled(PackageLayout.DirectoryOf(project, locked.Name), locked))];
 
     /// <summary>What the index was wanted for, so a project that has none is told what it is missing out on.</summary>
     private static ConfigDiagnostic Needed(bool covered, List<LockedPackage> missing) =>

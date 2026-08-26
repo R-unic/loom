@@ -30,7 +30,7 @@ public sealed partial class TypeChecker
     }
 
     private static List<Type> FillGenericArguments(List<TypeParameter> parameters, List<Type> given) =>
-        parameters.Select((t, i) => i < given.Count ? given[i] : t.DefaultType ?? PrimitiveType.Unknown).ToList();
+        [.. parameters.Select((t, i) => i < given.Count ? given[i] : t.DefaultType ?? PrimitiveType.Unknown)];
 
     private TypeParameterSubstitution? ResolveTypeArguments(
         Invocation invocation,
@@ -166,9 +166,9 @@ public sealed partial class TypeChecker
     ///     Each parameter's constraint with every parameter of the same generic substituted, so one written
     ///     over another is measured against what that other turned out to be.
     /// </summary>
-    private Dictionary<TypeParameter, Type> ResolveConstraints(Node node, List<TypeParameter> parameters, TypeParameterSubstitution substitution)
+    private TypeParameterSubstitution ResolveConstraints(Node node, List<TypeParameter> parameters, TypeParameterSubstitution substitution)
     {
-        var resolved = new Dictionary<TypeParameter, Type>();
+        var resolved = new TypeParameterSubstitution();
         foreach (var parameter in parameters)
             // Only a constraint carrying a deferred operator is substituted. Substitution rebuilds every
             // composite it walks, and an interface put back together from its parts is no longer the one the
@@ -286,7 +286,7 @@ public sealed partial class TypeChecker
             failNode,
             type,
             substitution,
-            new Dictionary<Type, Type>()
+            []
         );
 
     private Type SubstituteTypeParameters(Node failNode, Type type, TypeParameterSubstitution substitution, Dictionary<Type, Type> cache)

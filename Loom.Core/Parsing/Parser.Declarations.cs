@@ -38,7 +38,7 @@ public sealed partial class Parser
             Match(SyntaxKind.Comma, SyntaxKind.Semicolon);
         }
 
-        return members.OfType<DeclareFunctionSignature>().ToList();
+        return [.. members.OfType<DeclareFunctionSignature>()];
     }
 
     /// <summary>

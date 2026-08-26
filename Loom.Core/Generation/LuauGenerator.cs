@@ -46,7 +46,7 @@ public sealed partial class LuauGenerator
     ///     Every multi-trait interface actually constructed somewhere in this file ('new X { ... }' or
     ///     'x with { ... }'), determined by <see cref="CollectMultiTraitConstructions" /> before the main
     ///     tree walk starts. 'implement' is restricted to module scope (<see
-    ///     cref="Resolving.Resolver.VisitImplement" />), so its trait tables are always top-level locals -
+    ///     cref="Resolver.VisitImplement" />), so its trait tables are always top-level locals -
     ///     but a CONSTRUCTION site may still legally sit inside a function body nested arbitrarily deep, so
     ///     <see cref="VisitImplement" /> cannot decide lazily, at the first site it happens to reach,
     ///     whether to build a shared metatable local: an ordinary <c>Prereq</c> there would attach to that

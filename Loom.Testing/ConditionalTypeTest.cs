@@ -1,5 +1,4 @@
 using Loom.Core.Diagnostics;
-using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using AstConditionalType = Loom.Core.Parsing.AST.ConditionalType;
 using InferType = Loom.Core.Parsing.AST.InferType;

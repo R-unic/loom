@@ -163,7 +163,7 @@ public static class TypeSimplifier
             return PrimitiveType.Never;
 
         if (distinct.All(t => t is ObjectType or InterfaceType))
-            return Normalize(MergeObjectTypes(distinct.ToList(), expand), expand);
+            return Normalize(MergeObjectTypes([.. distinct], expand), expand);
 
         if (distinct.Any(t => t is UnionType))
             return Normalize(DistributeIntersection(distinct, expand), expand);
@@ -296,7 +296,7 @@ public static class TypeSimplifier
         };
 
     private static List<Type> RemoveDuplicates(List<Type> types, bool isUnion) =>
-        types
+        [.. types
             .Aggregate(
                 new List<Type>(),
                 (unique, item) =>
@@ -307,8 +307,7 @@ public static class TypeSimplifier
                     return unique;
                 }
             )
-            .Where(t => !isUnion || Type.IsNotNever(t))
-            .ToList();
+            .Where(t => !isUnion || Type.IsNotNever(t))];
 
     /// <summary>
     ///     Collapses sibling union members that are instantiations of the same generic interface/trait/
@@ -381,10 +380,10 @@ public static class TypeSimplifier
         return true;
     }
 
-    private static List<Type> FlattenNestedUnions(List<Type> types) => types.SelectMany(t => t is UnionType union ? union.Types : [t]).ToList();
+    private static List<Type> FlattenNestedUnions(List<Type> types) => [.. types.SelectMany(t => t is UnionType union ? union.Types : [t])];
 
     private static List<Type> FlattenNestedIntersections(List<Type> types) =>
-        types.SelectMany(t => t is IntersectionType intersection ? intersection.Types : [t]).ToList();
+        [.. types.SelectMany(t => t is IntersectionType intersection ? intersection.Types : [t])];
 
     private static Type? GetMemberType(Type member, Func<Type, Type?> extractMember)
     {

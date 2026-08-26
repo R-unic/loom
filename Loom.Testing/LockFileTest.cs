@@ -216,10 +216,7 @@ public class LockFileTest
     [InlineData("version = 1\n[[package]]\nname = \"serio\"\nversion = \"1.2.3\"\ndependencies = \"runit\"\n", "written as an array of package names")]
     [InlineData("version = 1\n[[package]]\nname = \"serio\"\nversion = \"1.2.3\"\ndependencies = [3]\n", "lists a dependency that is not a package name")]
     [InlineData("version = 1\n[[package\nname = \"serio\"\n", "Expected `]]`")]
-    public void Read_MalformedLock_ReportsADiagnosticInsteadOfThrowing(string toml, string expectedMessage)
-    {
-        Assert.Contains(expectedMessage, ReadInvalid(toml).Message);
-    }
+    public void Read_MalformedLock_ReportsADiagnosticInsteadOfThrowing(string toml, string expectedMessage) => Assert.Contains(expectedMessage, ReadInvalid(toml).Message);
 
     /// <remarks>
     ///     A package manager writing a key this compiler has never heard of is what the format version is for, so

@@ -68,6 +68,6 @@ public static class FileManager
 
     private static List<SourceFile> LoadDirectory(string directoryPath, SearchOption searchOption) =>
         !string.IsNullOrWhiteSpace(directoryPath) && Directory.Exists(directoryPath)
-            ? Directory.GetFiles(directoryPath, $"*{LoomExtension}", searchOption).Select(LoadSingle).ToList()
+            ? [.. Directory.GetFiles(directoryPath, $"*{LoomExtension}", searchOption).Select(LoadSingle)]
             : [];
 }

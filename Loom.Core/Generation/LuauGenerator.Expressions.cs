@@ -581,12 +581,12 @@ public sealed partial class LuauGenerator
             return initial;
 
         var resultName = _state.Scope.AddIdentifier(ArrayLowering.ResultName);
-        var result = new Loom.Luau.AST.Identifier(resultName);
+        var result = new Luau.AST.Identifier(resultName);
         _state.Prereq(new ConstVariable(resultName, null, initial));
 
         LuauExpression initialCount = leadsWithSpread ? new Loom.Luau.AST.UnaryOperator("#", result) : new NumberLiteral(leadingCount);
         var countName = _state.Scope.AddIdentifier(ArrayLowering.CountName);
-        var count = new Loom.Luau.AST.Identifier(countName);
+        var count = new Luau.AST.Identifier(countName);
         _state.Prereq(new LocalVariable(countName, null, initialCount));
 
         for (var i = nextIndex; i < elements.Count; i++)
@@ -599,13 +599,13 @@ public sealed partial class LuauGenerator
             else
             {
                 var value = Visit(elements[i]);
-                statements.Add(new ExpressionStatement(new Loom.Luau.AST.BinaryOperator(count, "+=", new NumberLiteral(1))));
+                statements.Add(new ExpressionStatement(new Luau.AST.BinaryOperator(count, "+=", new NumberLiteral(1))));
                 statements.Add(
-                    new ExpressionStatement(new Loom.Luau.AST.BinaryOperator(new Loom.Luau.AST.ElementAccess(result, count), "=", value))
+                    new ExpressionStatement(new Luau.AST.BinaryOperator(new Luau.AST.ElementAccess(result, count), "=", value))
                 );
             }
 
-            _state.Prereq(statements.ToArray());
+            _state.Prereq([.. statements]);
         }
 
         return result;
@@ -817,7 +817,7 @@ public sealed partial class LuauGenerator
             );
         }
 
-        LuauExpression meta = interfaceSymbol.Implementations.Count == 1
+        var meta = interfaceSymbol.Implementations.Count == 1
             ? new Luau.AST.Identifier(GetImplementationMetaName(interfaceSymbol.Implementations[0]))
             : GetMergedMetatable(interfaceSymbol);
 

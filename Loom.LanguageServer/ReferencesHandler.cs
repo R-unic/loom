@@ -22,11 +22,10 @@ public sealed class ReferencesHandler(DocumentStore documents) : ReferencesHandl
             Location[] references;
             lock (state.CompilationLock)
             {
-                references = SymbolReferences.Of(symbol, state.Unit, cancellationToken)
+                references = [.. SymbolReferences.Of(symbol, state.Unit, cancellationToken)
                     .Where(reference => request.Context.IncludeDeclaration || !reference.IsDeclaration)
                     .Select(ToLocation)
-                    .OfType<Location>()
-                    .ToArray();
+                    .OfType<Location>()];
             }
 
             return Task.FromResult<LocationContainer?>(new LocationContainer(references));

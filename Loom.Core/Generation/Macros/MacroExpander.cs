@@ -3,7 +3,6 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Macros.Providers;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
-using Loom.Core.TypeChecking;
 using Loom.Luau.AST;
 using ElementAccess = Loom.Core.Parsing.AST.ElementAccess;
 using Identifier = Loom.Core.Parsing.AST.Identifier;
@@ -248,7 +247,7 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
             return false;
 
         if (macroIndex + 1 < names.Count)
-            expression = new Luau.AST.PropertyAccess(expression, luauAccess.Names.Skip(macroIndex + 1).ToList());
+            expression = new Luau.AST.PropertyAccess(expression, [.. luauAccess.Names.Skip(macroIndex + 1)]);
 
         return true;
     }

@@ -59,7 +59,7 @@ public static class Conversion
             return [];
 
         var path = Path.GetFullPath(rawPath);
-        return result.Diagnostics.InSourceOrder().Where(diagnostic => FilePaths.Same(diagnostic.Span.File.AbsolutePath, path)).Select(ToDiagnostic).ToArray();
+        return [.. result.Diagnostics.InSourceOrder().Where(diagnostic => FilePaths.Same(diagnostic.Span.File.AbsolutePath, path)).Select(ToDiagnostic)];
     }
 
     /// <summary>

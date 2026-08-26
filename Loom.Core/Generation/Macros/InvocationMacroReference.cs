@@ -3,7 +3,6 @@ using Loom.Core.Generation.Macros.Providers;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;
-using Loom.Core.TypeChecking;
 using OptionalType = Loom.Core.TypeChecking.Types.OptionalType;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Solving;

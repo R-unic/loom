@@ -301,7 +301,7 @@ public sealed partial class TypeChecker
             invocation.Arguments,
             declaration?.Parameters,
             argumentTypes,
-            eventType.Arguments.TakeWhile(Type.IsDefined).ToList(),
+            [.. eventType.Arguments.TakeWhile(Type.IsDefined)],
             argumentList,
             hasRestParameter,
             checkArity: canonicalized == null
@@ -577,7 +577,7 @@ public sealed partial class TypeChecker
         if (arguments.ArgumentList.Exists(argument => argument is SpreadElement))
             return;
 
-        var fixedParameterTypes = hasRestParameter ? parameterTypes.Take(parameterTypes.Count - 1).ToList() : parameterTypes;
+        var fixedParameterTypes = hasRestParameter ? [.. parameterTypes.Take(parameterTypes.Count - 1)] : parameterTypes;
         var requiredParameterTypes = new List<Type>();
         if (parameters == null)
         {

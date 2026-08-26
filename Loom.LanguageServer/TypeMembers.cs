@@ -24,27 +24,19 @@ public static class TypeMembers
         if (type == null || depth >= MaximumDepth)
             return [];
 
-        switch (type)
+        return type switch
         {
             // checked ahead of the NativelyIndexableType case it would otherwise fall into: a trait method
             // is not part of an interface's own ObjectType, so only GetMembersOf knows to add it
-            case InterfaceType interfaceType:
-                return semanticModel == null ? interfaceType.Properties : semanticModel.GetMembersOf(interfaceType);
-            case NativelyIndexableType indexable:
-                return indexable.Properties;
-            case InstantiatedType instantiated:
-                return Resolve(instantiated.Expand(), depth + 1, semanticModel);
-            case OptionalType optional:
-                return Resolve(optional.NonNullableType, depth + 1, semanticModel);
-            case TypeParameter parameter:
-                return Resolve(parameter.Constraint, depth + 1, semanticModel);
-            case IntersectionType intersection:
-                return Distinct(intersection.Types.SelectMany(member => Resolve(member, depth + 1, semanticModel)));
-            case UnionType union:
-                return CommonToEvery(union, depth, semanticModel);
-            default:
-                return [];
-        }
+            InterfaceType interfaceType => semanticModel == null ? interfaceType.Properties : semanticModel.GetMembersOf(interfaceType),
+            NativelyIndexableType indexable => indexable.Properties,
+            InstantiatedType instantiated => Resolve(instantiated.Expand(), depth + 1, semanticModel),
+            OptionalType optional => Resolve(optional.NonNullableType, depth + 1, semanticModel),
+            TypeParameter parameter => Resolve(parameter.Constraint, depth + 1, semanticModel),
+            IntersectionType intersection => Distinct(intersection.Types.SelectMany(member => Resolve(member, depth + 1, semanticModel))),
+            UnionType union => CommonToEvery(union, depth, semanticModel),
+            _ => [],
+        };
     }
 
     private static IReadOnlyList<ObjectProperty> CommonToEvery(UnionType union, int depth, SemanticModel? semanticModel)

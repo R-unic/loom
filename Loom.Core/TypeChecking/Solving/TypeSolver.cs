@@ -32,10 +32,10 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
         switch (type)
         {
             case UnionType unionType:
-                return CheckCircularMembers(ref type, unionType.Types.ToList(), name, members => new UnionType(members));
+                return CheckCircularMembers(ref type, [.. unionType.Types], name, members => new UnionType(members));
 
             case IntersectionType intersectionType:
-                return CheckCircularMembers(ref type, intersectionType.Types.ToList(), name, members => new IntersectionType(members));
+                return CheckCircularMembers(ref type, [.. intersectionType.Types], name, members => new IntersectionType(members));
 
             case TypeVariable:
                 type = PrimitiveType.Never;
@@ -98,7 +98,7 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             ArrayType arrayType => new ArrayType(Map(arrayType.ElementType), arrayType.IsMutable),
             InterfaceType interfaceType => new InterfaceType(
                 interfaceType.Name,
-                interfaceType.Constraints.ConvertAll(Map).OfType<InterfaceType>().ToList(),
+                [.. interfaceType.Constraints.ConvertAll(Map).OfType<InterfaceType>()],
                 (ObjectType)Map(interfaceType.ObjectType),
                 interfaceType.TraitMethodNames
             )

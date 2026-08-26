@@ -32,7 +32,7 @@ public sealed class ImplementationHandler(DocumentStore documents) : Implementat
             // not just this call, stays covered by it
             Node[] implementations;
             lock (state.CompilationLock)
-                implementations = Implementations(node, offset, state).ToArray();
+                implementations = [.. Implementations(node, offset, state)];
 
             var locations = implementations
                 .Select(implemented => Conversion.ToLocation(implemented.LocationSpan))

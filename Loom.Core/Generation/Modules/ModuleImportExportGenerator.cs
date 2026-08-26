@@ -204,7 +204,7 @@ internal sealed class ModuleImportExportGenerator(SemanticModel semanticModel, D
     /// <summary>Turns a specifier segment into something Luau will accept as a local name.</summary>
     private static string ToLocalName(string segment)
     {
-        var sanitized = new string(segment.Select(character => char.IsLetterOrDigit(character) || character == '_' ? character : '_').ToArray());
+        var sanitized = new string([.. segment.Select(character => char.IsLetterOrDigit(character) || character == '_' ? character : '_')]);
         var name = sanitized.Length == 0 || char.IsDigit(sanitized[0]) ? '_' + sanitized : sanitized;
 
         return LuauFactory.Keywords.Contains(name) ? '_' + name : name;

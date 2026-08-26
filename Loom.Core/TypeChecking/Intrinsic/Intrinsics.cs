@@ -101,7 +101,7 @@ public static class Intrinsics
     ///     otherwise only carry the type of each declaration's own top-level node. Without this, a defaulted
     ///     method compiled once here and reused by every 'implement' site that doesn't override it (see
     ///     <see cref="Generation.LuauGenerator.GetOrCreateTraitDefault" />) would resolve nothing below its
-    ///     own signature when a consuming file's own <see cref="Resolving.SemanticModel" /> - which never
+    ///     own signature when a consuming file's own <see cref="SemanticModel" /> - which never
     ///     walked this node - tries to read it back out.
     /// </summary>
     /// <remarks>
@@ -110,7 +110,7 @@ public static class Intrinsics
     ///     symbol (an interface-invocation name resolves both a value and a type symbol on the same node),
     ///     which a single <c>GetSymbol(node)</c> call would collapse to the first; and re-querying
     ///     <c>GetType(node)</c> for a node the type checker never actually bound would mint and permanently
-    ///     cache a fresh, unconstrained <see cref="Types.TypeVariable" /> for it instead of simply omitting
+    ///     cache a fresh, unconstrained <see cref="TypeVariable" /> for it instead of simply omitting
     ///     it.
     /// </remarks>
     private static (SymbolTable References, Dictionary<NodeId, Type> Types) CollectNodeBindings(IEnumerable<CompiledFile> compiledFiles)

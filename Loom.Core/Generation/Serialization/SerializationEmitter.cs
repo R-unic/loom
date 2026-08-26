@@ -92,9 +92,7 @@ internal sealed partial class SerializationEmitter(SerializationSchema schema, L
 
     /// <summary>Declares the hoisted constants for the members used across a file, in first-use order.</summary>
     public static List<LuauStatement> DeclareBufferConstants(IEnumerable<string> members) =>
-        members
-            .Select(LuauStatement (member) => new ConstVariable(BufferConstantName(member), null, new PropertyAccess(new Identifier("buffer"), [member])))
-            .ToList();
+        [.. members.Select(LuauStatement (member) => new ConstVariable(BufferConstantName(member), null, new PropertyAccess(new Identifier("buffer"), [member])))];
 
     private Identifier Buffer(string member)
     {

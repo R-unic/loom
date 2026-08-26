@@ -169,7 +169,7 @@ public sealed partial class Parser
             Match(SyntaxKind.Comma, SyntaxKind.Semicolon);
         }
 
-        return members.OfType<FunctionDeclaration>().ToList();
+        return [.. members.OfType<FunctionDeclaration>()];
     }
 
     private StaticBlock ParseStaticBlock(Token keyword)

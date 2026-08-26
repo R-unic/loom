@@ -83,7 +83,7 @@ public sealed class FunctionType(
 
     private static List<Type> GetRequiredParameterTypes(List<Type> parameterTypes, bool hasRestParameter)
     {
-        var fixedParameterTypes = hasRestParameter ? parameterTypes.Take(parameterTypes.Count - 1).ToList() : parameterTypes;
+        var fixedParameterTypes = hasRestParameter ? [.. parameterTypes.Take(parameterTypes.Count - 1)] : parameterTypes;
         var cutoffIndex = fixedParameterTypes.Count;
         for (var i = fixedParameterTypes.Count - 1; i >= 0; i--)
         {
@@ -93,7 +93,7 @@ public sealed class FunctionType(
             break;
         }
 
-        return fixedParameterTypes.Take(cutoffIndex).ToList();
+        return [.. fixedParameterTypes.Take(cutoffIndex)];
     }
 
     public override int GetHashCode()

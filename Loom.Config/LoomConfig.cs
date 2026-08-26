@@ -20,7 +20,7 @@ public sealed class LoomConfig
     /// </summary>
     [TomlPropertyName("project_type")] public string? ProjectTypeEntry { get; init; }
 
-    /// <summary>The project's kind; <see cref="Config.ProjectType.Game" /> when the manifest names none.</summary>
+    /// <summary>The project's kind; <see cref="ProjectType.Game" /> when the manifest names none.</summary>
     [TomlIgnore] public ProjectType ProjectType { get; set; }
 
     [TomlPropertyName("files")] public FilesConfig Files { get; init; } = new();

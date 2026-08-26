@@ -6,10 +6,8 @@ namespace Loom.Testing;
 [Collection("Assembly")]
 public class LexerTest
 {
-    public static readonly List<object[]> Operators = SyntaxFacts.OperatorMap.Where(pair => SyntaxFacts.IsNotTrivia(pair.Value))
-        .Select(t => new object[] { t.Key, t.Value })
-        .ToList();
-    public static readonly List<object[]> Keywords = SyntaxFacts.KeywordMap.Select(t => new object[] { t.Key, t.Value }).ToList();
+    public static readonly List<object[]> Operators = [.. SyntaxFacts.OperatorMap.Where(pair => SyntaxFacts.IsNotTrivia(pair.Value)).Select(t => new object[] { t.Key, t.Value })];
+    public static readonly List<object[]> Keywords = [.. SyntaxFacts.KeywordMap.Select(t => new object[] { t.Key, t.Value })];
 
     [Theory]
     [InlineData("$")]

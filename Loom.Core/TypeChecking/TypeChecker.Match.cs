@@ -252,7 +252,7 @@ public sealed partial class TypeChecker
                     $"'{pattern.Name}' cannot be used as a pattern because its value is not a compile-time constant."
                 );
 
-            BindType(pattern, Types.PrimitiveType.Never);
+            BindType(pattern, PrimitiveType.Never);
             return;
         }
 
@@ -441,7 +441,7 @@ public sealed partial class TypeChecker
                 perPosition[i].Add(memberElementTypes[i]);
         }
 
-        return matchedAny ? perPosition.Select(types => TypeSimplifier.Simplify(new UnionType(types))).ToList() : null;
+        return matchedAny ? [.. perPosition.Select(types => TypeSimplifier.Simplify(new UnionType(types)))] : null;
     }
 
     private void CheckRestPattern(RestPattern pattern, Type elementType)

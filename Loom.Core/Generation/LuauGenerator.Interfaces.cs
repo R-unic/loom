@@ -207,7 +207,7 @@ public sealed partial class LuauGenerator
     {
         _semanticModel.RuntimeReferences += 1;
         var arguments = parameters.ConvertAll(LuauExpression (parameter) => new Identifier(parameter.Name));
-        return new Chunk([new Loom.Luau.AST.Return(LuauFactory.RuntimeLibraryCall([runtimeFunctionName], arguments))]);
+        return new Chunk([new Luau.AST.Return(LuauFactory.RuntimeLibraryCall([runtimeFunctionName], arguments))]);
     }
 
     public override LuauNode VisitTraitDeclaration(TraitDeclaration traitDeclaration)
@@ -258,7 +258,7 @@ public sealed partial class LuauGenerator
 
         var typeParameters = GenerateTypeParameters(interfaceDeclaration.TypeParameters);
         var properties = MergeOverloadedPropertyTypes(
-                propertyDeclarations.Select(property => GenerateInterfacePropertyType(interfaceDeclaration, property, typeParameters)).ToList()
+                [.. propertyDeclarations.Select(property => GenerateInterfacePropertyType(interfaceDeclaration, property, typeParameters))]
             )
             .Concat(eventDeclarations.Select(GenerateInterfaceEventType))
             .ToList();
@@ -370,7 +370,7 @@ public sealed partial class LuauGenerator
     {
         foreach (var node in _semanticModel.Tree.EnumerateDescendants())
         {
-            InterfaceSymbol? interfaceSymbol = node switch
+            var interfaceSymbol = node switch
             {
                 InterfaceInvocation invocation => _semanticModel.GetSymbol(invocation.Name, SymbolKind.Interface) as InterfaceSymbol,
                 WithOperator withOperator when _semanticModel.GetType(withOperator.Expression) is InterfaceType interfaceType =>

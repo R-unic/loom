@@ -33,10 +33,10 @@ public abstract class Node
     private static T[] InSourceOrder<T>(IEnumerable<T?> items, Func<T, int> positionOf)
         where T : class
     {
-        var ordered = items is IReadOnlyList<T?> list ? WithoutNulls(list) : items.OfType<T>().ToArray();
+        var ordered = items is IReadOnlyList<T?> list ? WithoutNulls(list) : [.. items.OfType<T>()];
         for (var i = 1; i < ordered.Length; i++)
             if (positionOf(ordered[i - 1]) > positionOf(ordered[i]))
-                return ordered.OrderBy(positionOf).ToArray();
+                return [.. ordered.OrderBy(positionOf)];
 
         return ordered;
     }

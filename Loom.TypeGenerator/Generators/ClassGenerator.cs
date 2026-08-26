@@ -30,7 +30,7 @@ internal sealed class ClassGenerator(
             // superclass?.Subclasses.Add(className);
         }
 
-        _instanceNameCandidates = _classRefs.Keys.Concat(["Character", "Input"]).Where(k => k != "Instance").ToArray();
+        _instanceNameCandidates = [.. _classRefs.Keys.Concat(["Character", "Input"]).Where(k => k != "Instance")];
 
         var classesToGenerate = rbxClasses
             .Where(rbxClass => !Constants.DirectClassBlacklist.Contains(rbxClass.Name) && ShouldGenerateClass(rbxClass))

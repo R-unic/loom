@@ -1,6 +1,5 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
-using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
 using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
@@ -357,7 +356,7 @@ public class TypeSolverTest
 
         return data;
 
-        FunctionType fn(List<LoomType> parameters, LoomType returnType, bool hasRest = false, bool isAsync = false) =>
+        static FunctionType fn(List<LoomType> parameters, LoomType returnType, bool hasRest = false, bool isAsync = false) =>
             new([], parameters, returnType, hasRest, isAsync);
     }
 
@@ -426,7 +425,7 @@ public class TypeSolverTest
         Assert.NotEmpty(diagnostics.Errors().Set);
     }
 
-    /// <summary>Same direction as <see cref="Core.TypeChecking.Types.Type.IsAssignableTo" />: an immutable property cannot satisfy a mutable one.</summary>
+    /// <summary>Same direction as <see cref="LoomType.IsAssignableTo" />: an immutable property cannot satisfy a mutable one.</summary>
     [Fact]
     public void Unify_ObjectTypes_MutabilityMismatch()
     {
@@ -466,7 +465,7 @@ public class TypeSolverTest
     }
 
     /// <summary>
-    ///     Unification answers the same question as <see cref="Core.TypeChecking.Types.Type.IsAssignableTo" /> and has to give the
+    ///     Unification answers the same question as <see cref="LoomType.IsAssignableTo" /> and has to give the
     ///     same answer: only asking for a mutable indexer you were not given is a mismatch. Handing a mutable
     ///     indexer to something that only reads through it is not.
     /// </summary>

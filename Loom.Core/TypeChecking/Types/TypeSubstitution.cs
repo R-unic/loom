@@ -140,7 +140,7 @@ internal static class TypeSubstitution
 
             if (rebuilt == null)
             {
-                rebuilt = new List<TypeParameter>(binders.Take(i));
+                rebuilt = [.. binders.Take(i)];
                 extended = new TypeParameterSubstitution(substitution);
             }
 

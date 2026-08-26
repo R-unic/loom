@@ -20,7 +20,7 @@ using Loom.Core.TypeChecking.Intrinsic;
 ///     Split across partial files by concern - <c>.Invocations</c> (calling functions/overloads/generics),
 ///     <c>.MemberAccess</c> (property/element/index lookups), <c>.ControlFlow</c> (loops/if/return and their
 ///     exit-state bookkeeping), <c>.Declarations</c> (functions/variables/type aliases/imports),
-///     <c>.TypeNodes</c> (visiting type-expression syntax into <see cref="Types.Type" />s),
+///     <c>.TypeNodes</c> (visiting type-expression syntax into <see cref="Type" />s),
 ///     <c>.Operators</c> (assignment/binary/unary/ternary), and <c>.ErrorPropagation</c> (the '?' operator).
 ///     This file keeps the entry point, per-node dispatch, literals, and the small set of methods every
 ///     partial relies on (<see cref="BindType{T}" />, event-type helpers).
@@ -279,7 +279,7 @@ public sealed partial class TypeChecker
             return false;
         }
 
-        typeArguments = instantiated.Arguments.TakeWhile(Type.IsDefined).ToList();
+        typeArguments = [.. instantiated.Arguments.TakeWhile(Type.IsDefined)];
         return true;
     }
 

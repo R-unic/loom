@@ -45,6 +45,6 @@ public sealed class PackageConfig
     /// </summary>
     [TomlPropertyName("realm")] public string? RealmEntry { get; set; }
 
-    /// <summary>Governs which Rojo tree(s) this package is vendored into; <see cref="Config.Realm.Shared" /> when unspecified.</summary>
+    /// <summary>Governs which Rojo tree(s) this package is vendored into; <see cref="Realm.Shared" /> when unspecified.</summary>
     [TomlIgnore] public Realm Realm { get; set; }
 }

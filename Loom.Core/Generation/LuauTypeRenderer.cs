@@ -1,4 +1,3 @@
-using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using Loom.Luau;
 using Loom.Luau.AST;

@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using Loom.Core.Resolving.Symbols;
-using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Solving;
@@ -28,10 +27,10 @@ public sealed class FlowState(
     {
     }
 
-    public ImmutableHashSet<Symbol> DefinitelyInitialized { get; private init; } = definitelyInitialized ?? ImmutableHashSet<Symbol>.Empty;
-    public ImmutableHashSet<Symbol> MaybeInitialized { get; private init; } = maybeInitialized ?? ImmutableHashSet<Symbol>.Empty;
+    public ImmutableHashSet<Symbol> DefinitelyInitialized { get; private init; } = definitelyInitialized ?? [];
+    public ImmutableHashSet<Symbol> MaybeInitialized { get; private init; } = maybeInitialized ?? [];
     public bool IsUnreachable { get; init; } = isUnreachable;
-    public ImmutableDictionary<FlowAddress, Type> NarrowedTypes { get; } = narrowedTypes ?? ImmutableDictionary<FlowAddress, Type>.Empty;
+    public ImmutableDictionary<FlowAddress, Type> NarrowedTypes { get; } = narrowedTypes ?? [];
 
     /// <summary>Returns a new state with <paramref name="symbol" /> marked definitely and maybe initialized.</summary>
     public FlowState WithInitialized(Symbol symbol) =>
@@ -70,7 +69,7 @@ public sealed class FlowState(
     private ImmutableDictionary<FlowAddress, Type> MergeNarrowedTypes(FlowState other)
     {
         if (NarrowedTypes.IsEmpty || other.NarrowedTypes.IsEmpty)
-            return ImmutableDictionary<FlowAddress, Type>.Empty;
+            return [];
 
         var (smaller, larger) = NarrowedTypes.Count <= other.NarrowedTypes.Count
             ? (NarrowedTypes, other.NarrowedTypes)
