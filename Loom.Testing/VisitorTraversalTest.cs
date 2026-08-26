@@ -517,6 +517,18 @@ public class VisitorTraversalTest
         );
 
     [Fact]
+    public void NamedArgument_VisitsValue() =>
+        AssertVisitOrder(
+            "f(target: 1)",
+            "ExpressionStatement",
+            "Invocation",
+            "Identifier",
+            "Arguments",
+            "NamedArgument",
+            "Literal"
+        );
+
+    [Fact]
     public void InterpolatedStringLiteral_VisitsHoleExpressions() =>
         AssertVisitOrder(
             """$"a {1} b {2}";""",

@@ -109,6 +109,11 @@ public static class InlayHints
             if (signature.HasRestParameter && index == signature.Parameters.Count - 1)
                 break;
 
+            // Already named at the call site, and not necessarily the parameter at this position anyway -
+            // a named argument can reorder past where its own list position would otherwise place it.
+            if (arguments[index] is NamedArgument)
+                continue;
+
             var parameter = signature.Parameters[index];
             var argument = arguments[index];
             if (parameter.Name.Length == 0 || RepeatsTheName(argument, parameter.Name))

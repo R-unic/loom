@@ -410,9 +410,54 @@ public sealed partial class Parser
         if (Match(out var matchedRightParen, SyntaxKind.RParen))
             return new Arguments(leftParen, matchedRightParen, []);
 
-        var argumentList = ParseDelimited(ParseSpreadable);
+        var argumentList = ParseDelimited(ParseCallArgument);
         var rightParen = Expect(SyntaxKind.RParen);
+        ValidateNamedArgumentPlacement(argumentList);
         return new Arguments(leftParen, rightParen, argumentList);
+    }
+
+    private Expression ParseCallArgument()
+    {
+        if (!AtNamedParameter())
+            return ParseSpreadable();
+
+        var name = ExpectIdentifier();
+        var colon = Expect(SyntaxKind.Colon);
+        return new NamedArgument(name, colon, ParseExpression());
+    }
+
+    /// <summary>
+    ///     A named argument may only follow every positional one (so a bare value is never ambiguous about
+    ///     which parameter it lands on) and never shares a call with a spread (whose length isn't known until
+    ///     runtime, so it cannot be reconciled against parameters a name already claimed). Both are structural
+    ///     - true from the token shapes alone - so they are caught here rather than in the type checker, the
+    ///     same way <see cref="ValidateRestParameterPlacement" /> catches a misplaced rest parameter.
+    /// </summary>
+    private void ValidateNamedArgumentPlacement(List<Expression> argumentList)
+    {
+        var hasNamedArgument = argumentList.Exists(argument => argument is NamedArgument);
+        var seenNamed = false;
+        var seenNames = new HashSet<string>();
+        foreach (var argument in argumentList)
+        {
+            if (argument is NamedArgument namedArgument)
+            {
+                seenNamed = true;
+                if (!seenNames.Add(namedArgument.Name.Text))
+                    _diagnostics.Error(namedArgument, InternalCodes.DuplicateNamedArgument, $"Argument '{namedArgument.Name.Text}' is already specified.");
+
+                continue;
+            }
+
+            if (argument is SpreadElement && hasNamedArgument)
+            {
+                _diagnostics.Error(argument, InternalCodes.NamedArgumentWithSpread, "A spread argument cannot be combined with named arguments.");
+                continue;
+            }
+
+            if (seenNamed)
+                _diagnostics.Error(argument, InternalCodes.PositionalArgumentAfterNamed, "A positional argument cannot follow a named argument.");
+        }
     }
 
     private Expression ParseParenthesized(Token leftParen)

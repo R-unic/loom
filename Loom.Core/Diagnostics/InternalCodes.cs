@@ -166,6 +166,15 @@ public static class InternalCodes
     public const string DeclareStaticBlockTargetsInterface = "L442";
     public const string DeclareStaticBlockTargetsNonAlias = "L443";
     public const string DuplicateDeclareStaticBlock = "L444";
+    public const string PositionalArgumentAfterNamed = "L445";
+    public const string NamedArgumentWithSpread = "L446";
+    public const string DuplicateNamedArgument = "L447";
+    public const string UnknownArgumentName = "L448";
+    public const string ArgumentSpecifiedMultipleTimes = "L449";
+    public const string MissingRequiredArgument = "L450";
+    public const string NamedArgumentUnknownDeclaration = "L451";
+    public const string NamedArgumentWithOverload = "L452";
+    public const string TooManyPositionalArgumentsWithNamed = "L453";
 
     public const string SimplifiableCode = "L500";
 }

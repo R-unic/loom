@@ -1067,6 +1067,63 @@ public class ParserTest
         Utility.AssertDiagnostic(Utility.GetParserDiagnostics(source), InternalCodes.UnexpectedToken, $"Expected expression, got {got}.");
 
     [Fact]
+    public void Parses_NamedArgument()
+    {
+        var tree = Utility.GetAST("f(target: 1);");
+        var invocation = Assert.Single(tree.GetDescendants<Invocation>());
+
+        var namedArgument = Assert.IsType<NamedArgument>(Assert.Single(invocation.Arguments.ArgumentList));
+        Assert.Equal("target", namedArgument.Name.Text);
+        Assert.Equal(SyntaxKind.Colon, namedArgument.Colon.Kind);
+        var literal = Assert.IsType<Literal>(namedArgument.Value);
+        Assert.Equal(1L, literal.Value);
+    }
+
+    [Fact]
+    public void Parses_MixedPositionalAndNamedArguments()
+    {
+        var tree = Utility.GetAST("f(1, b: 2, c: 3);");
+        var invocation = Assert.Single(tree.GetDescendants<Invocation>());
+
+        Assert.Equal(3, invocation.Arguments.ArgumentList.Count);
+        Assert.IsType<Literal>(invocation.Arguments.ArgumentList[0]);
+        Assert.Equal("b", Assert.IsType<NamedArgument>(invocation.Arguments.ArgumentList[1]).Name.Text);
+        Assert.Equal("c", Assert.IsType<NamedArgument>(invocation.Arguments.ArgumentList[2]).Name.Text);
+    }
+
+    [Fact]
+    public void ThrowsFor_PositionalArgumentAfterNamed() =>
+        Utility.AssertDiagnostic(
+            Utility.GetParserDiagnostics("f(a: 1, 2);"),
+            InternalCodes.PositionalArgumentAfterNamed,
+            "A positional argument cannot follow a named argument."
+        );
+
+    [Fact]
+    public void ThrowsFor_SpreadArgumentCombinedWithNamedArgument() =>
+        Utility.AssertDiagnostic(
+            Utility.GetParserDiagnostics("f(a: 1, ..b);"),
+            InternalCodes.NamedArgumentWithSpread,
+            "A spread argument cannot be combined with named arguments."
+        );
+
+    [Fact]
+    public void ThrowsFor_SpreadArgumentBeforeNamedArgument() =>
+        Utility.AssertDiagnostic(
+            Utility.GetParserDiagnostics("f(..b, a: 1);"),
+            InternalCodes.NamedArgumentWithSpread,
+            "A spread argument cannot be combined with named arguments."
+        );
+
+    [Fact]
+    public void ThrowsFor_DuplicateNamedArgument() =>
+        Utility.AssertDiagnostic(
+            Utility.GetParserDiagnostics("f(a: 1, a: 2);"),
+            InternalCodes.DuplicateNamedArgument,
+            "Argument 'a' is already specified."
+        );
+
+    [Fact]
     public void Parses_SpreadOfRange_AsOneOperand()
     {
         var tree = Utility.GetAST("[..a..b];");

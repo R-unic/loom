@@ -96,6 +96,20 @@ public sealed partial class TypeChecker
     private Type CheckOverloadedInvocation(Invocation invocation, List<Types.FunctionType> candidates)
     {
         var argumentList = invocation.Arguments.ArgumentList;
+        if (argumentList.Exists(argument => argument is NamedArgument))
+        {
+            _diagnostics.Error(
+                invocation.Arguments,
+                InternalCodes.NamedArgumentWithOverload,
+                "Named arguments cannot be used when calling an overloaded function."
+            );
+
+            foreach (var argument in argumentList)
+                Visit(argument);
+
+            return BindType(invocation, Types.PrimitiveType.Never);
+        }
+
         var argumentTypes = argumentList.ConvertAll(Visit);
 
         var match = candidates.Find(candidate =>
@@ -167,10 +181,11 @@ public sealed partial class TypeChecker
     private Type CheckNonGenericInvocation(Invocation invocation, Types.FunctionType functionType)
     {
         var declaration = _semanticModel.GetSymbol(invocation.Expression)?.Declaration as DeclareFunctionSignature;
-        var argumentList = invocation.Arguments.ArgumentList;
+        var canonicalized = CanonicalizeArguments(invocation.Arguments, declaration?.Parameters, functionType.HasRestParameter);
+        var argumentList = canonicalized ?? invocation.Arguments.ArgumentList;
         var argumentTypes = BuildArgumentTypes(argumentList, functionType.ParameterTypes, functionType.HasRestParameter);
 
-        return BindNonGenericInvocation(invocation, argumentTypes, functionType, declaration);
+        return BindNonGenericInvocation(invocation, argumentTypes, functionType, declaration, canonicalized != null);
     }
 
     private Type CheckGenericInvocation(Invocation invocation, Types.FunctionType functionType)
@@ -195,10 +210,13 @@ public sealed partial class TypeChecker
 
         var substitutedParameterTypes = SubstituteTypeParameters(invocation.Arguments, functionType.ParameterTypes, substitution);
         var substitutedReturnType = SubstituteTypeParameters(invocation, functionType.ReturnType, substitution);
-        var argumentList = invocation.Arguments.ArgumentList;
+        var canonicalized = CanonicalizeArguments(invocation.Arguments, declaration?.Parameters, functionType.HasRestParameter);
+        var argumentList = canonicalized ?? invocation.Arguments.ArgumentList;
         var argumentTypes = BuildArgumentTypes(argumentList, substitutedParameterTypes, functionType.HasRestParameter);
 
-        CheckArity(invocation.Arguments, declaration?.Parameters, argumentTypes, substitutedParameterTypes, functionType.HasRestParameter);
+        if (canonicalized == null)
+            CheckArity(invocation.Arguments, declaration?.Parameters, argumentTypes, substitutedParameterTypes, functionType.HasRestParameter);
+
         return BindType(invocation, substitutedReturnType);
     }
 
@@ -208,7 +226,8 @@ public sealed partial class TypeChecker
         DeclareFunctionSignature? declaration,
         Type? expectedReturnType)
     {
-        var argumentList = invocation.Arguments.ArgumentList;
+        var canonicalized = CanonicalizeArguments(invocation.Arguments, declaration?.Parameters, functionType.HasRestParameter);
+        var argumentList = canonicalized ?? invocation.Arguments.ArgumentList;
         var deferred = argumentList.ConvertAll(IsContextSensitive);
         var argumentTypes = argumentList.Select((argument, i) => deferred[i] ? Types.PrimitiveType.Unknown : Visit(argument)).ToList();
         var substitution = ResolveTypeArguments(invocation, functionType, argumentTypes, expectedReturnType);
@@ -231,7 +250,8 @@ public sealed partial class TypeChecker
             argumentTypes,
             substitutedParameterTypes,
             argumentList,
-            functionType.HasRestParameter
+            functionType.HasRestParameter,
+            checkArity: canonicalized == null
         );
 
         return BindType(invocation, substitutedReturnType);
@@ -241,6 +261,7 @@ public sealed partial class TypeChecker
         argument switch
         {
             Parenthesized parenthesized => IsContextSensitive(parenthesized.Expression),
+            NamedArgument namedArgument => IsContextSensitive(namedArgument.Value),
             FunctionExpression { Parameters: { } parameters } => parameters.ParameterList.Exists(
                 parameter => parameter.ColonTypeClause == null && parameter.EqualsValueClause == null
             ),
@@ -268,9 +289,11 @@ public sealed partial class TypeChecker
 
     private Types.PrimitiveType CheckEventInvocation(Invocation invocation, InstantiatedType eventType)
     {
-        var argumentList = invocation.Arguments.ArgumentList;
-        var argumentTypes = argumentList.ConvertAll(Visit);
         var declaration = GetEventDeclaration(invocation.Expression);
+        var hasRestParameter = HasRestParameter(declaration?.Parameters);
+        var canonicalized = CanonicalizeArguments(invocation.Arguments, declaration?.Parameters, hasRestParameter);
+        var argumentList = canonicalized ?? invocation.Arguments.ArgumentList;
+        var argumentTypes = argumentList.ConvertAll(Visit);
 
         // The declared parameters alone: Event<T1..T8> pads to eight, and the unused ones are 'none', which
         // a rest parameter would otherwise be measured against as seven more parameters to fill first.
@@ -280,7 +303,8 @@ public sealed partial class TypeChecker
             argumentTypes,
             eventType.Arguments.TakeWhile(Type.IsDefined).ToList(),
             argumentList,
-            HasRestParameter(declaration?.Parameters)
+            hasRestParameter,
+            checkArity: canonicalized == null
         );
 
         return BindType(invocation, Types.PrimitiveType.Void);
@@ -297,6 +321,140 @@ public sealed partial class TypeChecker
 
     /// <summary>Whether the event <paramref name="expression" /> names was declared with a rest parameter.</summary>
     private bool IsVariadicEvent(Expression expression) => HasRestParameter(GetEventDeclaration(expression)?.Parameters);
+
+    /// <summary>The declared parameters a named argument can target - every parameter but a trailing rest one, which collects positional overflow and is never addressed by name.</summary>
+    private static List<Parameter>? FixedParameters(Parameters? parameters, bool hasRestParameter)
+    {
+        if (parameters == null)
+            return null;
+
+        return hasRestParameter ? parameters.ParameterList.GetRange(0, parameters.ParameterList.Count - 1) : parameters.ParameterList;
+    }
+
+    /// <summary>
+    ///     Reorders a call's arguments into declared-parameter order, or returns null when the call has no
+    ///     named argument and the raw, positional <see cref="Arguments.ArgumentList" /> can be used exactly as
+    ///     it always has been.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Once reordered, every existing positional consumer - <see cref="BuildArgumentTypes" />,
+    ///         <see cref="CheckArguments" />, generic inference in <see cref="CheckInferredGenericInvocation" /> -
+    ///         keeps working unmodified: index <c>i</c> of the result is the argument for declared parameter
+    ///         <c>i</c>, exactly the invariant a purely positional call already satisfied. A defaulted
+    ///         parameter skipped by name but followed by one that was supplied becomes an
+    ///         <see cref="OmittedArgument" /> so the slot still exists to keep that indexing intact; a
+    ///         defaulted parameter with nothing after it is simply left off the end, the same as an ordinary
+    ///         trailing omission today.
+    ///     </para>
+    ///     <para>
+    ///         Ill-formed placement (a positional argument after a named one, a named argument alongside a
+    ///         spread, a duplicate name) was already reported by the parser
+    ///         (<see cref="Parser.ValidateNamedArgumentPlacement" />) from the token shapes alone, so this only
+    ///         tolerates it well enough not to crash - it does not re-report it.
+    ///     </para>
+    /// </remarks>
+    private List<Expression>? CanonicalizeArguments(Arguments arguments, Parameters? parameters, bool hasRestParameter)
+    {
+        var argumentList = arguments.ArgumentList;
+        if (!argumentList.Exists(argument => argument is NamedArgument))
+            return null;
+
+        if (parameters == null)
+        {
+            _diagnostics.Error(
+                arguments,
+                InternalCodes.NamedArgumentUnknownDeclaration,
+                "Named arguments can only be used to call a function whose declaration is statically known."
+            );
+
+            foreach (var argument in argumentList)
+                Visit(argument);
+
+            return argumentList.ConvertAll(argument => argument is NamedArgument named ? named.Value : argument);
+        }
+
+        var fixedParameters = FixedParameters(parameters, hasRestParameter)!;
+        var slots = new Expression?[fixedParameters.Count];
+        var positionalCount = 0;
+        foreach (var argument in argumentList)
+        {
+            if (argument is NamedArgument namedArgument)
+            {
+                var index = fixedParameters.FindIndex(p => p.Name.Text == namedArgument.Name.Text);
+                if (index < 0)
+                {
+                    _diagnostics.Error(
+                        namedArgument,
+                        InternalCodes.UnknownArgumentName,
+                        $"'{namedArgument.Name.Text}' is not a parameter of this function."
+                    );
+
+                    Visit(namedArgument.Value);
+                    continue;
+                }
+
+                if (slots[index] != null)
+                {
+                    _diagnostics.Error(
+                        namedArgument,
+                        InternalCodes.ArgumentSpecifiedMultipleTimes,
+                        $"Parameter '{namedArgument.Name.Text}' is already specified."
+                    );
+
+                    Visit(namedArgument.Value);
+                    continue;
+                }
+
+                slots[index] = namedArgument.Value;
+                continue;
+            }
+
+            if (positionalCount < slots.Length)
+            {
+                if (slots[positionalCount] != null)
+                    _diagnostics.Error(
+                        argument,
+                        InternalCodes.ArgumentSpecifiedMultipleTimes,
+                        $"Parameter '{fixedParameters[positionalCount].Name.Text}' is already specified."
+                    );
+
+                slots[positionalCount] = argument;
+            }
+            else
+            {
+                _diagnostics.Error(
+                    argument,
+                    InternalCodes.TooManyPositionalArgumentsWithNamed,
+                    "A call cannot mix named arguments with more positional arguments than the function has fixed parameters."
+                );
+
+                Visit(argument);
+            }
+
+            positionalCount++;
+        }
+
+        for (var i = 0; i < slots.Length; i++)
+        {
+            if (slots[i] != null) continue;
+
+            var parameter = fixedParameters[i];
+            if (parameter.EqualsValueClause == null)
+                _diagnostics.Error(
+                    arguments,
+                    InternalCodes.MissingRequiredArgument,
+                    $"Missing required argument for parameter '{parameter.Name.Text}'."
+                );
+        }
+
+        var lastSupplied = Array.FindLastIndex(slots, slot => slot != null);
+        var result = new List<Expression>(lastSupplied + 1);
+        for (var i = 0; i <= lastSupplied; i++)
+            result.Add(slots[i] ?? new OmittedArgument(arguments.RightParen));
+
+        return result;
+    }
 
     /// <summary>
     ///     The parameter type an argument is checked against, or null where checking it would only mislead.
@@ -334,9 +492,12 @@ public sealed partial class TypeChecker
         List<Type> argumentTypes,
         List<Type> parameterTypes,
         List<Expression> args,
-        bool hasRestParameter = false)
+        bool hasRestParameter = false,
+        bool checkArity = true)
     {
-        CheckArity(arguments, parameters, argumentTypes, parameterTypes, hasRestParameter);
+        if (checkArity)
+            CheckArity(arguments, parameters, argumentTypes, parameterTypes, hasRestParameter);
+
         for (var i = 0; i < args.Count; i++)
         {
             var expected = ExpectedArgumentType(args, i, parameterTypes, hasRestParameter);
@@ -465,9 +626,15 @@ public sealed partial class TypeChecker
         _diagnostics.Error(arguments, InternalCodes.InvocationArity, $"Function expects {arityDisplay} argument{s}, but {argumentTypes.Count} were provided.");
     }
 
-    private Type BindNonGenericInvocation(Invocation invocation, List<Type> argumentTypes, Types.FunctionType functionType, DeclareFunctionSignature? declaration)
+    private Type BindNonGenericInvocation(
+        Invocation invocation,
+        List<Type> argumentTypes,
+        Types.FunctionType functionType,
+        DeclareFunctionSignature? declaration,
+        bool arityAlreadyChecked = false)
     {
-        CheckArity(invocation.Arguments, declaration?.Parameters, argumentTypes, functionType.ParameterTypes, functionType.HasRestParameter);
+        if (!arityAlreadyChecked)
+            CheckArity(invocation.Arguments, declaration?.Parameters, argumentTypes, functionType.ParameterTypes, functionType.HasRestParameter);
 
         // Dropping AddArgumentConstraints here because the Check method already adds equivalent constraints
         return BindType(invocation, functionType.ReturnType);
@@ -495,16 +662,34 @@ public sealed partial class TypeChecker
                 && arguments.Parent is Invocation invocation =>
                 GetInvocationArgumentType(invocation, expression),
 
+            NamedArgument namedArgument when namedArgument.Parent is Arguments arguments
+                && arguments.Parent is Invocation invocation =>
+                GetInvocationArgumentType(invocation, namedArgument),
+
             _ => null
         };
 
+    /// <summary>
+    ///     The declared parameter type <paramref name="argument" /> - a positional expression or a whole
+    ///     <see cref="NamedArgument" /> - lands on. A named argument's position in the call means nothing
+    ///     (that is the point of naming it), so its target is looked up by name against the callee's own
+    ///     declaration instead of by where it sits in <see cref="Arguments.ArgumentList" />.
+    /// </summary>
     private Type? GetInvocationArgumentType(Invocation invocation, Expression argument)
     {
-        var index = invocation.Arguments.ArgumentList.IndexOf(argument);
-        if (index < 0 || _semanticModel.GetType(invocation.Expression) is not Types.FunctionType functionType)
+        if (_semanticModel.GetType(invocation.Expression) is not Types.FunctionType functionType)
             return null;
 
-        return functionType.ParameterTypeAt(index);
+        if (argument is NamedArgument namedArgument)
+        {
+            var declaration = _semanticModel.GetSymbol(invocation.Expression)?.Declaration as DeclareFunctionSignature;
+            var fixedParameters = FixedParameters(declaration?.Parameters, functionType.HasRestParameter);
+            var namedIndex = fixedParameters?.FindIndex(p => p.Name.Text == namedArgument.Name.Text) ?? -1;
+            return namedIndex < 0 ? null : functionType.ParameterTypeAt(namedIndex);
+        }
+
+        var index = invocation.Arguments.ArgumentList.IndexOf(argument);
+        return index < 0 ? null : functionType.ParameterTypeAt(index);
     }
 
     /// <summary>

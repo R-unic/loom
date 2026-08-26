@@ -188,6 +188,17 @@ public sealed partial class TypeChecker
     public override Type VisitSpreadElement(SpreadElement spreadElement) =>
         BindType(spreadElement, SpreadedElementType(spreadElement, Visit(spreadElement.Expression)));
 
+    /// <summary>A name is just a label on the argument it wraps, so it types as whatever that argument types as.</summary>
+    public override Type VisitNamedArgument(NamedArgument namedArgument) => BindType(namedArgument, Visit(namedArgument.Value));
+
+    /// <summary>
+    ///     A skipped defaulted parameter never had a call-site value to type - <see cref="Types.PrimitiveType.Unknown" />
+    ///     is inert everywhere a real argument's type would otherwise be read (arity is already satisfied by
+    ///     construction, and it contributes nothing to generic inference), so nothing downstream needs to know
+    ///     this position was synthesized rather than written.
+    /// </summary>
+    public override Type VisitOmittedArgument(OmittedArgument omittedArgument) => BindType(omittedArgument, Types.PrimitiveType.Unknown);
+
     /// <summary>
     ///     A spread is typed as what it contributes <em>per element</em>, not as the array it reads from, so
     ///     everything that maps a position to a type - an array literal's element union, an argument against

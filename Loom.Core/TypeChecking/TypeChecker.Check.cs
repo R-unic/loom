@@ -24,6 +24,8 @@ public sealed partial class TypeChecker
         return expression switch
         {
             Parenthesized parenthesized => BindType(parenthesized, Check(parenthesized.Expression, expected, state, out constraint)),
+            NamedArgument namedArgument => BindType(namedArgument, Check(namedArgument.Value, expected, state, out constraint)),
+            OmittedArgument omittedArgument => BindType(omittedArgument, expected),
             SpreadElement spreadElement => CheckSpreadElement(spreadElement, expected, state, out constraint),
             ArrayLiteral arrayLiteral when expected is ArrayType arrayType => CheckArrayLiteral(arrayLiteral, arrayType, state),
             TupleExpression tupleExpression when expected is Types.TupleType tupleType => CheckTupleExpression(tupleExpression, tupleType, state),

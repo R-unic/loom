@@ -191,6 +191,55 @@ public class LuauGeneratorTest
     }
 
     [Fact]
+    public void Generates_NamedArgument_SkippingMiddleDefault_PassesNilForTheGap()
+    {
+        const string source = """
+            fn move_to(target: number, speed: number = 16, smooth: bool = false): void { }
+            move_to(target: 1, smooth: true);
+            """;
+
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("move_to(1, nil, true)", rendered);
+    }
+
+    [Fact]
+    public void Generates_NamedArgument_MixedWithPositional_ReordersToDeclaredPosition()
+    {
+        const string source = """
+            fn move_to(target: number, speed: number = 16, smooth: bool = false): void { }
+            move_to(1, smooth: true);
+            """;
+
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("move_to(1, nil, true)", rendered);
+    }
+
+    [Fact]
+    public void Generates_NamedArgument_OutOfOrder_ReordersToDeclaredPosition()
+    {
+        const string source = """
+            fn move_to(target: number, speed: number = 16, smooth: bool = false): void { }
+            move_to(smooth: true, speed: 4, target: 1);
+            """;
+
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("move_to(1, 4, true)", rendered);
+    }
+
+    [Fact]
+    public void Generates_NamedArgument_TrailingOmission_DropsItEntirely()
+    {
+        const string source = """
+            fn move_to(target: number, speed: number = 16): void { }
+            move_to(target: 1);
+            """;
+
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("move_to(1)", rendered);
+        Assert.DoesNotContain("nil", rendered.Split('\n')[^1]);
+    }
+
+    [Fact]
     public void Generates_TernaryOp()
     {
         var luauTree = Utility.GetLuauAST("true ? 69 : 'abc'");

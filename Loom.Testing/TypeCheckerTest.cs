@@ -602,6 +602,139 @@ public class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_NamedArgument_SkipsMiddleDefault() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                fn move_to(target: number, speed: number = 16, smooth: bool = false): void { }
+                move_to(target: 1, smooth: true);
+                """
+            )
+        );
+
+    [Fact]
+    public void Checks_NamedArgument_MixedWithPositional() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                fn move_to(target: number, speed: number = 16, smooth: bool = false): void { }
+                move_to(1, smooth: true);
+                """
+            )
+        );
+
+    [Fact]
+    public void ThrowsFor_NamedArgument_WrongType()
+    {
+        const string source = """
+            fn id(value: number): void { }
+            id(value: "nope");
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"nope\"' is not assignable to type 'number'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_NamedArgument_UnknownParameterName()
+    {
+        const string source = """
+            fn id(value: number): void { }
+            id(nonexistent: 1);
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.UnknownArgumentName, "'nonexistent' is not a parameter of this function.");
+    }
+
+    [Fact]
+    public void ThrowsFor_NamedArgument_MissingRequiredParameter()
+    {
+        const string source = """
+            fn move_to(target: number, speed: number = 16): void { }
+            move_to(speed: 1);
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.MissingRequiredArgument, "Missing required argument for parameter 'target'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_NamedArgument_AlreadySpecifiedPositionally()
+    {
+        const string source = """
+            fn move_to(target: number, speed: number = 16): void { }
+            move_to(1, target: 2);
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.ArgumentSpecifiedMultipleTimes, "Parameter 'target' is already specified.");
+    }
+
+    [Fact]
+    public void ThrowsFor_NamedArgument_OnFunctionWithUnknownDeclaration()
+    {
+        const string source = """
+            let f = fn(value: number): void { };
+            f(value: 1);
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.NamedArgumentUnknownDeclaration,
+            "Named arguments can only be used to call a function whose declaration is statically known."
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_NamedArgument_OnOverloadedInvocation()
+    {
+        const string source = """
+            declare interface Shape { x: number; y: number; }
+            declare interface ShapeStatic {
+                create: fn(): Shape;
+                create: fn(x: number, y: number): Shape;
+            }
+            declare let Shape: ShapeStatic;
+
+            Shape.create(x: 1, y: 2)
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.NamedArgumentWithOverload,
+            "Named arguments cannot be used when calling an overloaded function."
+        );
+    }
+
+    [Fact]
+    public void Checks_NamedArgument_InfersGenericTypeParameter()
+    {
+        const string source = """
+            fn wrap<T>(value: T, label: string = "x"): T -> value
+            wrap(label: "y", value: 5)
+            """;
+
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics(source));
+        Assert.True(Utility.GetLastStatementType(source).IsAssignableTo(PrimitiveType.Number));
+    }
+
+    [Fact]
+    public void Checks_NamedArgument_OnEventFire() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics("event abc(a: number, b: string); abc(b: \"x\", a: 10);")
+        );
+
+    [Fact]
+    public void ThrowsFor_NamedArgument_MissingRequiredEventParameter()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("event abc(a: number, b: string); abc(b: \"x\");");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.MissingRequiredArgument, "Missing required argument for parameter 'a'.");
+    }
+
+    [Fact]
     public void ThrowsFor_GenericFunctionCall_ExplicitTypeArgumentMismatch()
     {
         const string source = """

@@ -194,6 +194,8 @@ public abstract class Visitor<T>(Func<Node?, T> defaultValue)
     public virtual T VisitRangeLiteral(RangeLiteral rangeLiteral) => CombineResults([Visit(rangeLiteral.Minimum), Visit(rangeLiteral.Maximum)]);
     public virtual T VisitArrayLiteral(ArrayLiteral arrayLiteral) => VisitList(arrayLiteral.Expressions);
     public virtual T VisitSpreadElement(SpreadElement spreadElement) => Visit(spreadElement.Expression);
+    public virtual T VisitNamedArgument(NamedArgument namedArgument) => Visit(namedArgument.Value);
+    public virtual T VisitOmittedArgument(OmittedArgument omittedArgument) => DefaultValue(omittedArgument);
     public virtual T VisitLiteral(Literal literal) => DefaultValue(literal);
     public virtual T VisitInterpolatedStringLiteral(InterpolatedStringLiteral interpolatedStringLiteral) => VisitList(interpolatedStringLiteral.Expressions);
     public virtual T VisitIdentifier(Identifier identifier) => DefaultValue(identifier);

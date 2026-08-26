@@ -32,7 +32,7 @@ public sealed partial class LuauGenerator
         if (_arrayPipeline.TryGenerate(invocation, out var fused))
             return fused;
 
-        var arguments = GenerateArguments(invocation.Arguments.ArgumentList);
+        var arguments = GenerateArguments(invocation);
         return invocation.Expression switch
         {
             QualifiedName { Names: var names } qualifiedName when names.Exists(n => n.IsOptional) => GenerateOptionalChain(
@@ -110,7 +110,7 @@ public sealed partial class LuauGenerator
             return false;
 
         var callee = Visit(invocation.Expression);
-        var arguments = GenerateArguments(invocation.Arguments.ArgumentList);
+        var arguments = GenerateArguments(invocation);
         var (ok, propagated) = GenerateWrappedCallPair(callee, arguments);
         _state.Prereq(new IfStatement(NegateCondition(ok), new Chunk([new Luau.AST.Return(ErrorResult(propagated))]), [], null));
         value = propagated;
@@ -607,6 +607,56 @@ public sealed partial class LuauGenerator
 
             _state.Prereq(statements.ToArray());
         }
+
+        return result;
+    }
+
+    /// <summary>
+    ///     Lowers <paramref name="invocation" />'s arguments, reordering them into declared-parameter order
+    ///     first when the call names any of them. Luau itself has no notion of a named argument, but every
+    ///     default is already guarded inside the callee's own body (see <see cref="GenerateParameterDefaultGuard" />),
+    ///     so a defaulted parameter the caller skipped needs nothing passed for it at the call site beyond
+    ///     whatever keeps a later, supplied one in its place - an explicit <c>nil</c> for a gap in the middle,
+    ///     nothing at all for one at the end. The type checker has already confirmed every name resolves and
+    ///     every required parameter is covered, so this only has to reproduce that ordering, not validate it.
+    /// </summary>
+    private List<LuauExpression> GenerateArguments(Invocation invocation)
+    {
+        var argumentList = invocation.Arguments.ArgumentList;
+        if (!argumentList.Exists(argument => argument is NamedArgument))
+            return GenerateArguments(argumentList);
+
+        var parameters = (_semanticModel.GetSymbol(invocation.Expression)?.Declaration as DeclareFunctionSignature)?.Parameters;
+        if (parameters == null)
+            return argumentList.ConvertAll(argument => Visit<LuauExpression>(argument is NamedArgument named ? named.Value : argument));
+
+        var fixedParameters = parameters.ParameterList is [.., { DotDot: not null }]
+            ? parameters.ParameterList.GetRange(0, parameters.ParameterList.Count - 1)
+            : parameters.ParameterList;
+
+        var slots = new LuauExpression?[fixedParameters.Count];
+        var positionalCount = 0;
+        foreach (var argument in argumentList)
+        {
+            if (argument is NamedArgument namedArgument)
+            {
+                var index = fixedParameters.FindIndex(p => p.Name.Text == namedArgument.Name.Text);
+                if (index >= 0)
+                    slots[index] = Visit<LuauExpression>(namedArgument.Value);
+
+                continue;
+            }
+
+            if (positionalCount < slots.Length)
+                slots[positionalCount] = Visit<LuauExpression>(argument);
+
+            positionalCount++;
+        }
+
+        var lastSupplied = Array.FindLastIndex(slots, slot => slot != null);
+        var result = new List<LuauExpression>(lastSupplied + 1);
+        for (var i = 0; i <= lastSupplied; i++)
+            result.Add(slots[i] ?? new NilLiteral());
 
         return result;
     }
