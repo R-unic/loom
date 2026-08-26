@@ -2,7 +2,6 @@ using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Modules;
 using Loom.Core.Pipeline;
-using Loom.Core.Resolving;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 
