@@ -12,6 +12,7 @@ public sealed partial class Parser
         field ??= new Dictionary<SyntaxKind, StatementParser>
         {
             [SyntaxKind.ExportKeyword] = ParseExport,
+            [SyntaxKind.InternalKeyword] = ParseExport,
             [SyntaxKind.ImportKeyword] = ParseImport,
             [SyntaxKind.LBrace] = ParseBlock,
             [SyntaxKind.ReturnKeyword] = ParseReturn,
@@ -63,6 +64,14 @@ public sealed partial class Parser
             var attributes = ParseAttributes(leftBracket);
             var exportKeyword = Expect(SyntaxKind.ExportKeyword);
             return ParseExport(exportKeyword, attributes);
+        }
+
+        if (Current().Kind == SyntaxKind.LBracket && LooksLikeAttributesBefore(SyntaxKind.InternalKeyword))
+        {
+            var leftBracket = Advance();
+            var attributes = ParseAttributes(leftBracket);
+            var internalKeyword = Expect(SyntaxKind.InternalKeyword);
+            return ParseExport(internalKeyword, attributes);
         }
 
         if (Current().Kind == SyntaxKind.LBracket && LooksLikeAttributesBefore(SyntaxKind.DeclareKeyword))

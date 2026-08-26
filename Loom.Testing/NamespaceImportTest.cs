@@ -43,6 +43,22 @@ public class NamespaceImportTest
         );
 
     [Fact]
+    public void Includes_AnInternalMember_InTheNamespaceType_FromTheSameRoot() =>
+        Utility.WithTempProject(
+            [
+                ("main.loom", "import * as math from \"./math\"\nprint(math::pi);"),
+                ("math.loom", "export let pi: number = 3;\ninternal fn hash_key(k: number): number -> k;")
+            ],
+            (_, result) =>
+            {
+                var main = result.Files.Single(file => file.SourceFile.Name == "main.loom");
+                var binding = Assert.Single(main.SemanticModel.NamespaceImports);
+                var namespaceType = Assert.IsType<ObjectType>(main.SemanticModel.GetType(binding.Import));
+                Assert.Equal(["pi", "hash_key"], namespaceType.Properties.Select(property => property.Name));
+            }
+        );
+
+    [Fact]
     public void TypeChecks_MemberAccess_ThroughTheNamespace() =>
         WithImportingModule(
             "import * as math from \"./math\"\nlet total: number = math::square(math::pi);\nprint(total);",

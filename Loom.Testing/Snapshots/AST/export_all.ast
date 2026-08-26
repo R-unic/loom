@@ -9,6 +9,7 @@
   )
   IsTypeOnly: False
   IsReExport: True
+  IsInternal: False
   ModulePath: "./math"
 )
 ExportAll(
@@ -22,5 +23,6 @@ ExportAll(
   )
   IsTypeOnly: True
   IsReExport: True
+  IsInternal: False
   ModulePath: "./math"
 )

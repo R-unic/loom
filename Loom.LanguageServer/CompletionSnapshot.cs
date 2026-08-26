@@ -242,8 +242,9 @@ public static class CompletionSnapshotBuilder
                 || !context.Unit.AnalyzedModules.TryGetValue(module, out var moduleModel))
                 continue;
 
+            var crossesRoot = context.Unit.Roots.Of(module) != context.Unit.Roots.Of(context.SourceFile);
             var exports = moduleModel.Exports
-                .Where(export => !import.IsTypeOnly || export.Symbol.IsTypeSymbol)
+                .Where(export => (!crossesRoot || !export.IsInternal) && (!import.IsTypeOnly || export.Symbol.IsTypeSymbol))
                 // an interface exports a type and a value under one name, but an import list names it once
                 .GroupBy(export => export.Name)
                 .Select(group => ToImportedSymbol(group.First(), moduleModel, context.Unit, resolver))

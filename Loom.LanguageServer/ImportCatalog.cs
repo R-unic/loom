@@ -39,8 +39,11 @@ public static class ImportCatalog
                 continue;
 
             // an interface is exported as a type and as a value under one name; both are candidates, since
-            // which one is wanted depends on whether the cursor is writing a type or a value
-            var exports = model.Exports.GroupBy(export => (export.Name, export.Symbol.IsTypeSymbol)).Select(group => group.First());
+            // which one is wanted depends on whether the cursor is writing a type or a value. An 'internal'
+            // export never completes across a root boundary - offering it would write an import the
+            // compiler then rejects, same as offering a name the module never exports at all.
+            var visible = moduleRoot == importingRoot ? model.Exports : model.Exports.FindAll(export => !export.IsInternal);
+            var exports = visible.GroupBy(export => (export.Name, export.Symbol.IsTypeSymbol)).Select(group => group.First());
             foreach (var export in exports)
                 candidates.Add(new ImportCandidate(export.Name, specifier, export.Symbol, model));
         }

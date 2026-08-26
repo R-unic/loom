@@ -45,6 +45,23 @@ public class LuauGeneratorTest
     public void Generates_APlaceholder_ForANodeItCannotGenerate(string source, string expected) =>
         Assert.Equal(expected, Utility.GetLuauAST(source).Render().Trim());
 
+    /// <summary>
+    ///     'internal' only narrows who may <em>import</em> a name - the module itself still returns it the
+    ///     same way an ordinary export would, since another file in the same root still reaches it through
+    ///     require().
+    /// </summary>
+    [Fact]
+    public void Generates_AnInternalMember_IntoTheModuleTable_LikeAnOrdinaryExport()
+    {
+        const string source = """
+            internal fn hash_key(k: number): number -> k;
+            export fn get(k: number): number -> hash_key(k);
+            """;
+
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("return { hash_key = hash_key, get = get }", rendered);
+    }
+
     [Theory]
     [InlineData("export type Alias = number;")]
     [InlineData("export interface Point { x: number }")]

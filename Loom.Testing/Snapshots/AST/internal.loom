@@ -1,0 +1,3 @@
+internal let constant = 69;
+internal fn do_something -> print("doing something");
+internal event message(text: string);

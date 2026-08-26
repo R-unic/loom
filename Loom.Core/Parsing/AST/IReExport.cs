@@ -13,4 +13,7 @@ public interface IReExport
 
     /// <summary>False for an <see cref="ExportList" /> that names no module, which exports local names instead.</summary>
     public bool IsReExport { get; }
+
+    /// <summary>Written with <c>internal</c> rather than <c>export</c> - see <see cref="Resolving.ExportBinding.IsInternal" />.</summary>
+    public bool IsInternal { get; }
 }

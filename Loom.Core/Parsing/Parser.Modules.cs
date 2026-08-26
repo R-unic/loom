@@ -104,10 +104,11 @@ public sealed partial class Parser
         if (Match(out var keyword, SyntaxFacts.IsExportableKeyword))
             return WrapExport(exportKeyword, ParseExportedDeclaration(keyword, attributes));
 
+        var verb = exportKeyword.Kind == SyntaxKind.InternalKeyword ? "marked internal" : "exported";
         _diagnostics.Error(
             Current(),
             InternalCodes.ExpectedExportableDeclaration,
-            $"Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', and 'event' declarations can be exported, got {SafeTokenText(Current())}."
+            $"Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', and 'event' declarations can be {verb}, got {SafeTokenText(Current())}."
         );
 
         return new NullStatement(exportKeyword);

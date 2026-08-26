@@ -1265,6 +1265,25 @@ public class ResolverTest
             "move the 'export' declaration out of the enclosing block"
         );
     }
+
+    [Fact]
+    public void ThrowsFor_InternalOutsideModuleScope()
+    {
+        var diagnostics = Utility.GetSemanticModel("fn f() { internal let x = 1; }").Diagnostics;
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.ExportOutsideModuleScope,
+            "Declarations can only be exported at the top level of a module.",
+            "move the 'internal' declaration out of the enclosing block"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_InternalMutableVariable()
+    {
+        var diagnostics = Utility.GetSemanticModel("internal mut x = 1;").Diagnostics;
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotExportMutable, "Mutable variables cannot be marked internal.", "use 'let' instead of 'mut'");
+    }
     #endregion ThrowsFor
 
     #region Resolves
@@ -1278,6 +1297,21 @@ public class ResolverTest
 
         var variable = Assert.IsType<ExportDeclaration>(model.Tree.Statements[0]).Declaration;
         Assert.Same(model.GetDeclarationSymbol(variable), model.Exports[0].Symbol);
+    }
+
+    [Fact]
+    public void Resolves_InternalDeclarations_AsInternalOnlyExports()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel("internal fn hash_key(k: number): number -> k; export fn get(key: number): number -> hash_key(key);")
+        );
+
+        Assert.Equal(2, model.Exports.Count);
+        Assert.True(Assert.Single(model.FindExports("hash_key")).IsInternal);
+        Assert.False(Assert.Single(model.FindExports("get")).IsInternal);
+
+        var declaration = Assert.IsType<ExportDeclaration>(model.Tree.Statements[0]);
+        Assert.True(declaration.IsInternal);
     }
 
     [Fact]

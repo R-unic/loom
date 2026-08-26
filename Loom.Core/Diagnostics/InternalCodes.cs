@@ -175,6 +175,7 @@ public static class InternalCodes
     public const string NamedArgumentUnknownDeclaration = "L451";
     public const string NamedArgumentWithOverload = "L452";
     public const string TooManyPositionalArgumentsWithNamed = "L453";
+    public const string InternalMemberOutsideRoot = "L454";
 
     public const string SimplifiableCode = "L500";
 }

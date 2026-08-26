@@ -12,6 +12,7 @@
     TypeParameters: null
     Name: Token(Identifier, "Alias")
   )
+  IsInternal: False
 )
 ExportDeclaration(
   ExportKeyword: Token(ExportKeyword, "export")
@@ -58,6 +59,7 @@ ExportDeclaration(
     TypeParameters: null
     Name: Token(Identifier, "Point")
   )
+  IsInternal: False
 )
 ExportDeclaration(
   ExportKeyword: Token(ExportKeyword, "export")
@@ -69,6 +71,7 @@ ExportDeclaration(
     TypeParameters: null
     Name: Token(Identifier, "Handle")
   )
+  IsInternal: False
 )
 ExportDeclaration(
   ExportKeyword: Token(ExportKeyword, "export")
@@ -88,6 +91,7 @@ ExportDeclaration(
     ]
     Name: Token(Identifier, "Direction")
   )
+  IsInternal: False
 )
 ExportDeclaration(
   ExportKeyword: Token(ExportKeyword, "export")
@@ -116,4 +120,5 @@ ExportDeclaration(
     TypeParameters: null
     Name: Token(Identifier, "Drawable")
   )
+  IsInternal: False
 )

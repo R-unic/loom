@@ -32,6 +32,7 @@ public sealed class ExportList(
 
     public bool IsTypeOnly => TypeKeyword != null;
     public bool IsReExport => ModuleSpecifier != null;
+    public bool IsInternal => ExportKeyword.Kind == SyntaxKind.InternalKeyword;
     public string? ModulePath => ModuleSpecifier?.Value as string;
 
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitExportList(this);

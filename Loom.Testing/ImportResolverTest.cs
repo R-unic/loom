@@ -127,6 +127,16 @@ public class ImportResolverTest
         );
 
     [Fact]
+    public void Imports_AnInternalMember_FromTheSameRoot() =>
+        Utility.WithTempProject(
+            [
+                ("main.loom", "import { hash_key } from \"./util\"\nprint(hash_key(1));"),
+                ("util.loom", "internal fn hash_key(k: number): number -> k;")
+            ],
+            (_, result) => Utility.AssertNoErrors(result)
+        );
+
+    [Fact]
     public void Reports_NoExportedMember_ListingWhatTheModuleExports() =>
         WithImportingModule(
             "import { cube } from \"./math\"",

@@ -23,6 +23,7 @@ public sealed class ExportAll(
 
     public bool IsTypeOnly => TypeKeyword != null;
     public bool IsReExport => true;
+    public bool IsInternal => ExportKeyword.Kind == SyntaxKind.InternalKeyword;
     public string? ModulePath => ModuleSpecifier?.Value as string;
 
     public override T Accept<T>(Visitor<T> visitor) => visitor.VisitExportAll(this);

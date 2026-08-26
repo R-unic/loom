@@ -15,6 +15,7 @@
   ModuleSpecifier: null
   IsTypeOnly: False
   IsReExport: False
+  IsInternal: False
   ModulePath: null
 )
 ExportList(
@@ -40,6 +41,7 @@ ExportList(
   ModuleSpecifier: null
   IsTypeOnly: False
   IsReExport: False
+  IsInternal: False
   ModulePath: null
 )
 ExportList(
@@ -59,6 +61,7 @@ ExportList(
   ModuleSpecifier: null
   IsTypeOnly: True
   IsReExport: False
+  IsInternal: False
   ModulePath: null
 )
 ExportList(
@@ -81,6 +84,7 @@ ExportList(
   )
   IsTypeOnly: False
   IsReExport: True
+  IsInternal: False
   ModulePath: "./math"
 )
 ExportList(
@@ -103,5 +107,6 @@ ExportList(
   )
   IsTypeOnly: True
   IsReExport: True
+  IsInternal: False
   ModulePath: "./math"
 )

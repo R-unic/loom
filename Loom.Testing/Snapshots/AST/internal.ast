@@ -1,5 +1,5 @@
 ﻿ExportDeclaration(
-  ExportKeyword: Token(ExportKeyword, "export")
+  ExportKeyword: Token(InternalKeyword, "internal")
   Declaration: VariableDeclaration(
     EqualsValueClause(
       EqualsToken: Token(Equals, "=")
@@ -11,10 +11,10 @@
     ColonTypeClause: null
     Name: Token(Identifier, "constant")
   )
-  IsInternal: False
+  IsInternal: True
 )
 ExportDeclaration(
-  ExportKeyword: Token(ExportKeyword, "export")
+  ExportKeyword: Token(InternalKeyword, "internal")
   Declaration: FunctionDeclaration(
     ReturnType: null
     Body: ExpressionBody(
@@ -43,10 +43,10 @@ ExportDeclaration(
     TypeParameters: null
     Name: Token(Identifier, "do_something")
   )
-  IsInternal: False
+  IsInternal: True
 )
 ExportDeclaration(
-  ExportKeyword: Token(ExportKeyword, "export")
+  ExportKeyword: Token(InternalKeyword, "internal")
   Declaration: EventDeclaration(
     Parameters(
       LeftParen: Token(LParen, "(")
@@ -71,5 +71,5 @@ ExportDeclaration(
     TypeParameters: null
     Name: Token(Identifier, "message")
   )
-  IsInternal: False
+  IsInternal: True
 )

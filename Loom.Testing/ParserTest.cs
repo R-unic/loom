@@ -58,6 +58,12 @@ public class ParserTest
             "Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', and 'event' declarations can be exported, got '123'.",
             null
         ),
+        new(
+            "internal 123",
+            InternalCodes.ExpectedExportableDeclaration,
+            "Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', and 'event' declarations can be marked internal, got '123'.",
+            null
+        ),
         new("export *", InternalCodes.UnexpectedEof, "Expected 'from', got EOF.", null),
         new("export * from math", InternalCodes.UnexpectedToken, "Expected module path, got 'math'.", null),
         new("export type * from", InternalCodes.UnexpectedEof, "Expected module path, got EOF.", null),

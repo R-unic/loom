@@ -12,6 +12,7 @@ public static class SyntaxFacts
             new KeyValuePair<string, SyntaxKind>("type", SyntaxKind.TypeKeyword),
             new KeyValuePair<string, SyntaxKind>("interface", SyntaxKind.InterfaceKeyword),
             new KeyValuePair<string, SyntaxKind>("export", SyntaxKind.ExportKeyword),
+            new KeyValuePair<string, SyntaxKind>("internal", SyntaxKind.InternalKeyword),
             new KeyValuePair<string, SyntaxKind>("import", SyntaxKind.ImportKeyword),
             new KeyValuePair<string, SyntaxKind>("fn", SyntaxKind.FnKeyword),
             new KeyValuePair<string, SyntaxKind>("async", SyntaxKind.AsyncKeyword),

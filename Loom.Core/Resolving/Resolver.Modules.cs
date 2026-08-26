@@ -13,6 +13,9 @@ namespace Loom.Core.Resolving;
 
 public sealed partial class Resolver
 {
+    /// <summary>The word a diagnostic should use for how a declaration was written - <c>export</c> or <c>internal</c>.</summary>
+    private static string KeywordOf(bool isInternal) => isInternal ? "internal" : "export";
+
     public override bool VisitExportDeclaration(ExportDeclaration export)
     {
         if (!AtModuleScope())
@@ -21,7 +24,7 @@ public sealed partial class Resolver
                 export,
                 InternalCodes.ExportOutsideModuleScope,
                 "Declarations can only be exported at the top level of a module.",
-                "move the 'export' declaration out of the enclosing block"
+                $"move the '{KeywordOf(export.IsInternal)}' declaration out of the enclosing block"
             );
 
             return false;
@@ -32,7 +35,7 @@ public sealed partial class Resolver
             _diagnostics.Error(
                 export,
                 InternalCodes.CannotExportMutable,
-                "Mutable variables cannot be exported.",
+                $"Mutable variables cannot be {(export.IsInternal ? "marked internal" : "exported")}.",
                 "use 'let' instead of 'mut'"
             );
 
@@ -43,7 +46,7 @@ public sealed partial class Resolver
             return false;
 
         foreach (var symbol in _semanticModel.GetDeclarationSymbols(export.Declaration))
-            AddExport(export.Declaration, ExportBinding.OfDeclaration(symbol));
+            AddExport(export.Declaration, ExportBinding.OfDeclaration(symbol, export.IsInternal));
 
         return true;
     }
@@ -56,7 +59,7 @@ public sealed partial class Resolver
                 export,
                 InternalCodes.ExportOutsideModuleScope,
                 "Declarations can only be exported at the top level of a module.",
-                "move the 'export' declaration out of the enclosing block"
+                $"move the '{KeywordOf(export.IsInternal)}' declaration out of the enclosing block"
             );
 
             return false;
@@ -91,7 +94,7 @@ public sealed partial class Resolver
                 export,
                 InternalCodes.ExportOutsideModuleScope,
                 "Declarations can only be exported at the top level of a module.",
-                "move the 'export' declaration out of the enclosing block"
+                $"move the '{KeywordOf(export.IsInternal)}' declaration out of the enclosing block"
             );
 
             return false;
@@ -124,9 +127,17 @@ public sealed partial class Resolver
             }
 
             starredModules[module] = export;
+
+            // an internal member never leaves the root that declared it - a star sweeps up everything a
+            // module exports, so unlike a named re-export (which names the member and can say why it was
+            // rejected) this one just quietly does not pick it up, the same as a name collision below
+            var crossesRoot = CrossesRootBoundary(module);
             foreach (var binding in moduleModel.Exports)
             {
                 if (export.IsTypeOnly && !binding.Symbol.IsTypeSymbol)
+                    continue;
+
+                if (binding.IsInternal && crossesRoot)
                     continue;
 
                 ForwardType(binding.Symbol, moduleModel);
@@ -160,7 +171,7 @@ public sealed partial class Resolver
                 return; // an export the file makes itself wins over one a star forwards
 
             default:
-                _semanticModel.AddExport(new ExportBinding(binding.Name, binding.Name, binding.Symbol, export, module));
+                _semanticModel.AddExport(new ExportBinding(binding.Name, binding.Name, binding.Symbol, export, module, export.IsInternal));
                 return;
         }
     }
@@ -190,16 +201,20 @@ public sealed partial class Resolver
             return true;
 
         // A namespace import brings the whole module into reach rather than a chosen list, so every
-        // export has to be reachable - naming one this realm may not have is what a named import would
-        // have been rejected for, and the form it is written in does not change who may call it.
-        foreach (var export in moduleModel.Exports)
+        // visible export has to be reachable - naming one this realm may not have is what a named import
+        // would have been rejected for, and the form it is written in does not change who may call it. An
+        // internal one is not "reachable but rejected" the way a realm-narrowed one is, though - it is not
+        // part of the namespace at all here, the same as it would not appear in a named import's own
+        // "it exports" listing.
+        var visibleExports = VisibleExports(moduleModel, module);
+        foreach (var export in visibleExports)
             ReportRealmNarrowing(import, export.Name, export.Symbol);
 
         // the symbol stands for the required table, so unlike a named import it is declared on this node
         var symbol = new VariableSymbol(import, name);
         DeclareSymbol(symbol);
         _semanticModel.AddNamespaceImport(new NamespaceImportBinding(import, symbol, module, moduleModel));
-        _semanticModel.TypeSolver.SetType(import, GetNamespaceType(moduleModel));
+        _semanticModel.TypeSolver.SetType(import, GetNamespaceType(visibleExports, moduleModel));
 
         return true;
     }
@@ -260,16 +275,34 @@ public sealed partial class Resolver
     }
 
     /// <summary>
-    ///     The type of a namespace import: an object whose properties are the module's runtime exports, so
-    ///     member access on it type-checks against what the module actually returns.
+    ///     The type of a namespace import: an object whose properties are <paramref name="exports" /> - the
+    ///     module's runtime exports visible from here - so member access on it type-checks against what the
+    ///     module actually returns to this importer.
     /// </summary>
-    private static Type GetNamespaceType(SemanticModel moduleModel) =>
+    private static Type GetNamespaceType(List<ExportBinding> exports, SemanticModel moduleModel) =>
         new ObjectType(
             null,
-            moduleModel.Exports
+            exports
                 .FindAll(export => export.EmitsRuntimeBinding)
                 .ConvertAll(export => new ObjectProperty(false, export.Name, moduleModel.GetType(export.Symbol.Declaration), IsStatic: true))
         );
+
+    /// <summary>
+    ///     <paramref name="moduleModel" />'s own exports, minus any <c>internal</c> one when the file being
+    ///     resolved reaches it from a different <see cref="Pipeline.SourceRoot" /> - a package dependency
+    ///     never sees a root's internal surface, only what it actually exports.
+    /// </summary>
+    private List<ExportBinding> VisibleExports(SemanticModel moduleModel, SourceFile module) =>
+        CrossesRootBoundary(module) ? moduleModel.Exports.FindAll(export => !export.IsInternal) : moduleModel.Exports;
+
+    /// <summary>
+    ///     Whether <paramref name="module" /> is published by a different <see cref="Pipeline.SourceRoot" />
+    ///     than the file currently being resolved - the same "importing this root as a package dependency"
+    ///     distinction <see cref="Modules.ModuleResolver.ResolvePackage" /> already draws when resolving the
+    ///     specifier itself, asked again here because that check only ever ran once, at module-graph time,
+    ///     and does not know which <em>member</em> of the module a later import is asking for.
+    /// </summary>
+    private bool CrossesRootBoundary(SourceFile module) => compilationUnit.Roots.Of(module) != compilationUnit.Roots.Of(parserResult.Tree.File);
 
     /// <summary>Exports a name the module already declares, without introducing a new binding.</summary>
     private void ResolveLocalExport(ExportList export, ExportSpecifier specifier)
@@ -294,7 +327,7 @@ public sealed partial class Resolver
         foreach (var symbol in new[] { valueSymbol, typeSymbol }.OfType<Symbol>())
         {
             AddReference(specifier, symbol);
-            AddExport(specifier, new ExportBinding(specifier.ExportedName.Text, name, symbol, export));
+            AddExport(specifier, new ExportBinding(specifier.ExportedName.Text, name, symbol, export, IsInternal: export.IsInternal));
         }
     }
 
@@ -302,9 +335,21 @@ public sealed partial class Resolver
     private void ResolveReExport(ExportList export, ExportSpecifier specifier, SourceFile module, SemanticModel moduleModel)
     {
         var name = specifier.Name.Text;
-        var exports = moduleModel.FindExports(name);
+        var allExports = moduleModel.FindExports(name);
+        var exports = CrossesRootBoundary(module) ? allExports.FindAll(binding => !binding.IsInternal) : allExports;
         if (exports.Count == 0)
         {
+            if (allExports.Count > 0)
+            {
+                _diagnostics.Error(
+                    specifier,
+                    InternalCodes.InternalMemberOutsideRoot,
+                    $"'{name}' is internal to module '{module.Name}', so it cannot be re-exported from a different root."
+                );
+
+                return;
+            }
+
             _diagnostics.Error(specifier, InternalCodes.NoExportedMember, $"Module '{module.Name}' does not export '{name}'.");
             return;
         }
@@ -330,7 +375,7 @@ public sealed partial class Resolver
         foreach (var binding in exports)
         {
             ForwardType(binding.Symbol, moduleModel);
-            AddExport(specifier, new ExportBinding(specifier.ExportedName.Text, name, binding.Symbol, export, module));
+            AddExport(specifier, new ExportBinding(specifier.ExportedName.Text, name, binding.Symbol, export, module, export.IsInternal));
         }
     }
 
@@ -387,10 +432,23 @@ public sealed partial class Resolver
     {
         var name = specifier.Name.Text;
         var localName = specifier.LocalName.Text;
-        var exports = moduleModel.FindExports(name);
+        var allExports = moduleModel.FindExports(name);
+        var crossesRoot = CrossesRootBoundary(module);
+        var exports = crossesRoot ? allExports.FindAll(binding => !binding.IsInternal) : allExports;
         if (exports.Count == 0)
         {
-            var exported = moduleModel.Exports.Select(symbol => symbol.Name).Distinct().ToList();
+            if (allExports.Count > 0)
+            {
+                _diagnostics.Error(
+                    specifier,
+                    InternalCodes.InternalMemberOutsideRoot,
+                    $"'{name}' is internal to module '{module.Name}', so a different root cannot import it."
+                );
+
+                return false;
+            }
+
+            var exported = VisibleExports(moduleModel, module).Select(export => export.Name).Distinct().ToList();
             _diagnostics.Error(
                 specifier,
                 InternalCodes.NoExportedMember,
