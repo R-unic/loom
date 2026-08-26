@@ -161,6 +161,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 - **Optional chaining** – `?.` short-circuits through nullable member and index access instead of throwing. See [example](#optional-chaining).
 - **Null-forgiving expression** – `!` strips optionality from a type as a compile-time-only assertion, no runtime check. See [example](#null-forgiving-expression).
 - **Default parameter values** – Omit trailing arguments at the call site and fall back to a default. See [example](#functions).
+- **Named arguments** – `f(target: origin, smooth: true)` passes by parameter name instead of position, so a call can skip an earlier default to reach a
+  later one without restating it. See [example](#functions).
 - **Generic functions and types** – Full support for type parameters including constraints and defaults
 - **Result pattern for errors** – Error handling uses the result pattern from Rust, no more `pcall`s. Roblox API methods that can fail return
   `Result<T, RobloxError>`, so the failure is in the signature rather than waiting to kill the thread. See [example](#result-pattern).
@@ -183,6 +185,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   See [example](#with-operator).
 - **Named imports/exports** – Including `export * from "./module"` to forward everything another module publishes, and `export type *` to forward only its
   types. See [example](#exports).
+- **`internal` modifier** – One notch narrower than `export`: visible to any file in the same root, invisible to a different root depending on this one as
+  a package. See [example](#exports).
 - **Modules & packages** – Relative imports resolve inside a project, bare specifiers (`math`, `scope/math`) name a package declared in `[dependencies]`, and a
   dependency's Luau is written into the consuming project's output. See [example](#imports--modules).
 - **Binary serialization** – `[serializable]` interfaces get generated `buffer`-backed codecs, with `[packed]` bit-packing and delta encoding for sending only
@@ -421,6 +425,34 @@ const function greet(name: string, greeting: string?)
 end
 greet("Poppy")
 greet("Poppy", "Hi")
+```
+---
+
+An argument may also be passed by the parameter's own name instead of its position, letting a call skip an earlier
+default to reach a later one without restating it. A positional argument must come before every named one, and a
+named argument can't be combined with a spread. It only works when the callee's declaration is statically known - not
+through a plain function-typed value or an overloaded member.
+
+```rs
+fn move_to(target: Vector3, speed: number = 16, smooth: bool = false): void { }
+
+move_to(Vector3::create(), 16, true);        ## fully positional
+move_to(Vector3::create(), smooth: true);    ## 'speed' keeps its default
+move_to(target: Vector3::create(), smooth: true);
+```
+
+```luau
+const function move_to(target: Vector3, speed: number?, smooth: boolean?): ()
+	if speed == nil then
+		speed = 16
+	end
+	if smooth == nil then
+		smooth = false
+	end
+end
+move_to(Vector3.new(), 16, true)
+move_to(Vector3.new(), nil, true)
+move_to(Vector3.new(), nil, true)
 ```
 ---
 ### Arrays
@@ -2442,6 +2474,31 @@ return { unit = unit, pi = geometry.pi, area = geometry.area }
 
 An export the file makes itself wins over one a star would forward, wherever the two sit relative to each other in source; two stars offering the same
 name is an error instead, since nothing at the use site would say which one it meant. `export type * from "./module"` forwards only that module's types.
+
+---
+
+`internal` is like `export`, but one root narrower: any file in the same root may still import it, while a different root depending on this one as a
+package cannot.
+
+```rs
+internal fn hash_key(k: string): number -> 1;
+
+export fn get(key: string): number -> hash_key(key);
+```
+
+```luau
+const function hash_key(k: string): number
+  return 1
+end
+const function get(key: string): number
+  return hash_key(key)
+end
+return { hash_key = hash_key, get = get }
+```
+
+Generation is unaffected - `hash_key` is still emitted into the returned table exactly like an export, since another file in the same root still reaches
+it through `require()`. Only cross-root importability changes: naming it from a package that depends on this one is a compile error, and an
+`export * from`/namespace import reaching in from that other root quietly leaves it out rather than forwarding it.
 
 ---
 
