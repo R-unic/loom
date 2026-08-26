@@ -2816,6 +2816,60 @@ public class ResolverTest
     [Fact]
     public void Resolves_TupleConstraint_ResolvesTupleName() =>
         Utility.AssertNoErrors(Utility.GetSemanticModel("declare fn something<T: Tuple>(..args: T): void;").Diagnostics);
+
+    [Fact]
+    public void Resolves_NestedObjectDestructuring_DeclaresOnlyTheLeafBinding()
+    {
+        const string source = """
+            interface Address { city: string }
+            interface User { name: string, address: Address }
+            let user = new User { name: "a", address: new Address { city: "b" } };
+            let { address: { city } } = user;
+            print(city);
+            """;
+
+        Utility.AssertNoErrors(Utility.GetSemanticModel(source).Diagnostics);
+    }
+
+    [Fact]
+    public void ThrowsFor_NestedObjectDestructuring_AddressIsNotItselfDeclared()
+    {
+        const string source = """
+            interface Address { city: string }
+            interface User { name: string, address: Address }
+            let user = new User { name: "a", address: new Address { city: "b" } };
+            let { address: { city } } = user;
+            print(address);
+            """;
+
+        Utility.AssertDiagnostic(Utility.GetSemanticModel(source).Diagnostics, InternalCodes.CannotFindName, "Cannot find name 'address'.");
+    }
+
+    [Fact]
+    public void Resolves_ArrayNestedInsideObjectDestructuring_DeclaresAllBindings()
+    {
+        const string source = """
+            interface Summary { scores: number[] }
+            let summary = new Summary { scores: [10, 20] };
+            let { scores: [first, second] } = summary;
+            print(first); print(second);
+            """;
+
+        Utility.AssertNoErrors(Utility.GetSemanticModel(source).Diagnostics);
+    }
+
+    [Fact]
+    public void Resolves_ObjectNestedInsideArrayDestructuring_DeclaresAllBindings()
+    {
+        const string source = """
+            interface Point { x: number, y: number }
+            let points = [new Point { x: 1, y: 2 }];
+            let [{ x: firstX }] = points;
+            print(firstX);
+            """;
+
+        Utility.AssertNoErrors(Utility.GetSemanticModel(source).Diagnostics);
+    }
     #endregion Destructuring
 
     #region Decorators

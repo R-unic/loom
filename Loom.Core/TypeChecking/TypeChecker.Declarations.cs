@@ -150,7 +150,15 @@ public sealed partial class TypeChecker
             : null;
 
         var subjectType = declaredType ?? initializerType ?? Types.PrimitiveType.Unknown;
-        switch (destructuringDeclaration.Target)
+        CheckDestructuringTarget(destructuringDeclaration.Target, subjectType);
+
+        return BindType(destructuringDeclaration, Types.PrimitiveType.Void);
+    }
+
+    /// <summary>Dispatches to the per-kind checker below - the one call every nested target recurses back through, whichever kind it turns out to be.</summary>
+    private void CheckDestructuringTarget(DestructuringTarget target, Type subjectType)
+    {
+        switch (target)
         {
             case ArrayDestructuringTarget arrayTarget:
                 CheckArrayDestructuringTarget(arrayTarget, subjectType);
@@ -162,8 +170,6 @@ public sealed partial class TypeChecker
                 CheckTupleDestructuringTarget(tupleTarget, subjectType);
                 break;
         }
-
-        return BindType(destructuringDeclaration, Types.PrimitiveType.Void);
     }
 
     private void CheckTupleDestructuringTarget(TupleDestructuringTarget target, Type subjectType)
@@ -178,7 +184,7 @@ public sealed partial class TypeChecker
                 );
 
             foreach (var element in target.Elements)
-                BindType(element, Types.PrimitiveType.Unknown);
+                BindDestructuringElement(element, Types.PrimitiveType.Unknown);
 
             return;
         }
@@ -192,13 +198,13 @@ public sealed partial class TypeChecker
             );
 
             foreach (var element in target.Elements)
-                BindType(element, Types.PrimitiveType.Unknown);
+                BindDestructuringElement(element, Types.PrimitiveType.Unknown);
 
             return;
         }
 
         for (var i = 0; i < target.Elements.Count; i++)
-            BindType(target.Elements[i], tupleType.ElementTypes[i]);
+            BindDestructuringElement(target.Elements[i], tupleType.ElementTypes[i]);
     }
 
     private void CheckArrayDestructuringTarget(ArrayDestructuringTarget target, Type subjectType)
@@ -217,7 +223,15 @@ public sealed partial class TypeChecker
         }
 
         foreach (var element in target.Elements)
-            BindType(element, elementType);
+            BindDestructuringElement(element, elementType);
+    }
+
+    /// <summary>Binds an array/tuple element's type and, when it renames into a nested pattern instead of a plain name, recurses into it with that type as the new subject.</summary>
+    private void BindDestructuringElement(DestructuringElement element, Type elementType)
+    {
+        BindType(element, elementType);
+        if (element.NestedTarget != null)
+            CheckDestructuringTarget(element.NestedTarget, elementType);
     }
 
     private void CheckObjectDestructuringTarget(ObjectDestructuringTarget target, Type subjectType)
@@ -238,6 +252,8 @@ public sealed partial class TypeChecker
             }
 
             BindType(field, propertyType);
+            if (field.NestedTarget != null)
+                CheckDestructuringTarget(field.NestedTarget, propertyType);
         }
     }
 

@@ -1273,7 +1273,7 @@ public class ParserTest
         var result = Utility.AssertNoErrors(Utility.Parse("let [first, second] = array;"));
         var destructuringDeclaration = Assert.IsType<DestructuringDeclaration>(result.Tree.Statements.Single());
         var target = Assert.IsType<ArrayDestructuringTarget>(destructuringDeclaration.Target);
-        Assert.Equal(["first", "second"], target.Elements.Select(e => e.Name.Text));
+        Assert.Equal(["first", "second"], target.Elements.Select(e => e.Name!.Text));
     }
 
     [Fact]
@@ -1320,6 +1320,55 @@ public class ParserTest
         var result = Utility.AssertNoErrors(Utility.Parse("let x = 1;"));
         var variableDeclaration = Assert.IsType<VariableDeclaration>(result.Tree.Statements.Single());
         Assert.Equal("x", variableDeclaration.Name.Text);
+    }
+
+    [Fact]
+    public void Parses_ObjectDestructuringField_WithNestedObjectTarget()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("let { address: { city } } = user;"));
+        var destructuringDeclaration = Assert.IsType<DestructuringDeclaration>(result.Tree.Statements.Single());
+        var target = Assert.IsType<ObjectDestructuringTarget>(destructuringDeclaration.Target);
+        var field = Assert.Single(target.Fields);
+        Assert.Equal("address", field.Name.Text);
+        Assert.Null(field.Alias);
+
+        var nested = Assert.IsType<ObjectDestructuringTarget>(field.NestedTarget);
+        var nestedField = Assert.Single(nested.Fields);
+        Assert.Equal("city", nestedField.Name.Text);
+        Assert.Null(nestedField.NestedTarget);
+    }
+
+    [Fact]
+    public void Parses_ObjectDestructuringField_WithNestedArrayTarget()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("let { scores: [first, second] } = summary;"));
+        var destructuringDeclaration = Assert.IsType<DestructuringDeclaration>(result.Tree.Statements.Single());
+        var target = Assert.IsType<ObjectDestructuringTarget>(destructuringDeclaration.Target);
+        var field = Assert.Single(target.Fields);
+        Assert.Equal("scores", field.Name.Text);
+
+        var nested = Assert.IsType<ArrayDestructuringTarget>(field.NestedTarget);
+        Assert.Equal(["first", "second"], nested.Elements.Select(e => e.Name!.Text));
+    }
+
+    [Fact]
+    public void Parses_ArrayDestructuringElement_WithNestedObjectTarget()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("let [{ x }] = points;"));
+        var destructuringDeclaration = Assert.IsType<DestructuringDeclaration>(result.Tree.Statements.Single());
+        var target = Assert.IsType<ArrayDestructuringTarget>(destructuringDeclaration.Target);
+        var element = Assert.Single(target.Elements);
+        Assert.Null(element.Name);
+
+        var nested = Assert.IsType<ObjectDestructuringTarget>(element.NestedTarget);
+        Assert.Equal("x", Assert.Single(nested.Fields).Name.Text);
+    }
+
+    [Fact]
+    public void ThrowsFor_NestedPattern_InTupleDestructuringTarget()
+    {
+        var diagnostics = Utility.GetParserDiagnostics("let (a, { b }) = pair;");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidDestructureTarget, "Tuple destructuring does not support nested patterns.");
     }
     #endregion Destructuring
 
@@ -1407,7 +1456,7 @@ public class ParserTest
         var result = Utility.AssertNoErrors(Utility.Parse("let (one, two) = t;"));
         var destructuringDeclaration = Assert.IsType<DestructuringDeclaration>(result.Tree.Statements.Single());
         var target = Assert.IsType<TupleDestructuringTarget>(destructuringDeclaration.Target);
-        Assert.Equal(["one", "two"], target.Elements.Select(e => e.Name.Text));
+        Assert.Equal(["one", "two"], target.Elements.Select(e => e.Name!.Text));
     }
 
     [Fact]

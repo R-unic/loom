@@ -243,14 +243,21 @@ public sealed class FlowAnalyzer(SemanticModel semanticModel)
     private IEnumerable<Symbol> CollectDestructuringBindingSymbols(DestructuringTarget target) =>
         target switch
         {
-            ArrayDestructuringTarget arrayTarget =>
-                arrayTarget.Elements.Select(element => semanticModel.GetDeclarationSymbol(element)).OfType<Symbol>(),
-            ObjectDestructuringTarget objectTarget =>
-                objectTarget.Fields.Select(field => semanticModel.GetDeclarationSymbol(field)).OfType<Symbol>(),
-            TupleDestructuringTarget tupleTarget =>
-                tupleTarget.Elements.Select(element => semanticModel.GetDeclarationSymbol(element)).OfType<Symbol>(),
+            ArrayDestructuringTarget arrayTarget => arrayTarget.Elements.SelectMany(CollectDestructuringBindingSymbols),
+            ObjectDestructuringTarget objectTarget => objectTarget.Fields.SelectMany(CollectDestructuringBindingSymbols),
+            TupleDestructuringTarget tupleTarget => tupleTarget.Elements.SelectMany(CollectDestructuringBindingSymbols),
             _ => []
         };
+
+    private IEnumerable<Symbol> CollectDestructuringBindingSymbols(DestructuringElement element) =>
+        element.NestedTarget != null
+            ? CollectDestructuringBindingSymbols(element.NestedTarget)
+            : semanticModel.GetDeclarationSymbol(element) is { } symbol ? [symbol] : [];
+
+    private IEnumerable<Symbol> CollectDestructuringBindingSymbols(ObjectDestructuringField field) =>
+        field.NestedTarget != null
+            ? CollectDestructuringBindingSymbols(field.NestedTarget)
+            : semanticModel.GetDeclarationSymbol(field) is { } symbol ? [symbol] : [];
 
     private FlowState AnalyzeIf(If @if, FlowState state)
     {

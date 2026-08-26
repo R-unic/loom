@@ -5314,6 +5314,53 @@ public class LuauGeneratorTest
     }
 
     [Fact]
+    public void Generates_NestedObjectDestructuring_AsOneChainedPropertyAccess()
+    {
+        const string source = """
+            interface Address { city: string }
+            interface User { name: string, address: Address }
+            let user = new User { name: "a", address: new Address { city: "b" } };
+            let { address: { city } } = user;
+            """;
+
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("const city = user.address.city", rendered);
+    }
+
+    [Fact]
+    public void Generates_ArrayNestedInsideObjectDestructuring_AsPropertyThenElementAccess()
+    {
+        const string source = """
+            interface Summary { scores: number[] }
+            let summary = new Summary { scores: [10, 20] };
+            let { scores: [first, second] } = summary;
+            """;
+
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("const first = summary.scores[1]", rendered);
+        Assert.Contains("const second = summary.scores[2]", rendered);
+    }
+
+    [Fact]
+    public void Generates_ObjectNestedInsideArrayDestructuring_AsElementThenPropertyAccess()
+    {
+        const string source = """
+            interface Point { x: number, y: number }
+            let points = [new Point { x: 1, y: 2 }];
+            let [{ x: firstX }] = points;
+            """;
+
+        var luauTree = Utility.GetLuauAST(source, true);
+        var firstX = Assert.IsType<ConstVariable>(luauTree.Statements[^1]);
+        Assert.Equal("firstX", firstX.Name);
+
+        var access = Assert.IsType<PropertyAccess>(firstX.Initializer);
+        Assert.Equal(["x"], access.Names);
+        var elementAccess = Assert.IsType<ElementAccess>(access.Target);
+        Assert.Equal(1, Assert.IsType<NumberLiteral>(elementAccess.Index).Value);
+    }
+
+    [Fact]
     public void Generates_Destructuring_NoRefutabilityGuards()
     {
         var rendered = Utility.GetLuauAST("let array = [1, 2]; let [first, second] = array;", true).Render();

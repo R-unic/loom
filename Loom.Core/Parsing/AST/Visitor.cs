@@ -150,13 +150,15 @@ public abstract class Visitor<T>(Func<Node?, T> defaultValue)
             ]
         );
 
-    public virtual T VisitDestructuringElement(DestructuringElement destructuringElement) => DefaultValue(destructuringElement);
+    public virtual T VisitDestructuringElement(DestructuringElement destructuringElement) =>
+        destructuringElement.NestedTarget != null ? Visit(destructuringElement.NestedTarget) : DefaultValue(destructuringElement);
 
     public virtual T VisitArrayDestructuringTarget(ArrayDestructuringTarget arrayDestructuringTarget) => VisitList(arrayDestructuringTarget.Elements);
 
     public virtual T VisitObjectDestructuringTarget(ObjectDestructuringTarget objectDestructuringTarget) => VisitList(objectDestructuringTarget.Fields);
 
-    public virtual T VisitObjectDestructuringField(ObjectDestructuringField objectDestructuringField) => DefaultValue(objectDestructuringField);
+    public virtual T VisitObjectDestructuringField(ObjectDestructuringField objectDestructuringField) =>
+        objectDestructuringField.NestedTarget != null ? Visit(objectDestructuringField.NestedTarget) : DefaultValue(objectDestructuringField);
 
     public virtual T VisitTupleDestructuringTarget(TupleDestructuringTarget tupleDestructuringTarget) => VisitList(tupleDestructuringTarget.Elements);
 

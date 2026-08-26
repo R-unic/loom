@@ -5,9 +5,11 @@
     Elements: [
       DestructuringElement(
         Name: Token(Identifier, "one")
+        NestedTarget: null
       )
       DestructuringElement(
         Name: Token(Identifier, "two")
+        NestedTarget: null
       )
     ]
   )

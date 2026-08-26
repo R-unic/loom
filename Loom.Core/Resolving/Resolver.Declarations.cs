@@ -84,18 +84,7 @@ public sealed partial class Resolver
                 "Destructuring declarations must use 'let', not 'mut'."
             );
 
-        var declared = destructuringDeclaration.Target switch
-        {
-            ArrayDestructuringTarget arrayTarget =>
-                arrayTarget.Elements.All(element => DeclareVariable(element, element.Name.Text)),
-            ObjectDestructuringTarget objectTarget =>
-                objectTarget.Fields.All(field => DeclareVariable(field, field.BindingName.Text)),
-            TupleDestructuringTarget tupleTarget =>
-                tupleTarget.Elements.All(element => DeclareVariable(element, element.Name.Text)),
-            _ => true
-        };
-
-        if (!declared)
+        if (!DeclareDestructuringTarget(destructuringDeclaration.Target))
             return false;
 
         base.VisitDestructuringDeclaration(destructuringDeclaration);
@@ -105,6 +94,26 @@ public sealed partial class Resolver
         _diagnostics.Error(destructuringDeclaration, InternalCodes.MustHaveInitializer, "Destructuring declarations must be initialized.");
         return false;
     }
+
+    /// <summary>
+    ///     Declares every leaf binding a destructuring target names, however deep a field or element renames
+    ///     into a nested pattern instead of a plain name - <c>{ address: { city } }</c> declares <c>city</c>,
+    ///     not <c>address</c>.
+    /// </summary>
+    private bool DeclareDestructuringTarget(DestructuringTarget target) =>
+        target switch
+        {
+            ArrayDestructuringTarget arrayTarget => arrayTarget.Elements.All(DeclareDestructuringElement),
+            ObjectDestructuringTarget objectTarget => objectTarget.Fields.All(DeclareObjectDestructuringField),
+            TupleDestructuringTarget tupleTarget => tupleTarget.Elements.All(DeclareDestructuringElement),
+            _ => true
+        };
+
+    private bool DeclareDestructuringElement(DestructuringElement element) =>
+        element.NestedTarget != null ? DeclareDestructuringTarget(element.NestedTarget) : DeclareVariable(element, element.Name!.Text);
+
+    private bool DeclareObjectDestructuringField(ObjectDestructuringField field) =>
+        field.NestedTarget != null ? DeclareDestructuringTarget(field.NestedTarget) : DeclareVariable(field, field.BindingName.Text);
 
     public override bool VisitDeclareFunctionSignature(DeclareFunctionSignature declareFunctionSignature)
     {

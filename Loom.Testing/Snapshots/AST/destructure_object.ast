@@ -86,12 +86,14 @@ DestructuringDeclaration(
         Name: Token(Identifier, "name")
         Colon: null
         Alias: null
+        NestedTarget: null
         BindingName: Token(Identifier, "name")
       )
       ObjectDestructuringField(
         Name: Token(Identifier, "age")
         Colon: null
         Alias: null
+        NestedTarget: null
         BindingName: Token(Identifier, "age")
       )
     ]

@@ -86,6 +86,7 @@ DestructuringDeclaration(
         Name: Token(Identifier, "age")
         Colon: Token(Colon, ":")
         Alias: Token(Identifier, "userAge")
+        NestedTarget: null
         BindingName: Token(Identifier, "userAge")
       )
     ]

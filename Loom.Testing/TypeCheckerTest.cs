@@ -6182,6 +6182,66 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
         Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidDestructureSource, "Cannot destructure value of type 'number' with an array pattern.");
     }
+
+    [Fact]
+    public void Checks_NestedObjectDestructuring_BindsLeafToInnerPropertyType()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Address { city: string }
+            interface User { name: string, address: Address }
+            let user = new User { name: "a", address: new Address { city: "b" } };
+            let { address: { city } } = user;
+            city;
+            """
+        );
+
+        Assert.Equal(PrimitiveType.String, type);
+    }
+
+    [Fact]
+    public void Checks_ArrayNestedInsideObjectDestructuring_BindsElementType()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Summary { scores: number[] }
+            let summary = new Summary { scores: [10, 20] };
+            let { scores: [first, second] } = summary;
+            second;
+            """
+        );
+
+        Assert.Equal(PrimitiveType.Number, type);
+    }
+
+    [Fact]
+    public void Checks_ObjectNestedInsideArrayDestructuring_BindsPropertyType()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Point { x: number, y: number }
+            let points = [new Point { x: 1, y: 2 }];
+            let [{ x: firstX }] = points;
+            firstX;
+            """
+        );
+
+        Assert.Equal(PrimitiveType.Number, type);
+    }
+
+    [Fact]
+    public void ThrowsFor_NestedObjectDestructuring_UnknownProperty()
+    {
+        const string source = """
+            interface Address { city: string }
+            interface User { name: string, address: Address }
+            let user = new User { name: "a", address: new Address { city: "b" } };
+            let { address: { country } } = user;
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.UnknownDestructureProperty, "Property 'country' does not exist on type 'Address'.");
+    }
     #endregion Destructuring
 
     #region Tuples

@@ -31,9 +31,11 @@ DestructuringDeclaration(
     Elements: [
       DestructuringElement(
         Name: Token(Identifier, "first")
+        NestedTarget: null
       )
       DestructuringElement(
         Name: Token(Identifier, "second")
+        NestedTarget: null
       )
     ]
   )

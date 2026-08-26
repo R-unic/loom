@@ -406,11 +406,18 @@ public sealed partial class Parser
             _ => ParseArrayDestructuringTarget()
         };
 
+    /// <summary>Whether <paramref name="kind" /> opens a nested destructuring target rather than a plain binding name.</summary>
+    private static bool StartsDestructuringTarget(SyntaxKind kind) => kind is SyntaxKind.LBrace or SyntaxKind.LBracket or SyntaxKind.LParen;
+
     private TupleDestructuringTarget ParseTupleDestructuringTarget()
     {
         var leftParen = Expect(SyntaxKind.LParen);
         var elements = ParseDelimited(ParseDestructuringElement);
         var rightParen = Expect(SyntaxKind.RParen);
+        foreach (var element in elements)
+            if (element.NestedTarget != null)
+                _diagnostics.Error(element, InternalCodes.InvalidDestructureTarget, "Tuple destructuring does not support nested patterns.");
+
         return new TupleDestructuringTarget(leftParen, rightParen, elements);
     }
 
@@ -427,7 +434,9 @@ public sealed partial class Parser
         if (Match(out var dotDot, SyntaxKind.DotDot))
             _diagnostics.Error(dotDot, InternalCodes.InvalidDestructureTarget, "Destructuring targets do not support rest elements.");
 
-        return new DestructuringElement(ExpectIdentifier());
+        return StartsDestructuringTarget(Current().Kind)
+            ? new DestructuringElement(null, ParseDestructuringTarget())
+            : new DestructuringElement(ExpectIdentifier());
     }
 
     private ObjectDestructuringTarget ParseObjectDestructuringTarget()
@@ -445,6 +454,9 @@ public sealed partial class Parser
 
         var name = ExpectIdentifier();
         var colon = Match(out var colonToken, SyntaxKind.Colon) ? colonToken : null;
+        if (colon != null && StartsDestructuringTarget(Current().Kind))
+            return new ObjectDestructuringField(name, colon, null, ParseDestructuringTarget());
+
         var alias = colon != null ? ExpectIdentifier() : null;
         return new ObjectDestructuringField(name, colon, alias);
     }

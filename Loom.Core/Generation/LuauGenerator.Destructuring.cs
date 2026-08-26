@@ -15,31 +15,73 @@ public sealed partial class LuauGenerator
 
         var initializer = Visit(initializerExpression);
         var subject = _state.PushToVariable("_destructure", initializer);
+        EmitDestructuringTarget(destructuringDeclaration.Target, subject);
 
-        switch (destructuringDeclaration.Target)
+        return new NoOpStatement();
+    }
+
+    /// <summary>
+    ///     Emits every leaf binding under <paramref name="target" />, reading each one off <paramref name="subject" />
+    ///     - the value this target destructures. A field or element that renames into a nested pattern instead
+    ///     of a plain name contributes no local of its own here: <see cref="PropertyAccess" />/<see cref="Luau.AST.ElementAccess" />
+    ///     already nest (<c>user.address.city</c> is just a <c>PropertyAccess</c> whose own target is another
+    ///     <c>PropertyAccess</c>), so recursing with the deeper access expression as the new subject is enough to
+    ///     flatten arbitrarily nested patterns into one local per leaf, exactly as a top-level one already was.
+    /// </summary>
+    private void EmitDestructuringTarget(DestructuringTarget target, LuauExpression subject)
+    {
+        switch (target)
         {
             case ArrayDestructuringTarget arrayTarget:
                 for (var i = 0; i < arrayTarget.Elements.Count; i++)
-                {
-                    var name = arrayTarget.Elements[i].Name.Text;
-                    _state.Scope.AddIdentifier(name);
-                    _state.Prereq(new ConstVariable(name, null, new Luau.AST.ElementAccess(subject, new NumberLiteral(i + 1))));
-                }
+                    EmitDestructuringElement(arrayTarget.Elements[i], new Luau.AST.ElementAccess(subject, new NumberLiteral(i + 1)));
 
                 break;
 
             case ObjectDestructuringTarget objectTarget:
                 foreach (var field in objectTarget.Fields)
-                {
-                    var name = field.BindingName.Text;
-                    _state.Scope.AddIdentifier(name);
-                    _state.Prereq(new ConstVariable(name, null, new Luau.AST.PropertyAccess(subject, [field.Name.Text])));
-                }
+                    EmitObjectDestructuringField(field, new Luau.AST.PropertyAccess(subject, [field.Name.Text]));
 
                 break;
+
+            case TupleDestructuringTarget tupleTarget:
+                // Only reachable nested inside an object/array field - a top-level tuple target goes through
+                // EmitTupleDestructuring instead, which can special-case a literal tuple or a multi-return call.
+                // Nested, the value is always already sitting in a table read off the outer subject, so it is
+                // always table.unpack, never those two faster paths.
+                var names = tupleTarget.Elements.ConvertAll(e => e.Name?.Text ?? "_");
+                foreach (var name in names)
+                    _state.Scope.AddIdentifier(name);
+
+                _state.Prereq(new MultiConstVariable(names, LuauFactory.TableCall("unpack", [subject])));
+                break;
+        }
+    }
+
+    private void EmitDestructuringElement(DestructuringElement element, LuauExpression access)
+    {
+        if (element.NestedTarget != null)
+        {
+            EmitDestructuringTarget(element.NestedTarget, access);
+            return;
         }
 
-        return new NoOpStatement();
+        var name = element.Name!.Text;
+        _state.Scope.AddIdentifier(name);
+        _state.Prereq(new ConstVariable(name, null, access));
+    }
+
+    private void EmitObjectDestructuringField(ObjectDestructuringField field, LuauExpression access)
+    {
+        if (field.NestedTarget != null)
+        {
+            EmitDestructuringTarget(field.NestedTarget, access);
+            return;
+        }
+
+        var name = field.BindingName.Text;
+        _state.Scope.AddIdentifier(name);
+        _state.Prereq(new ConstVariable(name, null, access));
     }
 
     /// <summary>
@@ -51,7 +93,9 @@ public sealed partial class LuauGenerator
     /// </summary>
     private LuauNode EmitTupleDestructuring(TupleDestructuringTarget target, Expression initializerExpression)
     {
-        var names = target.Elements.ConvertAll(e => e.Name.Text);
+        // A nested pattern is already rejected here by the parser (tuple destructuring does not support one),
+        // so this only ever falls back to the placeholder for a program that already has that error.
+        var names = target.Elements.ConvertAll(e => e.Name?.Text ?? "_");
         foreach (var name in names)
             _state.Scope.AddIdentifier(name);
 
