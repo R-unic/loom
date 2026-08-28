@@ -146,13 +146,16 @@ public sealed partial class LuauGenerator
         return chunk;
     }
 
-    private IfStatement GenerateParameterDefaultGuard(Parameter parameter)
+    private IfStatement GenerateParameterDefaultGuard(Parameter parameter) => GenerateDefaultGuard(parameter.Name.Text, parameter.EqualsValueClause!);
+
+    /// <summary>Emits <c>if name == nil then name = &lt;default&gt; end</c> - the guard a parameter default and a destructuring default both compile to, since Luau does not distinguish an omitted argument or a short source array from an explicit <c>nil</c>.</summary>
+    private IfStatement GenerateDefaultGuard(string name, EqualsValueClause equalsValueClause)
     {
-        var identifier = new Identifier(parameter.Name.Text);
+        var identifier = new Identifier(name);
         var condition = new BinaryOperator(identifier, "==", new NilLiteral());
 
         var statements = new List<LuauStatement>();
-        var (value, scope) = _state.Capture(() => Visit(parameter.EqualsValueClause!.Value));
+        var (value, scope) = _state.Capture(() => Visit(equalsValueClause.Value));
         ApplyPrereqAndPostreq(statements, scope, new ExpressionStatement(new BinaryOperator(identifier, "=", value)));
 
         return new IfStatement(condition, new Chunk(statements), [], null);

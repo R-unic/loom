@@ -6242,6 +6242,60 @@ public class TypeCheckerTest
         var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
         Utility.AssertDiagnostic(diagnostics, InternalCodes.UnknownDestructureProperty, "Property 'country' does not exist on type 'Address'.");
     }
+
+    [Fact]
+    public void Checks_ArrayDestructuringElement_WithDefault_BindsElementType()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            let maybe_pair: number[] = [1];
+            let [first, second = 0] = maybe_pair;
+            second;
+            """
+        );
+
+        Assert.Equal(PrimitiveType.Number, type);
+    }
+
+    [Fact]
+    public void Checks_ObjectDestructuringField_WithDefault_BindsPropertyType()
+    {
+        var type = Utility.GetLastStatementType(
+            """
+            interface Config { retries: number? }
+            let config = new Config { retries: none };
+            let { retries = 3 } = config;
+            retries;
+            """
+        );
+
+        Assert.Equal("number?", type.ToString());
+    }
+
+    [Fact]
+    public void ThrowsFor_ArrayDestructuringDefault_NotAssignableToElementType()
+    {
+        const string source = """
+            let numbers: number[] = [1];
+            let [first = "not a number"] = numbers;
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"not a number\"' is not assignable to type 'number'.");
+    }
+
+    [Fact]
+    public void ThrowsFor_ObjectDestructuringDefault_NotAssignableToPropertyType()
+    {
+        const string source = """
+            interface Config { retries: number? }
+            let config = new Config { retries: none };
+            let { retries = "not a number" } = config;
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.TypeMismatch, "Type '\"not a number\"' is not assignable to type 'number?'.");
+    }
     #endregion Destructuring
 
     #region Tuples

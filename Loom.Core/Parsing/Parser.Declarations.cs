@@ -415,8 +415,12 @@ public sealed partial class Parser
         var elements = ParseDelimited(ParseDestructuringElement);
         var rightParen = Expect(SyntaxKind.RParen);
         foreach (var element in elements)
+        {
             if (element.NestedTarget != null)
                 _diagnostics.Error(element, InternalCodes.InvalidDestructureTarget, "Tuple destructuring does not support nested patterns.");
+            if (element.EqualsValueClause != null)
+                _diagnostics.Error(element, InternalCodes.InvalidDestructureTarget, "Tuple destructuring does not support default values.");
+        }
 
         return new TupleDestructuringTarget(leftParen, rightParen, elements);
     }
@@ -435,8 +439,8 @@ public sealed partial class Parser
             _diagnostics.Error(dotDot, InternalCodes.InvalidDestructureTarget, "Destructuring targets do not support rest elements.");
 
         return StartsDestructuringTarget(Current().Kind)
-            ? new DestructuringElement(null, ParseDestructuringTarget())
-            : new DestructuringElement(ExpectIdentifier());
+            ? new DestructuringElement(null, ParseDestructuringTarget(), ParseEqualsValueClause())
+            : new DestructuringElement(ExpectIdentifier(), null, ParseEqualsValueClause());
     }
 
     private ObjectDestructuringTarget ParseObjectDestructuringTarget()
@@ -455,10 +459,10 @@ public sealed partial class Parser
         var name = ExpectIdentifier();
         var colon = Match(out var colonToken, SyntaxKind.Colon) ? colonToken : null;
         if (colon != null && StartsDestructuringTarget(Current().Kind))
-            return new ObjectDestructuringField(name, colon, null, ParseDestructuringTarget());
+            return new ObjectDestructuringField(name, colon, null, ParseDestructuringTarget(), ParseEqualsValueClause());
 
         var alias = colon != null ? ExpectIdentifier() : null;
-        return new ObjectDestructuringField(name, colon, alias);
+        return new ObjectDestructuringField(name, colon, alias, null, ParseEqualsValueClause());
     }
 
     private EnumDeclaration ParseEnumDeclaration(Token keyword)

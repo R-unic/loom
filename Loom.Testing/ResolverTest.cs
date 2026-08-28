@@ -2870,6 +2870,42 @@ public class ResolverTest
 
         Utility.AssertNoErrors(Utility.GetSemanticModel(source).Diagnostics);
     }
+
+    [Fact]
+    public void Resolves_ArrayDestructuringElement_WithDefault()
+    {
+        const string source = """
+            let maybe_pair = [1];
+            let [first, second = 0] = maybe_pair;
+            print(first); print(second);
+            """;
+
+        Utility.AssertNoErrors(Utility.GetSemanticModel(source).Diagnostics);
+    }
+
+    [Fact]
+    public void Resolves_ObjectDestructuringField_WithDefault()
+    {
+        const string source = """
+            interface Config { retries: number? }
+            let config = new Config { retries: none };
+            let { retries = 3 } = config;
+            print(retries);
+            """;
+
+        Utility.AssertNoErrors(Utility.GetSemanticModel(source).Diagnostics);
+    }
+
+    [Fact]
+    public void ThrowsFor_DestructuringDefault_ReferencingUndeclaredName()
+    {
+        const string source = """
+            let maybe_pair = [1];
+            let [first, second = missing] = maybe_pair;
+            """;
+
+        Utility.AssertDiagnostic(Utility.GetSemanticModel(source).Diagnostics, InternalCodes.CannotFindName, "Cannot find name 'missing'.");
+    }
     #endregion Destructuring
 
     #region Decorators

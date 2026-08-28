@@ -229,9 +229,20 @@ public sealed partial class TypeChecker
     /// <summary>Binds an array/tuple element's type and, when it renames into a nested pattern instead of a plain name, recurses into it with that type as the new subject.</summary>
     private void BindDestructuringElement(DestructuringElement element, Type elementType)
     {
+        CheckDestructuringDefault(element.EqualsValueClause, elementType);
         BindType(element, elementType);
         if (element.NestedTarget != null)
             CheckDestructuringTarget(element.NestedTarget, elementType);
+    }
+
+    /// <summary>Constrains a binding's default value to the type of the source it falls back for - the same check a parameter default's initializer gets against its declared type.</summary>
+    private void CheckDestructuringDefault(EqualsValueClause? equalsValueClause, Type targetType)
+    {
+        if (equalsValueClause == null)
+            return;
+
+        var initializerType = Visit(equalsValueClause);
+        _semanticModel.TypeSolver.AddConstraint(initializerType, targetType, equalsValueClause.Value);
     }
 
     private void CheckObjectDestructuringTarget(ObjectDestructuringTarget target, Type subjectType)
@@ -251,6 +262,7 @@ public sealed partial class TypeChecker
                 propertyType = Types.PrimitiveType.Unknown;
             }
 
+            CheckDestructuringDefault(field.EqualsValueClause, propertyType);
             BindType(field, propertyType);
             if (field.NestedTarget != null)
                 CheckDestructuringTarget(field.NestedTarget, propertyType);

@@ -10,19 +10,11 @@
           Token(NumberLiteral, "1")
           Value: 1
         )
-        Literal(
-          Token(NumberLiteral, "2")
-          Value: 2
-        )
-        Literal(
-          Token(NumberLiteral, "3")
-          Value: 3
-        )
       ]
     )
   )
   ColonTypeClause: null
-  Name: Token(Identifier, "array")
+  Name: Token(Identifier, "maybe_pair")
 )
 DestructuringDeclaration(
   Target: ArrayDestructuringTarget(
@@ -37,7 +29,13 @@ DestructuringDeclaration(
       DestructuringElement(
         Name: Token(Identifier, "second")
         NestedTarget: null
-        EqualsValueClause: null
+        EqualsValueClause(
+          EqualsToken: Token(Equals, "=")
+          Value: Literal(
+            Token(NumberLiteral, "0")
+            Value: 0
+          )
+        )
       )
     ]
   )
@@ -45,8 +43,8 @@ DestructuringDeclaration(
   EqualsValueClause(
     EqualsToken: Token(Equals, "=")
     Value: Identifier(
-      Name: Token(Identifier, "array")
-      Token(Identifier, "array")
+      Name: Token(Identifier, "maybe_pair")
+      Token(Identifier, "maybe_pair")
     )
   )
 )

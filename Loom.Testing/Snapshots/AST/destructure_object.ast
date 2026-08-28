@@ -87,6 +87,7 @@ DestructuringDeclaration(
         Colon: null
         Alias: null
         NestedTarget: null
+        EqualsValueClause: null
         BindingName: Token(Identifier, "name")
       )
       ObjectDestructuringField(
@@ -94,6 +95,7 @@ DestructuringDeclaration(
         Colon: null
         Alias: null
         NestedTarget: null
+        EqualsValueClause: null
         BindingName: Token(Identifier, "age")
       )
     ]

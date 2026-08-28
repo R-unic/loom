@@ -1370,6 +1370,56 @@ public class ParserTest
         var diagnostics = Utility.GetParserDiagnostics("let (a, { b }) = pair;");
         Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidDestructureTarget, "Tuple destructuring does not support nested patterns.");
     }
+
+    [Fact]
+    public void Parses_ArrayDestructuringElement_WithDefault()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("let [first, second = 0] = maybe_pair;"));
+        var destructuringDeclaration = Assert.IsType<DestructuringDeclaration>(result.Tree.Statements.Single());
+        var target = Assert.IsType<ArrayDestructuringTarget>(destructuringDeclaration.Target);
+        Assert.Null(target.Elements[0].EqualsValueClause);
+        Assert.IsType<Literal>(target.Elements[1].EqualsValueClause!.Value);
+    }
+
+    [Fact]
+    public void Parses_ObjectDestructuringField_WithDefault()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("let { retries = 3 } = config;"));
+        var destructuringDeclaration = Assert.IsType<DestructuringDeclaration>(result.Tree.Statements.Single());
+        var target = Assert.IsType<ObjectDestructuringTarget>(destructuringDeclaration.Target);
+        var field = Assert.Single(target.Fields);
+        Assert.Equal("retries", field.BindingName.Text);
+        Assert.IsType<Literal>(field.EqualsValueClause!.Value);
+    }
+
+    [Fact]
+    public void Parses_ObjectDestructuringField_WithAliasAndDefault()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("let { age: userAge = 0 } = user;"));
+        var destructuringDeclaration = Assert.IsType<DestructuringDeclaration>(result.Tree.Statements.Single());
+        var target = Assert.IsType<ObjectDestructuringTarget>(destructuringDeclaration.Target);
+        var field = Assert.Single(target.Fields);
+        Assert.Equal("userAge", field.BindingName.Text);
+        Assert.IsType<Literal>(field.EqualsValueClause!.Value);
+    }
+
+    [Fact]
+    public void Parses_NestedDestructuringTarget_WithDefault()
+    {
+        var result = Utility.AssertNoErrors(Utility.Parse("let [[a, b] = [1, 2]] = pairs;"));
+        var destructuringDeclaration = Assert.IsType<DestructuringDeclaration>(result.Tree.Statements.Single());
+        var target = Assert.IsType<ArrayDestructuringTarget>(destructuringDeclaration.Target);
+        var element = Assert.Single(target.Elements);
+        Assert.NotNull(element.NestedTarget);
+        Assert.IsType<ArrayLiteral>(element.EqualsValueClause!.Value);
+    }
+
+    [Fact]
+    public void ThrowsFor_DefaultValue_InTupleDestructuringTarget()
+    {
+        var diagnostics = Utility.GetParserDiagnostics("let (a, b = 1) = pair;");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidDestructureTarget, "Tuple destructuring does not support default values.");
+    }
     #endregion Destructuring
 
     #region Tuples

@@ -6,10 +6,12 @@
       DestructuringElement(
         Name: Token(Identifier, "one")
         NestedTarget: null
+        EqualsValueClause: null
       )
       DestructuringElement(
         Name: Token(Identifier, "two")
         NestedTarget: null
+        EqualsValueClause: null
       )
     ]
   )

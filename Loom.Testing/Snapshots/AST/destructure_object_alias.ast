@@ -87,6 +87,7 @@ DestructuringDeclaration(
         Colon: Token(Colon, ":")
         Alias: Token(Identifier, "userAge")
         NestedTarget: null
+        EqualsValueClause: null
         BindingName: Token(Identifier, "userAge")
       )
     ]

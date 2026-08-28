@@ -1,0 +1,4 @@
+let maybe_pair = [1];
+let [first, second = 0] = maybe_pair;
+print(first);
+print(second);

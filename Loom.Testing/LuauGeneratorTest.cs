@@ -5369,6 +5369,46 @@ public class LuauGeneratorTest
     }
 
     [Fact]
+    public void Generates_ArrayDestructuringElement_WithDefault_AsNilGuard()
+    {
+        const string source = "let maybe_pair = [1]; let [first, second = 0] = maybe_pair;";
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("local second = maybe_pair[2]", rendered);
+        Assert.Contains("if second == nil then", rendered);
+        Assert.Contains("second = 0", rendered);
+    }
+
+    [Fact]
+    public void Generates_ObjectDestructuringField_WithDefault_AsNilGuard()
+    {
+        const string source = "interface Config { retries: number? } let config = new Config { retries: none }; let { retries = 3 } = config;";
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("local retries = config.retries", rendered);
+        Assert.Contains("if retries == nil then", rendered);
+        Assert.Contains("retries = 3", rendered);
+    }
+
+    [Fact]
+    public void Generates_NonDefaultedDestructuringElement_StaysConst()
+    {
+        const string source = "let maybe_pair = [1]; let [first, second = 0] = maybe_pair;";
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("const first = maybe_pair[1]", rendered);
+    }
+
+    [Fact]
+    public void Generates_NestedDestructuringTarget_WithDefault_GuardsSubjectBeforeDestructuring()
+    {
+        const string source = "let pairs = [[1, 2]]; let [[a, b] = [1, 2]] = pairs;";
+        var rendered = Utility.GetLuauAST(source, true).Render();
+        Assert.Contains("local _destructure = pairs[1]", rendered);
+        Assert.Contains("if _destructure == nil then", rendered);
+        Assert.Contains("_destructure = {1, 2}", rendered);
+        Assert.Contains("const a = _destructure[1]", rendered);
+        Assert.Contains("const b = _destructure[2]", rendered);
+    }
+
+    [Fact]
     public void Generates_TupleLiteral_AsTable()
     {
         var luauTree = Utility.GetLuauAST("let t = (\"abc\", 420);", true);

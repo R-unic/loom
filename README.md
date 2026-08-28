@@ -664,6 +664,27 @@ let { age: userAge } = user;
 ```luau
 const userAge = user.age
 ```
+
+---
+
+A binding falls back to a default when the source is missing it - an array shorter than the pattern, or an object field that is `nil`.
+
+```rs
+let [first, second = 0] = maybe_pair;
+let { retries = 3 } = config;
+```
+
+```luau
+const first = maybe_pair[1]
+local second = maybe_pair[2]
+if second == nil then
+  second = 0
+end
+local retries = config.retries
+if retries == nil then
+  retries = 3
+end
+```
 ---
 ## Tuples
 

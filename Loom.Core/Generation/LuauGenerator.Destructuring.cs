@@ -62,26 +62,55 @@ public sealed partial class LuauGenerator
     {
         if (element.NestedTarget != null)
         {
-            EmitDestructuringTarget(element.NestedTarget, access);
+            EmitDestructuringTarget(element.NestedTarget, EmitDefaultedSubject(access, element.EqualsValueClause));
             return;
         }
 
-        var name = element.Name!.Text;
-        _state.Scope.AddIdentifier(name);
-        _state.Prereq(new ConstVariable(name, null, access));
+        EmitDestructuringBinding(element.Name!.Text, access, element.EqualsValueClause);
     }
 
     private void EmitObjectDestructuringField(ObjectDestructuringField field, LuauExpression access)
     {
         if (field.NestedTarget != null)
         {
-            EmitDestructuringTarget(field.NestedTarget, access);
+            EmitDestructuringTarget(field.NestedTarget, EmitDefaultedSubject(access, field.EqualsValueClause));
             return;
         }
 
-        var name = field.BindingName.Text;
+        EmitDestructuringBinding(field.BindingName.Text, access, field.EqualsValueClause);
+    }
+
+    /// <summary>
+    ///     Emits the local a leaf binding reads off <paramref name="access" />. A binding with no default stays
+    ///     <c>const</c>, exactly as before defaults existed; one with a default needs a plain <c>local</c> instead,
+    ///     since the guard right after it reassigns the value when <paramref name="access" /> turned out nil.
+    /// </summary>
+    private void EmitDestructuringBinding(string name, LuauExpression access, EqualsValueClause? equalsValueClause)
+    {
         _state.Scope.AddIdentifier(name);
-        _state.Prereq(new ConstVariable(name, null, access));
+        if (equalsValueClause == null)
+        {
+            _state.Prereq(new ConstVariable(name, null, access));
+            return;
+        }
+
+        _state.Prereq(new LocalVariable(name, null, access), GenerateDefaultGuard(name, equalsValueClause));
+    }
+
+    /// <summary>
+    ///     Applies a default to the subject a nested target destructures, when that position has one -
+    ///     <c>[[a, b] = [1, 2]]</c> falls back to <c>[1, 2]</c> before <c>a</c>/<c>b</c> read off it. With no
+    ///     default the access expression is threaded straight through, preserving the property-chain-only
+    ///     emission <see cref="EmitDestructuringTarget" /> relies on for a plain nested pattern.
+    /// </summary>
+    private LuauExpression EmitDefaultedSubject(LuauExpression access, EqualsValueClause? equalsValueClause)
+    {
+        if (equalsValueClause == null)
+            return access;
+
+        var subject = _state.PushToVariable("_destructure", access, isConst: false);
+        _state.Prereq(GenerateDefaultGuard(subject.Name, equalsValueClause));
+        return subject;
     }
 
     /// <summary>
