@@ -123,6 +123,12 @@ public static class PackageAdder
     ///     otherwise compatibility with the newest version published — a released one when there is one, since a
     ///     request with no opinion is not a request for a pre-release.
     /// </summary>
+    /// <remarks>
+    ///     Adding a dependency is choosing a version anew, so a yanked one is no answer to it — the withdrawal is
+    ///     addressed at exactly the project that has not taken the version up yet. Which versions exist is still
+    ///     read off everything published, since "not published at all" and "published and withdrawn" are different
+    ///     things to be told.
+    /// </remarks>
     private static VersionRequirement? RequirementFor(PackageRequest request, IPackageIndex index, List<ConfigDiagnostic> reported)
     {
         var publications = index.Publications(request.Name, out var indexDiagnostics);
@@ -138,23 +144,31 @@ public static class PackageAdder
             return null;
         }
 
+        var candidates = publications.Where(publication => !publication.Yanked).ToArray();
         if (request.Requirement is { } requirement)
         {
-            if (publications.Any(publication => requirement.Satisfies(publication.Version)))
+            if (candidates.Any(publication => requirement.Satisfies(publication.Version)))
                 return requirement;
 
             reported.Add(
                 new ConfigDiagnostic(
                     $"no published version of '{request.Name}' satisfies '{requirement}'; "
-                    + $"'{index.Description}' publishes {string.Join(", ", publications.Select(publication => publication.Version))}."
+                    + $"'{index.Description}' publishes {PublishedPackage.Describe(publications)}."
                 )
             );
 
             return null;
         }
 
-        var newest = publications.LastOrDefault(publication => !publication.Version.IsPrerelease) ?? publications[^1];
-        return VersionRequirement.Parse($"^{newest.Version}");
+        var newest = candidates.LastOrDefault(publication => !publication.Version.IsPrerelease) ?? candidates.LastOrDefault();
+        if (newest != null)
+            return VersionRequirement.Parse($"^{newest.Version}");
+
+        reported.Add(
+            new ConfigDiagnostic($"every version of '{request.Name}' '{index.Description}' publishes has been yanked: {PublishedPackage.Describe(publications)}.")
+        );
+
+        return null;
     }
 
     /// <summary>

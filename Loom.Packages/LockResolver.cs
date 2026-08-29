@@ -132,6 +132,12 @@ public static class LockResolver
     ///     promises, and the newest match is read off the end rather than searched for — an index answering in any
     ///     other order silently resolves to an older version, so one that cannot sort itself must be sorted on
     ///     receipt.
+    ///     <para>
+    ///         A yanked version is passed over here and nowhere else: the version already locked is kept whether it
+    ///         has since been yanked or not, and <see cref="PackageInstaller" /> installs what the lock pins without
+    ///         asking. A yank withdraws a version from being taken up, and a build already on it is precisely what
+    ///         it is not trying to break.
+    ///     </para>
     /// </remarks>
     private static PublishedPackage? Choose(IReadOnlyList<PublishedPackage> publications, VersionRequirement requirement, Version? locked)
     {
@@ -142,7 +148,7 @@ public static class LockResolver
                 return kept;
         }
 
-        return publications.LastOrDefault(publication => requirement.Satisfies(publication.Version));
+        return publications.LastOrDefault(publication => !publication.Yanked && requirement.Satisfies(publication.Version));
     }
 
     private static ConfigDiagnostic Conflict(PackageName package, List<Request> requests) =>
@@ -158,7 +164,7 @@ public static class LockResolver
     {
         var published = publications.Count == 0
             ? $"'{package}' is not published in '{index.Description}'"
-            : $"'{index.Description}' publishes {string.Join(", ", publications.Select(publication => publication.Version))}";
+            : $"'{index.Description}' publishes {PublishedPackage.Describe(publications)}";
 
         return new ConfigDiagnostic($"no published version of '{package}' satisfies '{requirement.ToComparatorString()}' ({Describe(requests)}); {published}.");
     }
