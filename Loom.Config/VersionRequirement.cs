@@ -178,6 +178,8 @@ public sealed class VersionRequirement : IEquatable<VersionRequirement>
             return false;
 
         var version = partial.Completed;
+        Version? ceiling = null;
+        var derivesCeiling = false;
         switch (comparator)
         {
             case ">=":
@@ -194,18 +196,32 @@ public sealed class VersionRequirement : IEquatable<VersionRequirement>
                 break;
             case "~":
                 lower = new Bound(version, true);
-                upper = new Bound(partial.WrittenCeiling, false);
+                (ceiling, derivesCeiling) = (partial.WrittenCeiling, true);
                 break;
             case "=":
                 lower = new Bound(version, true);
-                upper = partial.IsComplete ? new Bound(version, true) : new Bound(partial.WrittenCeiling, false);
+                if (partial.IsComplete)
+                    upper = new Bound(version, true);
+                else
+                    (ceiling, derivesCeiling) = (partial.WrittenCeiling, true);
+
                 break;
             default:
                 lower = new Bound(version, true);
-                upper = new Bound(partial.CaretCeiling, false);
+                (ceiling, derivesCeiling) = (partial.CaretCeiling, true);
                 break;
         }
 
+        if (!derivesCeiling)
+            return true;
+
+        if (ceiling == null)
+        {
+            error = $"version requirement '{trimmed}' has no ceiling any version can name, since '{version}' already names the largest a component can be.";
+            return false;
+        }
+
+        upper = new Bound(ceiling, false);
         return true;
     }
 
@@ -338,19 +354,32 @@ public sealed class VersionRequirement : IEquatable<VersionRequirement>
         ///     minor makes the next component the compatibility boundary — <c>^0.2.3</c> allows no <c>0.3.0</c> —
         ///     and when everything written is zero the last written component is the one that moves.
         /// </summary>
-        public Version CaretCeiling =>
-            Completed.Major != 0 ? new Version(Completed.Major + 1, 0, 0)
+        public Version? CaretCeiling =>
+            Completed.Major != 0 ? PastMajor
             : WrittenComponents == 1 ? new Version(1, 0, 0)
-            : Completed.Minor != 0 ? new Version(0, Completed.Minor + 1, 0)
+            : Completed.Minor != 0 ? PastMinor
             : WrittenComponents == 2 ? new Version(0, 1, 0)
-            : new Version(0, 0, Completed.Patch + 1);
+            : PastPatch;
 
         /// <summary>
         ///     Past everything the unwritten components could have been: the last written component incremented.
         ///     That is where <c>~</c> stops, and where a partial <c>=</c> stops as well — <c>=1.2</c> asks for a
         ///     <c>1.2.x</c>, which is the same set <c>~1.2</c> asks for.
         /// </summary>
-        public Version WrittenCeiling =>
-            WrittenComponents == 1 ? new Version(Completed.Major + 1, 0, 0) : new Version(Completed.Major, Completed.Minor + 1, 0);
+        public Version? WrittenCeiling => WrittenComponents == 1 ? PastMajor : PastMinor;
+
+        /// <summary>
+        ///     One past a component, with everything after it zero, or <see langword="null" /> when incrementing it
+        ///     would overflow. A clause naming a ceiling no version can express is a requirement to reject rather
+        ///     than an interval that has wrapped round to accepting nothing.
+        /// </summary>
+        private Version? PastMajor => Completed.Major == int.MaxValue ? null : new Version(Completed.Major + 1, 0, 0);
+
+        /// <inheritdoc cref="PastMajor" />
+        private Version? PastMinor => Completed.Minor == int.MaxValue ? null : new Version(Completed.Major, Completed.Minor + 1, 0);
+
+        /// <inheritdoc cref="PastMajor" />
+        private Version? PastPatch =>
+            Completed.Patch == int.MaxValue ? null : new Version(Completed.Major, Completed.Minor, Completed.Patch + 1);
     }
 }
