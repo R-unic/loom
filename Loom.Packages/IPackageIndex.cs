@@ -15,7 +15,13 @@ public interface IPackageIndex
     ///     Every version of <paramref name="package" /> the index publishes, newest last, or empty when it publishes
     ///     no such package — which is a resolution failure to report rather than an index failure.
     /// </summary>
-    public IReadOnlyList<PublishedPackage> Publications(PackageName package);
+    /// <param name="diagnostics">
+    ///     Why the index could not say, when it could not: a registry that is unreachable, or answering something
+    ///     this cannot read. Empty is the only answer meaning <em>no such package</em>, so an index that fails has to
+    ///     distinguish itself here — a caller left to read a failure as an empty result would send somebody whose
+    ///     network is down looking for a package that exists.
+    /// </param>
+    public IReadOnlyList<PublishedPackage> Publications(PackageName package, out IReadOnlyList<ConfigDiagnostic> diagnostics);
 
     /// <summary>
     ///     Puts <paramref name="package" />'s files in <paramref name="directory" />, replacing whatever is there.

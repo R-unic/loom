@@ -115,6 +115,25 @@ public class LockResolverTest
     }
 
     /// <remarks>
+    ///     The distinction the index's failure channel exists for: empty means <em>no such package</em>, and an index
+    ///     that could not say publishes nothing of the sort. Reading the second as the first sends somebody whose
+    ///     network is down looking for a package that is published.
+    /// </remarks>
+    [Fact]
+    public void Reports_AnIndexThatCouldNotAnswer_AgainstTheIndexRatherThanThePackage()
+    {
+        using var fixture = new PackageIndexFixture();
+        var project = fixture.WriteProject("serio = \"^1.0\"");
+
+        var resolved = LockResolver.Resolve(project, new UnreachablePackageIndex(), null, out var diagnostics);
+
+        Assert.Null(resolved);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal(UnreachablePackageIndex.Reason, diagnostic.Message);
+        Assert.DoesNotContain("not published", diagnostic.Message);
+    }
+
+    /// <remarks>
     ///     The project is the one being developed, so its own development dependencies are resolved; a package's are
     ///     what its tests are written against and no part of compiling it for someone else.
     /// </remarks>

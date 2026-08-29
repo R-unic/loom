@@ -125,7 +125,13 @@ public static class PackageAdder
     /// </summary>
     private static VersionRequirement? RequirementFor(PackageRequest request, IPackageIndex index, List<ConfigDiagnostic> reported)
     {
-        var publications = index.Publications(request.Name);
+        var publications = index.Publications(request.Name, out var indexDiagnostics);
+        if (indexDiagnostics.Count > 0)
+        {
+            reported.AddRange(indexDiagnostics);
+            return null;
+        }
+
         if (publications.Count == 0)
         {
             reported.Add(new ConfigDiagnostic($"'{request.Name}' is not published in '{index.Description}'."));
