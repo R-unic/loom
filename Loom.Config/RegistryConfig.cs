@@ -6,8 +6,13 @@ namespace Loom.Config;
 // ReSharper disable once ClassNeverInstantiated.Global
 public sealed class RegistryConfig
 {
-    public const string DefaultIndex = "https://loom-lang.github.io/index";
+    /// <summary>The public registry, which is what a project that names no index of its own resolves from.</summary>
+    public const string DefaultIndex = "https://registry.rbx-loom.dev";
 
-    /// <summary>URL of the package index; a static index, so no server is required.</summary>
+    /// <summary>
+    ///     Where the index is: the base URL of a registry, or a directory on disk. A directory is as legitimate an
+    ///     index as a registry is — one vendored into a repository, or a test's fixtures — so nothing here asks for
+    ///     a URL, and <c>IndexLocation</c> is what reads which of the two this is.
+    /// </summary>
     [TomlPropertyName("index")] public string Index { get; set; } = DefaultIndex;
 }

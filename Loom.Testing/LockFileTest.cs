@@ -17,7 +17,7 @@ public class LockFileTest
         [[package]]
         name = "serio"
         version = "1.2.3"
-        source = "https://loom-lang.github.io/index"
+        source = "https://registry.rbx-loom.dev"
         checksum = "sha256:abc123"
         dependencies = ["alternativelua/tether"]
 
@@ -35,7 +35,7 @@ public class LockFileTest
         var serio = lockFile.Find(PackageName.Parse("serio"));
         Assert.NotNull(serio);
         Assert.Equal(Version.Parse("1.2.3"), serio.Version);
-        Assert.Equal("https://loom-lang.github.io/index", serio.Source);
+        Assert.Equal("https://registry.rbx-loom.dev", serio.Source);
         Assert.Equal("sha256:abc123", serio.Checksum);
         Assert.Equal([PackageName.Parse("alternativelua/tether")], serio.Dependencies);
 
@@ -58,7 +58,7 @@ public class LockFileTest
     ///     it is a registry over http — the same rule <c>[registry] index</c> is read by.
     /// </remarks>
     [Theory]
-    [InlineData("https://loom-lang.github.io/index")]
+    [InlineData("https://registry.rbx-loom.dev")]
     [InlineData("../index")]
     [InlineData("/srv/loom/index")]
     public void Read_AcceptsAnySourceAnIndexCouldBe(string source) =>
@@ -82,7 +82,7 @@ public class LockFileTest
         Assert.Equal(lockFile.Packages.Select(package => package.ToString()), reread.Packages.Select(package => package.ToString()));
         var serio = reread.Find(PackageName.Parse("serio"));
         Assert.NotNull(serio);
-        Assert.Equal("https://loom-lang.github.io/index", serio.Source);
+        Assert.Equal("https://registry.rbx-loom.dev", serio.Source);
         Assert.Equal("sha256:abc123", serio.Checksum);
         Assert.Equal([PackageName.Parse("alternativelua/tether")], serio.Dependencies);
     }
