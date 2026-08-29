@@ -226,7 +226,7 @@ public sealed partial class Resolver
         var symbol = LookupValueSymbol(name);
         if (symbol == null)
         {
-            _diagnostics.Error(identifier, InternalCodes.CannotFindName, $"Cannot find name '{name}'.");
+            _diagnostics.Error(identifier, InternalCodes.CannotFindName, $"Cannot find name '{name}'.", SuggestName(name, SymbolNamespace.Value));
             _semanticModel.MarkUnresolved(identifier);
             return false;
         }
@@ -247,7 +247,7 @@ public sealed partial class Resolver
         var symbol = LookupTypeSymbol(name);
         if (symbol == null)
         {
-            _diagnostics.Error(typeName, InternalCodes.CannotFindName, $"Cannot find type '{name}'.");
+            _diagnostics.Error(typeName, InternalCodes.CannotFindName, $"Cannot find type '{name}'.", SuggestName(name, SymbolNamespace.Type));
             _semanticModel.MarkUnresolved(typeName);
             return false;
         }
