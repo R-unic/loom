@@ -7,13 +7,8 @@ using Loom.Core.TypeChecking.Types;
 
 namespace Loom.Testing;
 
-/// <summary>
-///     A unit spanning two projects: the entry app, and a package it depends on, distributed as source. The
-///     two roots disagree on project directory, output directory and identity, so every decision the compiler
-///     makes per file has to follow that file's own root rather than the entry project's.
-/// </summary>
 [Collection("Assembly")]
-public class SourceRootTest
+public partial class SourceRootTest
 {
     private const string AppManifest = "project_type = \"game\"\n[dependencies]\nmath = \"^1.0\"\n";
 
@@ -883,65 +878,4 @@ public class SourceRootTest
     ///     the same boundary <see cref="Rejects_AnImport_OfAPackage_TheProjectDoesNotDependOn" /> and the realm
     ///     theories above already enforce, just drawn around a member instead of a whole module or a realm.
     /// </summary>
-    #region Internal Modifier
-    [Fact]
-    public void Rejects_ImportOfAnInternalMember_FromADependency()
-        => WithWorkspace((_, unit) => Utility.AssertDiagnostic(
-                unit.Compile().Diagnostics,
-                InternalCodes.InternalMemberOutsideRoot,
-                "'hash_key' is internal to module 'init.loom', so a different root cannot import it."
-            ),
-            appFiles: [("main.loom", "import { hash_key } from \"math\"\nprint(hash_key(1));")],
-            packageFiles: [("init.loom", "export let pi = 3;\ninternal fn hash_key(k: number): number -> k;")]
-        );
-
-    [Fact]
-    public void Imports_APublicMember_FromADependency_EvenWhenItAlsoDeclaresInternalOnes()
-        => WithWorkspace((_, unit) => Utility.AssertNoErrors(unit.Compile()),
-            appFiles: [("main.loom", "import { pi } from \"math\"\nprint(pi);")],
-            packageFiles: [("init.loom", "export let pi = 3;\ninternal fn hash_key(k: number): number -> k;")],
-            rojoProject: AppRojoProject
-        );
-
-    [Fact]
-    public void Rejects_ReExportOfAnInternalMember_FromADependency()
-        => WithWorkspace((_, unit) => Utility.AssertDiagnostic(
-                unit.Compile().Diagnostics,
-                InternalCodes.InternalMemberOutsideRoot,
-                "'hash_key' is internal to module 'init.loom', so it cannot be re-exported from a different root."
-            ),
-            appFiles: [("main.loom", "export { hash_key } from \"math\"")],
-            packageFiles: [("init.loom", "internal fn hash_key(k: number): number -> k;")]
-        );
-
-    [Fact]
-    public void ExcludesInternalMembers_FromAStarReExport_OfADependency()
-        => WithWorkspace((_, unit) =>
-            {
-                Utility.AssertNoErrors(unit.Compile());
-
-                var main = unit.AnalyzedModules.Values.Single(model => model.Tree.File.Name == "main.loom");
-                Assert.Equal(["pi"], main.Exports.Select(export => export.Name));
-            },
-            appFiles: [("main.loom", "export * from \"math\"")],
-            packageFiles: [("init.loom", "export let pi = 3;\ninternal fn hash_key(k: number): number -> k;")],
-            rojoProject: AppRojoProject
-        );
-
-    [Fact]
-    public void ExcludesInternalMembers_FromANamespaceImport_OfADependency()
-        => WithWorkspace((_, unit) =>
-            {
-                Utility.AssertNoErrors(unit.Compile());
-
-                var main = unit.AnalyzedModules.Values.Single(model => model.Tree.File.Name == "main.loom");
-                var binding = Assert.Single(main.NamespaceImports);
-                var namespaceType = Assert.IsType<ObjectType>(main.GetType(binding.Import));
-                Assert.Equal(["pi"], namespaceType.Properties.Select(property => property.Name));
-            },
-            appFiles: [("main.loom", "import * as math from \"math\"\nprint(math::pi);")],
-            packageFiles: [("init.loom", "export let pi = 3;\ninternal fn hash_key(k: number): number -> k;")],
-            rojoProject: AppRojoProject
-        );
-    #endregion Internal Modifier
 }
