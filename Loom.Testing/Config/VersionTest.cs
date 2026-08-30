@@ -5,6 +5,9 @@ namespace Loom.Testing.Config;
 
 public class VersionTest
 {
+    private static readonly string[] AscendingVersionStrings = ["0.9.9", "1.0.0-alpha", "1.0.0"];
+
+
     [Fact]
     public void Parse_ReadsEveryComponent()
     {
@@ -136,7 +139,7 @@ public class VersionTest
         var versions = new List<Version> { Version.Parse("1.0.0"), Version.Parse("1.0.0-alpha"), Version.Parse("0.9.9") };
         versions.Sort();
 
-        Assert.Equal(new[] { "0.9.9", "1.0.0-alpha", "1.0.0" }, versions.ConvertAll(version => version.ToString()));
+        Assert.Equal(AscendingVersionStrings, versions.ConvertAll(version => version.ToString()));
     }
 
     [Fact]
@@ -159,8 +162,8 @@ public class VersionTest
         Assert.False(version.Equals(null));
         // ReSharper disable once SuspiciousTypeConversion.Global
         Assert.False(version.Equals("1.0.0"));
-        Assert.False(version == null);
-        Assert.True(version != null);
-        Assert.True((Version?)null == null);
+        Assert.NotNull(version);
+        Assert.NotNull(version);
+        Assert.Null((Version?)null);
     }
 }

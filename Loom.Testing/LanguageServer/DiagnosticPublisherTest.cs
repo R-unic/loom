@@ -16,7 +16,7 @@ public class DiagnosticPublisherTest
                 var sent = Publisher().Next(result);
 
                 Assert.Equal(2, sent.Count);
-                Assert.All(sent.Values, diagnostics => Assert.NotEmpty(diagnostics));
+                Assert.All(sent.Values, Assert.NotEmpty);
             }
         );
 
@@ -90,7 +90,7 @@ public class DiagnosticPublisherTest
             [("other.loom", "let y: number = \"two\";")],
             (unit, result) =>
             {
-                otherProjectsFile = unit.SourceFiles.First().AbsolutePath;
+                otherProjectsFile = unit.SourceFiles[0].AbsolutePath;
                 publisher.Next(result);
             }
         );

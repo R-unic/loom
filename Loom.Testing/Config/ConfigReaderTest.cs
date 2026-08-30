@@ -6,6 +6,8 @@ namespace Loom.Testing.Config;
 
 public class ConfigReaderTest
 {
+    private static readonly string[] SingleAuthor = ["alternativelua"];
+
     private static string CreateTempProjectDirectory(string? tomlContent = null)
     {
         var dir = Path.Combine(Path.GetTempPath(), "loom-test-" + Guid.NewGuid());
@@ -134,7 +136,7 @@ public class ConfigReaderTest
         Assert.Equal(Version.Parse("0.3.1"), package.Version);
         Assert.Equal("2026", package.Edition);
         Assert.Equal("Apache-2.0", package.License);
-        Assert.Equal(new[] { "alternativelua" }, package.Authors);
+        Assert.Equal(SingleAuthor, package.Authors);
         Assert.Equal("Message-based networking with binary serialization", package.Description);
         Assert.Equal("https://github.com/alternativelua/tether", package.Repository);
         Assert.Equal(Realm.Shared, package.Realm);

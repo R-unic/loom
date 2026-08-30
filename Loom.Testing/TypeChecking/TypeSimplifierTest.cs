@@ -8,15 +8,14 @@ namespace Loom.Testing.TypeChecking;
 [Collection("Assembly")]
 public class TypeSimplifierTest
 {
-    public static readonly List<object[]> NoChangeTypes = new List<Type>(
+    public static TheoryData<Type> NoChangeTypes { get; } =
         [
             PrimitiveType.Bool,
             PrimitiveType.None,
             PrimitiveType.Never,
             new UnionType([PrimitiveType.Bool, PrimitiveType.String]),
             new FunctionType([], [], PrimitiveType.Number)
-        ]
-    ).ConvertAll<object[]>(t => [t]);
+        ];
 
     [Theory]
     [MemberData(nameof(NoChangeTypes))]

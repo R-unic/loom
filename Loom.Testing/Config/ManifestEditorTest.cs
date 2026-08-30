@@ -116,7 +116,7 @@ public class ManifestEditorTest
     [Fact]
     public void WithDependency_ReportsAnEntryThatDoesNotEndOnItsOwnLine()
     {
-        var manifest = "[dependencies]\nmath = { version = \"^1.0\",\n  dev = true }\n";
+        const string manifest = "[dependencies]\nmath = { version = \"^1.0\",\n  dev = true }\n";
 
         var edited = ManifestEditor.WithDependency(
             manifest,

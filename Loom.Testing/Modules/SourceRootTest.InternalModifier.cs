@@ -6,6 +6,12 @@ namespace Loom.Testing.Modules;
 
 public partial class SourceRootTest
 {
+    /// <summary>
+    ///     <c>internal</c> is one notch finer than <c>export</c>: visible the same as any other export within
+    ///     the root that declared it, invisible to a different root reaching it only as a package dependency -
+    ///     the same boundary <see cref="Rejects_AnImport_OfAPackage_TheProjectDoesNotDependOn" /> and the realm
+    ///     theories above already enforce, just drawn around a member instead of a whole module or a realm.
+    /// </summary>
     [Fact]
     public void Rejects_ImportOfAnInternalMember_FromADependency()
         => WithWorkspace((_, unit) => Utility.AssertDiagnostic(

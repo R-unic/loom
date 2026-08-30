@@ -806,7 +806,7 @@ public partial class ParserTest
                 "declare fn",
                 "implement Foo for Bar {",
                 "}{",
-                "fn f() { } }",
+                "fn f() { } }"
             ]
             )
             .Distinct()

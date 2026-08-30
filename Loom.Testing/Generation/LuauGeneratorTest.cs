@@ -1003,7 +1003,7 @@ public class LuauGeneratorTest
             .OfType<ExpressionStatement>()
             .Select(s => s.Expression)
             .OfType<BinaryOperator>()
-            .Where(b => b.Operator == "=" && b.Left is PropertyAccess { Names: ["greet"] })
+            .Where(b => b is { Operator: "=", Left: PropertyAccess { Names: ["greet"] } })
             .ToList();
 
         Assert.Equal(2, assignments.Count);

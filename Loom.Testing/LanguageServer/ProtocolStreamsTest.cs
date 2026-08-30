@@ -1,4 +1,3 @@
-using System.Text;
 using Loom.Core.Pipeline;
 using Loom.LanguageServer;
 using Loom.Testing;
@@ -33,7 +32,7 @@ public class ProtocolStreamsTest
     [Fact]
     public void Claim_LeavesTheProtocolInputUnreadByConsole()
     {
-        var input = new MemoryStream(Encoding.UTF8.GetBytes("Content-Length: 2\r\n\r\n{}"));
+        var input = new MemoryStream("Content-Length: 2\r\n\r\n{}"u8.ToArray());
 
         WithClaimedConsole(() =>
             {

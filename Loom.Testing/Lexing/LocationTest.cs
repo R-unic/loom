@@ -113,6 +113,7 @@ public class LocationSpanTest
         var b = new LocationSpan(new Location(_testFile, 0), 3);
 
         Assert.True(a.Equals((object)b));
+        // ReSharper disable once SuspiciousTypeConversion.Global
         Assert.False(a.Equals("not a span"));
     }
 }

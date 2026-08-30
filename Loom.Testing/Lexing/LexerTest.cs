@@ -7,8 +7,11 @@ namespace Loom.Testing.Lexing;
 [Collection("Assembly")]
 public class LexerTest
 {
-    public static readonly List<object[]> Operators = [.. SyntaxFacts.OperatorMap.Where(pair => SyntaxFacts.IsNotTrivia(pair.Value)).Select(t => new object[] { t.Key, t.Value })];
-    public static readonly List<object[]> Keywords = [.. SyntaxFacts.KeywordMap.Select(t => new object[] { t.Key, t.Value })];
+    public static TheoryData<string, SyntaxKind> Operators { get; } =
+        new(SyntaxFacts.OperatorMap.Where(pair => SyntaxFacts.IsNotTrivia(pair.Value)).Select(t => (t.Key, t.Value)));
+
+    public static TheoryData<string, SyntaxKind> Keywords { get; } =
+        new(SyntaxFacts.KeywordMap.Select(t => (t.Key, t.Value)));
 
     [Theory]
     [InlineData("$")]
@@ -285,8 +288,8 @@ public class LexerTest
     [Fact]
     public void Tokenizes_MultipleOperators()
     {
-        var lexemes = Operators.ConvertAll(a => a[0]).Cast<string>();
-        var expectedSyntaxes = Operators.ConvertAll(a => a[1]).Cast<SyntaxKind>().ToList();
+        var lexemes = Operators.Select(row => row.Data.Item1);
+        var expectedSyntaxes = Operators.Select(row => row.Data.Item2).ToList();
         var source = string.Join(' ', lexemes);
         var tokens = Utility.GetTokens(source);
         Assert.Equal(1 + expectedSyntaxes.Count, tokens.Count);

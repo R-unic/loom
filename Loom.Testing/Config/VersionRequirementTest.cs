@@ -6,6 +6,10 @@ namespace Loom.Testing.Config;
 
 public class VersionRequirementTest
 {
+    private static readonly string[] AgreeingRequirementStrings = ["^1.2", ">=1.4, <2", "<1.9"];
+    private static readonly string[] DisagreeingRequirementStrings = ["^1.2", ">=1.4, <2", "<1.3"];
+    private static readonly string[] PublishedVersionStrings = ["1.0.0", "1.2.0", "1.4.0", "1.4.1-beta.1", "1.9.3", "2.0.0"];
+
     [Theory]
     [InlineData("*", null, null)]
     [InlineData("^1.2.3", ">=1.2.3", "<2.0.0")]
@@ -170,7 +174,7 @@ public class VersionRequirementTest
     [Fact]
     public void Intersect_IsWhatEveryDependentAccepts()
     {
-        var requirements = new[] { "^1.2", ">=1.4, <2", "<1.9" }.Select(VersionRequirement.Parse).ToArray();
+        var requirements = AgreeingRequirementStrings.Select(VersionRequirement.Parse).ToArray();
         var intersection = VersionRequirement.Intersect(requirements);
 
         Assert.NotNull(intersection);
@@ -192,12 +196,12 @@ public class VersionRequirementTest
 
     [Fact]
     public void Intersect_WhenOneDependentDisagrees_HasNoAnswer() =>
-        Assert.Null(VersionRequirement.Intersect(new[] { "^1.2", ">=1.4, <2", "<1.3" }.Select(VersionRequirement.Parse)));
+        Assert.Null(VersionRequirement.Intersect(DisagreeingRequirementStrings.Select(VersionRequirement.Parse)));
 
     [Fact]
     public void Satisfies_PicksTheHighestPublishedVersion()
     {
-        var published = new[] { "1.0.0", "1.2.0", "1.4.0", "1.4.1-beta.1", "1.9.3", "2.0.0" }.Select(Version.Parse).ToArray();
+        var published = PublishedVersionStrings.Select(Version.Parse).ToArray();
         var requirement = VersionRequirement.Parse("^1.2");
 
         Assert.Equal(Version.Parse("1.9.3"), published.Where(requirement.Satisfies).Max());

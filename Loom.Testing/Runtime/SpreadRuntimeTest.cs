@@ -44,7 +44,7 @@ public class SpreadRuntimeTest
     ///     rather than worked around - what a spread builds does not depend on how the binding was spelled.
     /// </remarks>
     private static string Assemble(string emitted, string assertions) =>
-        $$"""
+        $"""
           local function same(actual, expected)
             if #actual ~= #expected then
               error("length " .. #actual .. ", expected " .. #expected)
@@ -56,8 +56,8 @@ public class SpreadRuntimeTest
             end
           end
           -- emitted
-          {{emitted.Replace("const ", "local ")}}
+          {emitted.Replace("const ", "local ")}
           -- assertions
-          {{assertions}}
+          {assertions}
           """;
 }

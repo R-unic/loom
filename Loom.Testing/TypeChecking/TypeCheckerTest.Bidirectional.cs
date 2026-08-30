@@ -284,11 +284,7 @@ public partial class TypeCheckerTest
     [Fact]
     public void Allows_TernaryOperator_EmptyArrayLiteralBranch_AgainstAnnotatedType()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics(
-            """
-            let xs: number[] = true ? [1, 2] : [];
-            """
-        );
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let xs: number[] = true ? [1, 2] : [];");
 
         Utility.AssertNoErrors(diagnostics);
     }
@@ -341,11 +337,7 @@ public partial class TypeCheckerTest
     [Fact]
     public void Allows_ParenthesizedEmptyArrayLiteral_AgainstAnnotatedType()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics(
-            """
-            let xs: number[] = ([]);
-            """
-        );
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let xs: number[] = ([]);");
 
         Utility.AssertNoErrors(diagnostics);
     }
@@ -369,7 +361,7 @@ public partial class TypeCheckerTest
     [Fact]
     public void ThrowsFor_AnnotatedArrayLiteral_AllElementsMismatch_TracesOuterArrayType()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("""let a: string[] = [1, 2, 3]""");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let a: string[] = [1, 2, 3]");
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.TypeMismatch,

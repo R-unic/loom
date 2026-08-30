@@ -100,7 +100,7 @@ public class LanguageServerHandlerContractTest
             null => 0,
             CompletionList completions => completions.Count(),
             // a token list is always returned; what says the handler found nothing is that it holds no tokens
-            SemanticTokens tokens => tokens.Data.Count(),
+            SemanticTokens tokens => tokens.Data.Length,
             System.Collections.IEnumerable items => items.Cast<object>().Count(),
             _ => 1
         };
@@ -135,7 +135,7 @@ public class LanguageServerHandlerContractTest
             var method = type.GetMethod("CreateRegistrationOptions", BindingFlags.Instance | BindingFlags.NonPublic);
             if (method == null) continue;
 
-            var options = method.Invoke(Construct(type), [.. method.GetParameters().Select(_ => (object?)null)]);
+            var options = method.Invoke(Construct(type), [.. method.GetParameters().Select(object? (_) => null)]);
             var selector = options?.GetType().GetProperty("DocumentSelector")?.GetValue(options);
             if (selector == null) continue;
 
@@ -156,9 +156,7 @@ public class LanguageServerHandlerContractTest
                     if (parameter.ParameterType == typeof(DocumentStore)) return store;
                     if (parameter.ParameterType == typeof(DiagnosticPublisher)) return new DiagnosticPublisher(static _ => { });
                     if (parameter.ParameterType == typeof(Debouncer)) return new Debouncer(TimeSpan.Zero);
-                    if (parameter.ParameterType == typeof(ServerSettings)) return new ServerSettings();
-
-                    return null;
+                    return parameter.ParameterType == typeof(ServerSettings) ? new ServerSettings() : null;
                 }
             )
             .ToArray();

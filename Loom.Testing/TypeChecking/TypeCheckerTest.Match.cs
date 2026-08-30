@@ -16,14 +16,14 @@ public partial class TypeCheckerTest
     [Fact]
     public void Allows_Match_IdentifierBinding()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("""match 1 { x -> x }""");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("match 1 { x -> x }");
         Utility.AssertNoErrors(diagnostics);
     }
 
     [Fact]
     public void Allows_Match_LetPatternBinding()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("""match 1 { let name -> name }""");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("match 1 { let name -> name }");
         Utility.AssertNoErrors(diagnostics);
     }
 
@@ -243,7 +243,7 @@ public partial class TypeCheckerTest
     [Fact]
     public void ThrowsFor_Match_ArrayPattern_OnNonArray()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("""match 1 { [a] -> a, _ -> 0 }""");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("match 1 { [a] -> a, _ -> 0 }");
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.TypeMismatch,
@@ -358,7 +358,7 @@ public partial class TypeCheckerTest
     [Fact]
     public void ThrowsFor_Match_NonExhaustive_IrrefutablePatternGuarded()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("""match 1 { x when x > 0 -> x }""");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("match 1 { x when x > 0 -> x }");
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.NonExhaustiveMatch,
@@ -377,7 +377,7 @@ public partial class TypeCheckerTest
     [Fact]
     public void ThrowsFor_Match_TypedPattern_ImpossibleOverlap()
     {
-        var diagnostics = Utility.GetTypeCheckerDiagnostics("""match 123 { s when string -> 123, _ -> 0 }""");
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("match 123 { s when string -> 123, _ -> 0 }");
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.TypeMismatch,
@@ -404,7 +404,7 @@ public partial class TypeCheckerTest
 
     [Fact]
     public void Allows_Match_TypedPattern_PossibleOverlap_OnWidenedType() =>
-        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics("""let value: number = 1; match value { n when number -> n, _ -> 0 }"""));
+        Utility.AssertNoErrors(Utility.GetTypeCheckerDiagnostics("let value: number = 1; match value { n when number -> n, _ -> 0 }"));
 
     [Fact]
     public void Allows_Match_Exhaustive_UnionCoveredByTypedPatterns()

@@ -797,7 +797,7 @@ public class LuauRenderingTest
 
     [Fact]
     public void Renders_InterpolatedString_EscapesBacktick() =>
-        Assert.Equal("`say \\`hi\\``", new InterpolatedString([new InterpolatedStringTextSegment("say `hi`")]).Render());
+        Assert.Equal(@"`say \`hi\``", new InterpolatedString([new InterpolatedStringTextSegment("say `hi`")]).Render());
 
     [Fact]
     public void Renders_InterpolatedString_ParenthesizesAmbiguousHoleExpression()

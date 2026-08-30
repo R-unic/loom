@@ -65,7 +65,7 @@ public class WrappedCallTest
 
             """;
 
-        var epilogue = """
+        const string epilogue = """
 
             return tostring(outcome.ok) .. "|" .. (if outcome.ok then outcome.value else outcome.error.message)
             """;

@@ -9,6 +9,8 @@ namespace Loom.Testing.Resolving;
 [Collection("Assembly")]
 public class ExportListTest
 {
+    private static readonly string[] BoundLocally = ["bound locally"];
+
     private const string GeometryModule = """
         export let pi = 3;
         export type Scalar = number;
@@ -55,7 +57,7 @@ public class ExportListTest
                 Assert.All(exports, export => Assert.Equal("geometry.loom", export.Module?.Name));
 
                 // a re-export forwards the name without binding it in this module's scope
-                Assert.Empty(exports[0].Symbol.File.Name == "geometry.loom" ? [] : new[] { "bound locally" });
+                Assert.Empty(exports[0].Symbol.File.Name == "geometry.loom" ? [] : BoundLocally);
             }
         );
 

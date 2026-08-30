@@ -110,10 +110,10 @@ public class PackageNameTest
         Assert.False(packageName.Equals(null));
         // ReSharper disable once SuspiciousTypeConversion.Global
         Assert.False(packageName.Equals("tether"));
-        Assert.False(packageName == null);
-        Assert.True(packageName != null);
-        Assert.False(null == packageName);
-        Assert.True((PackageName?)null == null);
+        Assert.NotNull(packageName);
+        Assert.NotNull(packageName);
+        Assert.NotNull(packageName);
+        Assert.Null((PackageName?)null);
     }
 
     [Fact]

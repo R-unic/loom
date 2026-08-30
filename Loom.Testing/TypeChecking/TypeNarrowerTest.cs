@@ -19,7 +19,9 @@ public class TypeNarrowerTest
         new TypeChecker(semanticModel, flowAnalyzer).Check();
 
         var tree = semanticModel.Tree;
-        var conditionalNode = tree.GetDescendants<If>().FirstOrDefault() ?? tree.GetDescendants<While>().FirstOrDefault() as Statement;
+        var ifs = tree.GetDescendants<If>();
+        var whiles = tree.GetDescendants<While>();
+        Statement? conditionalNode = ifs.Count > 0 ? ifs[0] : whiles.Count > 0 ? whiles[0] : null;
 
         Assert.NotNull(conditionalNode);
         var condition = conditionalNode is If ifStmt ? ifStmt.Condition : ((While)conditionalNode).Condition;
@@ -358,7 +360,7 @@ public class TypeNarrowerTest
         var narrower = new TypeNarrower(model);
         var current = new FlowState();
 
-        var propertyAccess = model.Tree.GetDescendants<QualifiedName>().First();
+        var propertyAccess = model.Tree.GetDescendants<QualifiedName>()[0];
         var (trueState, falseState) = narrower.ComputeBranchStates(condition, current);
 
         var narrowed = narrower.TryGetNarrowedType(propertyAccess, trueState, out var trueType);
@@ -388,7 +390,7 @@ public class TypeNarrowerTest
         var narrower = new TypeNarrower(model);
         var current = new FlowState();
 
-        var propertyAccess = model.Tree.GetDescendants<QualifiedName>().First();
+        var propertyAccess = model.Tree.GetDescendants<QualifiedName>()[0];
         var (trueState, _) = narrower.ComputeBranchStates(condition, current);
 
         var narrowed = narrower.TryGetNarrowedType(propertyAccess, trueState, out _);

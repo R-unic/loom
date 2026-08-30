@@ -339,9 +339,7 @@ public class AsyncAwaitTest
     [Fact]
     public void WaitingWithoutAwaitingIsAFuture()
     {
-        const string source = """
-            fn caller(): number -> wait(1);
-            """;
+        const string source = "fn caller(): number -> wait(1);";
 
         Utility.AssertDiagnostic(
             Utility.GetTypeCheckerDiagnostics(source),
