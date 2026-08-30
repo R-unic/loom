@@ -1020,6 +1020,39 @@ type ImmutRecord<K, V> = { read [K]: V }
 
 ---
 
+Loom's standard library already ships this indexer as `Record<K, V>` (immutable) and `MutRecord<K, V>` (mutable),
+so a map type rarely needs to be hand-rolled. Since an indexer names no properties of its own, construct one with
+bracket initializers rather than the shorthand `name: value` form:
+
+```ts
+let scores: MutRecord<string, number> = new MutRecord::<string, number> { ["alice"]: 10, ["bob"]: 20 };
+```
+
+```luau
+const scores: MutRecord<string, number> = { ["alice"] = 10, ["bob"] = 20 }
+```
+
+---
+
+A generic interface takes its type arguments as `::<...>` when constructed with `new` - the same turbofish a
+generic function call uses (see [Functions](#functions)) - even though a type annotation for that same interface
+takes them as plain `<...>`:
+
+```ts
+interface Box<T> { value: T }
+
+let boxed: Box<number> = new Box::<number> { value: 69 };
+```
+
+```luau
+type Box<T> = {
+  read value: T,
+}
+const boxed: Box<number> = { value = 69 }
+```
+
+---
+
 In this example `S` resolves to `string`.
 
 ```ts
