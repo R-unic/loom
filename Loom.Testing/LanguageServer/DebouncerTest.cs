@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol;
-using Loom.Testing;
 
 namespace Loom.Testing.LanguageServer;
 

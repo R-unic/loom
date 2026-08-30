@@ -7,7 +7,6 @@ using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
 using Loom.Luau;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
-using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Core.Resolving;
 

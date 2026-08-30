@@ -1,7 +1,6 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Pipeline;
 using Loom.Core.Resolving;
-using Loom.Testing;
 
 namespace Loom.Testing.Resolving;
 

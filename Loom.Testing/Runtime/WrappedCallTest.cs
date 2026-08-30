@@ -1,7 +1,6 @@
 using Loom.Core.Diagnostics;
 using NuLua;
 using NuLua.Luau;
-using Loom.Testing;
 
 namespace Loom.Testing.Runtime;
 

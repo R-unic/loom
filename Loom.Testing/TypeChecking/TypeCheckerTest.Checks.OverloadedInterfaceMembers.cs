@@ -2,7 +2,6 @@ using Loom.Core.Diagnostics;
 using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using Loom.Core.TypeChecking.Solving;
-using Loom.Testing;
 
 
 namespace Loom.Testing.TypeChecking;

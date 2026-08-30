@@ -3,7 +3,6 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
 using PrimitiveTypeKind = Loom.Core.TypeChecking.Types.PrimitiveTypeKind;
-using Loom.Testing;
 
 namespace Loom.Testing.Parsing;
 

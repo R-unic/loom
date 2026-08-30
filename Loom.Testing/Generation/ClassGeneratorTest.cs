@@ -2,7 +2,6 @@ using Loom.TypeGenerator;
 using Loom.TypeGenerator.ApiTypes;
 using Loom.TypeGenerator.Generators;
 using ValueType = Loom.TypeGenerator.ApiTypes.ValueType;
-using Loom.Testing;
 
 namespace Loom.Testing.Generation;
 

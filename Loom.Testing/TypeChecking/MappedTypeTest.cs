@@ -6,7 +6,6 @@ using KeyOf = Loom.Core.Parsing.AST.KeyOf;
 using MappedTypeDeclaration = Loom.Core.Parsing.AST.MappedTypeDeclaration;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Solving;
-using Loom.Testing;
 
 namespace Loom.Testing.TypeChecking;
 

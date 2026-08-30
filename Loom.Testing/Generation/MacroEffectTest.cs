@@ -1,6 +1,5 @@
 using NuLua;
 using NuLua.Luau;
-using Loom.Testing;
 
 namespace Loom.Testing.Generation;
 

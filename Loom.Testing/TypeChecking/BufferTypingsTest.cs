@@ -1,5 +1,3 @@
-using Loom.Testing;
-
 namespace Loom.Testing.TypeChecking;
 
 /// <summary>

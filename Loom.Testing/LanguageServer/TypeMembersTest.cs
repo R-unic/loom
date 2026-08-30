@@ -1,7 +1,6 @@
 using Loom.Core.TypeChecking.Types;
 using Loom.LanguageServer;
 using Type = Loom.Core.TypeChecking.Types.Type;
-using Loom.Testing;
 
 namespace Loom.Testing.LanguageServer;
 

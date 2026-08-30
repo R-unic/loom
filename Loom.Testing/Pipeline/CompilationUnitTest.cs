@@ -5,7 +5,6 @@ using Loom.Luau.AST;
 using BinaryOperator = Loom.Core.Parsing.AST.BinaryOperator;
 using ExpressionStatement = Loom.Core.Parsing.AST.ExpressionStatement;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
-using Loom.Testing;
 
 namespace Loom.Testing.Pipeline;
 

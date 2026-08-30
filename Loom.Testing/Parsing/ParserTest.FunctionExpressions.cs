@@ -1,6 +1,5 @@
 using Loom.Core.Parsing.AST;
 using PrimitiveTypeKind = Loom.Core.TypeChecking.Types.PrimitiveTypeKind;
-using Loom.Testing;
 
 namespace Loom.Testing.Parsing;
 

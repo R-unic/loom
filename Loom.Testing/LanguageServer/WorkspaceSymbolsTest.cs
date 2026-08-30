@@ -1,7 +1,6 @@
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using LspSymbolKind = OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolKind;
-using Loom.Testing;
 
 namespace Loom.Testing.LanguageServer;
 

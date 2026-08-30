@@ -1,6 +1,5 @@
 using System.Reflection;
 using Loom.Core.Resolving.Symbols;
-using Loom.Testing;
 
 namespace Loom.Testing.Resolving;
 

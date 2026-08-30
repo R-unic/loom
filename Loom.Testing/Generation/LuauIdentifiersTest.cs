@@ -3,7 +3,6 @@ using Loom.Luau.AST;
 using BinaryOperator = Loom.Luau.AST.BinaryOperator;
 using Identifier = Loom.Luau.AST.Identifier;
 using UnaryOperator = Loom.Luau.AST.UnaryOperator;
-using Loom.Testing;
 
 namespace Loom.Testing.Generation;
 

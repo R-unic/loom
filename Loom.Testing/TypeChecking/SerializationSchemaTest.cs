@@ -1,5 +1,4 @@
 using Loom.Core.TypeChecking.Serialization;
-using Loom.Testing;
 
 namespace Loom.Testing.TypeChecking;
 
