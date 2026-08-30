@@ -97,6 +97,22 @@ public partial class CompilationUnitTest
     }
 
     /// <remarks>
+    ///     A declaration file's statements are all 'declare' - nothing about it ever reaches Luau - so
+    ///     writing one to disk would only leave an empty, unmapped .luau sitting in the output tree.
+    /// </remarks>
+    [Fact]
+    public void Compiles_Project_WithDeclarationFile_WritesNoOutputForIt() =>
+        Utility.WithTempProject(
+            [("globals.d.loom", "declare let global_number: number;"), ("main.loom", "let x = global_number;")],
+            (compilationUnit, result) =>
+            {
+                Utility.AssertNoErrors(result);
+                Assert.False(File.Exists(Path.Combine(compilationUnit.Config.Files.OutputDirectory, "globals.d.luau")));
+                Assert.True(File.Exists(Path.Combine(compilationUnit.Config.Files.OutputDirectory, "main.luau")));
+            }
+        );
+
+    /// <remarks>
     ///     Which of the two files is reported depends on the order they were analyzed in, so this pins the
     ///     pair rather than either side of it: the diagnostic sits in one of them and names the other.
     /// </remarks>
