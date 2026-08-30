@@ -41,7 +41,7 @@ public class SemanticTokenTest
         var tokens = await ClassifyAsync(Source);
 
         Assert.All(Named(tokens, "Packet"), token => Assert.Equal(SemanticTokenType.Interface, token.Type));
-        Assert.Equal(2, Named(tokens, "Packet").Count);
+        Assert.Equal(2, Named(tokens, "Packet").Length);
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public class SemanticTokenTest
         return tokens;
     }
 
-    private static IReadOnlyList<ClassifiedToken> Named(IReadOnlyList<ClassifiedToken> tokens, string text) =>
+    private static ClassifiedToken[] Named(IReadOnlyList<ClassifiedToken> tokens, string text) =>
         tokens.Where(token => token.Token.Text == text).ToArray();
 
     private static ClassifiedToken Single(IReadOnlyList<ClassifiedToken> tokens, string text) => Assert.Single(Named(tokens, text));

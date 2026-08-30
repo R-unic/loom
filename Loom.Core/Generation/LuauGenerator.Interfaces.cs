@@ -291,7 +291,7 @@ public sealed partial class LuauGenerator
     ///     The binder needs no substituting here: Luau's indexer has no name to bind, so a use of it inside
     ///     the member type emits the key set it ranges over - see <c>VisitTypeName</c>.
     /// </remarks>
-    private LuauNode GenerateMappedTypeAlias(InterfaceDeclaration interfaceDeclaration, MappedTypeDeclaration mapped)
+    private TypeAlias GenerateMappedTypeAlias(InterfaceDeclaration interfaceDeclaration, MappedTypeDeclaration mapped)
     {
         var indexer = new TableTypeIndexer(mapped.MutKeyword == null ? LuauVisibility.Read : null, Visit(mapped.SourceType), Visit(mapped.ColonTypeClause));
 

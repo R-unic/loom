@@ -151,5 +151,5 @@ public class LocalPackageIndexTest
         Assert.Contains("is not a directory", Assert.Single(diagnostics).Message);
     }
 
-    private static IPackageIndex Index(PackageIndexFixture fixture) => new LocalPackageIndex(fixture.IndexDirectory);
+    private static LocalPackageIndex Index(PackageIndexFixture fixture) => new(fixture.IndexDirectory);
 }

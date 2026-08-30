@@ -48,7 +48,7 @@ public static class ModuleRenames
         return edits;
     }
 
-    private static IReadOnlyList<TextEdit> EditsIn(CompiledFile file, ModuleResolver resolver, IReadOnlyList<ModuleRename> renames)
+    private static List<TextEdit> EditsIn(CompiledFile file, ModuleResolver resolver, IReadOnlyList<ModuleRename> renames)
     {
         var importer = file.SourceFile;
         var movedImporter = After(importer.AbsolutePath, renames);

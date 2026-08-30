@@ -85,7 +85,7 @@ public sealed partial class Parser
         }
     }
 
-    private TypeExpression ParseSelfTypePredicateType()
+    private TypePredicateType ParseSelfTypePredicateType()
     {
         var atToken = Expect(SyntaxKind.At);
         var isKeyword = Expect(SyntaxKind.IsKeyword);
@@ -108,7 +108,7 @@ public sealed partial class Parser
         return new NullTypeExpression(isKeyword);
     }
 
-    private TypeExpression ParseTypeMatch(Token matchKeyword)
+    private TypeMatch ParseTypeMatch(Token matchKeyword)
     {
         var eachKeyword = AtContextualKeyword("each") && PeekKind(1) != SyntaxKind.LBrace ? Advance() : null;
         var subject = ParseUnionType();
@@ -252,7 +252,7 @@ public sealed partial class Parser
         return PeekKind(0) == SyntaxKind.Dot ? SkipQualifiedTypeName(typeName) : typeName;
     }
     
-    private TypeExpression SkipQualifiedTypeName(TypeName typeName)
+    private PrimitiveType SkipQualifiedTypeName(TypeName typeName)
     {
         while (Match(out _, SyntaxKind.Dot))
         {

@@ -124,7 +124,7 @@ public sealed partial class LuauGenerator
     ///     <c>unknown</c> makes the consumer narrow. It is warned about rather than done quietly, since what
     ///     falls through here is precision the program was written expecting.
     /// </remarks>
-    private LuauNode RenderResolvedType(TypeExpression node)
+    private LuauType RenderResolvedType(TypeExpression node)
     {
         var type = _semanticModel.GetType(node);
         if (LuauTypeRenderer.Render(type, _loomRuntimeTypeNames) is { } rendered)
@@ -178,12 +178,12 @@ public sealed partial class LuauGenerator
             : new Luau.AST.PrimitiveType(LuauOperatorMap.PrimitiveTypeKind(primitiveType.Kind));
 
     public override LuauNode VisitLiteralType(LiteralType literalType) =>
-        LiteralTypeOf(literalType.Value)
+        (LuauType?)LiteralTypeOf(literalType.Value)
         ?? (literalType.Parent is ColonTypeClause { Parent: DeclareFunctionSignature or FunctionType }
             ? new UnitType()
             : Luau.AST.PrimitiveType.Nil);
 
-    private static LuauType? LiteralTypeOf(object? value) =>
+    private static Luau.AST.PrimitiveType? LiteralTypeOf(object? value) =>
         value switch
         {
             long or int or double => Luau.AST.PrimitiveType.Number,

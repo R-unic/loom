@@ -49,6 +49,6 @@ public static class TypeMembers
         return Distinct(shared);
     }
 
-    private static IReadOnlyList<ObjectProperty> Distinct(IEnumerable<ObjectProperty> properties) =>
+    private static ObjectProperty[] Distinct(IEnumerable<ObjectProperty> properties) =>
         properties.GroupBy(property => property.Name).Select(group => group.First()).ToArray();
 }

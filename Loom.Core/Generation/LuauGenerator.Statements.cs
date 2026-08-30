@@ -221,7 +221,7 @@ public sealed partial class LuauGenerator
     ///     <c>next</c> call, and re-evaluating an expression that produced an iterator would produce a
     ///     different one each time and never finish.
     /// </remarks>
-    private LuauExpression IteratorCall(LuauExpression collectionExpression)
+    private AnonymousFunction IteratorCall(LuauExpression collectionExpression)
     {
         var iterator = _state.PushToVariable(IteratorLocalName, collectionExpression);
         var next = new Call(new Luau.AST.PropertyAccess(iterator, [IteratorMethodName]), [], true);

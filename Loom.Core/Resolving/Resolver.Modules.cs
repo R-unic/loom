@@ -279,7 +279,7 @@ public sealed partial class Resolver
     ///     module's runtime exports visible from here - so member access on it type-checks against what the
     ///     module actually returns to this importer.
     /// </summary>
-    private static Type GetNamespaceType(List<ExportBinding> exports, SemanticModel moduleModel) =>
+    private static ObjectType GetNamespaceType(List<ExportBinding> exports, SemanticModel moduleModel) =>
         new ObjectType(
             null,
             exports
