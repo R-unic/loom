@@ -18083,6 +18083,7 @@ declare interface WebStreamClient: Object {
 }
 
 declare let game: DataModel;
+declare let script: LuaSourceContainer;
 
 declare interface CreatableInstance: Instance { _is_creatable: true; }
 declare interface ServiceInstance: Instance { _is_service: true; }

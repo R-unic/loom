@@ -38,6 +38,11 @@ internal sealed class ClassGenerator(
 
         GenerateClasses(classesToGenerate);
         WriteContentsOfFile("roblox_ext.loom");
+
+        // 'plugin' only exists in a Script/LocalScript/ModuleScript running inside a plugin, so it has
+        // nowhere to live in the ambient globals every project type shares.
+        if (security == "PluginSecurity")
+            WriteContentsOfFile("roblox_ext_plugin.loom");
     }
 
     private void GenerateClasses(Class[] rbxClasses)
