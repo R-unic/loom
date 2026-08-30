@@ -55,8 +55,8 @@ internal static class Scaffolder
             Path.Combine(projectDirectory, ConfigReader.ConfigFileName),
             GetConfigContent(projectType)
         );
-        
-        var filesWritten = new List<string> { "src/main.loom", ".gitignore", "loom-config.toml" };
+
+        var filesWritten = new List<string> { ".gitignore", "loom-config.toml" };
         if (projectType == ProjectType.Game)
         {
             const string projectFileName = "default.project.json";
@@ -65,9 +65,21 @@ internal static class Scaffolder
                 GetRojoProjectContent(projectName)
             );
             filesWritten.Add(projectFileName);
+
+            foreach (var realm in new[] { "client", "server", "shared" })
+            {
+                var realmDirectory = Path.Combine(sourceDirectory, realm);
+                Directory.CreateDirectory(realmDirectory);
+                File.WriteAllText(Path.Combine(realmDirectory, "main.loom"), StarterSource(projectType, realm));
+                filesWritten.Add($"src/{realm}/main.loom");
+            }
+        }
+        else
+        {
+            File.WriteAllText(Path.Combine(sourceDirectory, "main.loom"), StarterSource(projectType, null));
+            filesWritten.Add("src/main.loom");
         }
 
-        File.WriteAllText(Path.Combine(sourceDirectory, "main.loom"), StarterSource(projectType));
         // packages are installed by a package manager and pinned by loom-lock.toml, which is committed instead
         File.WriteAllText(
             Path.Combine(projectDirectory, ".gitignore"),
@@ -87,7 +99,17 @@ internal static class Scaffolder
         [files]
         source_directory = "src"
         output_directory = "dist"
-        """ + Environment.NewLine;
+        """
+        + Environment.NewLine
+        + (projectType == ProjectType.Game
+            ? Environment.NewLine
+              + """
+                [realms]
+                client = "client"
+                server = "server"
+                """
+              + Environment.NewLine
+            : "");
 
     /// <remarks>
     ///     The name goes through the JSON serializer rather than straight into the template: a directory may
@@ -101,16 +123,22 @@ internal static class Scaffolder
           "globIgnorePaths": ["**/loom-config.toml"],
           "tree": {
             "$className": "DataModel",
-            "ServerScriptService": {
-              "$className": "ServerScriptService",
-              "Loom": {
-                "$path": "dist"
-              }
-            },
             "ReplicatedStorage": {
               "$className": "ReplicatedStorage",
+              "$path": "dist/shared",
               "include": {
                 "$path": "include"
+              }
+            },
+            "ServerScriptService": {
+              "$className": "ServerScriptService",
+              "$path": "dist/server"
+            },
+            "StarterPlayer": {
+              "$className": "StarterPlayer",
+              "StarterPlayerScripts": {
+                "$className": "StarterPlayerScripts",
+                "$path": "dist/client"
               }
             }
           }
@@ -126,11 +154,14 @@ internal static class Scaffolder
             _ => throw new ArgumentOutOfRangeException(nameof(projectType))
         };
 
-    private static string StarterSource(ProjectType projectType) =>
-        projectType switch
+    private static string StarterSource(ProjectType projectType, string? realm) =>
+        (projectType, realm) switch
         {
-            ProjectType.Library => "export fn hello(): string -> \"Hello from your Loom library!\";",
-            ProjectType.Plugin => "print(\"Hello from your Loom plugin!\");",
+            (ProjectType.Library, _) => "export fn hello(): string -> \"Hello from your Loom library!\";",
+            (ProjectType.Plugin, _) => "print(\"Hello from your Loom plugin!\");",
+            (ProjectType.Game, "client") => "print(\"Hello from the client!\");",
+            (ProjectType.Game, "server") => "print(\"Hello from the server!\");",
+            (ProjectType.Game, "shared") => "export let hello = \"Hello from shared code!\";",
             _ => "print(\"Hello from your Loom game!\");"
         };
 
