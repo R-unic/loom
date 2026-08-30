@@ -1,6 +1,7 @@
 using Version = Loom.Config.Version;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Config;
 
 public class VersionTest
 {

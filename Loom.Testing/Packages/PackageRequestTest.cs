@@ -1,7 +1,8 @@
 using Loom.Config;
 using Loom.Packages;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Packages;
 
 /// <summary>
 ///     What a command line can say about a package to add: a name, and optionally the versions of it that will do.

@@ -1,8 +1,9 @@
 using System.Runtime.CompilerServices;
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 /// <remarks>
 ///     Flags the debounced work sets are held in a <see cref="StrongBox{T}" /> rather than in a local. The

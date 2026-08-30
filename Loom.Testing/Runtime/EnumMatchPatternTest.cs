@@ -1,7 +1,8 @@
 using NuLua;
 using NuLua.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Runtime;
 
 /// <summary>
 ///     <c>match</c> against an enum member by name (<c>Direction::North -> ...</c>) rather than its raw

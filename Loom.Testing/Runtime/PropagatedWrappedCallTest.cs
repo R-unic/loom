@@ -1,7 +1,8 @@
 using NuLua;
 using NuLua.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Runtime;
 
 /// <summary>
 ///     A wrapped call whose Result is propagated immediately is fused, so the success path builds no

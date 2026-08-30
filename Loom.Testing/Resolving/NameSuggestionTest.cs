@@ -1,6 +1,7 @@
 using Loom.Core.Diagnostics;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Resolving;
 
 [Collection("Assembly")]
 public class NameSuggestionTest

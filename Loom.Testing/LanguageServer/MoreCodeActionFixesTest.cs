@@ -1,8 +1,9 @@
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 /// <summary>
 ///     The mechanical half of <c>CodeActionHandlerTest</c>: fixes that follow the compiler's own hint word for

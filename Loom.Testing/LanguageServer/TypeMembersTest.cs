@@ -1,8 +1,9 @@
 using Loom.Core.TypeChecking.Types;
 using Loom.LanguageServer;
 using Type = Loom.Core.TypeChecking.Types.Type;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 /// <summary>
 ///     What the editor offers after a dot. Completion is the one place a wrong answer is invisible - an

@@ -2,8 +2,9 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Pipeline;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Resolving;
 
 [Collection("Assembly")]
 public class ExportListTest

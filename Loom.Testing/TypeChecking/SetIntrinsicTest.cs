@@ -1,7 +1,8 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.TypeChecking.Types;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 /// <summary>
 ///     Types the <c>Set</c>/<c>MutSet</c> intrinsics declared in <c>loom.loom</c>.

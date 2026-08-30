@@ -1,6 +1,7 @@
 using Loom.Config;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Config;
 
 public sealed class RojoResolverTest : IDisposable
 {

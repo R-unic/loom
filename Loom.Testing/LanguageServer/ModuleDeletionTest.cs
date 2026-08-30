@@ -1,8 +1,9 @@
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 /// <summary>
 ///     What a delete would break, and the warning shown for it. Unlike a rename there is nowhere to rewrite a

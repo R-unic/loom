@@ -1,8 +1,9 @@
 using Loom.Config;
 using Loom.Packages;
 using Version = Loom.Config.Version;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Packages;
 
 /// <summary>
 ///     A local index is a directory of published versions, each a Loom project of its own — so what it publishes is

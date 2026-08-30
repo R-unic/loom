@@ -1,7 +1,8 @@
 using NuLua;
 using NuLua.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Generation;
 
 /// <summary>
 ///     Executes the macros that read one operand more than once, and counts how often the operand

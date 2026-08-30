@@ -6,8 +6,9 @@ using KeyOf = Loom.Core.Parsing.AST.KeyOf;
 using MappedTypeDeclaration = Loom.Core.Parsing.AST.MappedTypeDeclaration;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Solving;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 /// <summary>
 ///     <c>interface AsMut&lt;T&gt; { mut [K from keyof(T)]: T[K] }</c> - one member per key of another

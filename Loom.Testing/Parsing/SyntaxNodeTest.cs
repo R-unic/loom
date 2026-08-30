@@ -2,8 +2,9 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Lexing;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Parsing;
 
 [Collection("Assembly")]
 public class SyntaxNodeTest

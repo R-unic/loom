@@ -1,8 +1,8 @@
-using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Resolving;
 
 public partial class ResolverTest
 {

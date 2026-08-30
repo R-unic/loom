@@ -2,8 +2,9 @@ using Loom.LanguageServer;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 /// <summary>
 ///     Who calls a function, and who it calls, exercised as a client actually would: prepare at a position to

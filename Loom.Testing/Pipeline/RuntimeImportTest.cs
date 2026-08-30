@@ -2,8 +2,9 @@ using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Modules;
 using Loom.Core.Pipeline;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Pipeline;
 
 [Collection("Assembly")]
 public sealed class RuntimeImportTest : IDisposable

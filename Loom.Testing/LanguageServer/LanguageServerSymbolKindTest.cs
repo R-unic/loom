@@ -1,7 +1,8 @@
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 /// <summary>
 ///     Hover and go-to over one of each kind of name. Both render a symbol by what it is, so a kind nothing

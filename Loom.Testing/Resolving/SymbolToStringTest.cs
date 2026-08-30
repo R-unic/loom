@@ -1,7 +1,8 @@
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Resolving;
 
 /// <summary>Each symbol class's debug representation, which nothing else asserts on since it exists for a debugger to read rather than for the compiler to act on.</summary>
 public class SymbolToStringTest

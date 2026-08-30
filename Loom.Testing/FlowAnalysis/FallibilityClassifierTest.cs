@@ -2,8 +2,9 @@ using Loom.TypeGenerator;
 using Loom.TypeGenerator.ApiTypes;
 using Loom.TypeGenerator.Generators;
 using ValueType = Loom.TypeGenerator.ApiTypes.ValueType;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.FlowAnalysis;
 
 [Collection("Assembly")]
 public class FallibilityClassifierTest

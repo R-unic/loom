@@ -1,7 +1,8 @@
 using NuLua;
 using NuLua.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Runtime;
 
 /// <summary>
 ///     The instance filter macros allocate their result at the source's length and write through a

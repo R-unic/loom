@@ -3,9 +3,9 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Modules;
 using Loom.Core.Pipeline;
 using Loom.Core.Text;
-using Loom.Core.TypeChecking.Types;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Modules;
 
 [Collection("Assembly")]
 public partial class SourceRootTest

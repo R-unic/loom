@@ -1,8 +1,9 @@
 using Loom.LanguageServer;
 using Microsoft.Extensions.Configuration;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 /// <summary>
 ///     The counts written above each declaration, and the settings that decide whether they are written at

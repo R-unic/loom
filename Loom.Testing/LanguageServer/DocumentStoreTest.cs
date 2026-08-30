@@ -5,8 +5,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using Version = Loom.Config.Version;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 [Collection("Assembly")]
 public class DocumentStoreTest

@@ -1,6 +1,7 @@
 using Loom.Core.Diagnostics;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 /// <summary>
 ///     A type alias whose body names the very interfaces that reference it back. Resolving the first

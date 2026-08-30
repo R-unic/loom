@@ -1,7 +1,8 @@
 using System.Reflection;
 using Loom.Core.Resolving.Symbols;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Resolving;
 
 /// <summary>
 ///     Guards the two invariants the symbol hierarchy rests on: a class stands for exactly one

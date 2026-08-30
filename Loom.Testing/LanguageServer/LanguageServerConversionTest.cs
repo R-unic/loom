@@ -7,8 +7,9 @@ using InternalDiagnosticSeverity = Loom.Core.Diagnostics.DiagnosticSeverity;
 using LoomDiagnostic = Loom.Core.Diagnostics.Diagnostic;
 using Location = Loom.Core.Text.Location;
 using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 [Collection("Assembly")]
 public class LanguageServerConversionTest

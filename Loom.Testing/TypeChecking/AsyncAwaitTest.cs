@@ -2,8 +2,9 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using FunctionType = Loom.Core.TypeChecking.Types.FunctionType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 [Collection("Assembly")]
 public class AsyncAwaitTest

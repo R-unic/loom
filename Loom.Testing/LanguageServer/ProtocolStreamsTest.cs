@@ -1,8 +1,9 @@
 using System.Text;
 using Loom.Core.Pipeline;
 using Loom.LanguageServer;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 [Collection("Assembly")]
 public class ProtocolStreamsTest

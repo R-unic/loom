@@ -2,8 +2,9 @@ using Loom.Config;
 using Loom.Core.Pipeline;
 using Loom.Packages;
 using Version = Loom.Config.Version;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Packages;
 
 /// <summary>
 ///     Publishing is what a package is made of, and then an index taking it. A published version is source — an

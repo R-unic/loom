@@ -1,13 +1,13 @@
 using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Pipeline;
-using Loom.Core.Text;
 using Loom.Luau.AST;
 using BinaryOperator = Loom.Core.Parsing.AST.BinaryOperator;
 using ExpressionStatement = Loom.Core.Parsing.AST.ExpressionStatement;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Pipeline;
 
 [Collection("Assembly")]
 public partial class CompilationUnitTest

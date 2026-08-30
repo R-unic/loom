@@ -1,8 +1,9 @@
 using Loom.Core.Diagnostics;
 using NuLua;
 using NuLua.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Generation;
 
 /// <summary>
 ///     A bare, zero-required-argument function value already meets the "call it, stop at first nil"

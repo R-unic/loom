@@ -17,8 +17,9 @@ using TypeAlias = Loom.Luau.AST.TypeAlias;
 using TypeName = Loom.Luau.AST.TypeName;
 using UnaryOperator = Loom.Luau.AST.UnaryOperator;
 using UnionType = Loom.Luau.AST.UnionType;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Generation;
 
 [Collection("Assembly")]
 public class LuauGeneratorTest

@@ -1,7 +1,8 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.TypeChecking.Types;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 [Collection("Assembly")]
 public class ErrorHandlingIntrinsicsTest

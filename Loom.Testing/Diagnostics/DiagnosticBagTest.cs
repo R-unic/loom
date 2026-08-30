@@ -1,8 +1,9 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Diagnostics;
 
 [Collection("Assembly")]
 public class DiagnosticBagTest

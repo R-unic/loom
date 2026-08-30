@@ -1,6 +1,8 @@
 using Loom.Config;
+using Loom.Testing;
+using Loom.Testing.Packages;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Config;
 
 /// <summary>
 ///     Adding a dependency is a text edit on the manifest, so what these check is what the rest of the file looks

@@ -1,7 +1,8 @@
 using Loom.Config;
 using Version = Loom.Config.Version;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Packages;
 
 /// <summary>
 ///     A throwaway workspace holding a local index and a project that resolves from it — the shape a package

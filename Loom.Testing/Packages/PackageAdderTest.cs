@@ -2,8 +2,9 @@ using Loom.Config;
 using Loom.Core.Pipeline;
 using Loom.Packages;
 using Version = Loom.Config.Version;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Packages;
 
 /// <summary>
 ///     Adding a dependency is two things at once: a line written into the manifest, and the restore that line asks

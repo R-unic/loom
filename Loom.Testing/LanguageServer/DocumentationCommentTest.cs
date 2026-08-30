@@ -1,7 +1,8 @@
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 [Collection("Assembly")]
 public class DocumentationCommentTest

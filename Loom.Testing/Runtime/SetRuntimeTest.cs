@@ -1,7 +1,8 @@
 using NuLua;
 using NuLua.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Runtime;
 
 /// <summary>
 ///     Executes the lowered set operations instead of only reading them. A snapshot proves the output did

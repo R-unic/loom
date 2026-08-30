@@ -1,8 +1,9 @@
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 /// <summary>
 ///     The whole-file answers - the outline, the fold regions, the hints - over a source carrying one of

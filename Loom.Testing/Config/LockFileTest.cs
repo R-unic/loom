@@ -1,7 +1,8 @@
 using Loom.Config;
 using Version = Loom.Config.Version;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Config;
 
 /// <summary>
 ///     The lock file is the seam between a package manager and the compiler: the manifest says which versions are

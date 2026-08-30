@@ -1,8 +1,9 @@
 using Loom.Core.Diagnostics;
 using NuLua;
 using NuLua.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Generation;
 
 /// <summary>
 ///     A type that implements <c>Iterator&lt;T&gt;</c> drives a <c>for</c> loop itself. The loop calls

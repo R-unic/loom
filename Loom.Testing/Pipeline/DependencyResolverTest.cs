@@ -1,7 +1,8 @@
 using Loom.Config;
 using Loom.Core.Pipeline;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Pipeline;
 
 /// <summary>
 ///     <see cref="DependencyResolver" /> is the seam a package manager plugs into: it never touches a registry or a

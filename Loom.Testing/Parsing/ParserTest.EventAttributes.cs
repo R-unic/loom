@@ -1,11 +1,9 @@
-using Loom.Core.Debug;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
-using Loom.Core.TypeChecking.Serialization;
-using PrimitiveTypeKind = Loom.Core.TypeChecking.Types.PrimitiveTypeKind;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Parsing;
 
 public partial class ParserTest
 {

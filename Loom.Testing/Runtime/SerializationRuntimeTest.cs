@@ -1,7 +1,8 @@
 using NuLua;
 using NuLua.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Runtime;
 
 /// <summary>
 ///     Executes the emitted serializers instead of only reading them. Reading the output cannot tell you

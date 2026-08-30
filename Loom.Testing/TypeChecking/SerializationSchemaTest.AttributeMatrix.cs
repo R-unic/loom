@@ -1,7 +1,7 @@
 using Loom.Core.Diagnostics;
-using Loom.Core.TypeChecking.Serialization;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 public partial class SerializationSchemaTest
 {

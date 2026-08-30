@@ -1,6 +1,7 @@
 using Loom.Core.Text;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Lexing;
 
 public class LocationTest
 {

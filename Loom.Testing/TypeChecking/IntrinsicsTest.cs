@@ -1,7 +1,8 @@
 using Loom.Config;
 using Loom.Core.Diagnostics;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 [Collection("Assembly")]
 public class IntrinsicsTest

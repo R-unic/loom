@@ -2,8 +2,9 @@ using Loom.Config;
 using Loom.Core.Pipeline;
 using Loom.Packages;
 using Version = Loom.Config.Version;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Packages;
 
 /// <summary>
 ///     Restore is what a build runs before it compiles: resolve if the lock does not cover the manifest, install

@@ -1,6 +1,7 @@
 using Loom.Core.Parsing.AST;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Parsing;
 
 [Collection("Assembly")]
 public class VisitorTraversalTest

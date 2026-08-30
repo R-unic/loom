@@ -1,6 +1,7 @@
 using Loom.Core.Pipeline;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Pipeline;
 
 /// <summary>
 ///     What the CLI prints when a compile finishes. Every line here is the only thing a user sees of a

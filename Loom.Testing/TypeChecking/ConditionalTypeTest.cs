@@ -7,8 +7,9 @@ using TypePredicateType = Loom.Core.Parsing.AST.TypePredicateType;
 using WildcardType = Loom.Core.Parsing.AST.WildcardType;
 using LoomType = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Solving;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 /// <summary>
 ///     <c>T is U ? A : B</c> and the n-armed <c>match</c> it is the two-armed case of, plus the <c>let</c>

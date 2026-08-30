@@ -1,8 +1,9 @@
 using Loom.Core.Diagnostics;
 using NuLua;
 using NuLua.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Runtime;
 
 [Collection("Assembly")]
 public class WrappedCallTest

@@ -8,8 +8,9 @@ using OptionalType = Loom.Core.TypeChecking.Types.OptionalType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
 using TypeParameter = Loom.Core.TypeChecking.Types.TypeParameter;
 using UnionType = Loom.Core.TypeChecking.Types.UnionType;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 using static PrimitiveType;
 using Loom.Core.TypeChecking.Solving;

@@ -1,6 +1,7 @@
 using Loom.Core.Diagnostics;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Generation;
 
 /// <summary>
 ///     An event crossing a module boundary: the exporting module sends its connection store out with the

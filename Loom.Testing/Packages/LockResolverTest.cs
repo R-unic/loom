@@ -1,8 +1,9 @@
 using Loom.Config;
 using Loom.Packages;
 using Version = Loom.Config.Version;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Packages;
 
 /// <summary>
 ///     Resolution: requirements plus what an index publishes, in, one version per package out. The index is a

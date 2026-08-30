@@ -1,6 +1,7 @@
 using Loom.Luau;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Generation;
 
 // Expected values in this file were captured from the real luau.exe interpreter (luau-lang/luau release 0.731),
 // not derived from classic Lua "%.14g" semantics, since Luau's own tostring/tonumber diverge from vanilla Lua.

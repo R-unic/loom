@@ -3,8 +3,9 @@ using Loom.Luau.AST;
 using BinaryOperator = Loom.Luau.AST.BinaryOperator;
 using Identifier = Loom.Luau.AST.Identifier;
 using UnaryOperator = Loom.Luau.AST.UnaryOperator;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Generation;
 
 /// <summary>
 ///     The scan a fused array pipeline asks before binding a stage's parameter: every name the body

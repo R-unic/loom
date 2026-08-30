@@ -1,6 +1,7 @@
 using Loom.Core.Diagnostics;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 /// <summary>
 ///     The shipped structural type utilities in loom.loom - <c>Mut</c>, <c>Readonly</c>, <c>Pick</c>,

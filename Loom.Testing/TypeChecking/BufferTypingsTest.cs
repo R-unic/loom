@@ -1,4 +1,6 @@
-namespace Loom.Testing;
+using Loom.Testing;
+
+namespace Loom.Testing.TypeChecking;
 
 /// <summary>
 ///     Covers the hand-written <c>buffer</c> library bindings in <c>Intrinsic/buffer.loom</c>, a

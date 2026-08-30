@@ -1,7 +1,7 @@
-using Loom.Core.Diagnostics;
 using Loom.Core.TypeChecking.Serialization;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 [Collection("Assembly")]
 public partial class SerializationSchemaTest

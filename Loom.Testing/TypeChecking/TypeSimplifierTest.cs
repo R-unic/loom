@@ -1,8 +1,9 @@
 using Loom.Core.TypeChecking.Types;
 using Type = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Solving;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 [Collection("Assembly")]
 public class TypeSimplifierTest

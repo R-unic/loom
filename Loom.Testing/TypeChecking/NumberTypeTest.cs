@@ -1,8 +1,9 @@
 using Loom.Core.TypeChecking.Serialization;
 using Loom.Core.TypeChecking.Types;
 using Type = Loom.Core.TypeChecking.Types.Type;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.TypeChecking;
 
 /// <summary>
 ///     What each wire type is worth: its width, its signedness, and the range a value has to sit inside.

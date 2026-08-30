@@ -1,7 +1,8 @@
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 /// <summary>
 ///     What the client is told each token is. The interesting half is the half a grammar cannot reach - an

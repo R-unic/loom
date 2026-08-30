@@ -1,7 +1,8 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Modules;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Modules;
 
 [Collection("Assembly")]
 public class ModuleGraphTest

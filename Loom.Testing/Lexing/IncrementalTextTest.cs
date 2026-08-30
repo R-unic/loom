@@ -1,8 +1,9 @@
 using Loom.LanguageServer;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Lexing;
 
 [Collection("Assembly")]
 public class IncrementalTextTest

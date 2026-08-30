@@ -1,6 +1,7 @@
 using Loom.LanguageServer;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.LanguageServer;
 
 public class DocumentationBlockTest
 {

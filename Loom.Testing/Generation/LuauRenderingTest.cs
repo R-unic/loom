@@ -4,8 +4,9 @@ using BinaryOperator = Loom.Luau.AST.BinaryOperator;
 using Identifier = Loom.Luau.AST.Identifier;
 using PrimitiveType = Loom.Luau.AST.PrimitiveType;
 using UnaryOperator = Loom.Luau.AST.UnaryOperator;
+using Loom.Testing;
 
-namespace Loom.Testing;
+namespace Loom.Testing.Generation;
 
 [Collection("Assembly")]
 public class LuauRenderingTest
