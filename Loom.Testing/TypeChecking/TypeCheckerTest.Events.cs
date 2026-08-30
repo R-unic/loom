@@ -202,6 +202,26 @@ public partial class TypeCheckerTest
             )
         );
 
+    /// <remarks>
+    ///     A handler may re-declare its own rest parameter instead of naming each argument - the array faces
+    ///     the event's own rest slot directly rather than inferring one element at a time, which is the
+    ///     distinction <see cref="FunctionType.CounterpartParameterType" /> already makes for
+    ///     assignability; the same mixed shape (a fixed prefix ahead of the rest) is checked here too.
+    /// </remarks>
+    [Fact]
+    public void Checks_VariadicEventConnect_HandlerMayDeclareItsOwnRestParameter() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                event abc(..data: unknown[]);
+                abc += fn(..args: unknown[]) { print(args); };
+
+                event labelled(label: string, ..rest: number[]);
+                labelled += fn(label: string, ..rest: number[]) { print(label, rest); };
+                """
+            )
+        );
+
     [Fact]
     public void Checks_VariadicEventConnect_HandlerParametersInferTheRestElementType() =>
         Utility.AssertNoErrors(
