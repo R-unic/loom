@@ -83,6 +83,48 @@ jobs:
           "$binary" build .
           test -f include/loom_runtime.luau
 
+      - name: Smoke test the package manager
+        shell: bash
+        # Resolving from a directory index rather than a registry, so this reaches no network and
+        # fails for one reason only. It is still the whole pipeline - add writes the manifest,
+        # resolution writes the lock, the version is installed into the project, and the import of
+        # it has to compile - and the parts of that most likely to differ per platform are the ones
+        # a build on one machine never exercises: where a path may be split, how a directory is
+        # replaced, and which file modes exist.
+        run: |
+          binary="$PWD/publish/loom"
+          if [ "$RUNNER_OS" = "Windows" ]; then binary="$binary.exe"; fi
+
+          mkdir -p packages-smoke/index/greet/1.0.0/src
+          cat > packages-smoke/index/greet/1.0.0/loom-config.toml <<'TOML'
+          project_type = "library"
+          [package]
+          name = "greet"
+          version = "1.0.0"
+          [files]
+          source_directory = "src"
+          output_directory = "dist"
+          TOML
+          echo 'export let greeting = "hello from a package";' > packages-smoke/index/greet/1.0.0/src/init.loom
+
+          mkdir packages-smoke/game && cd packages-smoke/game
+          "$binary" new .
+          printf '\n[registry]\nindex = "../index"\n' >> loom-config.toml
+          "$binary" add greet
+          echo 'import { greeting } from "greet";' > src/shared/main.loom
+          echo 'print(greeting);' >> src/shared/main.loom
+          "$binary" build .
+
+          # the lock pins what was resolved, the version is installed where the compiler reads it,
+          # and the import turned into a require rather than being quietly dropped
+          grep -q 'name = "greet"' loom-lock.toml
+          test -f packages/greet/loom-config.toml
+          test -f dist/packages/greet/init.luau
+          grep -q 'require(' dist/shared/main.luau
+
+          # and a second build with nothing to do neither re-resolves nor fails
+          "$binary" build .
+
       - name: Package (Unix)
         if: runner.os != 'Windows'
         run: |
