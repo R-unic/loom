@@ -9192,30 +9192,30 @@ declare interface StarterGui: BasePlayerGui {
 declare interface BaseRemoteEvent: Instance;
 declare interface RemoteEvent: BaseRemoteEvent {
 	_is_creatable: true;
-	[luau_name("FireAllClients"), luau_method]
+	[luau_name("FireAllClients"), luau_method, server]
 	fire_all_clients: fn(..arguments: unknown[]): void;
-	[luau_name("FireClient"), luau_method]
+	[luau_name("FireClient"), luau_method, server]
 	fire_client: fn(player: Player, ..arguments: unknown[]): void;
-	[luau_name("FireServer"), luau_method]
+	[luau_name("FireServer"), luau_method, client]
 	fire_server: fn(..arguments: unknown[]): void;
-	[luau_name("OnClientEvent")]
+	[luau_name("OnClientEvent"), client]
 	event on_client_event(..arguments: unknown[]);
-	[luau_name("OnServerEvent")]
+	[luau_name("OnServerEvent"), server]
 	event on_server_event(player: Player, ..arguments: unknown[]);
 }
 
 #: Same as RemoteEvents but events are sent unreliably (neither reliably nor ordered). :#
 declare interface UnreliableRemoteEvent: BaseRemoteEvent {
 	_is_creatable: true;
-	[luau_name("FireAllClients"), luau_method]
+	[luau_name("FireAllClients"), luau_method, server]
 	fire_all_clients: fn(..arguments: unknown[]): void;
-	[luau_name("FireClient"), luau_method]
+	[luau_name("FireClient"), luau_method, server]
 	fire_client: fn(player: Player, ..arguments: unknown[]): void;
-	[luau_name("FireServer"), luau_method]
+	[luau_name("FireServer"), luau_method, client]
 	fire_server: fn(..arguments: unknown[]): void;
-	[luau_name("OnClientEvent")]
+	[luau_name("OnClientEvent"), client]
 	event on_client_event(..arguments: unknown[]);
-	[luau_name("OnServerEvent")]
+	[luau_name("OnServerEvent"), server]
 	event on_server_event(player: Player, ..arguments: unknown[]);
 }
 
@@ -10569,17 +10569,17 @@ declare interface DataStoreOptions: Instance {
 
 declare interface DataStoreService: Instance {
 	_is_service: true;
-	[luau_name("GetDataStore"), luau_method, wraps_errors]
+	[luau_name("GetDataStore"), luau_method, wraps_errors, server]
 	get_data_store: fn(name: string, scope: string?, options: Instance?): Result<DataStore, RobloxError>;
-	[luau_name("GetGlobalDataStore"), luau_method]
+	[luau_name("GetGlobalDataStore"), luau_method, server]
 	get_global_data_store: fn: DataStore;
-	[luau_name("GetOrderedDataStore"), luau_method, wraps_errors]
+	[luau_name("GetOrderedDataStore"), luau_method, wraps_errors, server]
 	get_ordered_data_store: fn(name: string, scope: string?): Result<OrderedDataStore, RobloxError>;
-	[luau_name("GetRequestBudgetForRequestType"), luau_method]
+	[luau_name("GetRequestBudgetForRequestType"), luau_method, server]
 	get_request_budget_for_request_type: fn(requestType: Enum["DataStoreRequestType"]): number;
-	[luau_name("SetRateLimitForRequestType"), luau_method, wraps_errors]
+	[luau_name("SetRateLimitForRequestType"), luau_method, wraps_errors, server]
 	set_rate_limit_for_request_type: fn(requestType: Enum["DataStoreRequestType"], baseLimit: number, perPlayerLimit: number): Result<void, RobloxError>;
-	[luau_name("ListDataStoresAsync"), luau_method, wraps_errors]
+	[luau_name("ListDataStoresAsync"), luau_method, wraps_errors, server]
 	list_data_stores_async: async fn(prefix: string, pageSize: number?, cursor: string): Result<DataStoreListingPages, RobloxError>;
 }
 
@@ -13734,9 +13734,9 @@ declare interface MessageBusService: Instance {
 
 declare interface MessagingService: Instance {
 	_is_service: true;
-	[luau_name("PublishAsync"), luau_method, wraps_errors]
+	[luau_name("PublishAsync"), luau_method, wraps_errors, server]
 	publish_async: async fn(topic: string, message: unknown): Result<void, RobloxError>;
-	[luau_name("SubscribeAsync"), luau_method, wraps_errors]
+	[luau_name("SubscribeAsync"), luau_method, wraps_errors, server]
 	subscribe_async: async fn(topic: string, callback: fn: void): Result<ScriptConnection, RobloxError>;
 }
 
@@ -15068,7 +15068,7 @@ declare interface Players: Instance {
 	mut character_auto_loads: bool;
 	[luau_name("ClassicChat")]
 	classic_chat: bool;
-	[luau_name("LocalPlayer")]
+	[luau_name("LocalPlayer"), client]
 	local_player: Player?;
 	[luau_name("MaxPlayers")]
 	max_players: number;
@@ -15435,10 +15435,16 @@ declare interface RemoteDebuggerServer: Instance {
 
 declare interface RemoteFunction: Instance {
 	_is_creatable: true;
-	[luau_name("InvokeClient"), luau_method, wraps_errors]
+	[luau_name("InvokeClient"), luau_method, wraps_errors, server]
 	invoke_client: async fn(player: Player, ..arguments: unknown[]): Result<unknown, RobloxError>;
-	[luau_name("InvokeServer"), luau_method, wraps_errors]
+	[luau_name("InvokeServer"), luau_method, wraps_errors, client]
 	invoke_server: async fn(..arguments: unknown[]): Result<unknown, RobloxError>;
+	#: This callback is called when the RemoteFunction is invoked with RemoteFunction:InvokeServer(). :#
+	[luau_name("OnServerInvoke"), server]
+	mut on_server_invoke: fn(player: Player, ..arguments: unknown[]): unknown;
+	#: This callback is called when the RemoteFunction is invoked with RemoteFunction:InvokeClient(). :#
+	[luau_name("OnClientInvoke"), client]
+	mut on_client_invoke: fn(..arguments: unknown[]): unknown;
 }
 
 declare interface ReplicatedFirst: Instance {
@@ -15537,11 +15543,11 @@ declare interface RunService: Instance {
 	event post_simulation(deltaTimeSim: number);
 	[luau_name("PreAnimation")]
 	event pre_animation(deltaTimeSim: number);
-	[luau_name("PreRender")]
+	[luau_name("PreRender"), client]
 	event pre_render(deltaTimeRender: number);
 	[luau_name("PreSimulation")]
 	event pre_simulation(deltaTimeSim: number);
-	[luau_name("RenderStepped")]
+	[luau_name("RenderStepped"), client]
 	event render_stepped(deltaTime: number);
 	[luau_name("Rollback")]
 	event rollback(time: number);

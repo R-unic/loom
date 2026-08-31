@@ -180,6 +180,7 @@ public static class InternalCodes
     public const string UnusedParameter = "L456";
     public const string UnusedTypeParameter = "L457";
     public const string UnusedTrait = "L458";
+    public const string RealmRestrictedApiMember = "L459";
 
     public const string SimplifiableCode = "L500";
 }

@@ -9,6 +9,7 @@
 
     <ItemGroup>
         <None Include="Data\fallible.toml" CopyToOutputDirectory="PreserveNewest"/>
+        <None Include="Data\realm.toml" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
     <ItemGroup>

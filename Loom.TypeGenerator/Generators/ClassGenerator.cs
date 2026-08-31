@@ -14,6 +14,7 @@ internal sealed class ClassGenerator(
 {
     private readonly Dictionary<string, Class> _classRefs = [];
     private readonly FallibilityClassifier _fallibility = new();
+    private readonly RealmClassifier _realm = new();
     private readonly Dictionary<string, HashSet<string>> _definedMemberNames = [];
     private string[] _instanceNameCandidates = [];
 
@@ -129,13 +130,13 @@ internal sealed class ClassGenerator(
         Write();
     }
 
-    private void GenerateProperty(Property property, Class rbxClass)
+    internal void GenerateProperty(Property property, Class rbxClass)
     {
         var valueType = ClassUtility.SafeValueType(property.ValueType);
         var (name, description) = GetMemberNameAndDescription(property, rbxClass);
         var definitelyDefined = property.ValueType.Category != "Class";
         var extraPropertyData = CanWrite(rbxClass.Name, property) && !ClassUtility.HasTag(property, "ReadOnly") ? "mut " : "";
-        var (snakeName, attributes) = GetMemberAttributes(name, DeprecationAttributes(property));
+        var (snakeName, attributes) = GetMemberAttributes(name, RealmRestrictedAttributes(rbxClass, property, DeprecationAttributes(property)));
 
         WriteMetadata(description, attributes);
         Write($"{extraPropertyData}{snakeName}: {valueType}{(definitelyDefined || valueType.EndsWith('?') ? "" : "?")};");
@@ -145,7 +146,7 @@ internal sealed class ClassGenerator(
     {
         var parameterList = GenerateParameterList(@event.Parameters);
         var (name, description) = GetMemberNameAndDescription(@event, rbxClass);
-        var (snakeName, attributes) = GetMemberAttributes(name, DeprecationAttributes(@event));
+        var (snakeName, attributes) = GetMemberAttributes(name, RealmRestrictedAttributes(rbxClass, @event, DeprecationAttributes(@event)));
         WriteMetadata(description, attributes);
         Write($"event {snakeName}{parameterList};");
     }
@@ -170,6 +171,9 @@ internal sealed class ClassGenerator(
             returnType = $"Result<{returnType}, RobloxError>";
         }
 
+        if (RealmAttribute(rbxClass, function) is { } realm)
+            attributeList.Add(realm);
+
         var (snakeName, attributes) = GetMemberAttributes(name, attributeList);
 
         WriteMetadata(description, attributes);
@@ -181,7 +185,7 @@ internal sealed class ClassGenerator(
         var (name, description) = GetMemberNameAndDescription(callback, rbxClass);
         var parameterList = GenerateParameterList(callback.Parameters);
         var returnType = ClassUtility.SafeReturnType(callback.ReturnType);
-        var (snakeName, attributes) = GetMemberAttributes(name);
+        var (snakeName, attributes) = GetMemberAttributes(name, RealmRestrictedAttributes(rbxClass, callback, null));
 
         WriteMetadata(description, attributes);
         Write($"mut {snakeName}: fn{parameterList}: {returnType};");
@@ -201,6 +205,16 @@ internal sealed class ClassGenerator(
 
     private static List<string>? DeprecationAttributes(MemberBase member) =>
         ClassUtility.HasTag(member, "Deprecated") ? ["deprecated"] : null;
+
+    /// <summary>
+    ///     The <c>[server]</c>/<c>[client]</c> attribute to write for one member - the whole class's
+    ///     restriction when <see cref="RealmClassifier.ClassAttribute" /> names one, else whatever
+    ///     <see cref="RealmClassifier.MemberAttribute" /> says about this member alone.
+    /// </summary>
+    private string? RealmAttribute(Class rbxClass, MemberBase member) => _realm.ClassAttribute(rbxClass) ?? _realm.MemberAttribute(rbxClass, member);
+
+    private List<string>? RealmRestrictedAttributes(Class rbxClass, MemberBase member, List<string>? existing) =>
+        RealmAttribute(rbxClass, member) is not { } realm ? existing : [..existing ?? [], realm];
 
     private void WriteMetadata(string[] descriptionLines, string? attributes)
     {
@@ -315,6 +329,17 @@ internal sealed class ClassGenerator(
             ? _classRefs[rbxClass.Superclass]
             : null;
 
+    /// <summary>
+    ///     Whether a member is visible at all at this security level - the gate <see cref="ShouldGenerateMember" />
+    ///     gets it wrong for otherwise, since <see cref="ClassUtility.GetSecurity" /> hardcodes a
+    ///     <see cref="Callback" />'s <c>Read</c> security to <c>NotAccessibleSecurity</c>, a level nothing is
+    ///     ever generated at. A callback is assigned to, never read from, so its security lives on
+    ///     <c>Write</c> instead - checking <see cref="CanRead" /> for one is therefore not "callbacks need
+    ///     higher security", it is "callbacks can never appear", which is why none had before this.
+    /// </summary>
+    internal bool IsAccessible(string className, MemberBase member) =>
+        member.MemberType == "Callback" ? CanWrite(className, member) : CanRead(className, member);
+
     private bool CanRead(string className, MemberBase member)
     {
         var readSecurity = ClassUtility.GetSecurity(className, member).Read;
@@ -350,7 +375,7 @@ internal sealed class ClassGenerator(
             return false;
 
         var isBlacklisted = Constants.MemberBlacklist.TryGetValue(rbxClass.Name, out var value) && value.Contains(member.Name);
-        if (isBlacklisted || !CanRead(rbxClass.Name, member))
+        if (isBlacklisted || !IsAccessible(rbxClass.Name, member))
             return false;
 
         if (ClassUtility.HasTag(member, "Deprecated"))

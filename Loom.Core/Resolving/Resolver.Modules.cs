@@ -500,7 +500,7 @@ public sealed partial class Resolver
     /// </remarks>
     private void ReportRealmNarrowing(Node specifier, string name, Symbol export)
     {
-        if (RealmAttributeOf(export) is not { } declared)
+        if (RealmAttributes.Of(export) is not { } declared)
             return;
 
         var importing = compilationUnit.Roots.RealmOf(parserResult.Tree.File);
@@ -514,17 +514,6 @@ public sealed partial class Resolver
             $"move it into a {declared.ToString().ToLowerInvariant()} module, or drop the attribute if both realms are meant to reach it"
         );
     }
-
-    /// <summary>
-    ///     The realm a declaration's own attributes narrow it to, or null when they narrow it to none. Read
-    ///     off the declaration rather than <see cref="Symbol.Attributes" />, which only some symbol kinds
-    ///     carry - the attribute is written on the declaration whatever kind it turns out to declare.
-    /// </summary>
-    private static Realm? RealmAttributeOf(Symbol symbol) =>
-        symbol.Declaration is not IWithAttributes { Attributes: { } attributes } ? null
-        : attributes.AttributeList.Exists(attribute => attribute.Name == "server") ? Realm.Server
-        : attributes.AttributeList.Exists(attribute => attribute.Name == "client") ? Realm.Client
-        : null;
 
     /// <summary>
     ///     Binds the exporting module's own symbol instance into this scope under the local name. The instance

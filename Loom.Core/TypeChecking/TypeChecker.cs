@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.FlowAnalysis;
 using Loom.Core.Generation.Macros;
@@ -36,14 +37,24 @@ public sealed partial class TypeChecker
     private readonly TypeNarrower _narrower;
     private readonly HashSet<Symbol> _resolvingHoisted = [];
     private readonly SemanticModel _semanticModel;
+    private readonly Realm? _accessingRealm;
     private FlowState _flowState;
 
-    public TypeChecker(SemanticModel semanticModel, FlowAnalyzer flowAnalyzer)
+    /// <param name="accessingRealm">
+    ///     The realm the file being checked runs in, per <see cref="Pipeline.SourceRootSet.RealmOf" />, or
+    ///     <see langword="null" /> when its project declares no <c>[realms]</c> at all. A project that never
+    ///     modelled a client/server split has no boundary for a Roblox API's own realm restriction to
+    ///     protect either, so <see langword="null" /> - the default, for the callers that check a bare
+    ///     snippet with no project of its own - turns that check off rather than comparing every access
+    ///     against a <see cref="Realm.Shared" /> nothing ever narrows away from.
+    /// </param>
+    public TypeChecker(SemanticModel semanticModel, FlowAnalyzer flowAnalyzer, Realm? accessingRealm = null)
         : base(_ => Types.PrimitiveType.Never)
     {
         _semanticModel = semanticModel;
         _diagnostics = new DiagnosticBag(options: semanticModel.Diagnostics.Options);
         _flowAnalyzer = flowAnalyzer;
+        _accessingRealm = accessingRealm;
         _inferrer = new TypeInferrer(Visit);
         _narrower = new TypeNarrower(semanticModel);
         _flowState = null!;
