@@ -90,7 +90,10 @@ public sealed class DocumentStore
     }
 
     private readonly ConcurrentDictionary<DocumentUri, OpenDocument> _documents = [];
-    private readonly ConcurrentDictionary<string, CompilationUnit> _unitsByProjectRoot = [];
+    // keyed the way the compiler compares paths, not ordinally: a client's file: URI round-trips a Windows
+    // drive letter in a different case than the one a directory walk up from another file's URI produces,
+    // and an ordinal key would silently open a second unit for the same project
+    private readonly ConcurrentDictionary<string, CompilationUnit> _unitsByProjectRoot = new(FilePaths.Comparer);
     private readonly ConcurrentDictionary<DocumentUri, DocumentState> _state = [];
     private readonly ConcurrentDictionary<CompilationUnit, CompilationResult> _results = [];
     private readonly Lock _compilationLock = new();
