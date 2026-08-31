@@ -1,0 +1,161 @@
+{
+  "_comment": [
+    "Shared semver conformance corpus for rbx-loom/loom (Loom.Config.Version,",
+    "Loom.Config.VersionRequirement) and rbx-loom/loom-pm (internal/semver).",
+    "",
+    "Both repositories check this file in and both test suites execute it. The C# side is",
+    "the reference implementation: when the two disagree, C# is right unless the",
+    "disagreement is an actual bug in C#, in which case fix it there and add the case here.",
+    "",
+    "Grow this file from bugs. Every time the two halves disagree in the wild, the case",
+    "that caught it belongs here."
+  ],
+
+  "parse_version": [
+    { "text": "1.2.3", "valid": true },
+    { "text": "0.0.0", "valid": true },
+    { "text": "1.2.3-alpha", "valid": true },
+    { "text": "1.2.3-alpha.1", "valid": true },
+    { "text": "1.2.3-0a", "valid": true, "note": "leading zero is fine when the identifier is not purely numeric" },
+    { "text": "1.2.3+build", "valid": true },
+    { "text": "1.2.3+01", "valid": true, "note": "build metadata permits leading zeroes; prerelease does not" },
+    { "text": "1.2.3-alpha+build", "valid": true },
+    { "text": "1.0.0-alpha+has-dashes", "valid": true, "note": "split on '+' before '-' or this mangles" },
+    { "text": "1.0.0+has-dashes", "valid": true },
+    { "text": "2147483647.0.0", "valid": true, "note": "int32 max is still a version" },
+
+    { "text": "1.2.3-01", "valid": false, "note": "numeric prerelease identifier may not have a leading zero" },
+    { "text": "01.2.3", "valid": false, "note": "components may not have leading zeroes" },
+    { "text": "1.2", "valid": false, "note": "exactly three components; partials are a requirement's rule, not a version's" },
+    { "text": "1.2.3.4", "valid": false },
+    { "text": "", "valid": false },
+    { "text": "a.b.c", "valid": false },
+    { "text": "1.2.-3", "valid": false },
+    { "text": "1.0.0-", "valid": false, "note": "empty prerelease" },
+    { "text": "1.0.0+", "valid": false, "note": "empty build metadata" },
+    { "text": "1.0.0-alpha..1", "valid": false, "note": "empty identifier" },
+    { "text": "1.0.0-alpha_1", "valid": false, "note": "underscore is not in the identifier charset" },
+    { "text": "2147483648.0.0", "valid": false, "note": "C# parses components into int32 and fails on overflow" },
+    { "text": "99999999999.0.0", "valid": false, "note": "same; Go's 64-bit int must be bounded explicitly" },
+    { "text": " 1.2.3", "valid": false, "note": "a version is not trimmed; only a requirement is" }
+  ],
+
+  "compare": [
+    { "left": "1.0.0", "right": "1.0.0", "ordering": 0 },
+    { "left": "1.0.0+a", "right": "1.0.0+b", "ordering": 0, "note": "build metadata takes no part in comparison or equality" },
+    { "left": "1.0.0", "right": "2.0.0", "ordering": -1 },
+    { "left": "0.0.1", "right": "0.1.0", "ordering": -1 },
+    { "left": "1.9.0", "right": "1.10.0", "ordering": -1, "note": "string ordering gets this backwards" },
+
+    { "left": "1.0.0-alpha", "right": "1.0.0", "ordering": -1, "note": "a prerelease is lower than its release" },
+    { "left": "1.0.0-alpha", "right": "1.0.0-alpha.1", "ordering": -1, "note": "fewer identifiers is lower" },
+    { "left": "1.0.0-alpha.1", "right": "1.0.0-alpha.beta", "ordering": -1, "note": "numeric is lower than alphanumeric" },
+    { "left": "1.0.0-alpha.beta", "right": "1.0.0-beta", "ordering": -1 },
+    { "left": "1.0.0-beta", "right": "1.0.0-beta.2", "ordering": -1 },
+    { "left": "1.0.0-beta.2", "right": "1.0.0-beta.11", "ordering": -1, "note": "numeric identifiers compare as integers, not strings" },
+    { "left": "1.0.0-beta.11", "right": "1.0.0-rc.1", "ordering": -1 },
+    { "left": "1.0.0-rc.1", "right": "1.0.0", "ordering": -1 },
+    { "left": "1.0.0-1", "right": "1.0.0-alpha", "ordering": -1 }
+  ],
+
+  "sort": [
+    {
+      "input": ["1.10.0", "1.2.0", "1.0.0-rc.1", "1.9.0", "1.0.0", "2.0.0-alpha", "1.0.0-alpha"],
+      "expected": ["1.0.0-alpha", "1.0.0-rc.1", "1.0.0", "1.2.0", "1.9.0", "1.10.0", "2.0.0-alpha"],
+      "note": "ascending, newest last: LockResolver.Choose takes the LAST match, not the max"
+    }
+  ],
+
+  "parse_requirement": [
+    { "text": "*", "valid": true },
+    { "text": "^1.2", "valid": true },
+    { "text": "1.2", "valid": true, "note": "a bare clause means caret" },
+    { "text": "~1.2.3", "valid": true },
+    { "text": "=1.2.3", "valid": true },
+    { "text": "=1.2", "valid": true },
+    { "text": ">=1.4, <2", "valid": true },
+    { "text": ">= 1.2", "valid": true, "note": "whitespace after the comparator is trimmed" },
+    { "text": ">=1.0, <2.0, <1.5", "valid": true, "note": "clauses fold; the tightest upper bound wins" },
+    { "text": ">=1.0.0, <=1.0.0", "valid": true, "note": "equal bounds, both inclusive, accepts exactly one version" },
+    { "text": "^1.2.3-alpha", "valid": true },
+    { "text": "  ^1.2  ", "valid": true, "note": "a requirement is trimmed, and so is each clause" },
+    { "text": ">=2147483647.0.0", "valid": true, "note": "a comparator deriving no ceiling may name the largest component" },
+
+    { "text": ">=2, <1", "valid": false, "note": "unsatisfiable is a parse error, never an empty interval" },
+    { "text": ">1.0.0, <1.0.0", "valid": false },
+    { "text": ">=1.0.0, <1.0.0", "valid": false, "note": "equal bounds, not both inclusive" },
+    { "text": "", "valid": false },
+    { "text": ",", "valid": false, "note": "empty clause" },
+    { "text": "1.2.3+build", "valid": false, "note": "build metadata takes no part in comparison, so a requirement may not name it" },
+    { "text": "1.2.3.4", "valid": false, "note": "at most three components" },
+    { "text": "^2147483647", "valid": false, "note": "the caret ceiling would overflow the major, and no version the client can parse names it" },
+    { "text": "^0.2147483647", "valid": false, "note": "a zero major moves the ceiling onto the minor, which overflows the same way" },
+    { "text": "^0.0.2147483647", "valid": false, "note": "a zero major and minor move the ceiling onto the patch" },
+    { "text": "~1.2147483647", "valid": false, "note": "the tilde ceiling would overflow the minor" },
+    { "text": ">>1.0", "valid": false, "note": "a doubled comparator is not a version" },
+    { "text": "=<1.0", "valid": false, "note": "'=<' is not a comparator, so the clause does not begin with a version" }
+  ],
+
+  "satisfies": [
+    { "requirement": "^1.2.3", "version": "1.2.3", "satisfied": true },
+    { "requirement": "^1.2.3", "version": "1.9.9", "satisfied": true },
+    { "requirement": "^1.2.3", "version": "1.2.2", "satisfied": false },
+    { "requirement": "^1.2.3", "version": "2.0.0", "satisfied": false },
+
+    { "requirement": "^0", "version": "0.5.0", "satisfied": true, "note": "caret ceiling table: written == 1" },
+    { "requirement": "^0", "version": "1.0.0", "satisfied": false },
+    { "requirement": "^0.2.3", "version": "0.2.9", "satisfied": true, "note": "caret ceiling table: minor != 0" },
+    { "requirement": "^0.2.3", "version": "0.3.0", "satisfied": false },
+    { "requirement": "^0.0", "version": "0.0.5", "satisfied": true, "note": "caret ceiling table: written == 2" },
+    { "requirement": "^0.0", "version": "0.1.0", "satisfied": false },
+    { "requirement": "^0.0.3", "version": "0.0.3", "satisfied": true, "note": "caret ceiling table: everything written is zero" },
+    { "requirement": "^0.0.3", "version": "0.0.4", "satisfied": false },
+
+    { "requirement": "^1", "version": "1.9.9", "satisfied": true, "note": "a non-zero major wins over the written-component case" },
+    { "requirement": "^1", "version": "2.0.0", "satisfied": false },
+
+    { "requirement": "~0.0.3", "version": "0.0.9", "satisfied": true, "note": "~ moves the minor even at 0.0.x, where ^ would move the patch" },
+    { "requirement": "~0.0.3", "version": "0.1.0", "satisfied": false },
+    { "requirement": "~1.2.3", "version": "1.2.9", "satisfied": true },
+    { "requirement": "~1.2.3", "version": "1.3.0", "satisfied": false },
+    { "requirement": "~1.2", "version": "1.2.0", "satisfied": true },
+    { "requirement": "~1.2", "version": "1.3.0", "satisfied": false },
+    { "requirement": "~1", "version": "1.9.9", "satisfied": true },
+    { "requirement": "~1", "version": "2.0.0", "satisfied": false },
+
+    { "requirement": "=1.2.3", "version": "1.2.3", "satisfied": true },
+    { "requirement": "=1.2.3", "version": "1.2.4", "satisfied": false },
+    { "requirement": "=1.2", "version": "1.2.5", "satisfied": true, "note": "a partial = asks for 1.2.x, the same set as ~1.2" },
+    { "requirement": "=1.2", "version": "1.3.0", "satisfied": false },
+
+    { "requirement": "1.2", "version": "1.9.0", "satisfied": true, "note": "bare means caret" },
+    { "requirement": "1.2", "version": "2.0.0", "satisfied": false },
+
+    { "requirement": ">=1.4, <2", "version": "1.5.0", "satisfied": true },
+    { "requirement": ">=1.4, <2", "version": "1.3.0", "satisfied": false },
+    { "requirement": ">=1.4, <2", "version": "2.0.0", "satisfied": false },
+    { "requirement": ">=1.0, <2.0, <1.5", "version": "1.4.0", "satisfied": true },
+    { "requirement": ">=1.0, <2.0, <1.5", "version": "1.6.0", "satisfied": false },
+    { "requirement": ">=1.0.0, <=1.0.0", "version": "1.0.0", "satisfied": true },
+
+    { "requirement": "*", "version": "1.0.0", "satisfied": true },
+    { "requirement": "*", "version": "1.0.0-alpha", "satisfied": false, "note": "* accepts every RELEASE version; no bound names a prerelease" },
+    { "requirement": ">=1.2.0", "version": "1.3.0-beta.1", "satisfied": false, "note": "asking for >=1.2.0 is asking for released versions" },
+    { "requirement": "^1.2.0-alpha", "version": "1.2.0-beta", "satisfied": true, "note": "the lower bound names a prerelease of the same major.minor.patch" },
+    { "requirement": "^1.2.0-alpha", "version": "1.2.0-alpha", "satisfied": true },
+    { "requirement": "^1.2.0-alpha", "version": "1.2.0", "satisfied": true, "note": "a release is not gated at all" },
+    { "requirement": "^1.2.0-alpha", "version": "1.3.0-beta", "satisfied": false, "note": "in the interval, but the prerelease named is of a different version" },
+    { "requirement": ">=1.0.0-alpha, <2.0.0", "version": "1.0.0-beta", "satisfied": true },
+    { "requirement": "<2.0.0-beta", "version": "2.0.0-alpha", "satisfied": true, "note": "the UPPER bound can open the prerelease gate too" }
+  ],
+
+  "intersect": [
+    { "requirements": [], "satisfiable": true, "comparator": "*", "note": "nothing constrains nothing" },
+    { "requirements": ["*", "^1.0"], "satisfiable": true, "comparator": ">=1.0.0, <2.0.0" },
+    { "requirements": ["^1.0", "^1.5"], "satisfiable": true, "comparator": ">=1.5.0, <2.0.0" },
+    { "requirements": ["=1.2.3", "^1.0"], "satisfiable": true, "comparator": "=1.2.3", "note": "equal inclusive bounds render as =" },
+    { "requirements": [">=1.0.0", "<1.5.0"], "satisfiable": true, "comparator": ">=1.0.0, <1.5.0", "note": "neither operand survives whole, so the interval is rendered" },
+    { "requirements": ["^1.0", "^2.0"], "satisfiable": false },
+    { "requirements": [">=1.0.0", "<1.0.0"], "satisfiable": false }
+  ]
+}

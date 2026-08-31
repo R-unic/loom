@@ -125,7 +125,7 @@ public class ConfigReaderTest
             runit = { version = "^0.4", dev = true }
 
             [registry]
-            index = "https://loom-lang.github.io/index"
+            index = "https://rbx-loom.github.io/index"
             """
         );
 
@@ -152,7 +152,7 @@ public class ConfigReaderTest
         Assert.True(runit.IsDevelopmentOnly);
 
         Assert.NotNull(config.Registry);
-        Assert.Equal("https://loom-lang.github.io/index", config.Registry.Index);
+        Assert.Equal("https://rbx-loom.github.io/index", config.Registry.Index);
     }
 
     [Fact]

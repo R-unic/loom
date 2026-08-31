@@ -61,10 +61,17 @@ public static class LockResolver
                 if (chosen.TryGetValue(package, out var current) && requirement.Satisfies(current.Version))
                     continue;
 
-                var publication = Choose(package, requirement, index, preferred);
+                var publications = index.Publications(package, out var indexDiagnostics);
+                if (indexDiagnostics.Count > 0)
+                {
+                    reported.AddRange(indexDiagnostics);
+                    return null;
+                }
+
+                var publication = Choose(publications, requirement, preferred?.Find(package)?.Version);
                 if (publication == null)
                 {
-                    reported.Add(Unsatisfiable(package, requirement, requests, index));
+                    reported.Add(Unsatisfiable(package, requirement, requests, index, publications));
                     return null;
                 }
 
@@ -120,10 +127,20 @@ public static class LockResolver
     ///     version inside the requirement. Newest, because a requirement is a statement about what a dependent can
     ///     live with, and the answer it would pick for itself is the latest of those.
     /// </summary>
-    private static PublishedPackage? Choose(PackageName package, VersionRequirement requirement, IPackageIndex index, LockFile? preferred)
+    /// <remarks>
+    ///     <paramref name="publications" /> is taken newest last, as <see cref="IPackageIndex.Publications" />
+    ///     promises, and the newest match is read off the end rather than searched for — an index answering in any
+    ///     other order silently resolves to an older version, so one that cannot sort itself must be sorted on
+    ///     receipt.
+    ///     <para>
+    ///         A yanked version is passed over here and nowhere else: the version already locked is kept whether it
+    ///         has since been yanked or not, and <see cref="PackageInstaller" /> installs what the lock pins without
+    ///         asking. A yank withdraws a version from being taken up, and a build already on it is precisely what
+    ///         it is not trying to break.
+    ///     </para>
+    /// </remarks>
+    private static PublishedPackage? Choose(IReadOnlyList<PublishedPackage> publications, VersionRequirement requirement, Version? locked)
     {
-        var publications = index.Publications(package);
-        var locked = preferred?.Find(package)?.Version;
         if (locked != null && requirement.Satisfies(locked))
         {
             var kept = publications.FirstOrDefault(publication => publication.Version.Equals(locked));
@@ -131,18 +148,23 @@ public static class LockResolver
                 return kept;
         }
 
-        return publications.LastOrDefault(publication => requirement.Satisfies(publication.Version));
+        return publications.LastOrDefault(publication => !publication.Yanked && requirement.Satisfies(publication.Version));
     }
 
     private static ConfigDiagnostic Conflict(PackageName package, List<Request> requests) =>
         new($"no version of '{package}' satisfies every requirement on it: {Describe(requests)}.");
 
-    private static ConfigDiagnostic Unsatisfiable(PackageName package, VersionRequirement requirement, List<Request> requests, IPackageIndex index)
+    private static ConfigDiagnostic Unsatisfiable(
+        PackageName package,
+        VersionRequirement requirement,
+        List<Request> requests,
+        IPackageIndex index,
+        IReadOnlyList<PublishedPackage> publications
+    )
     {
-        var publications = index.Publications(package);
         var published = publications.Count == 0
             ? $"'{package}' is not published in '{index.Description}'"
-            : $"'{index.Description}' publishes {string.Join(", ", publications.Select(publication => publication.Version))}";
+            : $"'{index.Description}' publishes {PublishedPackage.Describe(publications)}";
 
         return new ConfigDiagnostic($"no published version of '{package}' satisfies '{requirement.ToComparatorString()}' ({Describe(requests)}); {published}.");
     }

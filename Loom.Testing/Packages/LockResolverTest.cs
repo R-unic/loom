@@ -104,6 +104,58 @@ public class LockResolverTest
     }
 
     [Fact]
+    public void Passes_OverAYankedVersion_AndTakesTheNewestLeft()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0").Publish("math", "1.4.2").Publish("math", "1.5.0");
+        var project = fixture.WriteProject("math = \"^1.0\"");
+        var index = new YankingPackageIndex(fixture.IndexDirectory, "math@1.5.0");
+
+        var resolved = LockResolver.Resolve(project, index, null, out var diagnostics);
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(Version.Parse("1.4.2"), resolved!.Find(PackageName.Parse("math"))!.Version);
+    }
+
+    /// <remarks>
+    ///     The asymmetry a yank is made of. Withdrawing a version is aimed at the projects that have not taken it up
+    ///     yet; a lock already pinning it keeps it, and re-resolving for some unrelated reason is not the moment to
+    ///     move a build off a version it is happily on.
+    /// </remarks>
+    [Fact]
+    public void Keeps_AYankedVersion_ALockAlreadyPins()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0").Publish("math", "1.5.0");
+        var project = fixture.WriteProject("math = \"^1.0\"");
+        var index = new YankingPackageIndex(fixture.IndexDirectory, "math@1.5.0");
+        var pinned = LockResolver.Resolve(project, new LocalPackageIndex(fixture.IndexDirectory), null, out _);
+        Assert.Equal(Version.Parse("1.5.0"), pinned!.Find(PackageName.Parse("math"))!.Version);
+
+        var resolved = LockResolver.Resolve(project, index, pinned, out var diagnostics);
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(Version.Parse("1.5.0"), resolved!.Find(PackageName.Parse("math"))!.Version);
+    }
+
+    /// <remarks>
+    ///     A version passed over is still named in the failure, marked: a list holding 1.5.0 beside "nothing
+    ///     satisfies '^1.0'" reads as a broken resolver unless it says why 1.5.0 was not the answer.
+    /// </remarks>
+    [Fact]
+    public void Reports_AYankedVersion_AsPublishedAndWithdrawn()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.5.0");
+        var project = fixture.WriteProject("math = \"^1.0\"");
+        var index = new YankingPackageIndex(fixture.IndexDirectory, "math@1.5.0");
+
+        var resolved = LockResolver.Resolve(project, index, null, out var diagnostics);
+
+        Assert.Null(resolved);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Contains("no published version of 'math' satisfies '>=1.0.0, <2.0.0'", diagnostic.Message);
+        Assert.Contains("publishes 1.5.0 (yanked)", diagnostic.Message);
+    }
+
+    [Fact]
     public void Reports_APackageTheIndexDoesNotPublish()
     {
         using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
@@ -112,6 +164,25 @@ public class LockResolverTest
 
         Assert.Null(resolved);
         Assert.Contains("'serio' is not published in", Assert.Single(diagnostics).Message);
+    }
+
+    /// <remarks>
+    ///     The distinction the index's failure channel exists for: empty means <em>no such package</em>, and an index
+    ///     that could not say publishes nothing of the sort. Reading the second as the first sends somebody whose
+    ///     network is down looking for a package that is published.
+    /// </remarks>
+    [Fact]
+    public void Reports_AnIndexThatCouldNotAnswer_AgainstTheIndexRatherThanThePackage()
+    {
+        using var fixture = new PackageIndexFixture();
+        var project = fixture.WriteProject("serio = \"^1.0\"");
+
+        var resolved = LockResolver.Resolve(project, new UnreachablePackageIndex(), null, out var diagnostics);
+
+        Assert.Null(resolved);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal(UnreachablePackageIndex.Reason, diagnostic.Message);
+        Assert.DoesNotContain("not published", diagnostic.Message);
     }
 
     /// <remarks>

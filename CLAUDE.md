@@ -102,7 +102,12 @@ before claiming done.
   is written from the first: an index is as legitimately a directory — vendored, or a test's fixtures — as it is a URL, so neither asks for a URL
 - `Loom.Packages/` — the package manager: the tool side of the line the compiler draws. `IPackageIndex` is all resolution needs from the outside world
   (what is published, and how to install it), so `LocalPackageIndex` — a directory of `<index>/<scope>/<name>/<version>`, each version a Loom project of
-  its own — is a whole offline registry and the fixture every test resolves against; a network index implements the same interface later.
+  its own — is a whole offline registry and the fixture every test resolves against; a network index implements the same interface later. Every member
+  reports through `ConfigDiagnostic`s rather than by throwing, `Publications` included: an empty result is the one answer meaning *no such package*, so an
+  index that could not say has to say so — a failure read as an empty result sends somebody whose network is down looking for a package that exists.
+  `PublishedPackage.Yanked` is the other thing only a registry can state, and its whole point is the asymmetry: `LockResolver.Choose` and `PackageAdder`
+  pass over a yanked version because both are choosing anew, while a version a lock already pins is kept and `PackageInstaller` installs it without asking
+  — a yank withdraws a version from being taken up, and a build already on it is precisely what it is not trying to break.
   `LockResolver` turns requirements plus an index into a `LockFile`: every requirement on a package intersects into the one interval a
   `VersionRequirement` already is, so combining dependents needs no search and the newest published version inside that interval is the answer. It
   deliberately does *not* backtrack — if the newest version one package allows leaves another unsatisfiable, that is reported as a conflict naming both
@@ -197,6 +202,11 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
   `ResolverTest`, `ParserTest`, `SerializationSchemaTest`, `CompilationUnitTest`, and `SourceRootTest` are already split this way, one file per region of
   cases (`TypeCheckerTest.Match.cs`, `ResolverTest.Destructuring.cs`, ...). A class small enough to read in one sitting stays as one file - splitting is
   for navigability once it isn't, not a rule to apply preemptively.
+- Conformance tests: `Loom.Testing/Conformance/semver.json` and `package-name.json` are checked in here *and* in `rbx-loom/loom-pm`, and both test suites
+  execute them — Loom's requirements are not ordinary semver (one interval and no `||`, unsatisfiable is a parse error, a pre-release needs a bound naming
+  one of the same release), so no off-the-shelf library agrees with either side and only each other keeps the registry and the compiler honest. C# is the
+  reference implementation: when the two disagree C# is right, unless the disagreement is a bug here — in which case fix it here and add the case. Grow the
+  files from bugs; a change to either copy belongs in both repositories.
 
 ## Conventions
 

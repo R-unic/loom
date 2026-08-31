@@ -1,0 +1,49 @@
+{
+  "_comment": [
+    "Shared package-name conformance corpus for rbx-loom/loom (Loom.Config.PackageName)",
+    "and rbx-loom/loom-pm (internal/pkgname). Both repositories check this file in and",
+    "both test suites execute it; the C# side is the reference implementation.",
+    "",
+    "Normalisation and squat keys are registry concepts with no C# counterpart, so they",
+    "are tested in Go only and deliberately absent here."
+  ],
+
+  "parse": [
+    { "text": "math", "valid": true, "scope": "", "name": "math" },
+    { "text": "scope/math", "valid": true, "scope": "scope", "name": "math" },
+    { "text": "a", "valid": true, "scope": "", "name": "a" },
+    { "text": "Math", "valid": true, "scope": "", "name": "Math", "note": "casing is preserved; only comparison ignores it" },
+    { "text": "math-2", "valid": true, "scope": "", "name": "math-2" },
+    { "text": "math_2", "valid": true, "scope": "", "name": "math_2" },
+    { "text": "scope/Math-2_x", "valid": true, "scope": "scope", "name": "Math-2_x" },
+    {
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": true, "scope": "", "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "note": "64 characters is the limit, and is allowed"
+    },
+
+    { "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "valid": false, "note": "65 characters" },
+    { "text": "", "valid": false },
+    { "text": "   ", "valid": false },
+    { "text": " math", "valid": false, "note": "a name is not trimmed, and a space is not a letter" },
+    { "text": "1math", "valid": false, "note": "must start with a letter" },
+    { "text": "-math", "valid": false },
+    { "text": "_math", "valid": false },
+    { "text": "ma th", "valid": false },
+    { "text": "ma.th", "valid": false, "note": "a name doubles as a path segment; '.' is not in the charset" },
+    { "text": "ma/th/x", "valid": false, "note": "at most one '/', separating scope from name" },
+    { "text": "/math", "valid": false, "note": "empty scope" },
+    { "text": "math/", "valid": false, "note": "empty name" },
+    { "text": "1scope/math", "valid": false, "note": "the scope is validated the same way as the name" }
+  ],
+
+  "compare": [
+    { "left": "Math", "right": "math", "ordering": 0, "note": "comparison is case-insensitive" },
+    { "left": "scope/math", "right": "SCOPE/MATH", "ordering": 0 },
+    { "left": "math", "right": "scope/math", "ordering": -1, "note": "every unscoped name sorts before every scoped one" },
+    { "left": "math", "right": "other", "ordering": -1 },
+    { "left": "a/x", "right": "b/x", "ordering": -1 },
+    { "left": "scope/a", "right": "scope/b", "ordering": -1 },
+    { "left": "scope/math", "right": "scope/math", "ordering": 0 }
+  ]
+}

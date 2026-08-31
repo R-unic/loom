@@ -29,7 +29,14 @@ public static class PackageInstaller
             if (IsInstalled(directory, locked))
                 continue;
 
-            var publication = index.Publications(locked.Name).FirstOrDefault(candidate => candidate.Version.Equals(locked.Version));
+            var publications = index.Publications(locked.Name, out var indexDiagnostics);
+            if (indexDiagnostics.Count > 0)
+            {
+                reported.AddRange(indexDiagnostics);
+                continue;
+            }
+
+            var publication = publications.FirstOrDefault(candidate => candidate.Version.Equals(locked.Version));
             if (publication == null)
             {
                 reported.Add(new ConfigDiagnostic($"'{locked.Name}' {locked.Version} is locked, but '{index.Description}' does not publish it."));

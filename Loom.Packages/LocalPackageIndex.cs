@@ -25,8 +25,14 @@ public sealed class LocalPackageIndex(string rootDirectory, string? source = nul
 
     public string Description => _root;
 
-    public IReadOnlyList<PublishedPackage> Publications(PackageName package)
+    /// <remarks>
+    ///     Nothing is ever reported through <paramref name="diagnostics" />: a directory that is not there is a
+    ///     package the index does not publish, and there is no state between asking and being answered for anything
+    ///     else to go wrong in.
+    /// </remarks>
+    public IReadOnlyList<PublishedPackage> Publications(PackageName package, out IReadOnlyList<ConfigDiagnostic> diagnostics)
     {
+        diagnostics = [];
         var directory = Path.Combine(_root, package.Scope ?? string.Empty, package.Name);
         if (!Directory.Exists(directory))
             return [];

@@ -89,7 +89,7 @@ public class PackagePublisherTest
         Assert.True(PackagePublisher.Publish(PackagePublisher.Prepare(library, out _)!, index, out var diagnostics));
 
         Assert.Empty(diagnostics);
-        var publication = Assert.Single(index.Publications(PackageName.Parse("math")));
+        var publication = Assert.Single(index.Publications(PackageName.Parse("math"), out _));
         Assert.Equal(Version.Parse("1.2.0"), publication.Version);
 
         var consumer = fixture.WriteProject("math = \"^1.0\"", "import { pi } from \"math\";\nlet x: number = pi;");
@@ -109,7 +109,7 @@ public class PackagePublisherTest
 
         Assert.True(PackagePublisher.Publish(PackagePublisher.Prepare(library, out _)!, index, out _));
 
-        var publication = Assert.Single(index.Publications(PackageName.Parse("geometry")));
+        var publication = Assert.Single(index.Publications(PackageName.Parse("geometry"), out _));
         var dependency = Assert.Single(publication.Dependencies);
         Assert.Equal(PackageName.Parse("math"), dependency.Name);
     }
@@ -126,6 +126,22 @@ public class PackagePublisherTest
         Assert.Contains("already published", Assert.Single(diagnostics).Message);
     }
 
+    /// <remarks>
+    ///     Whether the version is already taken is the question, and an index that could not say has not answered
+    ///     it — a version published over because the registry was unreachable is the one mistake a publish cannot
+    ///     take back.
+    /// </remarks>
+    [Fact]
+    public void CanPublish_RefusesWhenTheIndexCannotSayWhatItPublishes()
+    {
+        using var fixture = new PackageIndexFixture();
+        var payload = PackagePublisher.Prepare(fixture.WriteLibrary("math", "1.0.0"), out _);
+
+        Assert.False(PackagePublisher.CanPublish(payload!, new UnreachablePackageIndex(), out var diagnostics));
+
+        Assert.Equal(UnreachablePackageIndex.Reason, Assert.Single(diagnostics).Message);
+    }
+
     /// <remarks>A scoped package is published where its scope says it is, which is where it is read back from.</remarks>
     [Fact]
     public void Publish_PutsAScopedPackageUnderItsScope()
@@ -137,6 +153,6 @@ public class PackagePublisherTest
         Assert.True(PackagePublisher.Publish(PackagePublisher.Prepare(library, out _)!, index, out _));
 
         Assert.True(File.Exists(Path.Combine(fixture.IndexDirectory, "alternativelua", "tether", "0.3.1", ConfigReader.ConfigFileName)));
-        Assert.Single(index.Publications(PackageName.Parse("alternativelua/tether")));
+        Assert.Single(index.Publications(PackageName.Parse("alternativelua/tether"), out _));
     }
 }

@@ -16,7 +16,7 @@ public class LocalPackageIndexTest
     {
         using var fixture = new PackageIndexFixture().Publish("math", "1.10.0").Publish("math", "1.2.0").Publish("math", "1.0.0-beta.1");
 
-        var publications = Index(fixture).Publications(PackageName.Parse("math"));
+        var publications = Index(fixture).Publications(PackageName.Parse("math"), out _);
 
         Assert.Equal(["1.0.0-beta.1", "1.2.0", "1.10.0"], publications.Select(publication => publication.Version.ToString()));
     }
@@ -26,7 +26,7 @@ public class LocalPackageIndexTest
     {
         using var fixture = new PackageIndexFixture().Publish("geometry", "1.0.0", "math = \"^1.2\"\nrunit = { version = \"^0.4\", dev = true }");
 
-        var publication = Assert.Single(Index(fixture).Publications(PackageName.Parse("geometry")));
+        var publication = Assert.Single(Index(fixture).Publications(PackageName.Parse("geometry"), out _));
 
         // development-only requirements are no part of compiling the package for someone else
         var dependency = Assert.Single(publication.Dependencies);
@@ -39,14 +39,14 @@ public class LocalPackageIndexTest
     {
         using var fixture = new PackageIndexFixture().Publish("alternativelua/tether", "0.3.1");
 
-        var publication = Assert.Single(Index(fixture).Publications(PackageName.Parse("alternativelua/tether")));
+        var publication = Assert.Single(Index(fixture).Publications(PackageName.Parse("alternativelua/tether"), out _));
 
         Assert.Equal(Version.Parse("0.3.1"), publication.Version);
     }
 
     [Fact]
     public void Publications_OfAPackageTheIndexDoesNotHave_AreNone() =>
-        Assert.Empty(Index(new PackageIndexFixture()).Publications(PackageName.Parse("math")));
+        Assert.Empty(Index(new PackageIndexFixture()).Publications(PackageName.Parse("math"), out _));
 
     /// <remarks>An index may hold anything beside its versions, and a build has nothing to say about that.</remarks>
     [Fact]
@@ -55,7 +55,7 @@ public class LocalPackageIndexTest
         using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
         Directory.CreateDirectory(Path.Combine(fixture.IndexDirectory, "math", "docs"));
 
-        Assert.Single(Index(fixture).Publications(PackageName.Parse("math")));
+        Assert.Single(Index(fixture).Publications(PackageName.Parse("math"), out _));
     }
 
     /// <remarks>Which of the two a dependent asked for could not be said, so the version is not published at all.</remarks>
@@ -66,14 +66,14 @@ public class LocalPackageIndexTest
         var manifest = Path.Combine(fixture.IndexDirectory, "math", "1.0.0", ConfigReader.ConfigFileName);
         File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("version = \"1.0.0\"", "version = \"1.0.1\""));
 
-        Assert.Empty(Index(fixture).Publications(PackageName.Parse("math")));
+        Assert.Empty(Index(fixture).Publications(PackageName.Parse("math"), out _));
     }
 
     [Fact]
     public void Install_CopiesEveryFileOfTheVersion()
     {
         using var fixture = new PackageIndexFixture().Publish("math", "1.0.0", source: "export let pi = 3;");
-        var publication = Assert.Single(Index(fixture).Publications(PackageName.Parse("math")));
+        var publication = Assert.Single(Index(fixture).Publications(PackageName.Parse("math"), out _));
         var directory = Path.Combine(fixture.Root, "installed");
 
         Assert.True(Index(fixture).Install(publication, directory, out var diagnostics));
@@ -90,7 +90,7 @@ public class LocalPackageIndexTest
         using var fixture = new PackageIndexFixture().Publish("math", "1.0.0").Publish("math", "2.0.0");
         var index = Index(fixture);
         var directory = Path.Combine(fixture.Root, "installed");
-        var publications = index.Publications(PackageName.Parse("math"));
+        var publications = index.Publications(PackageName.Parse("math"), out _);
 
         Assert.True(index.Install(publications[0], directory, out _));
         File.WriteAllText(Path.Combine(directory, "src", "left-behind.loom"), "let x = 1;");
@@ -110,7 +110,7 @@ public class LocalPackageIndexTest
 
         Assert.Empty(diagnostics);
         Assert.NotNull(index);
-        Assert.Single(index.Publications(PackageName.Parse("math")));
+        Assert.Single(index.Publications(PackageName.Parse("math"), out _));
     }
 
     [Fact]

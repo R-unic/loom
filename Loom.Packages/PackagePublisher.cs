@@ -72,10 +72,18 @@ public static class PackagePublisher
     ///     is fit to publish: the answer does not depend on any of it, and a version that is spoken for is spoken for
     ///     however good the one being offered is.
     /// </summary>
+    /// <remarks>
+    ///     An index that cannot say what it publishes is a no as well. Whether the version is free is the question,
+    ///     and an unanswered one is not a yes — publishing over a version because the registry was unreachable is
+    ///     the failure this exists to prevent.
+    /// </remarks>
     public static bool CanPublish(PackagePayload payload, IPackageIndex index, out IReadOnlyList<ConfigDiagnostic> diagnostics)
     {
-        diagnostics = [];
-        if (!index.Publications(payload.Name).Any(publication => publication.Version.Equals(payload.Version)))
+        var publications = index.Publications(payload.Name, out diagnostics);
+        if (diagnostics.Count > 0)
+            return false;
+
+        if (!publications.Any(publication => publication.Version.Equals(payload.Version)))
             return true;
 
         diagnostics =
