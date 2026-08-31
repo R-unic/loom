@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
 using Loom.Config;
 using Loom.Core.Modules;
 using Loom.Core.Pipeline;
@@ -297,7 +298,7 @@ public sealed class DocumentStore
         {
             // a file appearing or vanishing rewires the module graph, and an incremental compile works from the
             // graph it built last time
-            var result = changes.MembershipChanged ? unit.Compile() : unit.Recompile(changes.Paths);
+            var result = RunOnLargeStack(() => changes.MembershipChanged ? unit.Compile() : unit.Recompile(changes.Paths));
             _results[unit] = result;
             RefreshStates(unit, result);
             return result;
@@ -331,7 +332,8 @@ public sealed class DocumentStore
     {
         try
         {
-            var result = unit.Recompile(dirty.ToDictionary(document => document.Path, document => document.Text));
+            var contents = dirty.ToDictionary(document => document.Path, document => document.Text);
+            var result = RunOnLargeStack(() => unit.Recompile(contents));
             _results[unit] = result;
 
             foreach (var document in dirty)
@@ -370,7 +372,7 @@ public sealed class DocumentStore
 
         try
         {
-            var result = unit.Recompile(new Dictionary<string, string> { [document.Path] = disk });
+            var result = RunOnLargeStack(() => unit.Recompile(new Dictionary<string, string> { [document.Path] = disk }));
             _results[unit] = result;
             RefreshStates(unit, result);
         }
@@ -406,9 +408,45 @@ public sealed class DocumentStore
 
         config.NoEmit = true;
         unit = CreateUnit(config);
-        _results[unit] = unit.Compile();
+        _results[unit] = RunOnLargeStack(unit.Compile);
         _unitsByProjectRoot[config.ProjectDirectory] = unit;
         return unit;
+    }
+
+    /// <summary>
+    ///     Runs a compile on a thread with a much larger stack than the default. Every stage after parsing is a
+    ///     recursive visitor that descends once per level of nesting a file's syntax has, and a plausible file -
+    ///     a few thousand terms into one chained expression, which generated or pasted code reaches easily -
+    ///     overflows the default ~1MB stack. That throws <see cref="StackOverflowException" />, which nothing
+    ///     can catch: it takes the whole server down rather than just failing this one compile, and reopening
+    ///     the same file crashes it again. A larger stack does not remove the limit, it just moves it well past
+    ///     what a real file reaches - the visitors themselves would need to become iterative to remove it.
+    /// </summary>
+    private static T RunOnLargeStack<T>(Func<T> work)
+    {
+        var result = default(T);
+        ExceptionDispatchInfo? error = null;
+
+        var thread = new Thread(
+            () =>
+            {
+                try
+                {
+                    result = work();
+                }
+                catch (Exception exception)
+                {
+                    error = ExceptionDispatchInfo.Capture(exception);
+                }
+            },
+            maxStackSize: 64 * 1024 * 1024
+        ) { IsBackground = true };
+
+        thread.Start();
+        thread.Join();
+
+        error?.Throw();
+        return result!;
     }
 
     /// <summary>

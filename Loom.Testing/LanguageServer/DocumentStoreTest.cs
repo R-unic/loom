@@ -79,6 +79,38 @@ public class DocumentStoreTest
         }
     }
 
+    /// <summary>
+    ///     Every stage after parsing is a recursive visitor that descends once per level of nesting, and a
+    ///     chain a few thousand terms long - well within what generated or pasted code reaches - overflowed the
+    ///     default ~1MB thread stack before compiles were moved onto a larger one. Unlike every other failure
+    ///     this store recovers from, a stack overflow cannot be caught: it takes the whole process down, so this
+    ///     is the one regression a passing test run is itself the proof against.
+    /// </summary>
+    [Fact]
+    public void Open_ADeeplyChainedExpression_CompilesWithoutOverflowingTheStack()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());
+        Directory.CreateDirectory(Path.Combine(directory, "src"));
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            var path = Path.Combine(directory, "src", "main.loom");
+            var chain = string.Join(" + ", Enumerable.Range(1, 5000));
+            var text = $"let x = {chain};";
+            File.WriteAllText(path, text);
+
+            var store = new DocumentStore();
+            var result = store.Open(DocumentUri.FromFileSystemPath(path), text);
+
+            Assert.NotNull(result);
+            Utility.AssertNoErrors(result);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
     /// <summary>A project with one package installed the way a package manager leaves it, optionally locked.</summary>
     private static string WritePackagedProject(bool writeLock)
     {
