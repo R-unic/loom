@@ -96,6 +96,30 @@ public class LanguageServerConversionTest
     }
 
     [Fact]
+    public void ToDiagnostic_TagsUnusedDeclarationsAsUnnecessary()
+    {
+        var diagnostics = Utility.GetSemanticModel(
+            """
+            trait Comparable { fn compare(other: Self): number; }
+
+            fn compute<U>(x: number, y: number): number {
+              let total = x * 2;
+              return x;
+            }
+            """
+        ).Diagnostics;
+
+        foreach (var code in new[]
+                 {
+                     InternalCodes.UnusedTrait, InternalCodes.UnusedTypeParameter, InternalCodes.UnusedParameter, InternalCodes.UnusedVariable
+                 })
+        {
+            var diagnostic = Assert.Single(diagnostics.Set, d => d.Code == code);
+            Assert.Equal(DiagnosticTag.Unnecessary, Assert.Single(Conversion.ToDiagnostic(diagnostic).Tags!));
+        }
+    }
+
+    [Fact]
     public void ToDiagnostic_TagsADeprecatedMemberAsDeprecated()
     {
         var diagnostics = Utility.GetAnalysisDiagnostics(

@@ -18,7 +18,15 @@ namespace Loom.LanguageServer;
 public static class Conversion
 {
     /// <summary>Codes whose warning means the code it marks does nothing, which editors gray out rather than underline.</summary>
-    private static readonly HashSet<string> _unnecessaryCodes = [InternalCodes.UnreachableCode, InternalCodes.UnusedImport];
+    private static readonly HashSet<string> _unnecessaryCodes =
+    [
+        InternalCodes.UnreachableCode,
+        InternalCodes.UnusedImport,
+        InternalCodes.UnusedVariable,
+        InternalCodes.UnusedParameter,
+        InternalCodes.UnusedTypeParameter,
+        InternalCodes.UnusedTrait
+    ];
 
     public static Position ToPosition(LoomLocation location) => new(location.Line - 1, location.Character);
 
