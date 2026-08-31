@@ -974,6 +974,11 @@ declare interface EnumAnimationNodeTransitionType {
 	DeadBlend: EnumItem<"AnimationNodeTransitionType">;
 }
 
+declare interface EnumAnimationNodeTransitionWhen {
+	Finished: EnumItem<"AnimationNodeTransitionWhen">;
+	BeforeFinished: EnumItem<"AnimationNodeTransitionWhen">;
+}
+
 declare interface EnumAnimationNodeType {
 	InvalidNode: EnumItem<"AnimationNodeType">;
 	AddNode: EnumItem<"AnimationNodeType">;
@@ -1769,7 +1774,7 @@ declare interface EnumCollisionFidelity {
 	Hull: EnumItem<"CollisionFidelity">;
 	Box: EnumItem<"CollisionFidelity">;
 	PreciseConvexDecomposition: EnumItem<"CollisionFidelity">;
-	Scalable: EnumItem<"CollisionFidelity">;
+	Tunable: EnumItem<"CollisionFidelity">;
 }
 
 declare interface EnumCommandPermission {
@@ -2801,6 +2806,7 @@ declare interface EnumGenerateMomentTextResult {
 	Success: EnumItem<"GenerateMomentTextResult">;
 	Pending: EnumItem<"GenerateMomentTextResult">;
 	Failed: EnumItem<"GenerateMomentTextResult">;
+	Filtered: EnumItem<"GenerateMomentTextResult">;
 }
 
 declare interface EnumGenre {
@@ -3103,6 +3109,9 @@ declare interface EnumInstanceFileSyncStatus {
 	SyncedAsRoot: EnumItem<"InstanceFileSyncStatus">;
 	SyncedAsDescendant: EnumItem<"InstanceFileSyncStatus">;
 	AncestorErrored: EnumItem<"InstanceFileSyncStatus">;
+}
+
+declare interface EnumIntentReplicability {
 }
 
 declare interface EnumIntermediateMeshGenerationResult {
@@ -3894,6 +3903,20 @@ declare interface EnumPackagePermission {
 	UseView: EnumItem<"PackagePermission">;
 	Edit: EnumItem<"PackagePermission">;
 	Own: EnumItem<"PackagePermission">;
+}
+
+declare interface EnumPageMilestoneType {
+	Interactive: EnumItem<"PageMilestoneType">;
+	SurfaceMounted: EnumItem<"PageMilestoneType">;
+	FunctionallyReady: EnumItem<"PageMilestoneType">;
+	SurfaceReady: EnumItem<"PageMilestoneType">;
+}
+
+declare interface EnumPageType {
+	AvatarEditor: EnumItem<"PageType">;
+	Party: EnumItem<"PageType">;
+	ExperienceDetail: EnumItem<"PageType">;
+	AvatarMarketplace: EnumItem<"PageType">;
 }
 
 declare interface EnumPartType {
@@ -4720,6 +4743,12 @@ declare interface EnumScreenshotCaptureResult {
 	NoSpaceOnDevice: EnumItem<"ScreenshotCaptureResult">;
 }
 
+declare interface EnumScriptScannerUpdateType {
+	Init: EnumItem<"ScriptScannerUpdateType">;
+	Added: EnumItem<"ScriptScannerUpdateType">;
+	Removed: EnumItem<"ScriptScannerUpdateType">;
+}
+
 declare interface EnumScriptStoppedReason {
 	Breakpoint: EnumItem<"ScriptStoppedReason">;
 	Exception: EnumItem<"ScriptStoppedReason">;
@@ -4960,6 +4989,12 @@ declare interface EnumStateObjectFieldType {
 	Vector2: EnumItem<"StateObjectFieldType">;
 	Vector3: EnumItem<"StateObjectFieldType">;
 	INVALID: EnumItem<"StateObjectFieldType">;
+}
+
+declare interface EnumStateReferenceFrame {
+	CurrentState: EnumItem<"StateReferenceFrame">;
+	PreviousState: EnumItem<"StateReferenceFrame">;
+	LastObservedState: EnumItem<"StateReferenceFrame">;
 }
 
 declare interface EnumStatus {
@@ -5323,9 +5358,6 @@ declare interface EnumSystemThemeValue {
 declare interface EnumTableMajorAxis {
 	RowMajor: EnumItem<"TableMajorAxis">;
 	ColumnMajor: EnumItem<"TableMajorAxis">;
-}
-
-declare interface EnumTagReplicability {
 }
 
 declare interface EnumTeamCreateErrorState {
@@ -6144,7 +6176,6 @@ declare interface EnumZIndexBehavior {
 	Global: EnumItem<"ZIndexBehavior">;
 	Sibling: EnumItem<"ZIndexBehavior">;
 }
-
 declare interface EnumStatic {
 	AccessModifierType: EnumAccessModifierType;
 	AccessoryType: EnumAccessoryType;
@@ -6180,6 +6211,7 @@ declare interface EnumStatic {
 	AnimationNodePhaseSync: EnumAnimationNodePhaseSync;
 	AnimationNodePlayMode: EnumAnimationNodePlayMode;
 	AnimationNodeTransitionType: EnumAnimationNodeTransitionType;
+	AnimationNodeTransitionWhen: EnumAnimationNodeTransitionWhen;
 	AnimationNodeType: EnumAnimationNodeType;
 	AnimationNodeWaitFor: EnumAnimationNodeWaitFor;
 	AnimationPriority: EnumAnimationPriority;
@@ -6428,6 +6460,7 @@ declare interface EnumStatic {
 	InputSink: EnumInputSink;
 	InputType: EnumInputType;
 	InstanceFileSyncStatus: EnumInstanceFileSyncStatus;
+	IntentReplicability: EnumIntentReplicability;
 	IntermediateMeshGenerationResult: EnumIntermediateMeshGenerationResult;
 	InternalVideoUsage: EnumInternalVideoUsage;
 	InterpolationThrottlingMode: EnumInterpolationThrottlingMode;
@@ -6495,6 +6528,8 @@ declare interface EnumStatic {
 	OutputLayoutMode: EnumOutputLayoutMode;
 	OverrideMouseIconBehavior: EnumOverrideMouseIconBehavior;
 	PackagePermission: EnumPackagePermission;
+	PageMilestoneType: EnumPageMilestoneType;
+	PageType: EnumPageType;
 	PartType: EnumPartType;
 	ParticleEmitterShape: EnumParticleEmitterShape;
 	ParticleEmitterShapeInOut: EnumParticleEmitterShapeInOut;
@@ -6602,6 +6637,7 @@ declare interface EnumStatic {
 	ScreenInsets: EnumScreenInsets;
 	ScreenOrientation: EnumScreenOrientation;
 	ScreenshotCaptureResult: EnumScreenshotCaptureResult;
+	ScriptScannerUpdateType: EnumScriptScannerUpdateType;
 	ScriptStoppedReason: EnumScriptStoppedReason;
 	ScriptVariableScope: EnumScriptVariableScope;
 	ScrollBarInset: EnumScrollBarInset;
@@ -6630,6 +6666,7 @@ declare interface EnumStatic {
 	SpecialKey: EnumSpecialKey;
 	StartCorner: EnumStartCorner;
 	StateObjectFieldType: EnumStateObjectFieldType;
+	StateReferenceFrame: EnumStateReferenceFrame;
 	Status: EnumStatus;
 	StepFrequency: EnumStepFrequency;
 	StreamOutBehavior: EnumStreamOutBehavior;
@@ -6658,7 +6695,6 @@ declare interface EnumStatic {
 	SwipeDirection: EnumSwipeDirection;
 	SystemThemeValue: EnumSystemThemeValue;
 	TableMajorAxis: EnumTableMajorAxis;
-	TagReplicability: EnumTagReplicability;
 	TeamCreateErrorState: EnumTeamCreateErrorState;
 	Technology: EnumTechnology;
 	TelemetryBackend: EnumTelemetryBackend;
@@ -6801,6 +6837,7 @@ declare interface Enum {
 	AnimationNodePhaseSync: EnumItem<"AnimationNodePhaseSync">;
 	AnimationNodePlayMode: EnumItem<"AnimationNodePlayMode">;
 	AnimationNodeTransitionType: EnumItem<"AnimationNodeTransitionType">;
+	AnimationNodeTransitionWhen: EnumItem<"AnimationNodeTransitionWhen">;
 	AnimationNodeType: EnumItem<"AnimationNodeType">;
 	AnimationNodeWaitFor: EnumItem<"AnimationNodeWaitFor">;
 	AnimationPriority: EnumItem<"AnimationPriority">;
@@ -7049,6 +7086,7 @@ declare interface Enum {
 	InputSink: EnumItem<"InputSink">;
 	InputType: EnumItem<"InputType">;
 	InstanceFileSyncStatus: EnumItem<"InstanceFileSyncStatus">;
+	IntentReplicability: EnumItem<"IntentReplicability">;
 	IntermediateMeshGenerationResult: EnumItem<"IntermediateMeshGenerationResult">;
 	InternalVideoUsage: EnumItem<"InternalVideoUsage">;
 	InterpolationThrottlingMode: EnumItem<"InterpolationThrottlingMode">;
@@ -7116,6 +7154,8 @@ declare interface Enum {
 	OutputLayoutMode: EnumItem<"OutputLayoutMode">;
 	OverrideMouseIconBehavior: EnumItem<"OverrideMouseIconBehavior">;
 	PackagePermission: EnumItem<"PackagePermission">;
+	PageMilestoneType: EnumItem<"PageMilestoneType">;
+	PageType: EnumItem<"PageType">;
 	PartType: EnumItem<"PartType">;
 	ParticleEmitterShape: EnumItem<"ParticleEmitterShape">;
 	ParticleEmitterShapeInOut: EnumItem<"ParticleEmitterShapeInOut">;
@@ -7223,6 +7263,7 @@ declare interface Enum {
 	ScreenInsets: EnumItem<"ScreenInsets">;
 	ScreenOrientation: EnumItem<"ScreenOrientation">;
 	ScreenshotCaptureResult: EnumItem<"ScreenshotCaptureResult">;
+	ScriptScannerUpdateType: EnumItem<"ScriptScannerUpdateType">;
 	ScriptStoppedReason: EnumItem<"ScriptStoppedReason">;
 	ScriptVariableScope: EnumItem<"ScriptVariableScope">;
 	ScrollBarInset: EnumItem<"ScrollBarInset">;
@@ -7251,6 +7292,7 @@ declare interface Enum {
 	SpecialKey: EnumItem<"SpecialKey">;
 	StartCorner: EnumItem<"StartCorner">;
 	StateObjectFieldType: EnumItem<"StateObjectFieldType">;
+	StateReferenceFrame: EnumItem<"StateReferenceFrame">;
 	Status: EnumItem<"Status">;
 	StepFrequency: EnumItem<"StepFrequency">;
 	StreamOutBehavior: EnumItem<"StreamOutBehavior">;
@@ -7279,7 +7321,6 @@ declare interface Enum {
 	SwipeDirection: EnumItem<"SwipeDirection">;
 	SystemThemeValue: EnumItem<"SystemThemeValue">;
 	TableMajorAxis: EnumItem<"TableMajorAxis">;
-	TagReplicability: EnumItem<"TagReplicability">;
 	TeamCreateErrorState: EnumItem<"TeamCreateErrorState">;
 	Technology: EnumItem<"Technology">;
 	TelemetryBackend: EnumItem<"TelemetryBackend">;
@@ -7386,6 +7427,7 @@ declare interface Enum {
 	WrapTargetDebugMode: EnumItem<"WrapTargetDebugMode">;
 	ZIndexBehavior: EnumItem<"ZIndexBehavior">;
 }
+
 declare let Enum: EnumStatic;
 ## Generated Roblox instance classes
 
@@ -7819,6 +7861,16 @@ declare interface AnimationNodeDefinition: Instance {
 	_is_creatable: true;
 	[luau_name("NodeType")]
 	mut node_type: Enum["AnimationNodeType"];
+	[luau_name("AddInputPin"), luau_method]
+	add_input_pin: fn(pin: string): void;
+	[luau_name("GetOrderedInputPinNames"), luau_method]
+	get_ordered_input_pin_names: fn: unknown[];
+	[luau_name("RemoveInputPin"), luau_method]
+	remove_input_pin: fn(pin: string): void;
+	[luau_name("SetOrderedInputPinNames"), luau_method]
+	set_ordered_input_pin_names: fn(pins: unknown[]): void;
+	[luau_name("InputPinsChanged")]
+	event input_pins_changed;
 }
 
 declare interface AnimationRigData: Instance {
@@ -7977,6 +8029,8 @@ declare interface AssetService: Instance {
 	create_asset_version_async: async fn(object: Object, assetType: Enum["AssetType"], assetId: number, requestParameters: UnknownRecord?): Result<unknown, RobloxError>;
 	[luau_name("CreateDataModelContentAsync"), luau_method, wraps_errors]
 	create_data_model_content_async: async fn(content: Content, options: UnknownRecord?): Result<unknown, RobloxError>;
+	[luau_name("CreateDecalAsync"), luau_method, wraps_errors]
+	create_decal_async: async fn(content: UnknownRecord): Result<Decal, RobloxError>;
 	[luau_name("CreateEditableImageAsync"), luau_method, wraps_errors]
 	create_editable_image_async: async fn(content: Content, editableImageOptions: UnknownRecord?): Result<EditableImage, RobloxError>;
 	[luau_name("CreateEditableMeshAsync"), luau_method, wraps_errors]
@@ -7989,6 +8043,8 @@ declare interface AssetService: Instance {
 	create_place_in_player_inventory_async: async fn(player: Player, placeName: string, templatePlaceID: number, description: string): Result<number, RobloxError>;
 	[luau_name("CreateSurfaceAppearanceAsync"), luau_method, wraps_errors]
 	create_surface_appearance_async: async fn(content: UnknownRecord): Result<SurfaceAppearance, RobloxError>;
+	[luau_name("CreateTextureAsync"), luau_method, wraps_errors]
+	create_texture_async: async fn(content: UnknownRecord): Result<Texture, RobloxError>;
 	[luau_name("GetAssetIdsForPackage"), luau_method, deprecated, wraps_errors]
 	get_asset_ids_for_package: async fn(packageAssetId: number): Result<unknown[], RobloxError>;
 	[luau_name("GetAssetIdsForPackageAsync"), luau_method, wraps_errors]
@@ -9332,6 +9388,8 @@ declare interface BindableFunction: Instance {
 	_is_creatable: true;
 	[luau_name("Invoke"), luau_method, wraps_errors]
 	invoke: async fn(..arguments: unknown[]): Result<unknown, RobloxError>;
+	[luau_name("OnInvoke")]
+	mut on_invoke: fn(..arguments: unknown[]): unknown;
 }
 
 declare interface BodyMover: Instance;
@@ -9449,6 +9507,10 @@ declare interface BodyPartDescription: Instance {
 	mut head_shape: string;
 	[luau_name("Instance")]
 	mut instance: Instance?;
+}
+
+declare interface BranchService: Instance {
+	_is_service: true;
 }
 
 declare interface Breakpoint: Instance {
@@ -10954,6 +11016,12 @@ declare interface Decal: FaceInstance {
 	mut color_map: string;
 	[luau_name("ColorMapContent")]
 	mut color_map_content: Content;
+	[luau_name("EmissiveMaskContent")]
+	mut emissive_mask_content: Content;
+	[luau_name("EmissiveStrength")]
+	mut emissive_strength: number;
+	[luau_name("EmissiveTint")]
+	mut emissive_tint: Color3;
 	[luau_name("MetalnessMapContent")]
 	mut metalness_map_content: Content;
 	[luau_name("NormalMapContent")]
@@ -11891,6 +11959,8 @@ declare interface AdGui: SurfaceGuiBase {
 	mut fallback_image_content: Content;
 	[luau_name("Status")]
 	status: Enum["AdUnitStatus"];
+	[luau_name("OnAdEvent")]
+	mut on_ad_event: fn(eventInfo: UnknownRecord): bool;
 }
 
 declare interface SurfaceGui: SurfaceGuiBase {
@@ -13089,6 +13159,10 @@ declare interface InstanceFileSyncService: Instance {
 	_is_service: true;
 }
 
+declare interface IntentService: Instance {
+	_is_service: true;
+}
+
 declare interface InternalMessagingService: Instance {
 	_is_service: true;
 }
@@ -13446,6 +13520,8 @@ declare interface LogService: Instance {
 	output: fn(message: string, context: UnknownRecord?): void;
 	[luau_name("Warn"), luau_method]
 	warn: fn(message: string, context: UnknownRecord?): void;
+	[luau_name("GetLogHistoryAsync"), luau_method, wraps_errors]
+	get_log_history_async: async fn(user: User): Result<unknown[], RobloxError>;
 	[luau_name("MessageOut")]
 	event message_out(message: string, messageType: Enum["MessageType"], context: UnknownRecord);
 }
@@ -13625,6 +13701,8 @@ declare interface MarketplaceService: Instance {
 	event prompt_roblox_subscription_purchase_finished(user: Player, didTryPurchasing: bool);
 	[luau_name("PromptSubscriptionPurchaseFinished")]
 	event prompt_subscription_purchase_finished(user: Player, subscriptionId: string, didTryPurchasing: bool);
+	[luau_name("ProcessReceipt")]
+	mut process_receipt: fn(receiptInfo: UnknownRecord): Enum["ProductPurchaseDecision"];
 }
 
 declare interface MatchmakingService: Instance {
@@ -14175,6 +14253,8 @@ declare interface Terrain: BasePart {
 declare interface TriangleMeshPart: BasePart {
 	[luau_name("CollisionFidelity")]
 	mut collision_fidelity: Enum["CollisionFidelity"];
+	[luau_name("CollisionPrecision")]
+	mut collision_precision: number;
 	[luau_name("FluidFidelity")]
 	mut fluid_fidelity: Enum["FluidFidelity"];
 	[luau_name("MeshSize")]
@@ -14912,6 +14992,8 @@ declare interface Player: Instance {
 	save_number: fn(key: string, value: number): void;
 	[luau_name("SaveString"), luau_method, deprecated]
 	save_string: fn(key: string, value: string): void;
+	[luau_name("GetFriendsInUniverseAsync"), luau_method, wraps_errors]
+	get_friends_in_universe_async: async fn: Result<unknown[], RobloxError>;
 	[luau_name("GetFriendsOnline"), luau_method, deprecated, wraps_errors]
 	get_friends_online: async fn(maxFriends: number?): Result<unknown[], RobloxError>;
 	[luau_name("GetFriendsOnlineAsync"), luau_method, wraps_errors]
@@ -14960,6 +15042,40 @@ declare interface Player: Instance {
 	event idled(time: number);
 	[luau_name("OnTeleport")]
 	event on_teleport(teleportState: Enum["TeleportState"], placeId: number, spawnName: string);
+}
+
+declare interface PlayerControlState: Instance {
+	_is_creatable: true;
+	[luau_name("Owner")]
+	mut owner: Player?;
+	[luau_name("AddBoolField"), luau_method]
+	add_bool_field: fn(name: string, defaultValue: bool?): void;
+	[luau_name("AddCFrameField"), luau_method]
+	add_c_frame_field: fn(name: string, defaultValue: CFrame?): void;
+	[luau_name("AddInstanceField"), luau_method]
+	add_instance_field: fn(name: string): void;
+	[luau_name("AddIntField"), luau_method]
+	add_int_field: fn(name: string, defaultValue: number?, min: number?, max: number?): void;
+	[luau_name("AddNumberField"), luau_method]
+	add_number_field: fn(name: string, defaultValue: number?, min: number?, max: number?): void;
+	[luau_name("AddUnitVector3Field"), luau_method]
+	add_unit_vector3_field: fn(name: string, defaultValue: Vector3?): void;
+	[luau_name("AddVector2Field"), luau_method]
+	add_vector2_field: fn(name: string, defaultValue: Vector2?, maxMagnitude: number?): void;
+	[luau_name("AddVector3Field"), luau_method]
+	add_vector3_field: fn(name: string, defaultValue: Vector3?, maxMagnitude: number?): void;
+	[luau_name("GetChangedState"), luau_method]
+	get_changed_state: fn(prev: Enum["StateReferenceFrame"]?, next: Enum["StateReferenceFrame"]?): UnknownRecord;
+	[luau_name("GetReplicationWeight"), luau_method]
+	get_replication_weight: fn: number;
+	[luau_name("GetState"), luau_method]
+	get_state: fn(ref: Enum["StateReferenceFrame"]?): UnknownRecord;
+	[luau_name("SetField"), luau_method]
+	set_field: fn(name: string, value: unknown): void;
+	[luau_name("UpdateFields"), luau_method]
+	update_fields: fn(state: UnknownRecord): void;
+	[luau_name("OnStateChanged")]
+	event on_state_changed;
 }
 
 declare interface PlayerData: Instance {
@@ -15373,6 +15489,8 @@ declare interface RealtimeMedia: Instance {
 	send_message: fn(message: string, binary: bool): bool;
 	[luau_name("ConnectAsync"), luau_method, wraps_errors]
 	connect_async: async fn(serverUrl: string, connectParams: UnknownRecord?): Result<bool, RobloxError>;
+	[luau_name("AudioInputRequested")]
+	event audio_input_requested;
 	[luau_name("OnMessage")]
 	event on_message(message: string, binary: bool);
 	[luau_name("WiringChanged")]
@@ -15439,12 +15557,10 @@ declare interface RemoteFunction: Instance {
 	invoke_client: async fn(player: Player, ..arguments: unknown[]): Result<unknown, RobloxError>;
 	[luau_name("InvokeServer"), luau_method, wraps_errors, client]
 	invoke_server: async fn(..arguments: unknown[]): Result<unknown, RobloxError>;
-	#: This callback is called when the RemoteFunction is invoked with RemoteFunction:InvokeServer(). :#
-	[luau_name("OnServerInvoke"), server]
-	mut on_server_invoke: fn(player: Player, ..arguments: unknown[]): unknown;
-	#: This callback is called when the RemoteFunction is invoked with RemoteFunction:InvokeClient(). :#
 	[luau_name("OnClientInvoke"), client]
 	mut on_client_invoke: fn(..arguments: unknown[]): unknown;
+	[luau_name("OnServerInvoke"), server]
+	mut on_server_invoke: fn(player: Player, ..arguments: unknown[]): unknown;
 }
 
 declare interface ReplicatedFirst: Instance {
@@ -15662,6 +15778,10 @@ declare interface ScriptRegistrationService: Instance {
 }
 
 declare interface ScriptRuntime: Instance;
+declare interface ScriptScannerService: Instance {
+	_is_service: true;
+}
+
 declare interface SelectionHighlightManager: Instance {
 	_is_service: true;
 }
@@ -15802,8 +15922,12 @@ declare interface DataModel: ServiceProvider {
 	event loaded;
 	[luau_name("ServerLifecycleChanged")]
 	event server_lifecycle_changed(serverLifecycleChangedEvent: UnknownRecord);
+	[luau_name("ServerLowMemoryWarning")]
+	event server_low_memory_warning;
 	[luau_name("ServerRestartScheduled")]
 	event server_restart_scheduled(restartTime: DateTime, source: Enum["CloseReason"], attributes: UnknownRecord);
+	[luau_name("OnClose")]
+	mut on_close: fn: unknown;
 }
 
 declare interface GenericSettings: ServiceProvider;
@@ -15961,6 +16085,8 @@ declare interface SocialService: Instance {
 	event phone_book_prompt_closed(player: Player);
 	[luau_name("ShareSheetClosed")]
 	event share_sheet_closed(player: Player);
+	[luau_name("OnCallInviteInvoked")]
+	mut on_call_invite_invoked: fn(tag: string, callParticipantIds: unknown[]): Instance;
 }
 
 declare interface Sound: Instance {
@@ -16266,6 +16392,14 @@ declare interface StarterPlayerScripts: Instance;
 declare interface StarterCharacterScripts: StarterPlayerScripts;
 declare interface StartupMessageService: Instance {
 	_is_service: true;
+}
+
+declare interface StateMachineDefinition: Instance {
+	_is_creatable: true;
+}
+
+declare interface StateMachineTransitionDefinition: Instance {
+	_is_creatable: true;
 }
 
 declare interface Stats: Instance {
@@ -16587,11 +16721,11 @@ declare interface TeleportService: Instance {
 	set_teleport_setting: fn(setting: string, value: unknown): void;
 	[luau_name("Teleport"), luau_method]
 	teleport: fn(placeId: number, player: Player?, teleportData: unknown, customLoadingScreen: Instance?): void;
-	[luau_name("TeleportToPlaceInstance"), luau_method]
+	[luau_name("TeleportToPlaceInstance"), luau_method, deprecated]
 	teleport_to_place_instance: fn(placeId: number, instanceId: string, player: Player?, spawnName: string, teleportData: unknown, customLoadingScreen: Instance?): void;
-	[luau_name("TeleportToPrivateServer"), luau_method]
+	[luau_name("TeleportToPrivateServer"), luau_method, deprecated]
 	teleport_to_private_server: fn(placeId: number, reservedServerAccessCode: string, players: Instance[], spawnName: string, teleportData: unknown, customLoadingScreen: Instance?): void;
-	[luau_name("TeleportToSpawnByName"), luau_method]
+	[luau_name("TeleportToSpawnByName"), luau_method, deprecated]
 	teleport_to_spawn_by_name: fn(placeId: number, spawnName: string, player: Player?, teleportData: unknown, customLoadingScreen: Instance?): void;
 	[luau_name("GetPlayerPlaceInstanceAsync"), luau_method, wraps_errors]
 	get_player_place_instance_async: async fn(userId: User): Result<unknown, RobloxError>;
@@ -16603,7 +16737,7 @@ declare interface TeleportService: Instance {
 	reserve_server_async: async fn(placeId: number): Result<unknown, RobloxError>;
 	[luau_name("TeleportAsync"), luau_method, wraps_errors]
 	teleport_async: async fn(placeId: number, players: Instance[], teleportOptions: TeleportOptions?): Result<Instance, RobloxError>;
-	[luau_name("TeleportPartyAsync"), luau_method, wraps_errors]
+	[luau_name("TeleportPartyAsync"), luau_method, deprecated, wraps_errors]
 	teleport_party_async: async fn(placeId: number, players: Instance[], teleportData: unknown, customLoadingScreen: Instance?): Result<string, RobloxError>;
 	[luau_name("LocalPlayerArrivedFromTeleport")]
 	event local_player_arrived_from_teleport(loadingGui: Instance, dataTable: unknown);
@@ -16674,6 +16808,10 @@ declare interface TextChannel: Instance {
 	send_async: async fn(message: string, metadata: string): Result<TextChatMessage, RobloxError>;
 	[luau_name("MessageReceived")]
 	event message_received(incomingMessage: TextChatMessage);
+	[luau_name("OnIncomingMessage")]
+	mut on_incoming_message: fn(message: TextChatMessage): unknown;
+	[luau_name("ShouldDeliverCallback")]
+	mut should_deliver_callback: fn(message: TextChatMessage, textSource: TextSource): unknown;
 }
 
 declare interface TextChatCommand: Instance {
@@ -16910,6 +17048,12 @@ declare interface TextChatService: Instance {
 	event message_received(textChatMessage: TextChatMessage);
 	[luau_name("SendingMessage")]
 	event sending_message(textChatMessage: TextChatMessage);
+	[luau_name("OnBubbleAdded")]
+	mut on_bubble_added: fn(message: TextChatMessage, adornee: Instance): unknown;
+	[luau_name("OnChatWindowAdded")]
+	mut on_chat_window_added: fn(message: TextChatMessage): unknown;
+	[luau_name("OnIncomingMessage")]
+	mut on_incoming_message: fn(message: TextChatMessage): unknown;
 }
 
 declare interface TextFilterResult: Instance {

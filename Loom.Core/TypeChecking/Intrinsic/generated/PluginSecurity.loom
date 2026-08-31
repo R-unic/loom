@@ -974,6 +974,11 @@ declare interface EnumAnimationNodeTransitionType {
 	DeadBlend: EnumItem<"AnimationNodeTransitionType">;
 }
 
+declare interface EnumAnimationNodeTransitionWhen {
+	Finished: EnumItem<"AnimationNodeTransitionWhen">;
+	BeforeFinished: EnumItem<"AnimationNodeTransitionWhen">;
+}
+
 declare interface EnumAnimationNodeType {
 	InvalidNode: EnumItem<"AnimationNodeType">;
 	AddNode: EnumItem<"AnimationNodeType">;
@@ -1769,7 +1774,7 @@ declare interface EnumCollisionFidelity {
 	Hull: EnumItem<"CollisionFidelity">;
 	Box: EnumItem<"CollisionFidelity">;
 	PreciseConvexDecomposition: EnumItem<"CollisionFidelity">;
-	Scalable: EnumItem<"CollisionFidelity">;
+	Tunable: EnumItem<"CollisionFidelity">;
 }
 
 declare interface EnumCommandPermission {
@@ -2801,6 +2806,7 @@ declare interface EnumGenerateMomentTextResult {
 	Success: EnumItem<"GenerateMomentTextResult">;
 	Pending: EnumItem<"GenerateMomentTextResult">;
 	Failed: EnumItem<"GenerateMomentTextResult">;
+	Filtered: EnumItem<"GenerateMomentTextResult">;
 }
 
 declare interface EnumGenre {
@@ -3103,6 +3109,9 @@ declare interface EnumInstanceFileSyncStatus {
 	SyncedAsRoot: EnumItem<"InstanceFileSyncStatus">;
 	SyncedAsDescendant: EnumItem<"InstanceFileSyncStatus">;
 	AncestorErrored: EnumItem<"InstanceFileSyncStatus">;
+}
+
+declare interface EnumIntentReplicability {
 }
 
 declare interface EnumIntermediateMeshGenerationResult {
@@ -3894,6 +3903,20 @@ declare interface EnumPackagePermission {
 	UseView: EnumItem<"PackagePermission">;
 	Edit: EnumItem<"PackagePermission">;
 	Own: EnumItem<"PackagePermission">;
+}
+
+declare interface EnumPageMilestoneType {
+	Interactive: EnumItem<"PageMilestoneType">;
+	SurfaceMounted: EnumItem<"PageMilestoneType">;
+	FunctionallyReady: EnumItem<"PageMilestoneType">;
+	SurfaceReady: EnumItem<"PageMilestoneType">;
+}
+
+declare interface EnumPageType {
+	AvatarEditor: EnumItem<"PageType">;
+	Party: EnumItem<"PageType">;
+	ExperienceDetail: EnumItem<"PageType">;
+	AvatarMarketplace: EnumItem<"PageType">;
 }
 
 declare interface EnumPartType {
@@ -4720,6 +4743,12 @@ declare interface EnumScreenshotCaptureResult {
 	NoSpaceOnDevice: EnumItem<"ScreenshotCaptureResult">;
 }
 
+declare interface EnumScriptScannerUpdateType {
+	Init: EnumItem<"ScriptScannerUpdateType">;
+	Added: EnumItem<"ScriptScannerUpdateType">;
+	Removed: EnumItem<"ScriptScannerUpdateType">;
+}
+
 declare interface EnumScriptStoppedReason {
 	Breakpoint: EnumItem<"ScriptStoppedReason">;
 	Exception: EnumItem<"ScriptStoppedReason">;
@@ -4960,6 +4989,12 @@ declare interface EnumStateObjectFieldType {
 	Vector2: EnumItem<"StateObjectFieldType">;
 	Vector3: EnumItem<"StateObjectFieldType">;
 	INVALID: EnumItem<"StateObjectFieldType">;
+}
+
+declare interface EnumStateReferenceFrame {
+	CurrentState: EnumItem<"StateReferenceFrame">;
+	PreviousState: EnumItem<"StateReferenceFrame">;
+	LastObservedState: EnumItem<"StateReferenceFrame">;
 }
 
 declare interface EnumStatus {
@@ -5323,9 +5358,6 @@ declare interface EnumSystemThemeValue {
 declare interface EnumTableMajorAxis {
 	RowMajor: EnumItem<"TableMajorAxis">;
 	ColumnMajor: EnumItem<"TableMajorAxis">;
-}
-
-declare interface EnumTagReplicability {
 }
 
 declare interface EnumTeamCreateErrorState {
@@ -6144,7 +6176,6 @@ declare interface EnumZIndexBehavior {
 	Global: EnumItem<"ZIndexBehavior">;
 	Sibling: EnumItem<"ZIndexBehavior">;
 }
-
 declare interface EnumStatic {
 	AccessModifierType: EnumAccessModifierType;
 	AccessoryType: EnumAccessoryType;
@@ -6180,6 +6211,7 @@ declare interface EnumStatic {
 	AnimationNodePhaseSync: EnumAnimationNodePhaseSync;
 	AnimationNodePlayMode: EnumAnimationNodePlayMode;
 	AnimationNodeTransitionType: EnumAnimationNodeTransitionType;
+	AnimationNodeTransitionWhen: EnumAnimationNodeTransitionWhen;
 	AnimationNodeType: EnumAnimationNodeType;
 	AnimationNodeWaitFor: EnumAnimationNodeWaitFor;
 	AnimationPriority: EnumAnimationPriority;
@@ -6428,6 +6460,7 @@ declare interface EnumStatic {
 	InputSink: EnumInputSink;
 	InputType: EnumInputType;
 	InstanceFileSyncStatus: EnumInstanceFileSyncStatus;
+	IntentReplicability: EnumIntentReplicability;
 	IntermediateMeshGenerationResult: EnumIntermediateMeshGenerationResult;
 	InternalVideoUsage: EnumInternalVideoUsage;
 	InterpolationThrottlingMode: EnumInterpolationThrottlingMode;
@@ -6495,6 +6528,8 @@ declare interface EnumStatic {
 	OutputLayoutMode: EnumOutputLayoutMode;
 	OverrideMouseIconBehavior: EnumOverrideMouseIconBehavior;
 	PackagePermission: EnumPackagePermission;
+	PageMilestoneType: EnumPageMilestoneType;
+	PageType: EnumPageType;
 	PartType: EnumPartType;
 	ParticleEmitterShape: EnumParticleEmitterShape;
 	ParticleEmitterShapeInOut: EnumParticleEmitterShapeInOut;
@@ -6602,6 +6637,7 @@ declare interface EnumStatic {
 	ScreenInsets: EnumScreenInsets;
 	ScreenOrientation: EnumScreenOrientation;
 	ScreenshotCaptureResult: EnumScreenshotCaptureResult;
+	ScriptScannerUpdateType: EnumScriptScannerUpdateType;
 	ScriptStoppedReason: EnumScriptStoppedReason;
 	ScriptVariableScope: EnumScriptVariableScope;
 	ScrollBarInset: EnumScrollBarInset;
@@ -6630,6 +6666,7 @@ declare interface EnumStatic {
 	SpecialKey: EnumSpecialKey;
 	StartCorner: EnumStartCorner;
 	StateObjectFieldType: EnumStateObjectFieldType;
+	StateReferenceFrame: EnumStateReferenceFrame;
 	Status: EnumStatus;
 	StepFrequency: EnumStepFrequency;
 	StreamOutBehavior: EnumStreamOutBehavior;
@@ -6658,7 +6695,6 @@ declare interface EnumStatic {
 	SwipeDirection: EnumSwipeDirection;
 	SystemThemeValue: EnumSystemThemeValue;
 	TableMajorAxis: EnumTableMajorAxis;
-	TagReplicability: EnumTagReplicability;
 	TeamCreateErrorState: EnumTeamCreateErrorState;
 	Technology: EnumTechnology;
 	TelemetryBackend: EnumTelemetryBackend;
@@ -6801,6 +6837,7 @@ declare interface Enum {
 	AnimationNodePhaseSync: EnumItem<"AnimationNodePhaseSync">;
 	AnimationNodePlayMode: EnumItem<"AnimationNodePlayMode">;
 	AnimationNodeTransitionType: EnumItem<"AnimationNodeTransitionType">;
+	AnimationNodeTransitionWhen: EnumItem<"AnimationNodeTransitionWhen">;
 	AnimationNodeType: EnumItem<"AnimationNodeType">;
 	AnimationNodeWaitFor: EnumItem<"AnimationNodeWaitFor">;
 	AnimationPriority: EnumItem<"AnimationPriority">;
@@ -7049,6 +7086,7 @@ declare interface Enum {
 	InputSink: EnumItem<"InputSink">;
 	InputType: EnumItem<"InputType">;
 	InstanceFileSyncStatus: EnumItem<"InstanceFileSyncStatus">;
+	IntentReplicability: EnumItem<"IntentReplicability">;
 	IntermediateMeshGenerationResult: EnumItem<"IntermediateMeshGenerationResult">;
 	InternalVideoUsage: EnumItem<"InternalVideoUsage">;
 	InterpolationThrottlingMode: EnumItem<"InterpolationThrottlingMode">;
@@ -7116,6 +7154,8 @@ declare interface Enum {
 	OutputLayoutMode: EnumItem<"OutputLayoutMode">;
 	OverrideMouseIconBehavior: EnumItem<"OverrideMouseIconBehavior">;
 	PackagePermission: EnumItem<"PackagePermission">;
+	PageMilestoneType: EnumItem<"PageMilestoneType">;
+	PageType: EnumItem<"PageType">;
 	PartType: EnumItem<"PartType">;
 	ParticleEmitterShape: EnumItem<"ParticleEmitterShape">;
 	ParticleEmitterShapeInOut: EnumItem<"ParticleEmitterShapeInOut">;
@@ -7223,6 +7263,7 @@ declare interface Enum {
 	ScreenInsets: EnumItem<"ScreenInsets">;
 	ScreenOrientation: EnumItem<"ScreenOrientation">;
 	ScreenshotCaptureResult: EnumItem<"ScreenshotCaptureResult">;
+	ScriptScannerUpdateType: EnumItem<"ScriptScannerUpdateType">;
 	ScriptStoppedReason: EnumItem<"ScriptStoppedReason">;
 	ScriptVariableScope: EnumItem<"ScriptVariableScope">;
 	ScrollBarInset: EnumItem<"ScrollBarInset">;
@@ -7251,6 +7292,7 @@ declare interface Enum {
 	SpecialKey: EnumItem<"SpecialKey">;
 	StartCorner: EnumItem<"StartCorner">;
 	StateObjectFieldType: EnumItem<"StateObjectFieldType">;
+	StateReferenceFrame: EnumItem<"StateReferenceFrame">;
 	Status: EnumItem<"Status">;
 	StepFrequency: EnumItem<"StepFrequency">;
 	StreamOutBehavior: EnumItem<"StreamOutBehavior">;
@@ -7279,7 +7321,6 @@ declare interface Enum {
 	SwipeDirection: EnumItem<"SwipeDirection">;
 	SystemThemeValue: EnumItem<"SystemThemeValue">;
 	TableMajorAxis: EnumItem<"TableMajorAxis">;
-	TagReplicability: EnumItem<"TagReplicability">;
 	TeamCreateErrorState: EnumItem<"TeamCreateErrorState">;
 	Technology: EnumItem<"Technology">;
 	TelemetryBackend: EnumItem<"TelemetryBackend">;
@@ -7386,6 +7427,7 @@ declare interface Enum {
 	WrapTargetDebugMode: EnumItem<"WrapTargetDebugMode">;
 	ZIndexBehavior: EnumItem<"ZIndexBehavior">;
 }
+
 declare let Enum: EnumStatic;
 ## Generated Roblox instance classes
 
@@ -9186,6 +9228,10 @@ declare interface Player: Instance {
 	set_super_safe_chat: fn(value: bool): void;
 }
 
+declare interface PlayerControlState: Instance {
+	_is_creatable: true;
+}
+
 declare interface PlayerData: Instance;
 declare interface PlayerDataRecord: Instance;
 declare interface PlayerDataRecordConfig: Instance;
@@ -9677,6 +9723,8 @@ declare interface ScriptDebuggerService: Instance {
 	set_exception_break_mode: fn(breakMode: Enum["DebugBreakModeType"]): void;
 	[luau_name("Resumed")]
 	event resumed(threadIds: unknown[]);
+	[luau_name("OnStopped")]
+	mut on_stopped: fn(stopped: UnknownRecord): UnknownRecord;
 }
 
 declare interface ScriptDocument: Instance {
@@ -9769,6 +9817,10 @@ declare interface ScriptProfilerService: Instance {
 }
 
 declare interface ScriptRegistrationService: Instance {
+	_is_service: true;
+}
+
+declare interface ScriptScannerService: Instance {
 	_is_service: true;
 }
 
@@ -9941,6 +9993,10 @@ declare interface StarterPlayer: Instance {
 
 declare interface StartupMessageService: Instance {
 	_is_service: true;
+}
+
+declare interface StateMachineDefinition: Instance {
+	_is_creatable: true;
 }
 
 declare interface Stats: Instance {
@@ -10290,6 +10346,12 @@ declare interface TestService: Instance {
 	scope_time: fn: UnknownRecord;
 	[luau_name("SetTestControl"), luau_method]
 	set_test_control: fn(providerName: string, controlName: string, value: unknown): void;
+	[luau_name("SignalProfilingCapture"), luau_method]
+	signal_profiling_capture: fn(target: string, options: UnknownRecord?): void;
+	[luau_name("SignalProfilingStart"), luau_method]
+	signal_profiling_start: fn(target: string, options: UnknownRecord?): void;
+	[luau_name("SignalProfilingStop"), luau_method]
+	signal_profiling_stop: fn(target: string): void;
 	[luau_name("StartTestSession"), luau_method]
 	start_test_session: fn: void;
 	[luau_name("StopTestSession"), luau_method]
@@ -10307,7 +10369,7 @@ declare interface TestService: Instance {
 	[luau_name("FetchTestControlsAsync"), luau_method, wraps_errors]
 	fetch_test_controls_async: async fn(category: string): Result<unknown, RobloxError>;
 	[luau_name("RequestValidationAsync"), luau_method, wraps_errors]
-	request_validation_async: async fn(artifactType: string, artifactName: string, timeoutSeconds: number?): Result<unknown, RobloxError>;
+	request_validation_async: async fn(module: string, artifactName: string, options: unknown): Result<unknown, RobloxError>;
 	[luau_name("Run"), luau_method, deprecated, wraps_errors]
 	run: async fn: Result<void, RobloxError>;
 	[luau_name("RunAsync"), luau_method, wraps_errors]
@@ -10623,7 +10685,6 @@ declare interface VoxelBuffer: Object;
 declare interface WebStreamClient: Object;
 declare let game: DataModel;
 declare let script: LuaSourceContainer;
-declare let plugin: Plugin;
 
 declare interface CreatableInstance: Instance { _is_creatable: true; }
 declare interface ServiceInstance: Instance { _is_service: true; }
@@ -10692,4 +10753,7 @@ interface TypeNameMap {
 [luau_name("typeof")]
 declare fn type_of(value: unknown): keyof(TypeNameMap);
 declare fn type_is<T: keyof(TypeNameMap)>(value: unknown, type_name: T): value is TypeNameMap[T];
+
+declare let plugin: Plugin;
+
 
