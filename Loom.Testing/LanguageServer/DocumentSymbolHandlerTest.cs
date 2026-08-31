@@ -45,6 +45,17 @@ public class DocumentSymbolHandlerTest
         Assert.Equal(SymbolKind.Method, members[1].Kind);
     }
 
+    /// <summary>An indexer has no name of its own, so the outline shows the syntax that declared it.</summary>
+    [Fact]
+    public async Task Handle_NestsAnIndexerUnderTheInterfaceAsAKeyEntry()
+    {
+        var member = Assert.Single(Assert.Single(await OutlineAsync("interface WithIndexer { [string]: number; }")).Children!);
+
+        Assert.Equal("[string]", member.Name);
+        Assert.Equal(": number", member.Detail);
+        Assert.Equal(SymbolKind.Key, member.Kind);
+    }
+
     [Fact]
     public async Task Handle_NestsEnumMembersUnderTheEnum()
     {

@@ -93,6 +93,109 @@ public class ModuleRenameTest
         );
 
     [Fact]
+    public void EditsFor_WithNoRenames_ReturnsNothing() => Assert.Empty(ModuleRenames.EditsFor([], []));
+
+    /// <remarks>A namespace import names a module the same way a regular import does, and moving the module has to rewrite it too.</remarks>
+    [Fact]
+    public void Rename_RewritesANamespaceImportsSpecifier() =>
+        WithFilesOnDisk(
+            [("ns.loom", "import * as m from \"./util/math\";\nlet four = m::double(2);")],
+            (store, directory) =>
+            {
+                var edits = ModuleRenames.EditsFor(
+                    store.Projects(),
+                    [new ModuleRename(Path.Combine(directory, "util", "math.loom"), Path.Combine(directory, "util", "arithmetic.loom"))]
+                );
+
+                var edit = Assert.Single(EditsOf(edits, Path.Combine(directory, "ns.loom")));
+                Assert.Equal("./util/arithmetic", edit.NewText);
+            }
+        );
+
+    /// <remarks>A re-export names a module the same way an import does, and moving the module has to rewrite it too.</remarks>
+    [Fact]
+    public void Rename_RewritesAReExportsSpecifier() =>
+        WithFilesOnDisk(
+            [("reexport.loom", "export { double } from \"./util/math\";")],
+            (store, directory) =>
+            {
+                var edits = ModuleRenames.EditsFor(
+                    store.Projects(),
+                    [new ModuleRename(Path.Combine(directory, "util", "math.loom"), Path.Combine(directory, "util", "arithmetic.loom"))]
+                );
+
+                var edit = Assert.Single(EditsOf(edits, Path.Combine(directory, "reexport.loom")));
+                Assert.Equal("./util/arithmetic", edit.NewText);
+            }
+        );
+
+    /// <remarks>
+    ///     A rename target too short to carry a module extension cannot name a specifier - the batch skips
+    ///     rewriting that file's imports instead of crashing every other edit along with it.
+    /// </remarks>
+    [Fact]
+    public async Task Rename_ToATargetTooShortToCarryAnExtension_SkipsRatherThanThrows() =>
+        await WithProjectAsync(
+            (store, directory) =>
+            {
+                var edits = ModuleRenames.EditsFor(
+                    store.Projects(),
+                    [new ModuleRename(Path.Combine(directory, "util", "math.loom"), Path.Combine(directory, "x"))]
+                );
+
+                Assert.Empty(EditsOf(edits, Path.Combine(directory, "main.loom")));
+            }
+        );
+
+    /// <remarks>
+    ///     A relative specifier written with characters a path cannot legally contain does not resolve, and
+    ///     resolving it must not crash the whole rename response.
+    /// </remarks>
+    [Fact]
+    public void Rename_WithASpecifierContainingIllegalPathCharacters_SkipsRatherThanThrows() =>
+        WithFilesOnDisk(
+            [("bad.loom", "import { x } from \"./<bad>\";")],
+            (store, directory) =>
+            {
+                var edits = ModuleRenames.EditsFor(
+                    store.Projects(),
+                    [new ModuleRename(Path.Combine(directory, "unused.loom"), Path.Combine(directory, "spare.loom"))]
+                );
+
+                Assert.Empty(EditsOf(edits, Path.Combine(directory, "bad.loom")));
+            }
+        );
+
+    /// <summary>Like <see cref="WithProjectAsync(System.Action{DocumentStore,string})" />, but with extra files already on disk before the unit is first built, so they are part of its roots from the start.</summary>
+    private static void WithFilesOnDisk(IReadOnlyList<(string Path, string Source)> extraFiles, Action<DocumentStore, string> act)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "loom-rename-test-" + Guid.NewGuid());
+        var sourceDirectory = Path.Combine(directory, "src");
+        Directory.CreateDirectory(Path.Combine(sourceDirectory, "util"));
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "loom-config.toml"), "[files]\nsource_directory = \"src\"\noutput_directory = \"dist\"\n");
+            File.WriteAllText(Path.Combine(sourceDirectory, "util", "math.loom"), "export fn double(n: number): number -> n * 2;");
+
+            foreach (var (path, source) in extraFiles)
+                File.WriteAllText(Path.Combine(sourceDirectory, path), source);
+
+            var mainPath = Path.Combine(sourceDirectory, "main.loom");
+            const string mainSource = "import { double } from \"./util/math\"\nlet four = double(2);";
+            File.WriteAllText(mainPath, mainSource);
+
+            var store = new DocumentStore();
+            store.Open(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri.FromFileSystemPath(mainPath), mainSource);
+
+            act(store, sourceDirectory);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public async Task Rename_OfAnUnrelatedFile_ChangesNothing() =>
         await WithProjectAsync(
             (store, directory) =>

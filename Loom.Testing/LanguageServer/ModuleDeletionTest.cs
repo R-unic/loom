@@ -101,6 +101,26 @@ public class ModuleDeletionTest
             }
         );
 
+    /// <summary>A dead connection is not this handler's problem to solve: an exception raised while warning the client must not fail the delete.</summary>
+    [Fact]
+    public async Task Handle_SwallowsAnExceptionRaisedWhileWarning() =>
+        await WithProjectAsync(
+            async (store, directory) =>
+            {
+                var handler = new WillDeleteFilesHandler(store, _ => throw new InvalidOperationException("connection is gone"));
+
+                var edit = await handler.Handle(
+                    new WillDeleteFileParams
+                    {
+                        Files = new Container<FileDelete>(new FileDelete { Uri = new Uri(DocumentUri.FromFileSystemPath(Path.Combine(directory, "util", "math.loom")).ToString()) })
+                    },
+                    TestContext.Current.CancellationToken
+                );
+
+                Assert.Null(edit);
+            }
+        );
+
     [Fact]
     public async Task Handle_SaysNothingWhenNothingWouldBreak() =>
         await WithProjectAsync(

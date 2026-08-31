@@ -30,6 +30,7 @@ public class PackagePublisherTest
             [ConfigReader.ConfigFileName, Path.Combine("src", "init.loom"), Path.Combine("src", "vector.loom"), "README.md"],
             payload.Files
         );
+        Assert.Equal("math 1.2.0 (4 files)", payload.ToString());
     }
 
     /// <remarks>

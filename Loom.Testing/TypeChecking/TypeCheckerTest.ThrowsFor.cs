@@ -828,6 +828,19 @@ public partial class TypeCheckerTest
             )
         );
 
+    /// <summary>GetEnumMemberOwner's ElementAccess arm - the bitwise-union special case has to recognize an enum operand reached through bracket indexing ('Flags["A"]'), not just '::'.</summary>
+    [Fact]
+    public void Checks_BitwiseOr_OnSameEnumMembers_ViaElementAccess_PreservesEnumType() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                enum Flags { A = 1 << 0, B = 1 << 1, C = 1 << 2 }
+                fn accept(flags: Flags): void { }
+                accept(Flags["A"] | Flags["B"])
+                """
+            )
+        );
+
     [Fact]
     public void ThrowsFor_BitwiseOr_OnDifferentEnums_WidensToNumber()
     {
@@ -967,6 +980,44 @@ public partial class TypeCheckerTest
         );
 
         Utility.AssertDiagnostic(diagnostics, InternalCodes.AssignToImmutable, "Cannot assign to immutable property 'prop'.");
+    }
+
+    /// <summary>A dotted assignment target whose receiver isn't a bare identifier (a call result here) parses as PropertyAccess rather than QualifiedName - CheckImmutableAssignmentTarget has to route through that arm too, not just QualifiedName's.</summary>
+    [Fact]
+    public void ThrowsFor_AssignToImmutable_ThroughPropertyAccess()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 { x: number, y: number }
+            fn make(): Vector2 -> new Vector2 { x: 0, y: 0 };
+            make().x = 5;
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.AssignToImmutable, "Cannot assign to immutable property 'x'.");
+    }
+
+    /// <summary>The assignment target's receiver ('n') isn't a NativelyIndexableType at all (a bare number), so CheckImmutableAssignmentTarget must bail out before ever walking a property chain.</summary>
+    [Fact]
+    public void ThrowsFor_PropertyAssignment_OnNonIndexableReceiver()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let n: number = 5; n.something = 5;");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidAccess, "Cannot access property 'something' on type 'number'.");
+    }
+
+    /// <summary>Unlike <see cref="ThrowsFor_AssignToImmutable_Nested_ObjectProperty" />, the intermediate step of the chain ('inner') isn't itself a NativelyIndexableType - CheckImmutableAssignmentTarget must bail out of the walk rather than assume every intermediate property is an object.</summary>
+    [Fact]
+    public void ThrowsFor_NestedPropertyAssignment_ThroughNonIndexableIntermediate()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Outer { inner: number }
+            let o: Outer = new Outer { inner: 5 };
+            o.inner.something = 5;
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidAccess, "Cannot access property 'something' on type 'number'.");
     }
 
     [Theory]
@@ -2010,6 +2061,89 @@ public partial class TypeCheckerTest
             "Interface 'Vector2' does not declare a static member 'one'."
         );
     }
+
+    [Fact]
+    public void ThrowsFor_StaticBlock_ExtraMethod()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Vector2 {
+                x: number
+                y: number
+                static zero: Vector2
+            }
+
+            static Vector2 {
+                zero = new Vector2 { x: 0, y: 0 };
+                fn extra() {}
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.StaticBlockExtraMember,
+            "Interface 'Vector2' does not declare a static member 'extra'."
+        );
+    }
+
+    /// <summary>A generic interface's own name with no defaulted parameters comes back as a bare GenericType rather than an InstantiatedType - ExpandBareGenericType fills the missing argument with 'unknown' so the static block body can still be checked.</summary>
+    [Fact]
+    public void ThrowsFor_StaticBlock_OnBareGenericInterface_MissingTypeArgument()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            interface Box<T> {
+                x: T
+                static zero: Box
+            }
+
+            static Box {
+                zero = new Box { x: 0 };
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.GenericArity, "Type 'Box<T>' expects 1 type argument, but 0 were provided.");
+    }
+
+    /// <summary>The resolver already rejects a non-interface static-block target, so the type checker never binds a reference for it - VisitStaticBlock's own name lookup then fails too and it binds the block to 'never' rather than crashing.</summary>
+    [Fact]
+    public void ThrowsFor_StaticBlock_OnNonInterfaceType()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(
+            """
+            type Alias = number
+
+            static Alias {
+                fn foo() {}
+            }
+            """
+        );
+
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindSymbol, "Cannot find symbol for declaration of type 'Alias'.");
+    }
+
+    /// <summary>Exercises the full static-method parameter pipeline at once: a default value on the implementation's own parameter, an explicit colon type on that same parameter, an optional declared parameter type narrowed by the default, and an explicit return type annotation on the method.</summary>
+    [Fact]
+    public void Allows_StaticMethod_WithDefaultedOptionalParameter_AndExplicitReturnType() =>
+        Utility.AssertNoErrors(
+            Utility.TypeCheck(
+                """
+                interface Vector2 {
+                    x: number
+                    y: number
+                    static make: fn(x: number, y: number?): Vector2
+                }
+
+                static Vector2 {
+                    fn make(x: number, y: number = 0): Vector2 -> new Vector2 { x, y };
+                }
+
+                let v = Vector2::make(1);
+                """
+            )
+        );
 
     [Fact]
     public void Allows_NamespaceAccess_WithColonColon() =>

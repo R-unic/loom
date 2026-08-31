@@ -139,6 +139,104 @@ public class HoverHandlerTest
     }
 
     [Fact]
+    public async Task Handle_OnALiteral_ShowsItsTypeDirectly() => Assert.Contains("```loom\n1\n```", await HoverAsync("let x = 1;\nprint(x);", 0, 8));
+
+    [Fact]
+    public async Task Handle_ThroughAChainedMemberAccess_DescribesTheFinalMember()
+    {
+        var hover = await HoverAsync(
+            """
+            interface Position {
+              x: number;
+            }
+
+            interface Vec {
+              pos: Position;
+            }
+
+            fn main(v: Vec): void {
+              print(v.pos.x);
+            }
+            """,
+            9,
+            14
+        );
+
+        Assert.Contains("x: number", hover);
+    }
+
+    /// <summary>A member that does not exist on the receiver's type describes nothing through the member lookup, falling back to the error-recovery type the checker gave the access.</summary>
+    [Fact]
+    public async Task Handle_OnAMemberThatDoesNotExist_FallsBackToItsRecoveryType()
+    {
+        var hover = await HoverAsync(
+            """
+            interface Vec {
+              x: number;
+            }
+
+            fn main(v: Vec): void {
+              print(v.y);
+            }
+            """,
+            5,
+            10
+        );
+
+        Assert.Contains("```loom\nnever\n```", hover);
+    }
+
+    /// <summary>The base of a multi-level chain is not itself a dotted member, so the member lookup finds no matching segment and falls through to describing the base's own symbol.</summary>
+    [Fact]
+    public async Task Handle_OnTheBaseOfAChainedMemberAccess_DescribesTheBaseItself()
+    {
+        var hover = await HoverAsync(
+            """
+            interface Position {
+              x: number;
+            }
+
+            interface Vec {
+              pos: Position;
+            }
+
+            fn main(v: Vec): void {
+              print(v.pos.x);
+            }
+            """,
+            9,
+            8
+        );
+
+        Assert.Contains("v: Vec", hover);
+    }
+
+    /// <summary>A member access whose receiver is not a plain identifier - here a call result - parses to a PropertyAccess rather than a QualifiedName.</summary>
+    [Fact]
+    public async Task Handle_OnAMemberOfACallResult_DescribesTheMember()
+    {
+        var hover = await HoverAsync(
+            """
+            interface Packet {
+              name: string;
+            }
+
+            fn make(): Packet {
+              return { name: "hi" };
+            }
+
+            fn main(): void {
+              print(make().name);
+            }
+            """,
+            9,
+            16
+        );
+
+        Assert.Contains("name: string", hover);
+    }
+
+    [Fact]
     public async Task Handle_OnASymbolFromAnotherModule_NamesTheModuleItCameFrom() =>
         await Utility.WithLspProjectAsync(
             async (store, uri) =>

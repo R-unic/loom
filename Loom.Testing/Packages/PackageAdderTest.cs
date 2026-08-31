@@ -25,6 +25,7 @@ public class PackageAdderTest
         Assert.Equal(Version.Parse("1.2.0"), package.Version);
         Assert.Contains("math = \"^1.2.0\"", fixture.ReadManifest());
         Assert.Equal(Version.Parse("1.2.0"), fixture.InstalledVersion("math"));
+        Assert.Equal("math ^1.2.0 (1.2.0)", package.ToString());
     }
 
     /// <remarks>A request with no opinion about the version is not a request for a pre-release.</remarks>
@@ -178,6 +179,86 @@ public class PackageAdderTest
         Assert.Null(PackageAdder.Add(project, [Request("math")], out var diagnostics));
 
         Assert.Contains("no [registry] index", Assert.Single(diagnostics).Message);
+    }
+
+    [Fact]
+    public void Add_ReportsWhenNoPackagesAreNamed()
+    {
+        using var fixture = new PackageIndexFixture();
+        var project = fixture.WriteProject("");
+
+        Assert.Null(PackageAdder.Add(project, [], out var diagnostics));
+
+        Assert.Contains("name at least one package", Assert.Single(diagnostics).Message);
+    }
+
+    /// <remarks>Reading the manifest is a tool choosing to, the same way writing it is — an I/O failure is its to report.</remarks>
+    [Fact]
+    public void Add_ReportsAManifestThatCannotBeRead()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
+        var project = fixture.WriteProject("");
+        File.Delete(Path.Combine(fixture.ProjectDirectory, ConfigReader.ConfigFileName));
+
+        Assert.Null(PackageAdder.Add(project, [Request("math")], out var diagnostics));
+
+        Assert.Contains("could not read", Assert.Single(diagnostics).Message);
+    }
+
+    /// <remarks>
+    ///     A dependency's value can span more than the line its key is on — a multi-line string, here — and a
+    ///     one-line rewrite cannot touch it without taking the rest of it along, so the manifest is left for its
+    ///     author to edit by hand instead.
+    /// </remarks>
+    [Fact]
+    public void Add_ReportsADependencyEntryThatCannotBeRewrittenAsOneLine()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.2.0");
+        var project = fixture.WriteProject("math = \"\"\"\n^1.0\n\"\"\"");
+        var manifest = fixture.ReadManifest();
+
+        Assert.Null(PackageAdder.Add(project, [Request("math")], out var diagnostics));
+
+        Assert.Contains("cannot be rewritten", Assert.Single(diagnostics).Message);
+        Assert.Equal(manifest, fixture.ReadManifest());
+    }
+
+    /// <remarks>An I/O failure writing the manifest is the caller's to report, same as one writing the lock.</remarks>
+    [Fact]
+    public void Add_ReportsAnIOFailure_WritingTheManifest()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
+        var project = fixture.WriteProject("");
+        var manifestPath = Path.Combine(fixture.ProjectDirectory, ConfigReader.ConfigFileName);
+
+        File.SetAttributes(manifestPath, FileAttributes.ReadOnly);
+        try
+        {
+            Assert.Null(PackageAdder.Add(project, [Request("math")], out var diagnostics));
+            Assert.Contains("could not write", Assert.Single(diagnostics).Message);
+        }
+        finally
+        {
+            File.SetAttributes(manifestPath, FileAttributes.Normal);
+        }
+    }
+
+    /// <remarks>
+    ///     The manifest is re-read from disk after being edited, rather than amended in memory, precisely so a
+    ///     write that leaves it unreadable is caught here instead of resolving against a project state nobody wrote.
+    /// </remarks>
+    [Fact]
+    public void Add_ReportsWhenTheManifestCannotBeReadBackAfterWritingIt()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
+        var project = fixture.WriteProject("");
+        var manifestPath = Path.Combine(fixture.ProjectDirectory, ConfigReader.ConfigFileName);
+        File.WriteAllText(manifestPath, File.ReadAllText(manifestPath).Replace("project_type = \"game\"", "project_type = \"nonsense\""));
+
+        Assert.Null(PackageAdder.Add(project, [Request("math")], out var diagnostics));
+
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Message.Contains("could not be read back"));
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Message.Contains("unknown project type"));
     }
 
     [Fact]

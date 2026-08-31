@@ -200,6 +200,93 @@ public class SemanticTokenTest
             "#: one\ntwo\nthree :#\nlet x = 1;"
         );
 
+    [Fact]
+    public async Task Classifies_AStringLiteralAndABooleanLiteral()
+    {
+        var tokens = await ClassifyAsync("let name = \"Loom\";\nlet flag = true;");
+
+        Assert.Equal(SemanticTokenType.String, Single(tokens, "\"Loom\"").Type);
+        Assert.Equal(SemanticTokenType.Keyword, Single(tokens, "true").Type);
+    }
+
+    [Fact]
+    public async Task Classifies_AnAttributeUsageAsADecorator()
+    {
+        var tokens = await ClassifyAsync("[serializable]\ninterface Packet { name: string; }");
+
+        Assert.Equal(SemanticTokenType.Decorator, Single(tokens, "serializable").Type);
+    }
+
+    [Fact]
+    public async Task Classifies_AnImportAndAReExportSpecifier() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                var tokens = SemanticTokenClassifier.Of(state.File);
+
+                Assert.Equal(SemanticTokenType.Variable, Single(tokens, "pi").Type);
+                Assert.Contains(SemanticTokenModifier.Declaration, Named(tokens, "circlePi")[0].Modifiers);
+                Assert.Equal(SemanticTokenType.Variable, Single(tokens, "TAU").Type);
+            },
+            "import { pi as circlePi } from \"./util\";\nlet tau = circlePi * 2;\nexport { tau as TAU };",
+            ("util.loom", "export let pi = 3.14;")
+        );
+
+    /// <remarks>A member reached through a call rather than a plain identifier chain is a PropertyAccess node rather than a QualifiedName.</remarks>
+    [Fact]
+    public async Task Classifies_APropertyReachedThroughACallResult()
+    {
+        var tokens = await ClassifyAsync(
+            """
+            interface Packet { name: string; }
+            fn make(): Packet { return new Packet { name: "x" }; }
+            fn main(): void { print(make().name); }
+            """
+        );
+
+        Assert.Equal(SemanticTokenType.Property, Named(tokens, "name")[^1].Type);
+    }
+
+    /// <remarks>A misspelled or unresolved name is still colored as a plain variable, per <see cref="SemanticTokenClassifier.FromSyntax" />'s own contract.</remarks>
+    [Fact]
+    public async Task Classifies_AnUnresolvedIdentifierAsAPlainVariableRatherThanLeavingItBlank()
+    {
+        var tokens = await ClassifyAsync("let x = doesNotExist;");
+
+        Assert.Equal(SemanticTokenType.Variable, Single(tokens, "doesNotExist").Type);
+    }
+
+    [Fact]
+    public async Task Classifies_ATypeAliasUseAsAType()
+    {
+        var tokens = await ClassifyAsync("type Id = number;\nfn use(x: Id): void { }");
+
+        Assert.All(Named(tokens, "Id"), token => Assert.Equal(SemanticTokenType.Type, token.Type));
+    }
+
+    [Fact]
+    public async Task Classifies_AnAsyncFunctionAsAsync()
+    {
+        var tokens = await ClassifyAsync("async fn work(): number -> 1;");
+
+        Assert.Contains(SemanticTokenModifier.Async, Single(tokens, "work").Modifiers);
+    }
+
+    [Fact]
+    public async Task Classifies_AReferenceToADeprecatedDeclarationAsDeprecated()
+    {
+        var tokens = await ClassifyAsync(
+            """
+            [deprecated("use 'add' instead")]
+            fn old(): void { }
+            fn main(): void { old(); }
+            """
+        );
+
+        Assert.Contains(SemanticTokenModifier.Deprecated, Named(tokens, "old")[1].Modifiers);
+    }
+
     private static async Task<IReadOnlyList<ClassifiedToken>> ClassifyAsync(string source)
     {
         IReadOnlyList<ClassifiedToken> tokens = [];

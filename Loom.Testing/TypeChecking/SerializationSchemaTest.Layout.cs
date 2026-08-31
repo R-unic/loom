@@ -338,4 +338,56 @@ public partial class SerializationSchemaTest
         Assert.Equal(0, schema.HeaderBits);
         Assert.Equal(28, schema.FixedByteCount);
     }
+
+    [Fact]
+    public void NonGenericRobloxDatatype_ResolvesThroughThePlainInterfacePath()
+    {
+        var schema = GetSchema("[serializable] interface MyData { tint: Color3 }");
+
+        var datatype = Assert.IsType<DatatypeField>(Assert.Single(schema.Fields));
+        Assert.Equal("Color3", datatype.Datatype.Name);
+        Assert.Equal(NumberType.F32, datatype.NumberType);
+    }
+
+    [Fact]
+    public void DiscriminatedUnion_SkipsACandidateNotSharedByEveryVariant()
+    {
+        var schema = GetSchema(
+            """
+            [serializable] interface Ping {
+                always: true;
+                kind: "Ping";
+            }
+            [serializable] interface Pong {
+                kind: "Pong";
+            }
+            [serializable] interface MyData { action: Ping | Pong }
+            """
+        );
+
+        var union = Assert.IsType<UnionField>(Assert.Single(schema.Fields));
+        Assert.Equal(UnionDiscrimination.Discriminant, union.Discrimination);
+        Assert.Equal("kind", union.DiscriminantName);
+    }
+
+    [Fact]
+    public void RuntimeKindUnion_DistinguishesBoolFromNumber()
+    {
+        var schema = GetSchema("[serializable] interface MyData { value: bool | number }");
+
+        var union = Assert.IsType<UnionField>(Assert.Single(schema.Fields));
+        Assert.Equal(UnionDiscrimination.RuntimeKind, union.Discrimination);
+        Assert.Contains(union.Variants, v => Equals(v.Discriminant, "boolean"));
+        Assert.Contains(union.Variants, v => Equals(v.Discriminant, "number"));
+    }
+
+    [Fact]
+    public void RuntimeKindUnion_DistinguishesFunctionFromNumber()
+    {
+        var schema = GetSchema("[serializable] interface MyData { value: (fn(): void) | number }");
+
+        var union = Assert.IsType<UnionField>(Assert.Single(schema.Fields));
+        Assert.Equal(UnionDiscrimination.RuntimeKind, union.Discrimination);
+        Assert.Contains(union.Variants, v => Equals(v.Discriminant, "function"));
+    }
 }

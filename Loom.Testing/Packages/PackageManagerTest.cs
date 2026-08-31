@@ -181,4 +181,70 @@ public class PackageManagerTest
         Assert.Empty(loadDiagnostics);
         Utility.AssertNoErrors(new CompilationUnit(roots!).Compile());
     }
+
+    /// <remarks>
+    ///     Said together, so the two read as one problem: nothing has been resolved yet, and here is why an index
+    ///     could not be opened to resolve it.
+    /// </remarks>
+    [Fact]
+    public void Restore_ReportsAnUnresolvedProject_AlongsideWhyTheIndexCouldNotOpen()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
+        var project = fixture.WriteProject("math = \"^1.0\"");
+        var manifest = Path.Combine(fixture.ProjectDirectory, ConfigReader.ConfigFileName);
+        File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("index = \"../index\"", "index = \"../nowhere\""));
+        var broken = ConfigReader.LocateFromDirectory(fixture.ProjectDirectory, out _)!;
+
+        Assert.False(PackageManager.Restore(broken, out var diagnostics));
+
+        Assert.Equal(2, diagnostics.Count);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Message.Contains("have not been resolved into"));
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Message.Contains("is not a directory"));
+        Assert.Null(fixture.ReadLock());
+    }
+
+    /// <remarks>A lock that already covers the manifest still needs the index once a package it names goes missing.</remarks>
+    [Fact]
+    public void Restore_ReportsAMissingInstall_AlongsideWhyTheIndexCouldNotOpen()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
+        var project = fixture.WriteProject("math = \"^1.0\"");
+        Assert.True(PackageManager.Restore(project, out _));
+        Directory.Delete(PackageLayout.DirectoryOf(project, PackageName.Parse("math")), true);
+
+        var manifest = Path.Combine(fixture.ProjectDirectory, ConfigReader.ConfigFileName);
+        File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("index = \"../index\"", "index = \"../nowhere\""));
+        var broken = ConfigReader.LocateFromDirectory(fixture.ProjectDirectory, out _)!;
+
+        Assert.False(PackageManager.Restore(broken, out var diagnostics));
+
+        Assert.Equal(2, diagnostics.Count);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Message.Contains("is locked but not installed"));
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Message.Contains("is not a directory"));
+    }
+
+    /// <remarks>Writing the lock is a tool choosing to, so an I/O failure doing it is the caller's to report.</remarks>
+    [Fact]
+    public void Restore_ReportsAnIOFailure_WritingTheLock()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0").Publish("math", "2.0.0");
+        var project = fixture.WriteProject("math = \"^1.0\"");
+        Assert.True(PackageManager.Restore(project, out _));
+
+        var manifest = Path.Combine(fixture.ProjectDirectory, ConfigReader.ConfigFileName);
+        File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("math = \"^1.0\"", "math = \"^2.0\""));
+        var bumped = ConfigReader.LocateFromDirectory(fixture.ProjectDirectory, out _)!;
+
+        var lockPath = Path.Combine(fixture.ProjectDirectory, LockFile.FileName);
+        File.SetAttributes(lockPath, FileAttributes.ReadOnly);
+        try
+        {
+            Assert.False(PackageManager.Restore(bumped, out var diagnostics));
+            Assert.Contains($"could not write {LockFile.FileName}", Assert.Single(diagnostics).Message);
+        }
+        finally
+        {
+            File.SetAttributes(lockPath, FileAttributes.Normal);
+        }
+    }
 }

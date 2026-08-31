@@ -1,3 +1,4 @@
+using Loom.Core.Resolving.Symbols;
 using Loom.LanguageServer;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -150,6 +151,153 @@ public class CallHierarchyTest
 
                 Assert.Null(await incoming.Handle(new CallHierarchyIncomingCallsParams { Item = stale }, Cancel));
             }
+        );
+
+    [Fact]
+    public async Task IncomingCalls_RefusesAnItemWithMalformedData() =>
+        await WithHandlersAsync(
+            async (_, incoming, _, uri) =>
+            {
+                var malformed = new CallHierarchyItem
+                {
+                    Name = "helper",
+                    Kind = OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolKind.Function,
+                    Uri = uri,
+                    Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(0, 0), new Position(0, 1)),
+                    SelectionRange = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(0, 0), new Position(0, 1)),
+                    Data = new JObject { ["loomUri"] = uri.ToString() }
+                };
+
+                Assert.Null(await incoming.Handle(new CallHierarchyIncomingCallsParams { Item = malformed }, Cancel));
+            }
+        );
+
+    [Fact]
+    public async Task IncomingCalls_RefusesAnItemWhoseUriIsNotOpen() =>
+        await WithHandlersAsync(
+            async (prepare, incoming, _, uri) =>
+            {
+                var real = Assert.Single((await PrepareAsync(prepare, uri, line: 0, character: 3))!); // helper
+                var closedUri = DocumentUri.FromFileSystemPath(Path.Combine(Path.GetTempPath(), "does-not-exist-" + Guid.NewGuid() + ".loom"));
+                var stale = real with { Data = new JObject { ["loomUri"] = closedUri.ToString(), ["loomOffset"] = real.Data!["loomOffset"], ["loomName"] = "helper" } };
+
+                Assert.Null(await incoming.Handle(new CallHierarchyIncomingCallsParams { Item = stale }, Cancel));
+            }
+        );
+
+    /// <remarks>
+    ///     A call reached through a plain identifier receiver is a QualifiedName; through anything else - a
+    ///     call result, an element access - it is a PropertyAccess. Both name the same way.
+    /// </remarks>
+    [Fact]
+    public async Task OutgoingCalls_NamesCalleesReachedThroughAMemberAccess() =>
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                var symbol = CallHierarchy.At(state.File, MemberSource.IndexOf("use1", StringComparison.Ordinal) + 3)!;
+
+                var calls = CallHierarchy.OutgoingCalls(symbol, state.Unit).ToArray();
+                Assert.Empty(calls);
+                return Task.CompletedTask;
+            },
+            MemberSource
+        );
+
+    /// <remarks>A receiver reached through an element access - not a plain identifier - makes the member a PropertyAccess rather than a QualifiedName.</remarks>
+    [Fact]
+    public async Task OutgoingCalls_NamesCalleesReachedThroughAnElementAccessResult() =>
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                var symbol = CallHierarchy.At(state.File, MemberSource.IndexOf("use2", StringComparison.Ordinal) + 3)!;
+
+                Assert.Empty(CallHierarchy.OutgoingCalls(symbol, state.Unit));
+                return Task.CompletedTask;
+            },
+            MemberSource
+        );
+
+    private const string MemberSource = """
+        interface Calculator {
+          add: fn(n: number): number;
+        }
+
+        fn use1(calc: Calculator): number {
+          return calc.add(1);
+        }
+
+        interface Box {
+          get: fn(): number;
+        }
+
+        fn use2(boxes: Box[]): number {
+          return boxes[0].get();
+        }
+
+        fn use3(): number {
+          return (fn(): number -> 1)();
+        }
+        """;
+
+    /// <summary>Every named call site is still walked even when the callee expression is neither a name nor a member access.</summary>
+    [Fact]
+    public async Task OutgoingCalls_IgnoresACallWhoseCalleeIsNeitherANameNorAMemberAccess() =>
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                var symbol = CallHierarchy.At(state.File, MemberSource.IndexOf("use3", StringComparison.Ordinal) + 3)!;
+
+                Assert.Empty(CallHierarchy.OutgoingCalls(symbol, state.Unit));
+                return Task.CompletedTask;
+            },
+            MemberSource
+        );
+
+    /// <remarks>A symbol looked up against a different project's unit has nothing to walk rather than crashing.</remarks>
+    [Fact]
+    public async Task OutgoingCalls_ForASymbolFromAnotherCompilationUnit_AreEmpty()
+    {
+        FunctionSymbol? symbol = null;
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                symbol = CallHierarchy.At(state.File, 3);
+                return Task.CompletedTask;
+            },
+            "fn helper(): void { }"
+        );
+
+        Assert.NotNull(symbol);
+
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                Assert.Empty(CallHierarchy.OutgoingCalls(symbol!, state.Unit));
+                return Task.CompletedTask;
+            },
+            "fn other(): void { }"
+        );
+    }
+
+    /// <remarks>A reference inside an anonymous function contributes no edge: an anonymous function has no name a caller could be attributed to.</remarks>
+    [Fact]
+    public async Task IncomingCalls_ContributesNoEdgeForAReferenceInsideAnAnonymousFunction() =>
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                var target = CallHierarchy.At(state.File, 3)!;
+
+                var calls = CallHierarchy.IncomingCalls(target, state.Unit, Cancel);
+                Assert.Empty(calls);
+                return Task.CompletedTask;
+            },
+            "fn target(n: number): number -> n * 2;\nlet wrapper = fn(): number -> target(5);"
         );
 
     private static CancellationToken Cancel => TestContext.Current.CancellationToken;

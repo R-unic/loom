@@ -138,6 +138,48 @@ public class DocumentStoreTest
     }
 
     [Fact]
+    public void Open_AUriWithNoFileSystemPath_ReturnsNull() =>
+        Assert.Null(new DocumentStore().Open(DocumentUri.Parse("untitled:Untitled-1"), "let x = 1;"));
+
+    [Fact]
+    public void Close_ADocumentNeverOpened_DoesNothing()
+    {
+        var store = new DocumentStore();
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(Path.GetTempPath(), "never-opened.loom"));
+
+        store.Close(uri);
+        Assert.False(store.TryGetState(uri, out _));
+    }
+
+    /// <remarks>The client can report a file as changed and gone again before the store gets to read it; that race is not a crash, just nothing to add for that one file.</remarks>
+    [Fact]
+    public void ReloadFromDisk_AFileReportedAsExistingButAlreadyGone_SkipsItRatherThanThrowing() =>
+        WithProject(
+            (store, uri, path) =>
+            {
+                var directory = Path.GetDirectoryName(path)!;
+                var ghostPath = Path.Combine(directory, "ghost.loom");
+
+                var result = Assert.Single(store.ReloadFromDisk([new WatchedFile(ghostPath, Exists: true)]));
+                Assert.DoesNotContain(result.Files, file => file.SourceFile.Name == "ghost.loom");
+            }
+        );
+
+    /// <remarks>A deletion reported for a file the unit never held (outside its roots, or already forgotten) has nothing to remove.</remarks>
+    [Fact]
+    public void ReloadFromDisk_ADeletionOfAFileTheUnitNeverHeld_DoesNotThrow() =>
+        WithProject(
+            (store, uri, path) =>
+            {
+                var directory = Path.GetDirectoryName(path)!;
+                var neverHeldPath = Path.Combine(directory, "never-held.loom");
+
+                var result = Assert.Single(store.ReloadFromDisk([new WatchedFile(neverHeldPath, Exists: false)]));
+                Utility.AssertNoErrors(result);
+            }
+        );
+
+    [Fact]
     public void Change_RecompilesIncrementallyAfterOpen()
     {
         var directory = Path.Combine(Path.GetTempPath(), "loom-lsp-test-" + Guid.NewGuid());

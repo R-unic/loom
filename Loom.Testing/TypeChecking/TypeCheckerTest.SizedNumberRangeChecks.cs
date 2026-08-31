@@ -58,4 +58,24 @@ public partial class TypeCheckerTest
     [Fact]
     public void DoesNotWarnFor_PlainNumberLiteral_OutOfSizedRange() =>
         Assert.DoesNotContain(Utility.GetTypeCheckerDiagnostics("let x: number = 420;").Set, d => d.Code == InternalCodes.NumberOutOfRange);
+
+    [Fact]
+    public void WarnsFor_FractionalSizedNumberLiteral_OutOfRange()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x: u8 = 999.5;");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.NumberOutOfRange, "'999.5' is out of range for 'u8' (0 to 255).");
+    }
+
+    /// <summary>The range check only reads compile-time-literal expressions (including a negated literal) - a plain variable reference silently skips it rather than trying to evaluate it.</summary>
+    [Fact]
+    public void DoesNotWarnFor_SizedNumberVariable_NotALiteral() =>
+        Assert.DoesNotContain(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                let n = 5;
+                let x: u8 = n;
+                """
+            ).Set,
+            d => d.Code == InternalCodes.NumberOutOfRange
+        );
 }

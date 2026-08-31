@@ -409,5 +409,100 @@ public class ArrayCombinatorTest
         Assert.Equal("false true 0", returned.ToString());
     }
 
+    /// <summary>
+    ///     An explicit type annotation on the binding ('let b: number = ...') makes ArrayPipeline decline to
+    ///     fuse a single-stage chain (it only claims an unannotated 'let' it could write straight into), so
+    ///     this falls back to ArrayMacroProvider's own standalone loop instead - a different code path than
+    ///     every other aggregate/count test in this file, which all use the fused, annotation-free form.
+    /// </summary>
+    [Fact]
+    public void AggregateWithAnAnnotatedTarget_FallsBackToTheStandaloneLoop()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b: number = a.aggregate(0, fn(sum, n) -> sum + n);", typeCheck: true).Render();
+
+        Assert.Contains("local _accumulator = 0", rendered);
+        Assert.Contains("_accumulator = sum + n", rendered);
+
+        var luau = Compile("let a = [1, 2, 3]; let b: number = a.aggregate(0, fn(sum, n) -> sum + n);");
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        Assert.Equal("6", state.DoString(luau + "\nreturn b")[0].ToString());
+    }
+
+    [Fact]
+    public void CountWithAnAnnotatedTarget_FallsBackToTheStandaloneLoop()
+    {
+        var rendered = Utility.GetLuauAST("let a = [1, 2, 3]; let b: number = a.count(fn(n) -> n > 1);", typeCheck: true).Render();
+
+        Assert.Contains("local _count = 0", rendered);
+        Assert.Contains("_count += 1", rendered);
+
+        var luau = Compile("let a = [1, 2, 3]; let b: number = a.count(fn(n) -> n > 1);");
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        Assert.Equal("2", state.DoString(luau + "\nreturn b")[0].ToString());
+    }
+
+    [Fact]
+    public void SelectManyWithANamedFunctionCallback_CallsItRatherThanInlining()
+    {
+        var luau = Compile("fn dup(n: number): number[] -> [n, n * 10]; let a = [1, 2, 3]; let b = a.select_many(dup);");
+
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        var returned = state.DoString(luau + "\nreturn table.concat(b, \", \")")[0];
+
+        Assert.Equal("1, 10, 2, 20, 3, 30", returned.ToString());
+    }
+
+    [Fact]
+    public void AnyWithANamedFunctionCallback_CallsItRatherThanInlining()
+    {
+        var luau = Compile("fn positive(n: number): bool -> n > 2; let a = [1, 2, 3]; let b = a.any(positive);");
+
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        Assert.Equal("true", state.DoString(luau + "\nreturn b")[0].ToString());
+    }
+
+    [Fact]
+    public void FindWithANamedFunctionCallback_CallsItRatherThanInlining()
+    {
+        var luau = Compile("fn positive(n: number): bool -> n > 1; let a = [1, 2, 3]; let b = a.find(positive);");
+
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        Assert.Equal("2", state.DoString(luau + "\nreturn b")[0].ToString());
+    }
+
+    [Fact]
+    public void FindIndexWithANamedFunctionCallback_CallsItRatherThanInlining()
+    {
+        var luau = Compile("fn positive(n: number): bool -> n > 1; let a = [1, 2, 3]; let b = a.find_index(positive);");
+
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        Assert.Equal("2", state.DoString(luau + "\nreturn b")[0].ToString());
+    }
+
+    /// <summary>
+    ///     'remove_value' used as an expression rather than a bare statement can't split its lookup into a
+    ///     prereq and its removal into a postreq the way the elided-placeholder statement form does - it has
+    ///     to answer with a value inline, and there is no such value (the removed element isn't tracked), so
+    ///     it answers 'nil' instead.
+    /// </summary>
+    [Fact]
+    public void RemoveValueUsedAsAnExpression_AnswersNilRatherThanTheRemovedElement()
+    {
+        var rendered = Utility.GetLuauAST("let a = mut [1, 2, 3]; let removed = a.remove_value(2);", typeCheck: true).Render();
+        Assert.Contains("removed = nil", rendered);
+
+        var luau = Compile("let a = mut [1, 2, 3]; let removed = a.remove_value(2);");
+        using var state = LuauState.Create();
+        state.OpenLibraries();
+        var returned = state.DoString(luau + "\nreturn table.concat(a, \", \")")[0];
+        Assert.Equal("1, 3", returned.ToString());
+    }
+
     private static string Compile(string source) => Utility.GetLuauAST(source, typeCheck: true).Render().Replace("const ", "local ");
 }

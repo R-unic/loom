@@ -85,6 +85,112 @@ public class NavigationHandlerTest
     [Fact]
     public async Task TypeDefinition_ForAPrimitive_GoesNowhere() => Assert.Empty(await TypeDefinitionAsync("let count = 1;\nprint(count);", 1, 6));
 
+
+    [Fact]
+    public async Task TypeDefinition_LooksThroughAnOptionalToItsWrappedType()
+    {
+        var locations = await TypeDefinitionAsync(
+            """
+            interface Vec {
+              x: number;
+            }
+
+            fn main(shape: Vec?): void {
+              print(shape);
+            }
+            """,
+            5,
+            9
+        );
+
+        Assert.Equal(0, Assert.Single(locations).Range.Start.Line);
+    }
+
+    [Fact]
+    public async Task TypeDefinition_ForAnIntersection_OffersEveryArm()
+    {
+        var locations = await TypeDefinitionAsync(
+            """
+            interface Vec { x: number; }
+            interface Dot { y: number; }
+
+            fn main(shape: Vec & Dot): void {
+              print(shape);
+            }
+            """,
+            4,
+            9
+        );
+
+        Assert.Equal(2, locations.Length);
+    }
+
+    [Fact]
+    public async Task TypeDefinition_ForAGenericInstantiation_GoesToTheDeclaration()
+    {
+        var locations = await TypeDefinitionAsync(
+            """
+            interface Box<T> {
+              value: T;
+            }
+
+            fn main(b: Box<number>): void {
+              print(b);
+            }
+            """,
+            5,
+            9
+        );
+
+        Assert.Equal(0, Assert.Single(locations).Range.Start.Line);
+    }
+
+    [Fact]
+    public async Task TypeDefinition_ForAnUnconstrainedTypeParameter_GoesNowhere()
+    {
+        var locations = await TypeDefinitionAsync(
+            """
+            fn identity<T>(x: T): T {
+              return x;
+            }
+            """,
+            1,
+            9
+        );
+
+        Assert.Empty(locations);
+    }
+
+    [Fact]
+    public async Task TypeDefinition_ForAConstrainedTypeParameter_GoesToTheConstraint()
+    {
+        var locations = await TypeDefinitionAsync(
+            """
+            interface Vec { x: number; }
+
+            fn identity<T: Vec>(x: T): T {
+              return x;
+            }
+            """,
+            3,
+              9
+        );
+
+        Assert.Equal(0, Assert.Single(locations).Range.Start.Line);
+    }
+
+    [Fact]
+    public async Task TypeDefinition_StopsRecursingPastTheMaximumDepth()
+    {
+        var locations = await TypeDefinitionAsync(
+            "fn main(v: number[][][][][][][][][]): void {\n  print(v);\n}",
+            1,
+            8
+        );
+
+        Assert.Empty(locations);
+    }
+
     [Fact]
     public async Task Implementation_FromATraitMethod_GoesToEachBody()
     {
@@ -109,6 +215,7 @@ public class NavigationHandlerTest
     [Fact]
     public async Task Implementation_ForSomethingWithNoImplementations_GoesNowhere() =>
         Assert.Empty(await ImplementationAsync("fn main(): void { }", 0, 4));
+
 
     /// <summary>A member name is a token of its access expression rather than a node, so looking the node up alone finds nothing for it.</summary>
     [Fact]

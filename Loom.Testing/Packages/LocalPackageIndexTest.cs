@@ -70,6 +70,33 @@ public class LocalPackageIndexTest
     }
 
     [Fact]
+    public void Install_ReportsAVersionNotPublished()
+    {
+        using var fixture = new PackageIndexFixture();
+        Directory.CreateDirectory(fixture.Root);
+        var package = new PublishedPackage(PackageName.Parse("math"), Version.Parse("1.0.0"), []);
+
+        Assert.False(Index(fixture).Install(package, Path.Combine(fixture.Root, "installed"), out var diagnostics));
+
+        Assert.Contains("is not published in", Assert.Single(diagnostics).Message);
+    }
+
+    /// <remarks>The catch a copy failure is reported through, not the not-published check above.</remarks>
+    [Fact]
+    public void Install_ReportsAnIOFailure_WhenTheDestinationCannotBeCreated()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
+        var index = Index(fixture);
+        var publication = Assert.Single(index.Publications(PackageName.Parse("math"), out _));
+        var destination = Path.Combine(fixture.Root, "blocked");
+        File.WriteAllText(destination, "not a directory");
+
+        Assert.False(index.Install(publication, destination, out var diagnostics));
+
+        Assert.Contains("could not install", Assert.Single(diagnostics).Message);
+    }
+
+    [Fact]
     public void Install_CopiesEveryFileOfTheVersion()
     {
         using var fixture = new PackageIndexFixture().Publish("math", "1.0.0", source: "export let pi = 3;");
@@ -148,6 +175,43 @@ public class LocalPackageIndexTest
 
         Assert.Null(PackageIndexes.Open(project!, out var diagnostics));
         Assert.Contains("is not a directory", Assert.Single(diagnostics).Message);
+    }
+
+    /// <remarks>
+    ///     Published through <see cref="PackagePublisher" />, a version already there is refused by
+    ///     <see cref="PackagePublisher.CanPublish" /> before the index is ever asked — so reaching the index's own
+    ///     guard needs a direct call, the way something that vendored a version by hand into the same directory
+    ///     would collide with it.
+    /// </remarks>
+    [Fact]
+    public void Publish_ReportsAVersionAlreadyPublished_WhenCalledDirectly()
+    {
+        using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
+        var library = fixture.WriteLibrary("math", "1.0.0");
+        var payload = PackagePublisher.Prepare(library, out _)!;
+
+        Assert.False(Index(fixture).Publish(payload, out var diagnostics));
+
+        Assert.Contains("already exists", Assert.Single(diagnostics).Message);
+    }
+
+    /// <remarks>
+    ///     Half a package published is worse than none: a file that cannot be copied leaves the version directory
+    ///     discarded rather than sitting in the index for a consumer to resolve against and compile a partial copy of.
+    /// </remarks>
+    [Fact]
+    public void Publish_DiscardsThePartialVersion_WhenAFileCannotBeCopied()
+    {
+        using var fixture = new PackageIndexFixture();
+        var sourceRoot = Path.Combine(fixture.Root, "source");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, ConfigReader.ConfigFileName), "project_type = \"library\"\n");
+        var payload = new PackagePayload(PackageName.Parse("math"), Version.Parse("1.0.0"), sourceRoot, [ConfigReader.ConfigFileName, "missing.loom"]);
+
+        Assert.False(Index(fixture).Publish(payload, out var diagnostics));
+
+        Assert.Contains("could not publish", Assert.Single(diagnostics).Message);
+        Assert.False(Directory.Exists(Path.Combine(fixture.IndexDirectory, "math", "1.0.0")));
     }
 
     private static LocalPackageIndex Index(PackageIndexFixture fixture) => new(fixture.IndexDirectory);

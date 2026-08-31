@@ -461,4 +461,43 @@ public partial class TypeCheckerTest
         var array = Assert.IsType<ArrayType>(property.ValueType);
         Assert.Equal(PrimitiveType.Number, array.ElementType);
     }
+
+    /// <summary>A named argument's value is checked contextually the same as a positional one - the array literal takes its element type from the declared parameter type, not from the argument's own inference.</summary>
+    [Fact]
+    public void Allows_NamedArgument_ArrayLiteral_ChecksContextually() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                fn takes(xs: number[]): void {}
+                takes(xs: [1, 2, 3]);
+                """
+            )
+        );
+
+    /// <summary>A function-expression parameter that carries both an explicit colon type and a default value is checked against the expected function type from both sides, not just one.</summary>
+    [Fact]
+    public void Allows_FunctionExpression_ParameterWithDeclaredTypeAndDefault_AgainstExpectedFunctionType() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics("let cb: fn(x: number): void = fn(x: number = 5) { };")
+        );
+
+    /// <summary>An empty match expression checked contextually (rather than merely visited) binds to 'never' - which is assignable to the expected type - instead of crashing on an empty arm list.</summary>
+    [Fact]
+    public void Allows_EmptyMatchExpression_ChecksAgainstContextualType() =>
+        Utility.AssertNoErrors(
+            Utility.GetTypeCheckerDiagnostics(
+                """
+                let n = 1;
+                let y: number = match n { };
+                """
+            )
+        );
+
+    /// <summary>The redundant null-coalescing warning fires from the contextual Check path too ('let x: number = 5 ?? 10'), not only from a bare Visit of the same operator.</summary>
+    [Fact]
+    public void WarnsFor_NullCoalesce_ChecksAgainstContextualType_WhenLeftNotOptional()
+    {
+        var diagnostics = Utility.GetTypeCheckerDiagnostics("let x: number = 5 ?? 10;");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.RedundantCode, "Null coalescing has no effect since '5' is not optional.");
+    }
 }

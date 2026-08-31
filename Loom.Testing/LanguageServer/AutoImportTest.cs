@@ -105,6 +105,20 @@ public class AutoImportTest
             }
         );
 
+    /// <summary>Exercised directly against the static API: extending an import with a name it already lists is a no-op, not an edit that would duplicate it.</summary>
+    [Fact]
+    public async Task Add_ANameTheImportAlreadyLists_ReturnsNoEdit() =>
+        await Utility.WithLspProjectAsync(
+            (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                Assert.Null(ImportEdits.Add(state.File, "double", "./util/math"));
+                return Task.CompletedTask;
+            },
+            "import { double } from \"./util/math\";\nlet four = double(2);",
+            ("util/math.loom", "export fn double(n: number): number { return n * 2; }")
+        );
+
     private static async Task<CompletionItem[]> CompleteAsync(CompletionHandler handler, OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri uri, int line, int character)
     {
         var result = await handler.Handle(

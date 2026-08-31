@@ -1,4 +1,5 @@
 using Loom.LanguageServer;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Loom.Testing.LanguageServer;
@@ -115,6 +116,47 @@ public class ReferencesAndRenameTest
             ("other.loom", "## double is described but never called\nlet note = \"double\";")
         );
 
+    /// <summary>A cancelled request must not answer: the walk across the unit checks cancellation between files and lets it propagate rather than swallowing it into an empty result.</summary>
+    [Fact]
+    public async Task References_PropagatesCancellationRatherThanAnsweringEmpty() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                using var cancelled = new CancellationTokenSource();
+                await cancelled.CancelAsync();
+
+                await Assert.ThrowsAsync<OperationCanceledException>(
+                    () => new ReferencesHandler(store).Handle(
+                        new ReferenceParams
+                        {
+                            TextDocument = new TextDocumentIdentifier(uri), Position = new Position(4, 4), Context = new ReferenceContext { IncludeDeclaration = true }
+                        },
+                        cancelled.Token
+                    )
+                );
+            },
+            Source
+        );
+
+    /// <inheritdoc cref="References_PropagatesCancellationRatherThanAnsweringEmpty" />
+    [Fact]
+    public async Task Rename_PropagatesCancellationRatherThanAnsweringEmpty() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                using var cancelled = new CancellationTokenSource();
+                await cancelled.CancelAsync();
+
+                await Assert.ThrowsAsync<OperationCanceledException>(
+                    () => new RenameHandler(store).Handle(
+                        new RenameParams { TextDocument = new TextDocumentIdentifier(uri), Position = new Position(4, 4), NewName = "increase" },
+                        cancelled.Token
+                    )
+                );
+            },
+            Source
+        );
+
     [Fact]
     public async Task Rename_RewritesTheDeclarationAndEveryUse()
     {
@@ -164,6 +206,17 @@ public class ReferencesAndRenameTest
     [Fact]
     public async Task Rename_RefusesAnIntrinsic() => Assert.Null(await RenameAsync("fn main(): void {\n  print(1);\n}", 1, 4, "log"));
 
+    /// <summary>A name starting with, or containing, an underscore is still a name the compiler would accept.</summary>
+    [Fact]
+    public async Task Rename_AcceptsANameStartingWithAndContainingAnUnderscore()
+    {
+        var edit = await RenameAsync(Source, 4, 4, "_bump_it");
+        var edits = Assert.Single(edit!.Changes!).Value.ToArray();
+
+        Assert.Equal(3, edits.Length);
+        Assert.All(edits, single => Assert.Equal("_bump_it", single.NewText));
+    }
+
     [Theory]
     [InlineData("let")]
     [InlineData("number")]
@@ -171,6 +224,16 @@ public class ReferencesAndRenameTest
     [InlineData("1bad")]
     [InlineData("")]
     public async Task Rename_RefusesANameTheCompilerWouldReject(string newName) => Assert.Null(await RenameAsync(Source, 4, 4, newName));
+
+    /// <summary>Unlike the other navigation handlers, RenameHandler implements IRenameHandler directly rather than overriding a HandlerBase, so its registration options are never reached by the generic handler-contract test.</summary>
+    [Fact]
+    public void GetRegistrationOptions_AdvertisesPrepareSupportForLoomFiles()
+    {
+        var options = new RenameHandler(new DocumentStore()).GetRegistrationOptions(new RenameCapability(), new ClientCapabilities());
+
+        Assert.True(options.PrepareProvider);
+        Assert.Contains("**/*.loom", options.DocumentSelector!.ToString());
+    }
 
     [Fact]
     public async Task PrepareRename_OffersTheNameUnderTheCursor()
@@ -182,6 +245,23 @@ public class ReferencesAndRenameTest
 
     [Fact]
     public async Task PrepareRename_RefusesAnIntrinsic() => Assert.Null(await PrepareAsync("fn main(): void {\n  print(1);\n}", 1, 4));
+
+    /// <summary>An alias use resolves to the underlying symbol, but no reference in this file is spelled like it - the declaration's own name lives only in another module - so there is nowhere here to offer a rename range for.</summary>
+    [Fact]
+    public async Task PrepareRename_OnAnAliasUse_FindsNoRangeInThisFile() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                var range = await new PrepareRenameHandler(store).Handle(
+                    new PrepareRenameParams { TextDocument = new TextDocumentIdentifier(uri), Position = new Position(1, 11) },
+                    TestContext.Current.CancellationToken
+                );
+
+                Assert.Null(range);
+            },
+            "import { double as d } from \"./util/math\";\nlet four = d(2);",
+            ("util/math.loom", "export fn double(n: number): number { return n * 2; }")
+        );
 
     [Fact]
     public async Task Highlight_MarksTheDeclarationAsAWriteAndUsesAsReads()

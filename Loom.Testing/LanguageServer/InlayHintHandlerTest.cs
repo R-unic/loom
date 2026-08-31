@@ -92,6 +92,16 @@ public class InlayHintHandlerTest
         Assert.Equal(": 2", Assert.Single(hints).Label.String);
     }
 
+    /// <summary>Every hint arrives complete, so a resolve request answers with exactly the hint it was given.</summary>
+    [Fact]
+    public async Task Resolve_ReturnsTheHintUnchanged()
+    {
+        var handler = new InlayHintHandler(new DocumentStore());
+        var hint = new InlayHint { Position = new Position(0, 0), Label = new StringOrInlayHintLabelParts(": number") };
+
+        Assert.Same(hint, await handler.Handle(hint, TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task Handle_ForAnUnknownDocument_ReturnsNothing()
     {

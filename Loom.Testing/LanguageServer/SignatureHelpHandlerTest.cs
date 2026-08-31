@@ -96,6 +96,48 @@ public class SignatureHelpHandlerTest
     [Fact]
     public async Task Handle_OutsideAnyCall_OffersNothing() => Assert.Null(await HelpAsync("  let x = 1;"));
 
+    /// <summary>A call whose callee resolves to nothing invocable - here a plain number - builds no signature at all, rather than one with no parameters.</summary>
+    [Fact]
+    public async Task Handle_OnACalleeThatIsNotInvocable_OffersNothing()
+    {
+        var source = "declare let x: number;\nfn main(): void {\n  x(";
+        SignatureHelp? help = null;
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+                help = await new SignatureHelpHandler(store).Handle(
+                    new SignatureHelpParams { TextDocument = new TextDocumentIdentifier(uri), Position = new Position(2, 4) },
+                    TestContext.Current.CancellationToken
+                ),
+            source + "\n}"
+        );
+
+        Assert.Null(help);
+    }
+
+    /// <summary>When no overload accepts this many arguments, the active signature falls back to the first rather than throwing or picking the last.</summary>
+    [Fact]
+    public async Task Handle_WhenNoOverloadAcceptsTheArgumentCount_FallsBackToTheFirstSignature() =>
+        Assert.Equal(0, (await HelpAsync("  maker.make(\"a\", 1, 2, 3, "))!.ActiveSignature);
+
+    /// <summary>A callee typed only as a function value - no declared symbol behind it - still builds a signature from its type, with no documentation to show.</summary>
+    [Fact]
+    public async Task Handle_OnACallbackParameter_BuildsASignatureFromItsTypeAlone()
+    {
+        var source = "fn apply(f: fn(x: number): number): number {\n  return f(";
+        SignatureHelp? help = null;
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+                help = await new SignatureHelpHandler(store).Handle(
+                    new SignatureHelpParams { TextDocument = new TextDocumentIdentifier(uri), Position = new Position(1, 11) },
+                    TestContext.Current.CancellationToken
+                ),
+            source + ");\n}"
+        );
+
+        Assert.NotNull(help);
+        Assert.Single(help.Signatures);
+    }
+
     private static string Slice(string label, ParameterInformation parameter)
     {
         var (start, end) = parameter.Label.Range;

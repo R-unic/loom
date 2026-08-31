@@ -44,6 +44,19 @@ public class ProtocolStreamsTest
         );
     }
 
+    [Fact]
+    public void ClaimStandardStreams_ClaimsTheProcessesRealStandardStreams() =>
+        WithClaimedConsole(
+            () =>
+            {
+                var streams = ProtocolStreams.ClaimStandardStreams();
+
+                Assert.NotNull(streams.Input);
+                Assert.NotNull(streams.Output);
+                Assert.Same(Console.Error, Console.Out);
+            }
+        );
+
     private static void WithClaimedConsole(Action action)
     {
         var originalOutput = Console.Out;
