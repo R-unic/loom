@@ -115,6 +115,13 @@ internal static class Scaffolder
     ///     The name goes through the JSON serializer rather than straight into the template: a directory may
     ///     legally be named with a quote or a backslash, and either one written verbatim produces a manifest
     ///     that nothing can read back.
+    ///     <para>
+    ///         <c>dist/packages</c> is mapped for the same reason the realms are: a dependency's output is written
+    ///         there, and an import of one resolves to a require path through this file — so a project scaffolded
+    ///         without it compiles until the day it depends on something, and then cannot. The realms are three
+    ///         separate paths and packages are shared by all of them, which is what puts them under
+    ///         ReplicatedStorage beside <c>include</c>.
+    ///     </para>
     /// </remarks>
     private static string GetRojoProjectContent(string projectName) =>
         $$"""
@@ -128,6 +135,9 @@ internal static class Scaffolder
               "$path": "dist/shared",
               "include": {
                 "$path": "include"
+              },
+              "packages": {
+                "$path": "dist/packages"
               }
             },
             "ServerScriptService": {
