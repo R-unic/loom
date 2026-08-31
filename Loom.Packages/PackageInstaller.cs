@@ -43,6 +43,23 @@ public static class PackageInstaller
                 continue;
             }
 
+            // the lock records the checksum resolution saw, and an index now stating a different one for the same
+            // version is the one thing a lock is committed to catch: a version's bytes changed after somebody
+            // depended on them. Verifying what is served against what the index states is Install's own job, and
+            // says nothing about whether either still matches what was locked
+            if (locked.Checksum is { Length: > 0 } && !PackageChecksum.Same(locked.Checksum, publication.Checksum))
+            {
+                var now = publication.Checksum is { Length: > 0 } stated ? stated : "no checksum at all";
+                reported.Add(
+                    new ConfigDiagnostic(
+                        $"'{locked.Name}' {locked.Version} is locked as {locked.Checksum}, but '{index.Description}' now states {now} for it;"
+                        + " the version's contents have changed since it was locked."
+                    )
+                );
+
+                continue;
+            }
+
             if (!index.Install(publication, directory, out var installDiagnostics))
                 reported.AddRange(installDiagnostics);
         }
