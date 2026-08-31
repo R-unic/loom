@@ -143,6 +143,18 @@ public class ModuleEventTest
             )
         );
 
+    [Fact]
+    public void Reports_AGenericEventDeclaration() =>
+        Utility.WithTempProject(
+            [("bus.loom", "event message<T>(value: T);")],
+            (_, result) => Utility.AssertDiagnostic(
+                result.Diagnostics,
+                InternalCodes.GenericEventDeclaration,
+                "Event declarations cannot be generic.",
+                "an event lowers to a single Luau value, and Luau has no way to express a generic value - declare the event without type parameters, or make the enclosing interface generic instead."
+            )
+        );
+
     private static void AssertRenderedAgainstBus(string source, string expected) =>
         AssertRendered([("bus.loom", BusModule), ("main.loom", source)], "main.loom", expected);
 

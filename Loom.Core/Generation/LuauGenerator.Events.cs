@@ -18,7 +18,12 @@ public sealed partial class LuauGenerator
     public override LuauNode VisitEventDeclaration(EventDeclaration eventDeclaration)
     {
         if (eventDeclaration.TypeParameters != null)
-            _diagnostics.NotImplemented(eventDeclaration.TypeParameters, "Generic event declarations are not yet supported.");
+            _diagnostics.Error(
+                eventDeclaration.TypeParameters,
+                InternalCodes.GenericEventDeclaration,
+                "Event declarations cannot be generic.",
+                "an event lowers to a single Luau value, and Luau has no way to express a generic value - declare the event without type parameters, or make the enclosing interface generic instead."
+            );
 
         _semanticModel.RuntimeReferences += 2;
 
