@@ -12,6 +12,7 @@ return command switch
     CliCommand.RunNew newCommand => Scaffolder.NewProject(newCommand.Options.Directory),
     CliCommand.RunAdd add => PackageCommands.Add(add.Options),
     CliCommand.RunPublish publish => PackageCommands.Publish(publish.Options),
+    CliCommand.RunLogin login => AuthCommands.Login(login.Options),
     CliCommand.Done done => reportDone(done.ExitCode),
     _ => 1
 };
