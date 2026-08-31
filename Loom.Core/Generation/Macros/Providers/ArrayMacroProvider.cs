@@ -156,7 +156,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         return false;
     }
 
-    private static LuauExpression GenerateSelect(LuauState state, LuauExpression array, LuauExpression transform)
+    private static Identifier GenerateSelect(LuauState state, LuauExpression array, LuauExpression transform)
     {
         var source = state.PushToVariable(SourceName, array);
         var resultName = state.Scope.AddIdentifier(ResultName);
@@ -185,7 +185,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         return result;
     }
 
-    private static LuauExpression GenerateWhere(LuauState state, LuauExpression array, LuauExpression predicate)
+    private static Identifier GenerateWhere(LuauState state, LuauExpression array, LuauExpression predicate)
     {
         var source = state.PushToVariable(SourceName, array);
         var resultName = state.Scope.AddIdentifier(ResultName);
@@ -226,7 +226,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         return result;
     }
 
-    private static LuauExpression GenerateAggregate(LuauState state, LuauExpression array, LuauExpression seed, LuauExpression reducer)
+    private static Identifier GenerateAggregate(LuauState state, LuauExpression array, LuauExpression seed, LuauExpression reducer)
     {
         var source = state.PushToVariable(SourceName, array);
         var carriedName = state.Scope.AddIdentifier(AccumulatorName);
@@ -258,7 +258,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         return carried;
     }
 
-    private static LuauExpression GenerateSelectMany(LuauState state, LuauExpression array, LuauExpression transform)
+    private static Identifier GenerateSelectMany(LuauState state, LuauExpression array, LuauExpression transform)
     {
         var resultName = state.Scope.AddIdentifier(ResultName);
         var countName = state.Scope.AddIdentifier(CountName);
@@ -292,7 +292,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         return result;
     }
 
-    private static LuauExpression GenerateFlatten(LuauState state, LuauExpression array)
+    private static Identifier GenerateFlatten(LuauState state, LuauExpression array)
     {
         var resultName = state.Scope.AddIdentifier(ResultName);
         var countName = state.Scope.AddIdentifier(CountName);
@@ -315,7 +315,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
     ///     Builds the same plain keys-are-members table <see cref="SetStaticMacroProvider" /> does, so a set
     ///     from an array is the same thing as a set from <c>Set.of</c> and needs no conversion between them.
     /// </summary>
-    private static LuauExpression GenerateToSet(LuauState state, LuauExpression array)
+    private static Identifier GenerateToSet(LuauState state, LuauExpression array)
     {
         var result = state.PushToVariable(ResultName, new Table([]));
         var body = new List<LuauStatement>();
@@ -325,7 +325,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         return result;
     }
 
-    private static LuauExpression GenerateQuantifier(LuauState state, LuauExpression array, LuauExpression predicate, string stateName, bool matched)
+    private static Identifier GenerateQuantifier(LuauState state, LuauExpression array, LuauExpression predicate, string stateName, bool matched)
     {
         var answerName = state.Scope.AddIdentifier(stateName);
         var answer = new Identifier(answerName);
@@ -392,7 +392,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         return new NilLiteral();
     }
 
-    private static LuauExpression GenerateFind(LuauState state, LuauExpression array, LuauExpression predicate)
+    private static Identifier GenerateFind(LuauState state, LuauExpression array, LuauExpression predicate)
     {
         var foundName = state.Scope.AddIdentifier(FoundName);
         var found = new Identifier(foundName);
@@ -422,7 +422,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         return found;
     }
 
-    private static LuauExpression GenerateFindIndex(LuauState state, LuauExpression array, LuauExpression predicate)
+    private static Identifier GenerateFindIndex(LuauState state, LuauExpression array, LuauExpression predicate)
     {
         var foundName = state.Scope.AddIdentifier(FoundName);
         var found = new Identifier(foundName);
@@ -453,7 +453,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
     }
 
     /// <summary>Allocates the result up front, so this is one pass rather than a build-then-swap.</summary>
-    private static LuauExpression GenerateReverse(LuauState state, LuauExpression array)
+    private static Identifier GenerateReverse(LuauState state, LuauExpression array)
     {
         var source = state.PushToVariable(SourceName, array);
         var length = state.PushToVariable(LengthName, new UnaryOperator("#", source));
@@ -468,7 +468,7 @@ internal sealed class ArrayMacroProvider : IMacroProvider
         return result;
     }
 
-    private static LuauExpression GenerateCount(LuauState state, LuauExpression array, LuauExpression predicate)
+    private static Identifier GenerateCount(LuauState state, LuauExpression array, LuauExpression predicate)
     {
         var countName = state.Scope.AddIdentifier(CountName);
         var count = new Identifier(countName);

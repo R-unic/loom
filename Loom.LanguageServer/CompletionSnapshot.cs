@@ -146,7 +146,7 @@ public static class CompletionSnapshotBuilder
     ///     each end; an interpolated string's text segments already exclude the backticks and <c>{}</c> braces
     ///     that bound them, being their own tokens.
     /// </summary>
-    private static IReadOnlyList<TextSpan> CollectStringLiteralRanges(IReadOnlyList<Node> descendants)
+    private static List<TextSpan> CollectStringLiteralRanges(IReadOnlyList<Node> descendants)
     {
         var ranges = new List<TextSpan>();
         foreach (var node in descendants)
@@ -174,7 +174,7 @@ public static class CompletionSnapshotBuilder
     ///     the name is offered from the scope it is in, and offering it twice would put an import beside a
     ///     candidate that needs none.
     /// </summary>
-    private static IReadOnlyList<VisibleSymbol> CollectImportable(IReadOnlyList<Symbol> declared, FileContext context)
+    private static List<VisibleSymbol> CollectImportable(IReadOnlyList<Symbol> declared, FileContext context)
     {
         var inScope = declared.Select(symbol => (symbol.Name, symbol.IsTypeSymbol)).ToHashSet();
         var importable = new List<VisibleSymbol>();
@@ -199,7 +199,7 @@ public static class CompletionSnapshotBuilder
         return importable;
     }
 
-    private static IReadOnlyList<VisibleSymbol> CollectModuleSpecifiers(FileContext context)
+    private static VisibleSymbol[] CollectModuleSpecifiers(FileContext context)
     {
         var (importingFile, unit, resolver) = (context.SourceFile, context.Unit, context.Modules);
         var root = unit.Roots.Of(importingFile);
@@ -225,7 +225,7 @@ public static class CompletionSnapshotBuilder
     ///     and nothing else. Without this the braces offer every name already in scope, which is precisely
     ///     the set that cannot be written there.
     /// </summary>
-    private static IReadOnlyList<ExclusiveScope> CollectImportScopes(IReadOnlyList<Node> descendants, FileContext context)
+    private static List<ExclusiveScope> CollectImportScopes(IReadOnlyList<Node> descendants, FileContext context)
     {
         var imports = descendants.OfType<ImportDeclaration>().ToArray();
         if (imports.Length == 0)
@@ -306,7 +306,7 @@ public static class CompletionSnapshotBuilder
         return wholeFile;
     }
 
-    private static IReadOnlyList<TextSpan> CollectTypeRanges(IReadOnlyList<Node> descendants, string text)
+    private static List<TextSpan> CollectTypeRanges(IReadOnlyList<Node> descendants, string text)
     {
         var ranges = new List<TextSpan>();
         foreach (var node in descendants)
@@ -367,7 +367,7 @@ public static class CompletionSnapshotBuilder
         return position;
     }
 
-    private static IReadOnlyList<MemberScope> CollectMemberScopes(IReadOnlyList<Node> descendants, FileContext context)
+    private static List<MemberScope> CollectMemberScopes(IReadOnlyList<Node> descendants, FileContext context)
     {
         var scopes = new List<MemberScope>();
         foreach (var node in descendants)

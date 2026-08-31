@@ -205,7 +205,7 @@ internal sealed partial class SerializationEmitter
     /// <summary>Fields the delta format has anything to say about - a literal-typed field never differs.</summary>
     private List<SerializationField> DiffableFields() => [.. schema.Fields.Where(f => f is not ConstantField)];
 
-    private static LuauExpression BufferLenOf(string serializedLocal)
+    private static IfExpression BufferLenOf(string serializedLocal)
     {
         var buffer = new PropertyAccess(new Identifier(serializedLocal), ["buffer"]);
         return new IfExpression(IsPresent(buffer), BufferLenCall(buffer), [], _zero);

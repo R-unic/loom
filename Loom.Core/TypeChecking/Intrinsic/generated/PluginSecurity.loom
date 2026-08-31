@@ -10622,6 +10622,8 @@ declare interface VirtualInput: Object;
 declare interface VoxelBuffer: Object;
 declare interface WebStreamClient: Object;
 declare let game: DataModel;
+declare let script: LuaSourceContainer;
+declare let plugin: Plugin;
 
 declare interface CreatableInstance: Instance { _is_creatable: true; }
 declare interface ServiceInstance: Instance { _is_service: true; }

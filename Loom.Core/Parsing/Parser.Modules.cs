@@ -36,7 +36,7 @@ public sealed partial class Parser
         );
     }
 
-    private Statement ParseNamespaceImport(Token importKeyword, Token star)
+    private NamespaceImport ParseNamespaceImport(Token importKeyword, Token star)
     {
         var asKeyword = Expect(SyntaxKind.AsKeyword, "'as' after 'import *'");
         var name = ExpectIdentifier("namespace name");

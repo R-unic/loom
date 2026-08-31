@@ -92,10 +92,10 @@ public sealed class RojoResolver
         return [..segments, ..ToInstanceSegments(parts)];
     }
 
-    private static IEnumerable<string> ToInstanceSegments(IReadOnlyList<string> parts)
+    private static IEnumerable<string> ToInstanceSegments(string[] parts)
     {
-        for (var i = 0; i < parts.Count; i++)
-            if (i < parts.Count - 1)
+        for (var i = 0; i < parts.Length; i++)
+            if (i < parts.Length - 1)
             {
                 yield return parts[i];
             }

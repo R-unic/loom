@@ -15,6 +15,14 @@ dotnet run --project Loom.Tools -- compile <file.loom> # emit one file's Luau on
 dotnet run --project Loom.Tools -- generate-ast-snapshots Loom.Testing/Snapshots/AST  # regenerate AST snapshot files
 ```
 
+### Agent tooling (`scripts/`)
+
+Token-saving wrappers for the two most expensive things to do by hand in this repo — read [scripts/README.md](scripts/README.md) for full details before falling back to raw `Read`/`Grep`/`dotnet run`:
+
+- `scripts/loom-intrinsic.sh <Name>` — prints one `declare` block from the generated Roblox intrinsic files (`Loom.Core/TypeChecking/Intrinsic/generated/*.loom`, ~29k lines total) by brace-matched extraction, instead of grepping/reading the whole file. `--list [filter]` lists declared names.
+- `scripts/loom-regen-ast-snapshots.sh` — regenerates `Snapshots/AST/*.ast` and auto-reverts any file whose diff is line-ending-only (CRLF drift from files predating the LF-only generator), so `git status` only shows genuine content changes.
+- `scripts/loom-new-luau-snapshot.sh <name>` — compiles `Snapshots/Luau/<name>.loom` and writes `<name>.luau` in the exact byte shape `CompilerTest.AssertCompiled` expects (no trailing newline); refuses to write if compilation reported an error.
+
 CI (`.github/workflows/ci.yml`): `dotnet test -c Release` with coverage → Coveralls. Tests required for all PRs. Verify with `dotnet build` then `dotnet test`
 before claiming done.
 

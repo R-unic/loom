@@ -297,7 +297,7 @@ internal static class CliParser
         return new CliCommand.RunPublish(new PublishOptions(directory, dryRun, allowDirty));
     }
 
-    private static CliCommand Error(string message, (string Label, string Description)[] fallbackOptions)
+    private static CliCommand.Done Error(string message, (string Label, string Description)[] fallbackOptions)
     {
         PrintHeader();
         Console.WriteLine("ERROR(S):");

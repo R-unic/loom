@@ -106,7 +106,7 @@ internal sealed class SetMacroProvider : IMacroProvider
         return false;
     }
 
-    private static LuauExpression IsMember(LuauExpression set, LuauExpression value, bool present = true) =>
+    private static BinaryOperator IsMember(LuauExpression set, LuauExpression value, bool present = true) =>
         new BinaryOperator(new ElementAccess(set, value), present ? "==" : "~=", new BooleanLiteral(true));
 
     /// <summary>
@@ -125,7 +125,7 @@ internal sealed class SetMacroProvider : IMacroProvider
         return new NilLiteral();
     }
 
-    private static LuauExpression GenerateSize(MacroContext context, LuauExpression set)
+    private static Identifier GenerateSize(MacroContext context, LuauExpression set)
     {
         var count = context.State.PushToVariable(CountName, new NumberLiteral(0), isConst: false);
         var key = context.State.Scope.AddIdentifier(KeyName);
@@ -141,7 +141,7 @@ internal sealed class SetMacroProvider : IMacroProvider
     }
 
     /// <summary>Clones rather than copying key by key, so only the smaller side is walked.</summary>
-    private static LuauExpression GenerateUnion(MacroContext context, LuauExpression set, LuauExpression otherSet)
+    private static Identifier GenerateUnion(MacroContext context, LuauExpression set, LuauExpression otherSet)
     {
         var other = context.State.PushToVariable(OtherName, otherSet);
         var result = context.State.PushToVariable(ResultName, LuauFactory.TableCall("clone", [set]));
@@ -158,7 +158,7 @@ internal sealed class SetMacroProvider : IMacroProvider
     }
 
     /// <summary>Intersection and difference differ only in which side of the membership test they keep.</summary>
-    private static LuauExpression GenerateCombination(MacroContext context, LuauExpression set, LuauExpression otherSet, bool keepWhenPresent)
+    private static Identifier GenerateCombination(MacroContext context, LuauExpression set, LuauExpression otherSet, bool keepWhenPresent)
     {
         var other = context.State.PushToVariable(OtherName, otherSet);
         var result = context.State.PushToVariable(ResultName, new Table([]));
@@ -176,7 +176,7 @@ internal sealed class SetMacroProvider : IMacroProvider
         return result;
     }
 
-    private static LuauExpression GenerateIsSubsetOf(MacroContext context, LuauExpression set, LuauExpression otherSet)
+    private static Identifier GenerateIsSubsetOf(MacroContext context, LuauExpression set, LuauExpression otherSet)
     {
         var other = context.State.PushToVariable(OtherName, otherSet);
         var subset = context.State.PushToVariable(SubsetName, new BooleanLiteral(true), isConst: false);
@@ -198,7 +198,7 @@ internal sealed class SetMacroProvider : IMacroProvider
         return subset;
     }
 
-    private static LuauExpression GenerateToArray(MacroContext context, LuauExpression set)
+    private static Identifier GenerateToArray(MacroContext context, LuauExpression set)
     {
         var result = context.State.PushToVariable(ResultName, new Table([]));
         var count = context.State.PushToVariable(CountName, new NumberLiteral(0), isConst: false);

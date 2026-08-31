@@ -62,8 +62,15 @@ public sealed partial class TypeChecker
             var initializerType = MaybeVisit(parameter.EqualsValueClause);
             // ParameterTypeAt rather than an index, so a parameter past the expected function's fixed ones
             // infers from what its rest parameter holds - a handler naming three of the arguments a variadic
-            // event fires has three parameters to infer and one array type to infer them all from.
-            var contextualType = expected.ParameterTypeAt(i);
+            // event fires has three parameters to infer and one array type to infer them all from. A
+            // parameter that is itself this literal's own rest parameter is the one exception: it faces the
+            // expected function's rest slot directly (array to array, e.g. 'fn(..args: T[])' against
+            // 'event e(..values: T[])'), not one element of it - the same distinction CounterpartParameterType
+            // already makes for IsAssignableTo, so it answers this the same way rather than diverging.
+            var isOwnRestParameter = i == parameterList.Count - 1 && HasRestParameter(functionExpression.Parameters);
+            var contextualType = isOwnRestParameter
+                ? Types.FunctionType.CounterpartParameterType(expected.ParameterTypes, expected.HasRestParameter, true, i)
+                : expected.ParameterTypeAt(i);
             var type = declaredType ?? contextualType ?? initializerType;
             if (type == null)
             {

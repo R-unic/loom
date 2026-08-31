@@ -128,7 +128,7 @@ internal sealed partial class SerializationEmitter
         return new Function(ApplyDiffName(schema.Interface.Name), null, parameters, DeserializeResultType(), new Chunk(body));
     }
 
-    private LuauType DeserializeResultType() =>
+    private QualifiedTypeName DeserializeResultType() =>
         LuauFactory.QualifyRuntimeType(
             new TypeName("Result", [new TypeName(schema.Interface.Name), LuauFactory.QualifyRuntimeType(new TypeName("DeserializeError"))])
         );

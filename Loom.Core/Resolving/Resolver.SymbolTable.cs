@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
+using Loom.Core.Text;
 using Loom.Luau;
 
 namespace Loom.Core.Resolving;
@@ -169,6 +170,37 @@ public sealed partial class Resolver
 
     private Symbol? LookupSymbolCurrentScope(string name, SymbolKind kind) =>
         CurrentScope().Lookup(NamespaceOf(kind)).TryGetValue(name, out var symbols) ? symbols[0] : null;
+
+    /// <summary>
+    ///     A hint for a name that failed to resolve: the closest name declared in the same namespace across
+    ///     the enclosing scope chain, by edit distance - or null when nothing is close enough to be worth
+    ///     suggesting. The threshold scales with the misspelled name's own length, since a short name only a
+    ///     couple of characters different from one nowhere close to it in meaning is more likely coincidence
+    ///     than typo.
+    /// </summary>
+    private string? SuggestName(string name, SymbolNamespace symbolNamespace)
+    {
+        var threshold = Math.Clamp(name.Length / 3, 1, 3);
+        string? best = null;
+        var bestDistance = threshold + 1;
+        var seen = new HashSet<string>();
+
+        foreach (var scope in _scopes)
+            foreach (var candidate in scope.Lookup(symbolNamespace).Keys)
+            {
+                if (candidate == name || !seen.Add(candidate))
+                    continue;
+
+                var distance = EditDistance.Levenshtein(name, candidate);
+                if (distance >= bestDistance)
+                    continue;
+
+                bestDistance = distance;
+                best = candidate;
+            }
+
+        return best == null ? null : $"did you mean '{best}'?";
+    }
 
     private static bool IsAlreadyHoisted(Node node, List<Symbol> symbolsForName) => IsAlreadyHoisted<Symbol>(node, symbolsForName, out _);
 

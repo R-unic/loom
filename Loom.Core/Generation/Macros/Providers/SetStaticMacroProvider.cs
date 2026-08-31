@@ -52,7 +52,7 @@ internal sealed class SetStaticMacroProvider : IMacroProvider
     ///     runs and a table literal has to name every key it holds. The members written out still go in
     ///     the literal; each spread becomes a loop adding its elements as keys.
     /// </summary>
-    private static LuauExpression GenerateSpreadOf(LuauState state, List<LuauExpression> arguments)
+    private static Loom.Luau.AST.Identifier GenerateSpreadOf(LuauState state, List<LuauExpression> arguments)
     {
         var members = arguments
             .TakeWhile(argument => argument is not Spread)

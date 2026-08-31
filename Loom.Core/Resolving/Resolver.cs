@@ -41,6 +41,7 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
         _moduleScope = moduleScope.Scope;
         VisitTree(parserResult.Tree);
         ReportUnusedImports();
+        ReportUnusedDeclarations();
 
         return _semanticModel;
     }

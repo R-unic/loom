@@ -1,0 +1,55 @@
+# Roblox API surface that only works from one realm at the engine level - a property that is simply nil on
+# the other side, an event that never fires there, or a service restricted to it by design. Roblox publishes
+# nothing that says "client-only"/"server-only" any more than it publishes "throws" (see fallible.toml), so
+# this is seeded entirely by hand against creator docs (create.roblox.com/docs/reference/engine/classes/...).
+#
+# A member wrongly listed here costs an override at the one call site that trips it; one wrongly left off
+# restores the exact runtime surprise (a nil LocalPlayer, a RenderStepped that quietly never fires) this
+# exists to catch at compile time instead. So additions are cheap and the bar for leaving something off is
+# "confirmed to work from both realms", not "no evidence either way" - but the converse holds for the file as
+# a whole: an unlisted member is unrestricted, since only a small, verified slice of the API actually is.
+
+[server_classes]
+# Every member of these services is server-only. Both are documented as reachable only from a Script (or a
+# ModuleScript required by one) - never from a LocalScript.
+classes = [
+    "DataStoreService", # create.roblox.com/docs/cloud-services/data-stores - "Data stores can only be accessed by game servers"
+    "MessagingService", # create.roblox.com/docs/reference/engine/classes/MessagingService - lets servers of the same experience talk to each other; never a client concern
+]
+
+[server_members]
+# RemoteEvent/UnreliableRemoteEvent: firing a client, and hearing from a client, only ever happen on the
+# server - the client-to-server half of each pair is in [client_members] below.
+# RemoteFunction: invoking the client, and answering an invocation from the client, are the server's half of
+# the same request/response pair.
+members = [
+    "RemoteEvent:FireClient", # create.roblox.com/docs/reference/engine/classes/RemoteEvent#FireClient - "must be invoked from server scripts to send data to an individual client"
+    "RemoteEvent:FireAllClients", # create.roblox.com/docs/reference/engine/classes/RemoteEvent#FireAllClients - "must be called from server-side scripts only"
+    "RemoteEvent:OnServerEvent", # create.roblox.com/docs/reference/engine/classes/RemoteEvent#OnServerEvent - "must be connected within server scripts"
+    "UnreliableRemoteEvent:FireClient", # mirrors RemoteEvent:FireClient - create.roblox.com/docs/reference/engine/classes/UnreliableRemoteEvent
+    "UnreliableRemoteEvent:FireAllClients", # mirrors RemoteEvent:FireAllClients
+    "UnreliableRemoteEvent:OnServerEvent", # mirrors RemoteEvent.OnServerEvent
+    "RemoteFunction:InvokeClient", # create.roblox.com/docs/reference/engine/classes/RemoteFunction#InvokeClient - server-side only, calls the client's OnClientInvoke
+    "RemoteFunction:OnServerInvoke", # create.roblox.com/docs/reference/engine/classes/RemoteFunction#OnServerInvoke - the callback a server script sets to answer RemoteFunction:InvokeServer()
+]
+
+[client_classes]
+classes = []
+
+[client_members]
+# Individual members restricted to client-side code, on services that are otherwise usable from either
+# realm.
+members = [
+    "Players:LocalPlayer", # create.roblox.com/docs/reference/engine/classes/Players#LocalPlayer - nil when read from the server, since a server has no one player to be "local" to
+    "RunService:RenderStepped", # create.roblox.com/docs/reference/engine/classes/RunService#RenderStepped - fires only on the client; superseded by PreRender but never ran on the server either
+    "RunService:PreRender", # create.roblox.com/docs/reference/engine/classes/RunService#PreRender - usable only from a LocalScript, a ModuleScript required by one, or a Script with RunContext.Client
+
+    # RemoteEvent/UnreliableRemoteEvent: the client-to-server half of each pair - the server's half is in
+    # [server_members] above.
+    "RemoteEvent:FireServer", # create.roblox.com/docs/reference/engine/classes/RemoteEvent#FireServer - "restricted to client-side scripts"
+    "RemoteEvent:OnClientEvent", # create.roblox.com/docs/reference/engine/classes/RemoteEvent#OnClientEvent - "must be connected within client scripts"
+    "UnreliableRemoteEvent:FireServer", # mirrors RemoteEvent:FireServer
+    "UnreliableRemoteEvent:OnClientEvent", # mirrors RemoteEvent.OnClientEvent
+    "RemoteFunction:InvokeServer", # create.roblox.com/docs/reference/engine/classes/RemoteFunction#InvokeServer - client-side only, calls the server's OnServerInvoke
+    "RemoteFunction:OnClientInvoke", # create.roblox.com/docs/reference/engine/classes/RemoteFunction#OnClientInvoke - the callback a client script sets to answer RemoteFunction:InvokeClient()
+]

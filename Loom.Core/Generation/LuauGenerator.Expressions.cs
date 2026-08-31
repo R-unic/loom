@@ -79,7 +79,7 @@ public sealed partial class LuauGenerator
     ///     call site, and the receiver is passed as an argument rather than captured, so nothing is
     ///     allocated on the success path beyond the Result itself.
     /// </summary>
-    private LuauExpression GenerateWrappedCall(LuauExpression callee, List<LuauExpression> arguments)
+    private IfExpression GenerateWrappedCall(LuauExpression callee, List<LuauExpression> arguments)
     {
         var (ok, value) = GenerateWrappedCallPair(callee, arguments);
         return new IfExpression(ok, OkResult(value), [], ErrorResult(value));
@@ -346,7 +346,7 @@ public sealed partial class LuauGenerator
         return new Luau.AST.BinaryOperator(left, mappedOperator, right);
     }
 
-    private LuauNode GenerateInOperator(BinaryOperator binaryOperator)
+    private Luau.AST.BinaryOperator GenerateInOperator(BinaryOperator binaryOperator)
     {
         var index = Visit(binaryOperator.Left);
         var target = Visit(binaryOperator.Right);
@@ -492,7 +492,7 @@ public sealed partial class LuauGenerator
     // Luau has no &&=/||=/??= (unlike +=/-=/etc.), so desugar to a plain `left = left <op> right`. A right
     // operand that hoists statements has to short-circuit the same way the plain operators do, so the
     // desugared value comes from GuardRightOperand's local instead of from an inline `and`/`or`.
-    private LuauNode GenerateCompoundLogicalAssignment(BinaryOperator binaryOperator)
+    private Luau.AST.BinaryOperator GenerateCompoundLogicalAssignment(BinaryOperator binaryOperator)
     {
         var leftValue = Visit(binaryOperator.Left);
         var (rightValue, rightScope) = _state.Capture(() => Visit(binaryOperator.Right));

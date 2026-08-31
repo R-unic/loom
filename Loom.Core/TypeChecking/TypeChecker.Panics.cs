@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
+using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
+using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking.Types;
 
 namespace Loom.Core.TypeChecking;
@@ -61,12 +63,16 @@ public sealed partial class TypeChecker
     /// </summary>
     private void CheckMemberAccess(Expression access)
     {
+        var property = _semanticModel.GetPropertySymbol(access);
+        if (property != null)
+            CheckRealmRestriction(access, property);
+
         // an invocation's own callee is checked by CheckPanicIsDeclared/CheckDeprecation instead, which
         // see the call and so can report against it rather than against the name being read
         if (access.Parent is Invocation invocation && invocation.Expression == access)
             return;
 
-        if (_semanticModel.GetPropertySymbol(access) is not { } property)
+        if (property == null)
             return;
 
         if (property.TryGetIntrinsicAttribute(WrapsErrorsAttribute, out _))
@@ -84,6 +90,30 @@ public sealed partial class TypeChecker
         if (TryGetAttribute(property.Declaration, DeprecatedAttribute, out var deprecation))
             _diagnostics.Warn(access, InternalCodes.DeprecatedMember, $"'{property.Name}' is deprecated.", DeprecationMessage(deprecation));
     }
+
+    /// <summary>
+    ///     Reports reaching a <c>[server]</c>/<c>[client]</c>-narrowed member from the other realm - the same
+    ///     class of diagnostic an import crossing <c>[realms]</c> already is, checked at the point Roblox's
+    ///     own API turns out to have this shape instead: a property that is simply <c>nil</c> on one side
+    ///     (<c>Players.LocalPlayer</c>), an event that never fires there (<c>RunService.RenderStepped</c>),
+    ///     or a service restricted by design (<c>DataStoreService</c>). Checked unconditionally - unlike the
+    ///     rest of <see cref="CheckMemberAccess" /> - because a call is exactly as reachable through the
+    ///     wrong realm as a bare reference is; nothing about being called excuses it.
+    /// </summary>
+    private void CheckRealmRestriction(Expression access, PropertySymbol property)
+    {
+        if (_accessingRealm is not { } accessing || RealmAttributes.Of(property) is not { } declared || declared == accessing)
+            return;
+
+        _diagnostics.Error(
+            access,
+            InternalCodes.RealmRestrictedApiMember,
+            $"'{property.Name}' is {Describe(declared)}-only, so {Describe(accessing)} code cannot access it.",
+            $"guard this behind a realm check, or restrict the surrounding code to the {Describe(declared)} realm"
+        );
+    }
+
+    private static string Describe(Realm realm) => realm.ToString().ToLowerInvariant();
 
     /// <summary>
     ///     Warns rather than errors: a deprecated member still works, and turning its use into a

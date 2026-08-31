@@ -120,7 +120,7 @@ public sealed partial class LuauGenerator
     ///     Luau multi-return values (whether that callee used the literal-return path or `table.unpack`
     ///     internally). Only a plain tuple-typed value (already living in a table) needs `table.unpack`.
     /// </summary>
-    private LuauNode EmitTupleDestructuring(TupleDestructuringTarget target, Expression initializerExpression)
+    private NoOpStatement EmitTupleDestructuring(TupleDestructuringTarget target, Expression initializerExpression)
     {
         // A nested pattern is already rejected here by the parser (tuple destructuring does not support one),
         // so this only ever falls back to the placeholder for a program that already has that error.

@@ -302,8 +302,11 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
         if (Config.NoEmit)
             return;
 
+        // A declaration file has nothing to emit - 'declare' statements vanish entirely, so writing one
+        // would only leave an empty .luau sitting in the output tree with no Rojo mapping asking for it.
         foreach (var file in compiledFiles)
-            FileManager.WriteCompiledFile(file);
+            if (!file.SourceFile.IsDeclaration)
+                FileManager.WriteCompiledFile(file);
     }
 
     private CompiledFile? AnalyzeAndCache(Compiler compiler, ParsedFile parsedFile, DiagnosticBag? moduleDiagnostics, List<FailedFile> failures)

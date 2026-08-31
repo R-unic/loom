@@ -15,6 +15,14 @@ dotnet run --project Loom.Tools -- compile <file.loom> # emit one file's Luau on
 dotnet run --project Loom.Tools -- generate-ast-snapshots Loom.Testing/Snapshots/AST  # regenerate AST snapshot files
 ```
 
+### Agent tooling (`scripts/`)
+
+Token-saving wrappers for the two most expensive things to do by hand in this repo — read [scripts/README.md](scripts/README.md) for full details before falling back to raw `Read`/`Grep`/`dotnet run`:
+
+- `scripts/loom-intrinsic.sh <Name>` — prints one `declare` block from the generated Roblox intrinsic files (`Loom.Core/TypeChecking/Intrinsic/generated/*.loom`, ~29k lines total) by brace-matched extraction, instead of grepping/reading the whole file. `--list [filter]` lists declared names.
+- `scripts/loom-regen-ast-snapshots.sh` — regenerates `Snapshots/AST/*.ast` and auto-reverts any file whose diff is line-ending-only (CRLF drift from files predating the LF-only generator), so `git status` only shows genuine content changes.
+- `scripts/loom-new-luau-snapshot.sh <name>` — compiles `Snapshots/Luau/<name>.loom` and writes `<name>.luau` in the exact byte shape `CompilerTest.AssertCompiled` expects (no trailing newline); refuses to write if compilation reported an error.
+
 CI (`.github/workflows/ci.yml`): `dotnet test -c Release` with coverage → Coveralls. Tests required for all PRs. Verify with `dotnet build` then `dotnet test`
 before claiming done.
 
@@ -172,16 +180,28 @@ AND generator — not just parse + emit (see CONTRIBUTING.md).
 
 ## Tests
 
-- Framework: xUnit + coverlet. Shared helpers in [Utility.cs](Loom.Testing/Utility.cs).
+- Framework: xUnit + coverlet. Shared helpers in [Utility.cs](Loom.Testing/Utility.cs), split into one partial file per pipeline stage it wraps
+  (`Utility.Lexing.cs`, `.Parsing.cs`, `.Resolving.cs`, `.FlowAnalysis.cs`, `.TypeChecking.cs`, `.Generation.cs`) plus the cross-cutting `.Assertions.cs`,
+  `.Projects.cs` (temp-project/`CompilationUnit` scaffolding), and `.LanguageServer.cs` (document-store scaffolding) — add a new helper to whichever file
+  already matches its concern.
+- Layout mirrors `Loom.Core`'s own folders — `Lexing/`, `Parsing/`, `Resolving/`, `FlowAnalysis/`, `TypeChecking/`, `Generation/`, `Modules/`,
+  `Diagnostics/`, `Pipeline/` — plus `Config/`, `Packages/`, `LanguageServer/` for the pieces outside the compiler proper, and `Runtime/` (below). A test
+  class's folder follows what it actually exercises (its `using`s), not what its name suggests. `Assembly.cs` and `Utility*.cs` stay at the root since
+  every folder's tests depend on them.
 - Snapshot tests: `Loom.Testing/Snapshots/AST/*.loom` + `.ast` pairs (parser), `Snapshots/Luau/*.loom` + `.luau` pairs (full-pipeline codegen). Adding a
   language feature usually adds a snapshot pair. Regenerate AST snapshots with Loom.Tools.
 - Per-stage expectations (from CONTRIBUTING.md): parser — valid parses/invalid errors/AST shape; resolver — symbols declared, scope rules; type checker —
   inference, assignability, and for new types test `Equals`, `IsAssignableTo`, `ToString`; codegen — Luau AST correct, rendering valid, edge cases (escaping,
   empty collections).
 - Round-trip tests: `Loom.Testing/Runtime/*.luau` assertion bodies pair by name with a `Snapshots/Luau` case and actually *execute* the emitted serializers
-  on an embedded Luau ([SerializationRuntimeTest.cs](Loom.Testing/SerializationRuntimeTest.cs)). Snapshots only prove the output did not change; these prove it
+  on an embedded Luau — the C# test class asserting on each pair lives alongside the `.luau` files in that same folder (e.g.
+  [Runtime/SerializationRuntimeTest.cs](Loom.Testing/Runtime/SerializationRuntimeTest.cs)). Snapshots only prove the output did not change; these prove it
   works, and caught several bugs snapshots could not (wrong value shape, a shadowed local, an undersized buffer). The interpreter comes from the `NuLua.Luau`
   package, so they need nothing installed and run under a plain `dotnet test`.
+- A test class that outgrows one file splits into partials the same way a `Loom.Core` stage does (see Conventions below) — `TypeCheckerTest`,
+  `ResolverTest`, `ParserTest`, `SerializationSchemaTest`, `CompilationUnitTest`, and `SourceRootTest` are already split this way, one file per region of
+  cases (`TypeCheckerTest.Match.cs`, `ResolverTest.Destructuring.cs`, ...). A class small enough to read in one sitting stays as one file - splitting is
+  for navigability once it isn't, not a rule to apply preemptively.
 - Conformance tests: `Loom.Testing/Conformance/semver.json` and `package-name.json` are checked in here *and* in `rbx-loom/loom-pm`, and both test suites
   execute them — Loom's requirements are not ordinary semver (one interval and no `||`, unsatisfiable is a parse error, a pre-release needs a bound naming
   one of the same release), so no off-the-shelf library agrees with either side and only each other keeps the registry and the compiler honest. C# is the

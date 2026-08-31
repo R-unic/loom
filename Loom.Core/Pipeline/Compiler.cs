@@ -1,3 +1,4 @@
+using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.FlowAnalysis;
 using Loom.Core.Generation;
@@ -74,7 +75,9 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
                 var semanticModel = TrackDiagnostics(resolver.Resolve());
                 var flowAnalyzer = new FlowAnalyzer(semanticModel);
                 TrackDiagnostics(flowAnalyzer.Analyze());
-                var typeChecker = new TypeChecker(semanticModel, flowAnalyzer);
+                var owningRoot = unit.Roots.Of(SourceFile);
+                var accessingRealm = owningRoot.Config.Realms.Count > 0 ? unit.Roots.RealmOf(SourceFile) : (Realm?)null;
+                var typeChecker = new TypeChecker(semanticModel, flowAnalyzer, accessingRealm);
                 var typeCheckerResult = TrackDiagnostics(typeChecker.Check());
                 var generatorResult = GenerateLuau(semanticModel);
                 var renderedLuau = generatorResult == null ? "" : generatorResult.LuauTree.Render();

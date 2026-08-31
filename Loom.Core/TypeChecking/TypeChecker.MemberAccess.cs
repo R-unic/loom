@@ -346,7 +346,7 @@ public sealed partial class TypeChecker
         return BindType(node, bodyType.ValueType);
     }
 
-    private Type ReportWrongOperatorForMemberKind(Node node, NativelyIndexableType indexable, ObjectProperty property)
+    private Types.PrimitiveType ReportWrongOperatorForMemberKind(Node node, NativelyIndexableType indexable, ObjectProperty property)
     {
         var (usedOperator, wantedOperator) = property.IsStatic ? (".", "::") : ("::", ".");
         _diagnostics.Error(
@@ -359,7 +359,7 @@ public sealed partial class TypeChecker
         return BindType(node, Types.PrimitiveType.Never);
     }
 
-    private Type ReportInstanceMemberViaInterfaceName(Node node, NativelyIndexableType indexable, ObjectProperty property)
+    private Types.PrimitiveType ReportInstanceMemberViaInterfaceName(Node node, NativelyIndexableType indexable, ObjectProperty property)
     {
         _diagnostics.Error(
             node,
@@ -371,7 +371,7 @@ public sealed partial class TypeChecker
         return BindType(node, Types.PrimitiveType.Never);
     }
 
-    private Type ReportStaticMemberViaInstance(Node node, NativelyIndexableType indexable, ObjectProperty property)
+    private Types.PrimitiveType ReportStaticMemberViaInstance(Node node, NativelyIndexableType indexable, ObjectProperty property)
     {
         _diagnostics.Error(
             node,
