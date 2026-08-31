@@ -43,11 +43,13 @@ cd my-game
 loom build           # compile src/ to dist/
 loom watch           # ... and keep compiling as files change
 loom add serio       # depend on a package, and install it
+loom login           # store a token for the registry, so you can publish to it
 loom publish         # publish this project as a version of a package
 ```
 
 Every command takes the project directory as an optional argument, defaulting to the current one — except `loom add`,
-whose arguments are the packages to add, so it takes the directory as `--project` instead.
+whose arguments are the packages to add, so it takes the directory as `--project` instead, and `loom login`, whose
+argument is the registry.
 
 `loom add` writes the dependency into `loom-config.toml` and resolves it: `loom add serio` asks for whatever is
 published now, `loom add serio@^1.2` asks for what you name, and `--dev` marks it as needed only to develop the
@@ -55,6 +57,14 @@ project. `loom publish` offers the project to its `[registry]` index as one vers
 table names — after checking that it compiles, since a published version is never replaced. `loom publish --dry-run`
 lists the files it would send without sending them, and `--allow-dirty` publishes without the compile check, for when
 you know something the compiler on this machine does not.
+
+Publishing needs a token, which is what `loom login` stores. With no argument it signs in to the registry the project
+resolves from; naming one (`loom login registry.example.com`) signs in to that instead. It asks the registry where to
+sign in, opens a browser there, and reads back the token you are shown — and a registry with no sign-in configured
+says so and still takes a token issued another way, since pasting one is the whole of what the command does. Tokens
+are kept outside every project, one per registry host, so nothing you commit or publish can carry one; `LOOM_TOKEN`
+supplies one instead for a machine with nobody at the keyboard. A token is never sent over plain `http` to anything
+but a loopback address.
 
 ## Quick look
 
