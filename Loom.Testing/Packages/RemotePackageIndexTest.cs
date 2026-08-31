@@ -249,6 +249,31 @@ public partial class RemotePackageIndexTest
         Assert.Equal([false, true], publications.Select(publication => publication.Yanked));
     }
 
+    /// <remarks>
+    ///     The document verbatim as a registry renders it, rather than the least this can be given: the two sides are
+    ///     separate implementations in separate repositories, so what is actually on the wire is the only thing that
+    ///     keeps them agreeing. <c>realm</c> and <c>published_at</c> are stated and are deliberately read by nothing
+    ///     — a package's realm is read from its installed manifest — and a field this does not know must never be
+    ///     what stops a version being read.
+    /// </remarks>
+    [Fact]
+    public void Publications_ReadARegistrysDocument_AsItIsActuallyRendered()
+    {
+        const string body = """
+            {"name":"vectors","versions":[{"version":"1.0.0","checksum":"sha256:3f98290502e2fa34c8770c0edd30b1e94a27ad810b30032cf30d5116a3575836",
+            "yanked":false,"realm":"shared","published_at":"2026-08-31T20:51:47.488747Z",
+            "dependencies":[{"name":"serio","requirement":"^1.2","dev":false},{"name":"runit","requirement":"^0.4","dev":true}]}]}
+            """;
+
+        var publication = Assert.Single(Index(StubHttpMessageHandler.Answering(HttpStatusCode.OK, body)).Publications(PackageName.Parse("vectors"), out var diagnostics));
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(Version.Parse("1.0.0"), publication.Version);
+        Assert.Equal("sha256:3f98290502e2fa34c8770c0edd30b1e94a27ad810b30032cf30d5116a3575836", publication.Checksum);
+        Assert.False(publication.Yanked);
+        Assert.Equal(PackageName.Parse("serio"), Assert.Single(publication.Dependencies).Name);
+    }
+
     private static RemotePackageIndex Index(StubHttpMessageHandler handler, string registry = Registry, RegistryCredentials? credentials = null) =>
         new(registry, registry, handler, credentials);
 
