@@ -31,7 +31,7 @@ internal static class CliParser
 
     private static readonly (string Label, string Description)[] BuildWatchOptions =
     [
-        ("-d, --dependency-diagnostics", ""),
+        ("-d, --dependency-diagnostics", "Report a dependency's own diagnostics instead of collapsing them into one error per file."),
         ("--help", "Display this help screen."),
         ("--version", "Display version information."),
         ("directory (pos. 0)", "(Default: .) The project directory.")
@@ -116,7 +116,7 @@ internal static class CliParser
                 return ParseLogin(rest);
 
             case var verb:
-                return Error($"Verb '{verb}' is not recognized.", GlobalOptions);
+                return Error($"Verb '{verb}' is not recognized.", TopLevelVerbs);
         }
     }
 
