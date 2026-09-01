@@ -595,7 +595,10 @@ public sealed class TypeNarrower
         if (source is not UnionType union)
             return source;
 
-        var remaining = union.Types.Where(t => !toRemove.IsAssignableTo(t)).ToList();
+        // A member is only safe to drop when every value it admits is guaranteed to be 'toRemove' - the reverse
+        // (toRemove.IsAssignableTo(t)) asks whether 'toRemove' fits inside the member, which a literal narrower
+        // than the member always answers true to, and would drop the whole member over excluding one value of it.
+        var remaining = union.Types.Where(t => !t.IsAssignableTo(toRemove)).ToList();
         return remaining.Count switch
         {
             0 => PrimitiveType.Never,

@@ -5,6 +5,7 @@ using Loom.Core.TypeChecking;
 using Loom.Core.TypeChecking.Types;
 using LiteralType = Loom.Core.TypeChecking.Types.LiteralType;
 using PrimitiveType = Loom.Core.TypeChecking.Types.PrimitiveType;
+using UnionType = Loom.Core.TypeChecking.Types.UnionType;
 using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Testing.TypeChecking;
@@ -225,14 +226,18 @@ public class TypeNarrowerTest
         var literal = Assert.IsType<LiteralType>(trueType);
         Assert.Equal(42L, literal.Value);
 
+        // 'number' can't be excluded just because one of its literals was ruled out - x could still be any
+        // other number in this branch, so the false branch stays 'number | string'.
         narrowed = narrower.TryGetNarrowedType(left, falseState, out var falseType);
         Assert.True(narrowed);
-        var primitive = Assert.IsType<PrimitiveType>(falseType);
-        Assert.Equal(PrimitiveTypeKind.String, primitive.Kind);
+        var union = Assert.IsType<UnionType>(falseType);
+        Assert.Equal(2, union.Types.Count);
+        Assert.Contains(union.Types, t => t is PrimitiveType { Kind: PrimitiveTypeKind.Number });
+        Assert.Contains(union.Types, t => t is PrimitiveType { Kind: PrimitiveTypeKind.String });
     }
 
     [Fact]
-    public void ComputeBranchStates_IdentifierNotEqualsLiteral_TrueRemovesLiteral()
+    public void ComputeBranchStates_IdentifierNotEqualsLiteral_NeitherBranchNarrowsAwayNumber()
     {
         const string source = """
             let x: number | string = 42;
@@ -248,10 +253,14 @@ public class TypeNarrowerTest
 
         var (trueState, falseState) = narrower.ComputeBranchStates(condition, current);
 
+        // 'x != 42' rules out exactly one number, which isn't representable without a negation type - so
+        // 'number' stays in both branches, and only the false branch narrows to the literal it did equal.
         var narrowed = narrower.TryGetNarrowedType(left, trueState, out var trueType);
         Assert.True(narrowed);
-        var primitive = Assert.IsType<PrimitiveType>(trueType);
-        Assert.Equal(PrimitiveTypeKind.String, primitive.Kind);
+        var union = Assert.IsType<UnionType>(trueType);
+        Assert.Equal(2, union.Types.Count);
+        Assert.Contains(union.Types, t => t is PrimitiveType { Kind: PrimitiveTypeKind.Number });
+        Assert.Contains(union.Types, t => t is PrimitiveType { Kind: PrimitiveTypeKind.String });
 
         narrowed = narrower.TryGetNarrowedType(left, falseState, out var falseType);
         Assert.True(narrowed);
@@ -338,10 +347,14 @@ public class TypeNarrowerTest
         var literal = Assert.IsType<LiteralType>(trueType);
         Assert.Equal(42L, literal.Value);
 
+        // 'number' can't be excluded just because one of its literals was ruled out - the false branch stays
+        // 'number | string'.
         narrowed = narrower.TryGetNarrowedType(left, falseState, out var falseType);
         Assert.True(narrowed);
-        var primitive = Assert.IsType<PrimitiveType>(falseType);
-        Assert.Equal(PrimitiveTypeKind.String, primitive.Kind);
+        var union = Assert.IsType<UnionType>(falseType);
+        Assert.Equal(2, union.Types.Count);
+        Assert.Contains(union.Types, t => t is PrimitiveType { Kind: PrimitiveTypeKind.Number });
+        Assert.Contains(union.Types, t => t is PrimitiveType { Kind: PrimitiveTypeKind.String });
     }
 
     [Fact]
@@ -557,10 +570,14 @@ public class TypeNarrowerTest
         var literal = Assert.IsType<LiteralType>(trueType);
         Assert.Equal(42L, literal.Value);
 
+        // 'number' can't be excluded just because one of its literals was ruled out - the false branch stays
+        // 'number | string'.
         narrowed = narrower.TryGetNarrowedType(left, falseState, out var falseType);
         Assert.True(narrowed);
-        var primitive = Assert.IsType<PrimitiveType>(falseType);
-        Assert.Equal(PrimitiveTypeKind.String, primitive.Kind);
+        var union = Assert.IsType<UnionType>(falseType);
+        Assert.Equal(2, union.Types.Count);
+        Assert.Contains(union.Types, t => t is PrimitiveType { Kind: PrimitiveTypeKind.Number });
+        Assert.Contains(union.Types, t => t is PrimitiveType { Kind: PrimitiveTypeKind.String });
     }
 
     [Fact]

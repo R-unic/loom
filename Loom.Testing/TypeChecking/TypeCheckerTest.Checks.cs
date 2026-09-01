@@ -3228,11 +3228,12 @@ public partial class TypeCheckerTest
         Utility.AssertNoErrors(diagnostics);
     }
 
+    /// <summary>Excluding one string literal can't narrow away the whole 'string' member - see <see cref="Narrowing_NotEqualsLiteral_ThenBranch" />.</summary>
     [Fact]
     public void Checks_Narrowing_While_NotEqualsLiteral()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("let x: number | string = 'hi'; while x != 'hi' { x + 1; break; }");
-        Utility.AssertNoErrors(diagnostics);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidBinaryOp, "No binary operation for 'number | string' + 'number'.");
     }
 
     [Fact]
@@ -3685,18 +3686,23 @@ public partial class TypeCheckerTest
         Utility.AssertNoErrors(diagnostics);
     }
 
+    /// <summary>
+    ///     Excluding one literal can't narrow away the whole member it came from - 'x' could still be any
+    ///     other number in the else branch, so it stays 'number | string' rather than collapsing to 'string'.
+    /// </summary>
     [Fact]
     public void Narrowing_EqualsLiteral_ElseBranch()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("let x: number | string = 42; if x == 42 { } else { x + 1 }");
-        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidBinaryOp, "No binary operation for 'string' + 'number'.");
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidBinaryOp, "No binary operation for 'number | string' + 'number'.");
     }
 
+    /// <summary>Same as the else-branch case, mirrored through '!=': excluding one string literal leaves 'string' in the union.</summary>
     [Fact]
     public void Narrowing_NotEqualsLiteral_ThenBranch()
     {
         var diagnostics = Utility.GetTypeCheckerDiagnostics("let x: number | string = 'hi'; if x != 'hi' { x + 1 }");
-        Utility.AssertNoErrors(diagnostics);
+        Utility.AssertDiagnostic(diagnostics, InternalCodes.InvalidBinaryOp, "No binary operation for 'number | string' + 'number'.");
     }
 
     [Fact]
