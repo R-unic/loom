@@ -40,8 +40,13 @@ public abstract class Symbol(Node declaration, string name, bool isMutable = fal
     public virtual IReadOnlyList<AttributeSymbol> Attributes => [];
 
     // an event is a runtime value like any other, so it crosses a module boundary through the export
-    // table - the generator sends its connection store across alongside it (see EventConnectionTracker)
-    public bool EmitsRuntimeBinding => Declaration is VariableDeclaration or FunctionDeclaration or EventDeclaration;
+    // table - the generator sends its connection store across alongside it (see EventConnectionTracker).
+    // A declared signature crosses one too when it is actually exported: an ambient declare that is never
+    // exported names a value trusted to already be a Luau global (see GlobalSymbols) and needs no binding
+    // of its own, but an exported one is looked up on whatever module declared it - a hand-written runtime
+    // sibling of a '.d.loom' file, for a package like a native binding - the same as any other export.
+    public bool EmitsRuntimeBinding => Declaration is VariableDeclaration or FunctionDeclaration or EventDeclaration
+        or DeclareVariableSignature or DeclareFunctionSignature;
 
     public bool HasIntrinsicAttribute(string name) => TryGetIntrinsicAttribute(name, out _);
 

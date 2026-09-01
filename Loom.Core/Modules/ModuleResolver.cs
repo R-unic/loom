@@ -14,7 +14,11 @@ namespace Loom.Core.Modules;
 /// </summary>
 /// <remarks>
 ///     Paths are compared case-sensitively even where the file system is not, because Roblox requires are.
-///     Declaration files are ambient globals rather than modules, so they are never importable.
+///     A declaration file is importable exactly like any other module - what it exports (as opposed to the
+///     ambient names it merely declares, which every file of its own root sees without an import) is looked
+///     up the same way, its <c>.d.loom</c> candidate tried after the plain <c>.loom</c> one so the two may
+///     coexist without ambiguity. What it resolves to at runtime is a different question <see
+///     cref="SourceRootSet.OutputPathOf" /> and <see cref="FileManager.CopyDeclarationRuntime" /> answer.
 ///     A relative specifier may not leave the importing file's own root: reaching out of one project and into
 ///     another is what a package specifier is for, not what <c>"../"</c> is for.
 /// </remarks>
@@ -36,7 +40,7 @@ public sealed class ModuleResolver
     {
         _modulesByPath = new Dictionary<string, SourceFile>(StringComparer.Ordinal);
         _modulesByPathIgnoringCase = new Dictionary<string, SourceFile>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in files.Where(file => !file.IsDeclaration))
+        foreach (var file in files)
         {
             var path = Path.GetFullPath(file.AbsolutePath);
             _modulesByPath.TryAdd(path, file);
@@ -172,18 +176,28 @@ public sealed class ModuleResolver
     private static string ModulePath(string directory, SourceFile module)
     {
         var relativePath = Path.GetRelativePath(directory, Path.GetFullPath(module.AbsolutePath));
-        var withoutExtension = relativePath[..^FileManager.LoomExtension.Length];
+        var extensionLength = module.IsDeclaration ? FileManager.DeclarationExtension.Length : FileManager.LoomExtension.Length;
+        var withoutExtension = relativePath[..^extensionLength];
         if (Path.GetFileName(withoutExtension) == IndexFileName)
             withoutExtension = Path.GetDirectoryName(withoutExtension) ?? withoutExtension;
 
         return withoutExtension == "." ? "" : withoutExtension.Replace(Path.DirectorySeparatorChar, '/');
     }
 
+    /// <remarks>
+    ///     A <c>.loom</c> candidate is tried before its <c>.d.loom</c> counterpart at the same base path, so a
+    ///     project that somehow has both is not ambiguous - the compiled module wins, the same way it would if
+    ///     the two just happened to be tried in directory order.
+    /// </remarks>
     private static IEnumerable<string> GetCandidatePaths(string basePath, bool indexOnly)
     {
         if (!indexOnly)
+        {
             yield return basePath + FileManager.LoomExtension;
+            yield return basePath + FileManager.DeclarationExtension;
+        }
 
         yield return Path.Combine(basePath, IndexFileName + FileManager.LoomExtension);
+        yield return Path.Combine(basePath, IndexFileName + FileManager.DeclarationExtension);
     }
 }

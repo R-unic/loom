@@ -161,6 +161,36 @@ public partial class CompilationUnitTest
             (_, result) => Utility.AssertNoErrors(result)
         );
 
+    /// <summary>
+    ///     Models the <c>jecs.d.loom</c> + <c>jecs.luau</c> pairing a native binding publishes: typings for a
+    ///     Luau module the compiler does not generate. An exported declare crosses the module boundary like
+    ///     any other export, resolving to a property read on whatever the hand-written sibling's own
+    ///     <c>require</c> returns - and that sibling, not anything compiled from the declaration file itself,
+    ///     is what ends up in the output tree under the declaration file's own would-be output name.
+    /// </summary>
+    [Fact]
+    public void Compiles_Project_WithExportedDeclare_RoutingThroughItsRuntimeSibling() =>
+        Utility.WithTempProject(
+            [
+                ("jecs.d.loom", "export declare let world: number;\ndeclare let internalOnly: number;"),
+                ("jecs.luau", "local jecs = {}\njecs.world = 42\nreturn jecs\n"),
+                ("main.loom", "import { world } from \"./jecs\";\nlet x = world;")
+            ],
+            (compilationUnit, result) =>
+            {
+                Utility.AssertNoErrors(result);
+
+                var main = result.Files.Single(file => file.SourceFile.Name == "main.loom");
+                Assert.Contains("require(\"./jecs\")", main.RenderedLuau);
+                Assert.Contains("jecs.world", main.RenderedLuau);
+
+                var outputSibling = Path.Combine(compilationUnit.Config.Files.OutputDirectory, "jecs.luau");
+                Assert.True(File.Exists(outputSibling));
+                Assert.Equal("local jecs = {}\njecs.world = 42\nreturn jecs\n", File.ReadAllText(outputSibling));
+                Assert.False(File.Exists(Path.Combine(compilationUnit.Config.Files.OutputDirectory, "jecs.d.luau")));
+            }
+        );
+
     [Fact]
     public void Compiles_EveryFile_WhenAnotherFileHasDiagnostics() =>
         Utility.WithTempProject(

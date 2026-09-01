@@ -7,6 +7,8 @@ namespace Loom.Core.Pipeline;
 public static class FileManager
 {
     public const string LoomExtension = ".loom";
+    public const string DeclarationExtension = ".d.loom";
+    private const string LuauExtension = ".luau";
     private const string IncludeFolderName = "include";
     private const string IncludeResourcePrefix = "Include/";
 
@@ -57,7 +59,48 @@ public static class FileManager
     {
         var relativePath = Path.GetRelativePath(config.Files.SourceDirectory, file.AbsolutePath);
         var outputPath = Path.Combine(config.Files.OutputDirectory, relativePath);
-        return Path.ChangeExtension(outputPath, ".luau");
+        return WithLuauExtension(outputPath);
+    }
+
+    /// <summary>
+    ///     Swaps a source path's extension for <c>.luau</c>. A <c>.d.loom</c> file's own name is what loses
+    ///     the extension - <c>jecs.d.loom</c> becomes <c>jecs.luau</c>, not <c>jecs.d.luau</c> - since that is
+    ///     the name its hand-written runtime sibling already has (see <see cref="CopyDeclarationRuntime" />),
+    ///     and a require of one has to find the other under the one path.
+    /// </summary>
+    public static string WithLuauExtension(string path) =>
+        path.EndsWith(DeclarationExtension, StringComparison.Ordinal)
+            ? string.Concat(path.AsSpan(0, path.Length - DeclarationExtension.Length), LuauExtension)
+            : Path.ChangeExtension(path, LuauExtension);
+
+    /// <summary>The hand-written Luau module a declaration file stands in for, if it has one - <c>jecs.luau</c> beside <c>jecs.d.loom</c>.</summary>
+    public static string? RuntimeSiblingPath(SourceFile file) =>
+        file.IsDeclaration ? string.Concat(file.AbsolutePath.AsSpan(0, file.AbsolutePath.Length - DeclarationExtension.Length), LuauExtension) : null;
+
+    /// <summary>
+    ///     Copies <paramref name="file" />'s runtime sibling into the output tree in its place, when it has
+    ///     one. A declaration file emits nothing of its own - every <c>declare</c> vanishes entirely - so an
+    ///     export of one names a value the compiler never generates; for a package like a native binding,
+    ///     naming it is exactly the point, and the hand-written sibling is where the value actually lives.
+    ///     A declaration file with no sibling - the ordinary case, ambient names for something that already
+    ///     exists at runtime without a require - writes nothing, same as before this existed.
+    /// </summary>
+    /// <returns>Whether the file was actually written.</returns>
+    public static bool CopyDeclarationRuntime(CompiledFile file)
+    {
+        if (RuntimeSiblingPath(file.SourceFile) is not { } sibling || !File.Exists(sibling))
+            return false;
+
+        if (File.Exists(file.Path) && File.ReadAllText(file.Path) == File.ReadAllText(sibling))
+            return false;
+
+        var directory = Path.GetDirectoryName(file.Path);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+
+        File.Copy(sibling, file.Path, true);
+        Log.Info($"Wrote {file.Path}");
+        return true;
     }
 
     public static bool IsLoomFile(string path) => Path.GetExtension(path) == LoomExtension;

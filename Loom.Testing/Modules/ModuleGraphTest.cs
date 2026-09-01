@@ -66,14 +66,20 @@ public class ModuleGraphTest
             )
         );
 
+    /// <remarks>
+    ///     A declaration file is importable like any other module, but a bare (unexported) 'declare' is an
+    ///     ambient name of the root, not one of the file's exports - so importing it fails the same way
+    ///     naming any other non-exported member would, rather than the module itself being unresolvable.
+    /// </remarks>
     [Fact]
-    public void Reports_DeclarationFiles_AsNotImportable() =>
+    public void Reports_UnexportedAmbientDeclares_AsNotExported() =>
         Utility.WithTempProject(
             [("main.loom", "import { thing } from \"./types\""), ("types.d.loom", "declare let thing: number;")],
             (_, result) => Utility.AssertDiagnostic(
                 result.Diagnostics,
-                InternalCodes.ModuleNotFound,
-                "Could not find module './types'."
+                InternalCodes.NoExportedMember,
+                "Module 'types.d.loom' does not export 'thing'.",
+                "it exports nothing"
             )
         );
 

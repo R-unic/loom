@@ -302,10 +302,14 @@ public sealed class CompilationUnit(SourceRootSet roots, DiagnosticOptions? diag
         if (Config.NoEmit)
             return;
 
-        // A declaration file has nothing to emit - 'declare' statements vanish entirely, so writing one
-        // would only leave an empty .luau sitting in the output tree with no Rojo mapping asking for it.
+        // A declaration file's own statements vanish entirely - 'declare' compiles to nothing - so writing
+        // one would only leave an empty .luau sitting in the output tree. Its hand-written runtime sibling
+        // is the exception: an exported declare names a value that sibling actually defines, and importing
+        // it needs the real file at the path the declaration file's own output would have gone.
         foreach (var file in compiledFiles)
-            if (!file.SourceFile.IsDeclaration)
+            if (file.SourceFile.IsDeclaration)
+                FileManager.CopyDeclarationRuntime(file);
+            else
                 FileManager.WriteCompiledFile(file);
     }
 

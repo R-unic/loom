@@ -80,6 +80,8 @@ public sealed partial class Parser
                 return ParseInterfaceDeclaration(keyword, attributes);
             case SyntaxKind.EventKeyword:
                 return ParseEventDeclaration(keyword, attributes);
+            case SyntaxKind.DeclareKeyword:
+                return ParseDeclare(keyword, attributes);
             default:
                 _diagnostics.Error(
                     keyword,
@@ -108,7 +110,7 @@ public sealed partial class Parser
         _diagnostics.Error(
             Current(),
             InternalCodes.ExpectedExportableDeclaration,
-            $"Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', and 'event' declarations can be {verb}, got {SafeTokenText(Current())}."
+            $"Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', 'event', and 'declare' declarations can be {verb}, got {SafeTokenText(Current())}."
         );
 
         return new NullStatement(exportKeyword);
@@ -176,7 +178,7 @@ public sealed partial class Parser
                 : new ExportSpecifier(name, null, null);
 
     private static Statement WrapExport(Token exportKeyword, Statement declaration) =>
-        declaration is NamedDeclaration named
-            ? new ExportDeclaration(exportKeyword, named)
+        declaration is NamedDeclaration or Declare
+            ? new ExportDeclaration(exportKeyword, declaration)
             : declaration;
 }

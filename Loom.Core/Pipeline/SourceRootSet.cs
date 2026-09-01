@@ -99,7 +99,7 @@ public sealed class SourceRootSet : IReadOnlyList<SourceRoot>
 
         var relativePath = Path.GetRelativePath(root.Config.Files.SourceDirectory, Path.GetFullPath(file.AbsolutePath));
         var packageDirectory = Path.Combine(PackagesDirectory, package.Scope ?? "", package.Name);
-        return Path.ChangeExtension(Path.Combine(packageDirectory, relativePath), ".luau");
+        return FileManager.WithLuauExtension(Path.Combine(packageDirectory, relativePath));
     }
 
     /// <summary>Where every dependency of this unit is written, which is what a Rojo project has to map for their requires to be nameable.</summary>

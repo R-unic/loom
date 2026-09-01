@@ -143,7 +143,8 @@ public static class SyntaxFacts
         SyntaxKind.SealedKeyword,
         SyntaxKind.EnumKeyword,
         SyntaxKind.TraitKeyword,
-        SyntaxKind.EventKeyword
+        SyntaxKind.EventKeyword,
+        SyntaxKind.DeclareKeyword
     ];
     private static readonly HashSet<SyntaxKind> _assignmentOperators =
     [

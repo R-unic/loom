@@ -86,36 +86,53 @@ public sealed partial class Resolver(ParserResult parserResult, CompilationUnit 
     private void HoistDeclarations(List<Statement> statements)
     {
         foreach (var statement in statements)
-            switch (statement)
-            {
-                case TypeAlias typeAlias:
-                    DeclareType(typeAlias);
-                    break;
-                case TraitDeclaration traitDeclaration:
-                    DeclareTrait(traitDeclaration);
-                    break;
-                case InterfaceDeclaration interfaceDeclaration:
-                    if (DeclareVariable(interfaceDeclaration))
-                        DeclareInterface(interfaceDeclaration, interfaceDeclaration.SealedKeyword != null);
+            HoistDeclaration(statement);
+    }
 
-                    break;
-                case EnumDeclaration enumDeclaration:
-                    if (DeclareVariable(enumDeclaration))
-                        DeclareType(enumDeclaration, new EnumTypeSymbol(enumDeclaration, enumDeclaration.Name.Text));
+    /// <summary>
+    ///     Pre-declares a statement's own name ahead of visiting the rest of the block, so a forward
+    ///     reference from an earlier declaration to a later one resolves - two interfaces naming each
+    ///     other, most commonly. <c>export</c> changes nothing about when a name becomes visible, only what
+    ///     visibility it ends up with, so an exported declaration is unwrapped and hoisted exactly like its
+    ///     bare form rather than being left out of this pass entirely.
+    /// </summary>
+    private void HoistDeclaration(Statement statement)
+    {
+        switch (statement)
+        {
+            case ExportDeclaration export:
+                HoistDeclaration(export.Declaration);
+                break;
+            case TypeAlias typeAlias:
+                DeclareType(typeAlias);
+                break;
+            case TraitDeclaration traitDeclaration:
+                DeclareTrait(traitDeclaration);
+                break;
+            case InterfaceDeclaration interfaceDeclaration:
+                if (DeclareVariable(interfaceDeclaration))
+                    DeclareInterface(interfaceDeclaration, interfaceDeclaration.SealedKeyword != null);
 
-                    break;
-                case EventDeclaration eventDeclaration:
-                    DeclareVariable(eventDeclaration, new EventSymbol(eventDeclaration));
-                    break;
-                case Declare { Signature: InterfaceDeclaration nested }:
-                    DeclareInterface(nested, nested.SealedKeyword != null);
-                    break;
-            }
+                break;
+            case EnumDeclaration enumDeclaration:
+                if (DeclareVariable(enumDeclaration))
+                    DeclareType(enumDeclaration, new EnumTypeSymbol(enumDeclaration, enumDeclaration.Name.Text));
+
+                break;
+            case EventDeclaration eventDeclaration:
+                DeclareVariable(eventDeclaration, new EventSymbol(eventDeclaration));
+                break;
+            case Declare { Signature: InterfaceDeclaration nested }:
+                DeclareInterface(nested, nested.SealedKeyword != null);
+                break;
+        }
     }
 
     private bool ResolveStatement(Statement statement)
     {
-        if (!IsDeclarationFile() || statement is Declare or TypeAlias or TraitDeclaration)
+        if (!IsDeclarationFile()
+            || statement is Declare or TypeAlias or TraitDeclaration
+            || statement is ExportDeclaration { Declaration: Declare or TypeAlias or TraitDeclaration })
         {
             Visit(statement);
             return true;

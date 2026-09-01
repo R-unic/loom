@@ -369,6 +369,36 @@ public partial class SourceRootTest
             packageFiles: [("init.loom", "export let pi = physics_step;"), ("globals.d.loom", "declare let physics_step: number;")]
         );
 
+    /// <remarks>
+    ///     Models publishing a native binding as a package - typings written as <c>declare</c>s with a
+    ///     hand-written Luau runtime sibling - installed like any other dependency. An exported declare
+    ///     crosses the root boundary the same as any other export, and its sibling - not anything the
+    ///     compiler generates for the declaration file itself - is what lands in the consumer's packages
+    ///     folder, at the path the declaration file's own output would have gone.
+    /// </remarks>
+    [Fact]
+    public void Compiles_ADependencysExportedDeclare_RoutingThroughItsRuntimeSibling_AcrossTheRootBoundary()
+        => WithWorkspace((workspace, unit) =>
+            {
+                var result = unit.Compile();
+                Utility.AssertNoErrors(result);
+
+                var main = result.Files.Single(file => file.SourceFile.Name == "main.loom");
+                Assert.Contains("world", main.RenderedLuau);
+
+                var siblingOutput = Path.Combine(workspace.App.Files.OutputDirectory, "packages", "math", "init.luau");
+                Assert.True(File.Exists(siblingOutput));
+                Assert.Equal("local jecs = {}\njecs.world = 42\nreturn jecs\n", File.ReadAllText(siblingOutput));
+            },
+            appFiles: [("main.loom", "import { world } from \"math\";\nprint(world);")],
+            packageFiles:
+            [
+                ("init.d.loom", "export declare let world: number;"),
+                ("init.luau", "local jecs = {}\njecs.world = 42\nreturn jecs\n")
+            ],
+            rojoProject: AppRojoProject
+        );
+
     /// <remarks>Each root's ambient scope is its own, so the same name in two of them is two declarations, not a collision.</remarks>
     [Fact]
     public void Compiles_TwoRoots_DeclaringTheSameAmbientName()

@@ -18,6 +18,62 @@ public partial class ResolverTest
         Assert.Same(model.GetDeclarationSymbol(variable), model.Exports[0].Symbol);
     }
 
+    /// <remarks>
+    ///     An exported declare is a real export like any other, unlike a bare one - see
+    ///     <see cref="Resolves_UnexportedDeclares_InADeclarationFile_AreNotExports" /> - which only ever
+    ///     becomes an ambient global of the root that declared it.
+    /// </remarks>
+    [Fact]
+    public void Resolves_ExportedDeclareDeclarations()
+    {
+        var model = Utility.AssertNoErrors(Utility.GetSemanticModel("export declare let world: number; export declare fn spawn(): number;"));
+
+        Assert.Equal(2, model.Exports.Count);
+        Assert.Equal(["world", "spawn"], model.Exports.Select(s => s.Name));
+
+        // a declared signature carries a runtime value once it is actually exported, unlike an ambient
+        // one that is merely trusted to already be a Luau global - see Symbol.EmitsRuntimeBinding
+        Assert.All(model.Exports, export => Assert.True(export.EmitsRuntimeBinding));
+
+        var declare = Assert.IsType<ExportDeclaration>(model.Tree.Statements[0]).Declaration;
+        Assert.Same(model.GetDeclarationSymbol(declare), model.Exports[0].Symbol);
+    }
+
+    /// <remarks>
+    ///     A bare 'declare' inside a '.d.loom' file is an ambient global of the root - see
+    ///     <c>CompilationUnitTest.Compiles_Project_WithDeclarationFile_PopulatesGlobals</c> - never one of the
+    ///     file's own exports, which is what tells the two apart despite being the same statement otherwise.
+    /// </remarks>
+    [Fact]
+    public void Resolves_UnexportedDeclares_InADeclarationFile_AreNotExports()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel("declare let ambient: number; export declare let named: number;", isDeclaration: true)
+        );
+
+        Assert.Equal(["named"], model.Exports.Select(s => s.Name));
+    }
+
+    /// <remarks>
+    ///     An exported ambient interface used to skip the hoisting pass a bare 'declare interface' already
+    ///     got, so a forward reference to one declared later in the same file failed to resolve - exactly
+    ///     the shape a hand-written package typing needs when two ambient interfaces name each other (a
+    ///     query interface whose method returns a second interface declared further down the file, in
+    ///     jecs.d.loom's case - see <c>SourceRootTest.Compiles_ADependencysExportedDeclare_RoutingThroughItsRuntimeSibling_AcrossTheRootBoundary</c>).
+    /// </remarks>
+    [Fact]
+    public void Resolves_AnExportedAmbientInterface_ForwardReferencing_AnotherDeclaredLaterInTheFile()
+    {
+        var model = Utility.AssertNoErrors(
+            Utility.GetSemanticModel(
+                "export declare sealed interface Early { later: fn(): Later; }\nexport declare sealed interface Later { x: number; }",
+                isDeclaration: true
+            )
+        );
+
+        Assert.Equal(["Early", "Later"], model.Exports.Select(s => s.Name));
+    }
+
     [Fact]
     public void Resolves_InternalDeclarations_AsInternalOnlyExports()
     {

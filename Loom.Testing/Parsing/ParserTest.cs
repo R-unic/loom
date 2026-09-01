@@ -54,13 +54,13 @@ public partial class ParserTest
         new(
             "export 123",
             InternalCodes.ExpectedExportableDeclaration,
-            "Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', and 'event' declarations can be exported, got '123'.",
+            "Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', 'event', and 'declare' declarations can be exported, got '123'.",
             null
         ),
         new(
             "internal 123",
             InternalCodes.ExpectedExportableDeclaration,
-            "Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', and 'event' declarations can be marked internal, got '123'.",
+            "Only 'fn', 'let', 'type', 'interface', 'enum', 'trait', 'event', and 'declare' declarations can be marked internal, got '123'.",
             null
         ),
         new("export *", InternalCodes.UnexpectedEof, "Expected 'from', got EOF.", null),
