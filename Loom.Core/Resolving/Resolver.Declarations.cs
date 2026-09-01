@@ -71,7 +71,12 @@ public sealed partial class Resolver
         if (variableDeclaration.EqualsValueClause != null || isMutable)
             return true;
 
-        _diagnostics.Error(variableDeclaration, InternalCodes.MustHaveInitializer, "Immutable declarations must be initialized.");
+        _diagnostics.Error(
+            variableDeclaration,
+            InternalCodes.MustHaveInitializer,
+            "Immutable declarations must be initialized.",
+            "give it a value here, or declare it with 'mut' and assign later"
+        );
         return false;
     }
 
@@ -91,7 +96,12 @@ public sealed partial class Resolver
         if (destructuringDeclaration.EqualsValueClause != null)
             return true;
 
-        _diagnostics.Error(destructuringDeclaration, InternalCodes.MustHaveInitializer, "Destructuring declarations must be initialized.");
+        _diagnostics.Error(
+            destructuringDeclaration,
+            InternalCodes.MustHaveInitializer,
+            "Destructuring declarations must be initialized.",
+            "a destructuring pattern has no fallback value to bind, so it must be given one here"
+        );
         return false;
     }
 
