@@ -231,9 +231,10 @@ public sealed class DocumentStore
     {
         lock (_compilationLock)
         {
-            // a manifest decides where a project's sources are and what it depends on, which is everything the
-            // unit was built around - there is nothing to update in place, so the unit is rebuilt from scratch
-            if (changes.Any(change => Path.GetFileName(change.Path) == ConfigReader.ConfigFileName))
+            // a manifest decides where a project's sources are and what it depends on, and a lock decides which
+            // versions were installed for them - either changing is everything the unit was built around, so
+            // there is nothing to update in place and the unit is rebuilt from scratch
+            if (changes.Any(change => Path.GetFileName(change.Path) is ConfigReader.ConfigFileName or LockFile.FileName))
             {
                 DiscardUnits();
                 return [];
@@ -411,7 +412,20 @@ public sealed class DocumentStore
 
         config.NoEmit = true;
         unit = CreateUnit(config);
-        _results[unit] = RunOnLargeStack(unit.Compile);
+
+        CompilationResult result;
+        try
+        {
+            result = RunOnLargeStack(unit.Compile);
+        }
+        catch (Exception)
+        {
+            // a compile throwing here is the compiler-bug path Compiler.Compile is supposed to catch itself;
+            // degrade the same way a later recompile would rather than crashing the request that opened the file
+            return null;
+        }
+
+        _results[unit] = result;
         _unitsByProjectRoot[config.ProjectDirectory] = unit;
         return unit;
     }

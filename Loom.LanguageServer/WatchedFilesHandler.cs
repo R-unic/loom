@@ -54,7 +54,9 @@ public sealed class WatchedFilesHandler(DocumentStore documents, DiagnosticPubli
                 Watching($"**/*{FileManager.LoomExtension}"),
                 // a manifest decides where a project's sources are and what it depends on, so a change to one
                 // invalidates the whole unit rather than any single file in it
-                Watching($"**/{ConfigReader.ConfigFileName}")
+                Watching($"**/{ConfigReader.ConfigFileName}"),
+                // installing a dependency changes which projects the unit spans just as much as the manifest does
+                Watching($"**/{LockFile.FileName}")
             )
         };
 

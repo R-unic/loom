@@ -134,7 +134,27 @@ public class WatchedFilesTest
             }
         );
 
-    private static void WithProject(Action<DocumentStore, (string Config, string Main, string Math)> act)
+    /// <summary>
+    ///     Installing a dependency changes which projects the unit spans just as much as the manifest does, so
+    ///     a lockfile change has to rebuild the same way <see cref="ReloadFromDisk_ForAManifestChange_RebuildsTheProject" /> does.
+    /// </summary>
+    [Fact]
+    public void ReloadFromDisk_ForALockfileChange_RebuildsTheProject() =>
+        WithProject(
+            (store, paths) =>
+            {
+                var mainUri = DocumentUri.FromFileSystemPath(paths.Main);
+                store.Open(mainUri, File.ReadAllText(paths.Main));
+                Assert.True(store.TryGetState(mainUri, out var before));
+
+                store.ReloadFromDisk([new WatchedFile(paths.Lock, true)]);
+
+                Assert.True(store.TryGetState(mainUri, out var after));
+                Assert.NotSame(before.Unit, after.Unit);
+            }
+        );
+
+    private static void WithProject(Action<DocumentStore, (string Config, string Main, string Math, string Lock)> act)
     {
         var directory = Path.Combine(Path.GetTempPath(), "loom-watch-test-" + Guid.NewGuid());
         Directory.CreateDirectory(Path.Combine(directory, "src"));
@@ -148,7 +168,9 @@ public class WatchedFilesTest
             File.WriteAllText(math, "export fn double(n: number): number { return n * 2; }");
             File.WriteAllText(main, "import { double } from \"./math\";\nlet four = double(2);");
 
-            act(new DocumentStore(), (config, main, math));
+            var lockPath = Path.Combine(directory, "loom-lock.toml");
+
+            act(new DocumentStore(), (config, main, math, lockPath));
         }
         finally
         {
