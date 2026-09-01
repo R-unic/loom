@@ -28,7 +28,7 @@ This pins the compiler in the project's `rokit.toml`, so everyone working on it 
 
 ```toml
 [tools]
-loom = "rbx-loom/loom@2.0.0"
+loom = "rbx-loom/loom@2.0.1"
 ```
 
 The published binaries are self-contained — there is no runtime or SDK to install alongside them — and cover Windows, macOS
