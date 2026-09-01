@@ -490,7 +490,8 @@ public partial class TypeCheckerTest
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.InvocationArity,
-            "Function expects 1 argument, but 2 were provided."
+            "Function expects 1 argument, but 2 were provided.",
+            "remove 1 argument"
         );
     }
 
@@ -506,7 +507,25 @@ public partial class TypeCheckerTest
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.InvocationArity,
-            "Function expects 1-2 arguments, but 3 were provided."
+            "Function expects 1-2 arguments, but 3 were provided.",
+            "remove 1 argument"
+        );
+    }
+
+    [Fact]
+    public void ThrowsFor_FunctionCall_TooFewArguments_HintsHowManyMore()
+    {
+        const string source = """
+            fn add(a: number, b: number, c: number) -> a + b + c
+            add(1)
+            """;
+
+        var diagnostics = Utility.GetTypeCheckerDiagnostics(source);
+        Utility.AssertDiagnostic(
+            diagnostics,
+            InternalCodes.InvocationArity,
+            "Function expects 3 arguments, but 1 were provided.",
+            "pass 2 more arguments"
         );
     }
 

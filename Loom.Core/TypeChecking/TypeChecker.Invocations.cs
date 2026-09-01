@@ -623,7 +623,16 @@ public sealed partial class TypeChecker
         if ((hasRestParameter || argumentTypes.Count <= maximum) && argumentTypes.Count >= minimum) return;
 
         var s = hasRestParameter || minimum != maximum || maximum != 1 ? "s" : "";
-        _diagnostics.Error(arguments, InternalCodes.InvocationArity, $"Function expects {arityDisplay} argument{s}, but {argumentTypes.Count} were provided.");
+        var hint = argumentTypes.Count < minimum
+            ? $"pass {minimum - argumentTypes.Count} more argument{(minimum - argumentTypes.Count == 1 ? "" : "s")}"
+            : $"remove {argumentTypes.Count - maximum} argument{(argumentTypes.Count - maximum == 1 ? "" : "s")}";
+
+        _diagnostics.Error(
+            arguments,
+            InternalCodes.InvocationArity,
+            $"Function expects {arityDisplay} argument{s}, but {argumentTypes.Count} were provided.",
+            hint
+        );
     }
 
     private Type BindNonGenericInvocation(
