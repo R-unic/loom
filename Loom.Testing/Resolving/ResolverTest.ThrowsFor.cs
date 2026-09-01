@@ -274,7 +274,7 @@ public partial class ResolverTest
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.DuplicateName,
-            "Property 'x' already exists on type 'I'"
+            "Property 'x' already exists on type 'I'."
         );
     }
 
@@ -588,7 +588,7 @@ public partial class ResolverTest
         Utility.AssertDiagnostic(
             diagnostics,
             InternalCodes.DuplicateName,
-            "Method 'next' already exists on trait 'Iterator'"
+            "Method 'next' already exists on trait 'Iterator'."
         );
     }
 

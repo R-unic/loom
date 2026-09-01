@@ -424,7 +424,7 @@ public sealed partial class Resolver
         foreach (var duplicate in duplicates)
         {
             var property = body.Members.FindLast(m => m.Name.Text == duplicate)!;
-            _diagnostics.Error(property, InternalCodes.DuplicateName, $"Method '{duplicate}' already exists on trait '{name}'");
+            _diagnostics.Error(property, InternalCodes.DuplicateName, $"Method '{duplicate}' already exists on trait '{name}'.");
         }
 
         return false;
@@ -496,7 +496,7 @@ public sealed partial class Resolver
             return true;
 
         foreach (var group in invalidDuplicateGroups)
-            _diagnostics.Error(group.Last(), InternalCodes.DuplicateName, $"Property '{group.Key}' already exists on type '{interfaceSymbol.Name}'");
+            _diagnostics.Error(group.Last(), InternalCodes.DuplicateName, $"Property '{group.Key}' already exists on type '{interfaceSymbol.Name}'.");
 
         return false;
     }
