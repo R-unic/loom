@@ -7,6 +7,10 @@ public static class Log
     public static void Fatal(string message) =>
         Console.Error.WriteLine($"{Colors.Dim}[{Colors.Reset}{Colors.Bold}{Colors.Red}fatal{Colors.Reset}{Colors.Dim}]{Colors.Reset} {message}");
 
+    /// <summary>For something that stopped a step short of what was asked, rather than the command as a whole - unlike <see cref="Fatal" />, execution continues.</summary>
+    public static void Warn(string message) =>
+        Console.Error.WriteLine($"{Colors.Dim}[{Colors.Reset}{Colors.Bold}{Colors.Yellow}warn{Colors.Reset}{Colors.Dim}]{Colors.Reset} {message}");
+
     public static void Info(string message) =>
         Console.WriteLine($"{Colors.Dim}[{Colors.Reset}{Colors.Bold}{Colors.Blue}info{Colors.Reset}{Colors.Dim}]{Colors.Reset} {message}");
 

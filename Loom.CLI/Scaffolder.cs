@@ -193,11 +193,11 @@ internal static class Scaffolder
             if (process?.ExitCode == 0)
                 Log.Info("Initialized a git repository.");
             else
-                Log.Fatal("'git init' failed; is git installed and on PATH?");
+                Log.Warn("'git init' failed; is git installed and on PATH? The project was still created.");
         }
         catch (Win32Exception exception)
         {
-            Log.Fatal($"could not run 'git init': {exception.Message}");
+            Log.Warn($"could not run 'git init': {exception.Message} The project was still created.");
         }
     }
 }
