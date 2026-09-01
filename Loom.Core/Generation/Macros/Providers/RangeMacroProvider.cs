@@ -64,7 +64,9 @@ internal sealed class RangeMacroProvider : IMacroProvider
                 expression = MacroContext.TryComputeConstantArithmetic(value, out var valueConstant)
                     && MacroContext.TryComputeConstantArithmetic(minimumExpression, out var minimum)
                     && MacroContext.TryComputeConstantArithmetic(maximumExpression, out var maximum)
-                        ? new NumberLiteral(Math.Clamp(valueConstant, minimum, maximum))
+                        // a descending range (e.g. '5..2') folds to minimum > maximum, which Math.Clamp
+                        // rejects - sort the pair the same way 'length' already treats them symmetrically
+                        ? new NumberLiteral(Math.Clamp(valueConstant, Math.Min(minimum, maximum), Math.Max(minimum, maximum)))
                         : LuauFactory.MathClampCall(value, minimumExpression, maximumExpression);
 
                 return true;

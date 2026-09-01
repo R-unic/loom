@@ -866,6 +866,25 @@ public class MacroExpanderTest
         }
     }
 
+    [Theory]
+    [InlineData("1", 2)]
+    [InlineData("6", 5)]
+    [InlineData("3", 3)]
+    public void Generates_Range_Clamp_Literal_DescendingRange(string toClamp, double expected)
+    {
+        // a descending range literal ('5..2') folds to minimum > maximum, which used to make the constant
+        // folder call Math.Clamp with its arguments out of order and throw - clamp still has to answer with
+        // the same bounds regardless of which order the range was written in.
+        var source = $"(5..2).clamp({toClamp})";
+        var luauTree = Utility.GetLuauAST(source, true);
+        Utility.AssertNoErrors(Utility.GetGeneratorDiagnostics(source, true));
+        Assert.Single(luauTree.Statements);
+
+        var variable = Assert.IsType<ConstVariable>(luauTree.Statements.First());
+        var value = Assert.IsType<NumberLiteral>(variable.Initializer);
+        Assert.Equal(expected, value.Value);
+    }
+
     [Fact]
     public void Generates_Range_Length()
     {
