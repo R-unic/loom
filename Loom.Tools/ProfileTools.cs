@@ -56,11 +56,11 @@ internal static class ProfileTools
 
             sw.Restart();
             var typeChecker = new TypeChecker(semanticModel, flowAnalyzer);
-            typeChecker.Check();
+            var typeCheckerResult = typeChecker.Check();
             var typeCheckMs = sw.Elapsed.TotalMilliseconds;
 
             sw.Restart();
-            var generator = new LuauGenerator(semanticModel);
+            var generator = new LuauGenerator(semanticModel, typeCheckerDiagnostics: typeCheckerResult.Diagnostics);
             var generatorResult = generator.Generate();
             var generateMs = sw.Elapsed.TotalMilliseconds;
 

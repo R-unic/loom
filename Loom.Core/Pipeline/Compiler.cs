@@ -79,7 +79,7 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
                 var accessingRealm = owningRoot.Config.Realms.Count > 0 ? unit.Roots.RealmOf(SourceFile) : (Realm?)null;
                 var typeChecker = new TypeChecker(semanticModel, flowAnalyzer, accessingRealm);
                 var typeCheckerResult = TrackDiagnostics(typeChecker.Check());
-                var generatorResult = GenerateLuau(semanticModel);
+                var generatorResult = GenerateLuau(semanticModel, typeCheckerResult.Diagnostics);
                 var renderedLuau = generatorResult == null ? "" : generatorResult.LuauTree.Render();
 
                 return new CompiledFile(SourceFile)
@@ -108,12 +108,12 @@ public sealed class Compiler(CompilationUnit unit, SourceFile file)
     ///     its types; the language server, which recompiles on every keystroke and never writes anything; and
     ///     a <c>no_emit</c> build, which is a type check by definition.
     /// </remarks>
-    private LuauGeneratorResult? GenerateLuau(SemanticModel semanticModel)
+    private LuauGeneratorResult? GenerateLuau(SemanticModel semanticModel, DiagnosticBag typeCheckerDiagnostics)
     {
         if (unit.Config.NoEmit)
             return null;
 
-        var generator = new LuauGenerator(semanticModel, unit.RuntimeImport, unit.ModuleRequirePaths);
+        var generator = new LuauGenerator(semanticModel, unit.RuntimeImport, unit.ModuleRequirePaths, typeCheckerDiagnostics);
         return TrackDiagnostics(generator.Generate());
     }
 

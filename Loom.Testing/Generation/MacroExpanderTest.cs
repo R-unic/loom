@@ -1,11 +1,41 @@
+using System.Diagnostics.CodeAnalysis;
 using Loom.Core.Diagnostics;
+using Loom.Core.Generation;
+using Loom.Core.Generation.Macros;
+using Loom.Core.Resolving;
+using Loom.Core.TypeChecking;
 using Loom.Luau.AST;
+using ArrayType = Loom.Core.TypeChecking.Types.ArrayType;
+using Expression = Loom.Core.Parsing.AST.Expression;
+using TypeArguments = Loom.Core.Parsing.AST.TypeArguments;
+using Type = Loom.Core.TypeChecking.Types.Type;
 
 namespace Loom.Testing.Generation;
 
 [Collection("Assembly")]
 public class MacroExpanderTest
 {
+    /// <summary>
+    ///     A test double substituted for the real providers via <see cref="MacroExpander" />'s test-only
+    ///     constructor seam, standing in for a provider whose assumptions about a call site's shape don't
+    ///     hold - the general case <see cref="Generates_ProviderFailure_UnexplainedByAnyDiagnostic_AsACompilerError" />
+    ///     needs to trigger deterministically, since every shipped provider is already hardened against the
+    ///     specific bug rbx-loom/loom#244 was filed for.
+    /// </summary>
+    private sealed class ThrowingArrayMacroProvider : IMacroProvider
+    {
+        public bool Supports(SemanticModel semanticModel, Type type) => type is ArrayType;
+        public bool Supports(SemanticModel semanticModel, Expression expression) => false;
+        public bool IsInvocationOnlyMember(string memberName) => true;
+
+        public bool TryInvocation(
+            MacroContext context,
+            string name,
+            TypeArguments? typeArguments,
+            Call call,
+            [MaybeNullWhen(false)] out LuauExpression expression) =>
+            throw new InvalidOperationException("simulated provider bug");
+    }
     /// <summary>
     ///     A chain bound straight to a name accumulates into that name, so no temporary is declared and
     ///     no copy of it is left behind.
@@ -1444,6 +1474,45 @@ public class MacroExpanderTest
 
         Assert.Contains(diagnostics.Set, d => d.Code == InternalCodes.InvocationArity);
         Assert.DoesNotContain(diagnostics.Set, d => d.Code == InternalCodes.CompilerError);
+    }
+
+    /// <summary>
+    ///     The complement of <see cref="Generates_AMacroBackedCall_GivenTheWrongArity_WithoutThrowing" />:
+    ///     when the type checker passed a call site clean, a provider throwing anyway is not something any
+    ///     other diagnostic already explains - it is a bug in the provider, and MacroExpander now reports
+    ///     it as a compiler error instead of letting the build exit 0 with an unexpanded call to a member
+    ///     that doesn't exist on a plain Luau table (rbx-loom/loom#244).
+    /// </summary>
+    [Fact]
+    public void Generates_ProviderFailure_UnexplainedByAnyDiagnostic_AsACompilerError()
+    {
+        const string source = "let a = [1, 2, 3]; a.clone();";
+        var (_, semanticModel, flowAnalyzer) = Utility.FlowAnalyze(source);
+        var typeCheckerDiagnostics = new TypeChecker(semanticModel, flowAnalyzer).Check().Diagnostics;
+        Utility.AssertNoErrors(typeCheckerDiagnostics);
+
+        var generator = new LuauGenerator(semanticModel, null, null, typeCheckerDiagnostics, [new ThrowingArrayMacroProvider()]);
+        var result = generator.Generate();
+
+        Assert.Contains(result.Diagnostics.Set, d => d.Code == InternalCodes.CompilerError);
+    }
+
+    /// <summary>
+    ///     Same provider failure, but with no type checker diagnostics supplied at all - the shape tooling
+    ///     that generates without ever type-checking (see <c>ProfileTools</c>) is in. Nothing here can tell
+    ///     "validated elsewhere" apart from "never checked", so the exception is swallowed exactly as it
+    ///     always was rather than reported as a false-positive compiler bug.
+    /// </summary>
+    [Fact]
+    public void Generates_ProviderFailure_WithNoTypeCheckerDiagnosticsSupplied_FallsBackSilently()
+    {
+        const string source = "let a = [1, 2, 3]; a.clone();";
+        var (_, semanticModel, _) = Utility.FlowAnalyze(source);
+
+        var generator = new LuauGenerator(semanticModel, null, null, null, [new ThrowingArrayMacroProvider()]);
+        var result = generator.Generate();
+
+        Assert.DoesNotContain(result.Diagnostics.Set, d => d.Code == InternalCodes.CompilerError);
     }
 
     /// <summary>

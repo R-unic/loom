@@ -78,13 +78,28 @@ public sealed partial class LuauGenerator
     private readonly List<string> _bufferMembers = [];
     private readonly List<LuauStatement> _serializerStatements = [];
 
-    public LuauGenerator(SemanticModel semanticModel, RuntimeImport? runtimeImport = null, ModuleRequirePathResolver? moduleRequirePaths = null)
+    public LuauGenerator(
+        SemanticModel semanticModel,
+        RuntimeImport? runtimeImport = null,
+        ModuleRequirePathResolver? moduleRequirePaths = null,
+        DiagnosticBag? typeCheckerDiagnostics = null)
+        : this(semanticModel, runtimeImport, moduleRequirePaths, typeCheckerDiagnostics, null)
+    {
+    }
+
+    /// <summary>Lets a test substitute a throwing test double for the real macro providers, to exercise <see cref="MacroExpander" />'s handling of a provider failure deterministically.</summary>
+    internal LuauGenerator(
+        SemanticModel semanticModel,
+        RuntimeImport? runtimeImport,
+        ModuleRequirePathResolver? moduleRequirePaths,
+        DiagnosticBag? typeCheckerDiagnostics,
+        IReadOnlyCollection<Macros.IMacroProvider>? macroProviders)
         : base(_ => new NoOpStatement())
     {
         _semanticModel = semanticModel;
         _diagnostics = new DiagnosticBag(options: semanticModel.Diagnostics.Options);
         _runtimeImport = runtimeImport ?? RuntimeImport.Default;
-        _macroExpander = new MacroExpander(semanticModel, _state, _diagnostics);
+        _macroExpander = new MacroExpander(semanticModel, _state, _diagnostics, typeCheckerDiagnostics, macroProviders);
         _arrayPipeline = new ArrayPipeline(semanticModel, _state, Visit);
         _moduleGenerator = new ModuleImportExportGenerator(semanticModel, _diagnostics, moduleRequirePaths);
         _localSafeConnections = new Lazy<HashSet<(EventTarget Target, Symbol Function)>>(

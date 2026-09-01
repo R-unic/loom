@@ -28,13 +28,15 @@ internal static partial class Utility
     private static LuauGeneratorResult Generate(string source, bool typeCheck = false, bool disableRuntimeLib = true)
     {
         var (_, semanticModel, flowAnalyzer) = FlowAnalyze(source, out var upstream, disableRuntimeLib);
+        DiagnosticBag? typeCheckerDiagnostics = null;
         if (typeCheck)
         {
             var typeChecker = new TypeChecker(semanticModel, flowAnalyzer);
-            upstream = DiagnosticBag.Concat([upstream, typeChecker.Check().Diagnostics]);
+            typeCheckerDiagnostics = typeChecker.Check().Diagnostics;
+            upstream = DiagnosticBag.Concat([upstream, typeCheckerDiagnostics]);
         }
 
-        var result = new LuauGenerator(semanticModel).Generate();
+        var result = new LuauGenerator(semanticModel, typeCheckerDiagnostics: typeCheckerDiagnostics).Generate();
         return result with { Diagnostics = DiagnosticBag.Concat([upstream, result.Diagnostics]) };
     }
 
@@ -47,7 +49,7 @@ internal static partial class Utility
     {
         var (analyzerResult, semanticModel, flowAnalyzer) = FlowAnalyze(source, projectType: projectType);
         var typeCheckerDiagnostics = new TypeChecker(semanticModel, flowAnalyzer).Check().Diagnostics;
-        var generatorDiagnostics = new LuauGenerator(semanticModel).Generate().Diagnostics;
+        var generatorDiagnostics = new LuauGenerator(semanticModel, typeCheckerDiagnostics: typeCheckerDiagnostics).Generate().Diagnostics;
 
         return DiagnosticBag.Concat([semanticModel.Diagnostics, analyzerResult.Diagnostics, typeCheckerDiagnostics, generatorDiagnostics]);
     }

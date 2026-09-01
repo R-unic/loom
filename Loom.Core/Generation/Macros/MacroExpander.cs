@@ -3,6 +3,7 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Generation.Macros.Providers;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
+using Loom.Core.Text;
 using Loom.Luau.AST;
 using ElementAccess = Loom.Core.Parsing.AST.ElementAccess;
 using Identifier = Loom.Core.Parsing.AST.Identifier;
@@ -16,7 +17,12 @@ using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.Generation.Macros;
 
-internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state, DiagnosticBag diagnostics)
+internal sealed class MacroExpander(
+    SemanticModel semanticModel,
+    LuauState state,
+    DiagnosticBag diagnostics,
+    DiagnosticBag? typeCheckerDiagnostics = null,
+    IReadOnlyCollection<IMacroProvider>? providers = null)
 {
     internal static readonly IReadOnlyCollection<IMacroProvider> Providers =
     [
@@ -32,6 +38,9 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         new FutureStaticMacroProvider(),
         new IntrinsicGlobalInvocationMacroProvider()
     ];
+
+    /// <summary>The built-in providers by default, or a test double substituted in to exercise a provider failure deterministically.</summary>
+    private readonly IReadOnlyCollection<IMacroProvider> _providers = providers ?? Providers;
 
     private readonly MacroContext _context = new(semanticModel, state, diagnostics);
 
@@ -50,8 +59,9 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         {
             return provider.TryInvocation(_context, member.Trim(), invocation.TypeArguments, luauCall, out expression);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            ReportUnexpectedProviderFailure(invocation, exception);
             expression = null;
             return false;
         }
@@ -91,8 +101,9 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         {
             (matched, scope) = state.CaptureIsolatedScope(() => provider.TryInvocation(_context, memberName.Trim(), null, call, out body));
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            ReportUnexpectedProviderFailure(expression, exception);
             return false;
         }
 
@@ -306,8 +317,9 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         {
             return provider.TryProperty(_context, name, target, out expression);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            ReportUnexpectedProviderFailure(_context.Node, exception);
             expression = null;
             return false;
         }
@@ -319,12 +331,38 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
         {
             return provider.TryElementAccess(_context, luauAccess, targetType, out expression);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            ReportUnexpectedProviderFailure(_context.Node, exception);
             expression = null;
             return false;
         }
     }
+
+    /// <summary>
+    ///     A provider throwing when the type checker already reported an error somewhere inside this call
+    ///     site is the "call site failed validation, diagnostics don't stop the pipeline" case every
+    ///     caller above already treats as a silent unexpanded fallback. A provider throwing when nothing
+    ///     else flagged the call site is a genuine bug in the provider - reported here rather than let the
+    ///     exception vanish, which used to let the build exit 0 while emitting a call to a member that
+    ///     doesn't exist on a plain table. <paramref name="typeCheckerDiagnostics" /> is null for callers
+    ///     (tooling, tests exercising generation on its own) that never ran a type checker over this file at
+    ///     all - nothing here can tell "validated" apart from "never checked" then, so the exception is
+    ///     swallowed exactly as it always was.
+    /// </summary>
+    private void ReportUnexpectedProviderFailure(Node node, Exception exception)
+    {
+        if (typeCheckerDiagnostics != null && !HasErrorWithin(node.LocationSpan))
+            diagnostics.CompilerError(node, $"A macro provider threw while expanding this call: {exception.Message}");
+    }
+
+    private bool HasErrorWithin(LocationSpan span) =>
+        typeCheckerDiagnostics!.Set.Any(diagnostic =>
+            diagnostic.Severity == DiagnosticSeverity.Error
+            && diagnostic.Span.File.Equals(span.File)
+            && diagnostic.Span.Start.Position < span.End.Position
+            && span.Start.Position < diagnostic.Span.End.Position
+        );
 
     private bool TryGetEnumConstant(Expression expression, [MaybeNullWhen(false)] out LuauExpression constantValue)
     {
@@ -338,13 +376,13 @@ internal sealed class MacroExpander(SemanticModel semanticModel, LuauState state
     }
 
     private IMacroProvider? GetProvider(Expression receiver) =>
-        GetProvider(semanticModel.GetType(receiver)) ?? Providers.FirstOrDefault(provider => provider.Supports(semanticModel, receiver));
+        GetProvider(semanticModel.GetType(receiver)) ?? _providers.FirstOrDefault(provider => provider.Supports(semanticModel, receiver));
 
     private IMacroProvider? GetProvider(Type type)
     {
         if (type is OptionalType optionalType)
             type = optionalType.NonNullableType;
 
-        return Providers.FirstOrDefault(provider => provider.Supports(semanticModel, type));
+        return _providers.FirstOrDefault(provider => provider.Supports(semanticModel, type));
     }
 }
