@@ -297,6 +297,8 @@ public class ArrayCombinatorRuntimeTest
     [InlineData("let xs = [1, 2, 3]; let outcome = xs.has(2);", "true")]
     [InlineData("let xs = [1, 2, 3]; let outcome = xs.has(9);", "false")]
     [InlineData("let xs = [1, 2, 3]; let outcome = xs.length;", "3")]
+    [InlineData("let xs = [1, 2, 3]; let outcome = xs.is_empty;", "false")]
+    [InlineData("let xs: number[] = []; let outcome = xs.is_empty;", "true")]
     [InlineData("let xs = [\"a\", \"b\"]; let outcome = xs.join(\"-\");", "a-b")]
     [InlineData("let xs = mut [1, 2, 3]; xs.remove_value(2); let outcome = xs.join(\",\");", "1,3")]
     [InlineData("let xs = mut [1, 2, 3]; xs.remove_value(9); let outcome = xs.join(\",\");", "1,2,3")]

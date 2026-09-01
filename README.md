@@ -1441,7 +1441,7 @@ const more = _result
 
 | Member | Result | Cost |
 | --- | --- | --- |
-| `size` | how many members | walks the set |
+| `length` | how many members | walks the set |
 | `is_empty` | whether it has none | `next(t) == nil` |
 | `has(value)` | whether `value` is a member | one lookup |
 | `add(value)` / `remove(value)` | `MutSet<T>` only | one assignment |
@@ -1450,8 +1450,8 @@ const more = _result
 | `is_subset_of(other)` | whether `other` has all of them | walks until one is missing, then stops |
 | `to_array()` | the members as a `T[]`, in no particular order | walks the set |
 
-`size` is a count, not a stored field - storing one would collide with the members, since they *are* the keys. Reach
-for `is_empty` over `size == 0`: it stops at the first member instead of counting them all.
+`length` is a count, not a stored field - storing one would collide with the members, since they *are* the keys.
+Reach for `is_empty` over `length == 0`: it stops at the first member instead of counting them all.
 
 Membership is `value == true` rather than "key present". The indexer is declared `[T]: bool` and `MutSet`'s is
 mutable, so writing `false` through it directly means what it says.

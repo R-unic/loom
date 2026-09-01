@@ -44,8 +44,8 @@ internal sealed class SetMacroProvider : IMacroProvider
     {
         switch (name)
         {
-            case "size":
-                expression = GenerateSize(context, target);
+            case "length":
+                expression = GenerateLength(context, target);
                 return true;
             case "is_empty":
                 // 'next(t) == nil' is the whole test: '#t' counts the array part, which a set never fills.
@@ -125,7 +125,7 @@ internal sealed class SetMacroProvider : IMacroProvider
         return new NilLiteral();
     }
 
-    private static Identifier GenerateSize(MacroContext context, LuauExpression set)
+    private static Identifier GenerateLength(MacroContext context, LuauExpression set)
     {
         var count = context.State.PushToVariable(CountName, new NumberLiteral(0), isConst: false);
         var key = context.State.Scope.AddIdentifier(KeyName);

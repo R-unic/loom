@@ -4044,6 +4044,14 @@ public partial class TypeCheckerTest
     }
 
     [Fact]
+    public void Checks_ArrayMemberAccess_IsEmpty()
+    {
+        var type = Utility.GetLastStatementType("let a = [1, 2, 3]; a.is_empty");
+        var primitive = Assert.IsType<PrimitiveType>(type);
+        Assert.Equal(PrimitiveTypeKind.Bool, primitive.Kind);
+    }
+
+    [Fact]
     public void Checks_ArrayMemberAccess_Join_ReturnsString()
     {
         var type = Utility.GetLastStatementType("let a = [1, 2, 3]; a.join(', ')");

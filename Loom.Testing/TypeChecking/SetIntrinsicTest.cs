@@ -13,7 +13,7 @@ public class SetIntrinsicTest
     [Theory]
     [InlineData("Set::of(1).to_array()", "number[]")]
     [InlineData("Set::of(1).has(1)", "bool")]
-    [InlineData("Set::of(1).size", "number")]
+    [InlineData("Set::of(1).length", "number")]
     [InlineData("Set::of(1).is_empty", "bool")]
     public void Infers(string expression, string expected) => Assert.Equal(expected, Utility.GetLastStatementType(expression).ToString());
 

@@ -61,11 +61,12 @@ public sealed class LocalPackageIndex(string rootDirectory, string? source = nul
         return published;
     }
 
-    public bool Install(PublishedPackage package, string directory, out IReadOnlyList<ConfigDiagnostic> diagnostics)
+    public bool 
+        Install(PublishedPackage package, string directory, out IReadOnlyList<ConfigDiagnostic> diagnostics)
     {
         diagnostics = [];
         var packageSource = Path.Combine(_root, package.Name.Scope ?? string.Empty, package.Name.Name, package.Version.ToString());
-        if (!Directory.Exists(source))
+        if (!Directory.Exists(packageSource))
         {
             diagnostics = [new ConfigDiagnostic($"'{package}' is not published in '{_root}'.")];
             return false;

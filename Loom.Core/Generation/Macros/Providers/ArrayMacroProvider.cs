@@ -34,6 +34,11 @@ internal sealed class ArrayMacroProvider : IMacroProvider
                 expression = new UnaryOperator("#", target);
                 return true;
             }
+            case "is_empty":
+            {
+                expression = new BinaryOperator(new UnaryOperator("#", target), "==", new NumberLiteral(0));
+                return true;
+            }
         }
 
         expression = null;

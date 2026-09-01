@@ -34,6 +34,7 @@ public sealed class ArrayType(Type elementType, bool isMutable)
         var properties = new List<ObjectProperty>
         {
             new(false, "length", PrimitiveType.Number),
+            new(false, "is_empty", PrimitiveType.Bool),
             new(false, "join", new FunctionType([], [new OptionalType(PrimitiveType.String)], PrimitiveType.String)),
             new(false, "index_of", new FunctionType([], [elementType], new OptionalType(PrimitiveType.Number))),
             new(false, "has", new FunctionType([], [elementType], PrimitiveType.Bool)),

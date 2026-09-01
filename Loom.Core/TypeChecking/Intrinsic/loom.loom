@@ -82,7 +82,7 @@ interface Required<T> { [K from keyof(T)]: NonNullable<T[K]>; }
 
 declare interface Set<T> {
     [T]: bool;
-    size: number;
+    length: number;
     is_empty: bool;
     has: fn(value: T): bool;
     union: fn(other: Set<T>): Set<T>;
@@ -97,7 +97,7 @@ declare interface Set<T> {
 
 declare interface MutSet<T> {
     mut [T]: bool;
-    size: number;
+    length: number;
     is_empty: bool;
     has: fn(value: T): bool;
     add: fn(value: T): void;

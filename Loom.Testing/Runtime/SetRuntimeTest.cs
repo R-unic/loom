@@ -13,24 +13,24 @@ namespace Loom.Testing.Runtime;
 public class SetRuntimeTest
 {
     [Theory]
-    [InlineData("Set::of(1, 2, 3).size", "3")]
-    [InlineData("Set::of(1, 2, 2, 3).size", "3")]
-    [InlineData("Set::empty::<number>().size", "0")]
+    [InlineData("Set::of(1, 2, 3).length", "3")]
+    [InlineData("Set::of(1, 2, 2, 3).length", "3")]
+    [InlineData("Set::empty::<number>().length", "0")]
     [InlineData("Set::of(1).is_empty", "false")]
     [InlineData("Set::empty::<number>().is_empty", "true")]
     [InlineData("Set::of(1, 2, 3).has(2)", "true")]
     [InlineData("Set::of(1, 2, 3).has(9)", "false")]
     [InlineData("Set::of(\"a\", \"b\").has(\"b\")", "true")]
-    [InlineData("Set::of(1, 2).union(Set::of(2, 3)).size", "3")]
+    [InlineData("Set::of(1, 2).union(Set::of(2, 3)).length", "3")]
     [InlineData("Set::of(1, 2).union(Set::of(2, 3)).has(3)", "true")]
-    [InlineData("Set::of(1, 2, 3).intersect(Set::of(2, 3, 4)).size", "2")]
+    [InlineData("Set::of(1, 2, 3).intersect(Set::of(2, 3, 4)).length", "2")]
     [InlineData("Set::of(1, 2, 3).intersect(Set::of(2, 3, 4)).has(1)", "false")]
-    [InlineData("Set::of(1, 2, 3).difference(Set::of(2)).size", "2")]
+    [InlineData("Set::of(1, 2, 3).difference(Set::of(2)).length", "2")]
     [InlineData("Set::of(1, 2, 3).difference(Set::of(2)).has(2)", "false")]
     [InlineData("Set::of(1, 2).is_subset_of(Set::of(1, 2, 3))", "true")]
     [InlineData("Set::of(1, 4).is_subset_of(Set::of(1, 2, 3))", "false")]
     [InlineData("Set::empty::<number>().is_subset_of(Set::of(1))", "true")]
-    [InlineData("[1, 2, 2, 3].to_set().size", "3")]
+    [InlineData("[1, 2, 2, 3].to_set().length", "3")]
     [InlineData("[1, 2, 2, 3].to_set().has(2)", "true")]
     public void Executes(string expression, string expected) =>
         Assert.Equal(expected, Run($"let answer = {expression};", "return tostring(answer)"));
@@ -40,8 +40,8 @@ public class SetRuntimeTest
     [InlineData("m.remove(1);", "2")]
     [InlineData("m.remove(9);", "3")]
     [InlineData("m.add(1);", "3")]
-    public void MutationChangesSize(string mutation, string expected) =>
-        Assert.Equal(expected, Run($"let m = MutSet::of(1, 2, 3);\n{mutation}\nlet answer = m.size;", "return tostring(answer)"));
+    public void MutationChangesLength(string mutation, string expected) =>
+        Assert.Equal(expected, Run($"let m = MutSet::of(1, 2, 3);\n{mutation}\nlet answer = m.length;", "return tostring(answer)"));
 
     [Fact]
     public void RemoveClearsMembership() =>
@@ -49,12 +49,12 @@ public class SetRuntimeTest
 
     [Fact]
     public void ClearEmptiesTheSet() =>
-        Assert.Equal("0", Run("let m = MutSet::of(1, 2, 3);\nm.clear();\nlet answer = m.size;", "return tostring(answer)"));
+        Assert.Equal("0", Run("let m = MutSet::of(1, 2, 3);\nm.clear();\nlet answer = m.length;", "return tostring(answer)"));
 
     /// <summary>A mutable set is assignable to an immutable one, so the algebra members accept one directly.</summary>
     [Fact]
     public void MutableSetPassesToAnImmutableParameter() =>
-        Assert.Equal("3", Run("let m = MutSet::of(2, 3);\nlet answer = Set::of(1, 2).union(m).size;", "return tostring(answer)"));
+        Assert.Equal("3", Run("let m = MutSet::of(2, 3);\nlet answer = Set::of(1, 2).union(m).length;", "return tostring(answer)"));
 
     /// <summary>Key order is unspecified, so the members are sorted before they are compared.</summary>
     [Fact]

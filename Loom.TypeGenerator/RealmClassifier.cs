@@ -101,12 +101,9 @@ internal sealed partial class RealmClassifier
         var start = text.IndexOf($"\n[{section}]", StringComparison.Ordinal);
         if (start < 0)
             return [];
-
-        // Bounded by the next section header (or end of file), so a keyword mentioned only in a later
-        // section's own array is never mistaken for this section's.
+        
         var nextSection = text.IndexOf("\n[", start + 1, StringComparison.Ordinal);
         var sectionEnd = nextSection < 0 ? text.Length : nextSection;
-
         var assignment = text.IndexOf($"\n{arrayKeyword} =", start, StringComparison.Ordinal);
         if (assignment < 0 || assignment >= sectionEnd)
             return [];
