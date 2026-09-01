@@ -1,3 +1,4 @@
+using System.Text;
 using Loom.Core.Diagnostics;
 
 namespace Loom.CLI;
@@ -82,6 +83,50 @@ internal static class Prompt
 
         Console.Write("\r\e[2K");
         Console.WriteLine($"{Colors.Dim}(use ↑/↓ then Enter){Colors.Reset}");
+    }
+
+    /// <summary>
+    ///     Reads an answer nobody else should see. Nothing is echoed at all, not even a placeholder per character:
+    ///     a token is pasted rather than typed, and the length of one is not something a shoulder needs to know.
+    /// </summary>
+    /// <remarks>
+    ///     Redirected input is read as a line, so a script can pipe a token in; that is the same path
+    ///     <see cref="SelectFromRedirectedInput{T}" /> takes for the same reason, since a terminal that is not a
+    ///     terminal has no keys to read.
+    /// </remarks>
+    public static string? Secret(string question)
+    {
+        Console.Write($"{Colors.Bold}{Colors.Cyan}?{Colors.Reset} {Colors.Bold}{question}{Colors.Reset} ");
+        if (Console.IsInputRedirected)
+            return Console.ReadLine()?.Trim();
+
+        var answer = new StringBuilder();
+        while (true)
+        {
+            var key = Console.ReadKey(intercept: true);
+            switch (key.Key)
+            {
+                case ConsoleKey.Enter:
+                    Console.WriteLine();
+                    return answer.ToString().Trim();
+
+                case ConsoleKey.Escape:
+                    Console.WriteLine();
+                    return null;
+
+                case ConsoleKey.Backspace:
+                    if (answer.Length > 0)
+                        answer.Length--;
+
+                    break;
+
+                default:
+                    if (!char.IsControl(key.KeyChar))
+                        answer.Append(key.KeyChar);
+
+                    break;
+            }
+        }
     }
 
     public static bool Confirm(string question, bool defaultValue = true)

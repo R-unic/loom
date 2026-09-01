@@ -150,9 +150,13 @@ public class LocalPackageIndexTest
         Assert.Contains("no [registry] index", Assert.Single(diagnostics).Message);
     }
 
-    /// <remarks>Nothing here fetches over a network yet, and a build has to say so rather than resolve to nothing.</remarks>
+    /// <remarks>
+    ///     An http or https URL is a registry; nothing else about the manifest distinguishes one, and a path is what
+    ///     it is not. Nothing is asked of the registry here — opening an index states where it is, and a project that
+    ///     needs nothing resolved never sends a request.
+    /// </remarks>
     [Fact]
-    public void Open_ReportsARemoteIndex_AsNotSupportedYet()
+    public void Open_ReadsAnHttpIndex_AsARegistry()
     {
         using var fixture = new PackageIndexFixture();
         fixture.WriteProject("math = \"^1.0\"");
@@ -160,8 +164,11 @@ public class LocalPackageIndexTest
         File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("index = \"../index\"", $"index = \"{RegistryConfig.DefaultIndex}\""));
         var project = ConfigReader.LocateFromDirectory(fixture.ProjectDirectory, out _);
 
-        Assert.Null(PackageIndexes.Open(project!, out var diagnostics));
-        Assert.Contains("is not supported yet", Assert.Single(diagnostics).Message);
+        var index = PackageIndexes.Open(project!, out var diagnostics);
+
+        Assert.Empty(diagnostics);
+        Assert.IsType<RemotePackageIndex>(index);
+        Assert.Equal(RegistryConfig.DefaultIndex, index.Description);
     }
 
     [Fact]

@@ -7,8 +7,9 @@ public static class PackageIndexes
 {
     /// <summary>
     ///     The index <paramref name="project" /> names, or <see langword="null" /> with the reason it could not be
-    ///     opened. A relative path is read against the project directory, so a manifest naming an index beside the
-    ///     project means the same thing wherever the build is run from.
+    ///     opened. An http or https URL is a registry; anything else is a directory, and a relative path is read
+    ///     against the project directory, so a manifest naming an index beside the project means the same thing
+    ///     wherever the build is run from.
     /// </summary>
     public static IPackageIndex? Open(LoomConfig project, out IReadOnlyList<ConfigDiagnostic> diagnostics)
     {
@@ -20,14 +21,7 @@ public static class PackageIndexes
         }
 
         if (Uri.TryCreate(registry.Index, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
-        {
-            diagnostics =
-            [
-                new ConfigDiagnostic($"resolving from a remote index ('{registry.Index}') is not supported yet; point [registry] index at a local directory.")
-            ];
-
-            return null;
-        }
+            return new RemotePackageIndex(registry.Index, registry.Index);
 
         var path = uri is { IsFile: true } ? uri.LocalPath : Path.Combine(project.ProjectDirectory, registry.Index);
         if (Directory.Exists(path))

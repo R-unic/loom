@@ -11,7 +11,13 @@ public sealed class RegistryConfig
     ///     writing no <c>[registry]</c> at all leaves <see cref="LoomConfig.Registry" /> null, which is a project
     ///     with no index rather than a project with this one.
     /// </summary>
-    public const string DefaultIndex = "https://rbx-loom.github.io/index";
+    /// <remarks>
+    ///     This has to name something that answers the registry API, not merely something that answers. A URL that
+    ///     is not a registry is not reported as one: every endpoint under it comes back 404, which is exactly how an
+    ///     index says a package is not published — so a default pointing somewhere plausible would tell everyone who
+    ///     never wrote an <c>index</c> that the package they asked for does not exist.
+    /// </remarks>
+    public const string DefaultIndex = "https://packages.orrinengine.com";
 
     /// <summary>
     ///     Where the index is: a registry's base URL, a static index served over http, or a directory on disk. A

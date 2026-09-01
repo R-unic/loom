@@ -19,6 +19,16 @@ internal readonly record struct AddOptions(IReadOnlyList<string> Packages, bool 
 /// </param>
 internal readonly record struct PublishOptions(string Directory, bool DryRun, bool AllowDirty);
 
+/// <param name="Registry">
+///     The registry to sign in to, or <see langword="null" /> to sign in to the one the project in
+///     <paramref name="Directory" /> resolves from — which is the registry a publish from here would go to.
+/// </param>
+/// <param name="Token">
+///     The token, for a machine with nobody at the keyboard. <c>-</c> reads it from standard input, which is how a
+///     token reaches a script without being written into its command line and from there into a shell history.
+/// </param>
+internal readonly record struct LoginOptions(string? Registry, string Directory, string? Token);
+
 internal abstract record CliCommand
 {
     private CliCommand() { }
@@ -32,6 +42,8 @@ internal abstract record CliCommand
     public sealed record RunAdd(AddOptions Options) : CliCommand;
 
     public sealed record RunPublish(PublishOptions Options) : CliCommand;
+
+    public sealed record RunLogin(LoginOptions Options) : CliCommand;
 
     public sealed record Done(int ExitCode) : CliCommand;
 }

@@ -18,6 +18,7 @@ internal static class CliParser
         ("new", "Create a new Loom project."),
         ("add", "Add a dependency to a Loom project."),
         ("publish", "Publish a Loom package to its index."),
+        ("login", "Sign in to a package registry."),
         ("help", "Display more information on a specific command."),
         ("version", "Display version information.")
     ];
@@ -61,6 +62,15 @@ internal static class CliParser
         ("directory (pos. 0)", "(Default: .) The project directory.")
     ];
 
+    private static readonly (string Label, string Description)[] LoginCommandOptions =
+    [
+        ("-p, --project", "(Default: .) The project whose registry to sign in to."),
+        ("-t, --token", "The token to store; '-' reads it from standard input."),
+        ("--help", "Display this help screen."),
+        ("--version", "Display version information."),
+        ("registry (pos. 0)", "The registry to sign in to, when it is not the project's own.")
+    ];
+
     private static string Version { get; } =
         typeof(CliParser).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0-dev";
 
@@ -102,6 +112,9 @@ internal static class CliParser
             case "publish":
                 return ParsePublish(rest);
 
+            case "login":
+                return ParseLogin(rest);
+
             case var verb:
                 return Error($"Verb '{verb}' is not recognized.", GlobalOptions);
         }
@@ -122,6 +135,9 @@ internal static class CliParser
                 return true;
             case "publish":
                 options = PublishCommandOptions;
+                return true;
+            case "login":
+                options = LoginCommandOptions;
                 return true;
             default:
                 options = [];
@@ -295,6 +311,54 @@ internal static class CliParser
         }
 
         return new CliCommand.RunPublish(new PublishOptions(directory, dryRun, allowDirty));
+    }
+
+    /// <summary>
+    ///     Reads <c>login</c>: the positional is a registry rather than a project, since signing in is about a
+    ///     registry and the project is only how one is found when none is named.
+    /// </summary>
+    private static CliCommand ParseLogin(string[] rest)
+    {
+        string? registry = null;
+        var directory = ".";
+        string? token = null;
+
+        for (var index = 0; index < rest.Length; index++)
+        {
+            switch (rest[index])
+            {
+                case "--help":
+                    PrintVerbHelp(LoginCommandOptions);
+                    return new CliCommand.Done(0);
+
+                case "--version":
+                    PrintVersion();
+                    return new CliCommand.Done(0);
+
+                case "-p" or "--project":
+                    if (index + 1 >= rest.Length)
+                        return Error("Option 'project' has no value.", LoginCommandOptions);
+
+                    directory = rest[++index];
+                    break;
+
+                case "-t" or "--token":
+                    if (index + 1 >= rest.Length)
+                        return Error("Option 'token' has no value.", LoginCommandOptions);
+
+                    token = rest[++index];
+                    break;
+
+                case var flag when flag.StartsWith('-') && flag.Length > 1:
+                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", LoginCommandOptions);
+
+                case var positional:
+                    registry ??= positional;
+                    break;
+            }
+        }
+
+        return new CliCommand.RunLogin(new LoginOptions(registry, directory, token));
     }
 
     private static CliCommand.Done Error(string message, (string Label, string Description)[] fallbackOptions)
