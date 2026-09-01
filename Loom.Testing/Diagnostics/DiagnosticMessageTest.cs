@@ -387,7 +387,9 @@ public class DiagnosticMessageTest
         var diagnostic = new Diagnostic(span, DiagnosticSeverity.Error, InternalCodes.TypeMismatch, "Test message", "Test hint");
         var result = diagnostic.ToString();
 
-        var resetCount = result.Count(c => c == $"{Colors.Reset}"[0]);
+        // Colors resolves every code to "" under a redirected output (this test run included), so indexing
+        // into Colors.Reset would throw when it's empty - count the escape byte directly instead.
+        var resetCount = result.Count(c => c == (char)27);
         var colorStartCount = result.Count(c => c == '\u001b');
 
         Assert.Equal(colorStartCount, resetCount);

@@ -1,19 +1,29 @@
 namespace Loom.Core.Diagnostics;
 
+/// <summary>
+///     ANSI escape codes for console output, blanked out rather than emitted whenever the output isn't a
+///     terminal that would render them - a redirected build log or a CI runner otherwise fills up with raw
+///     escape sequences instead of color, and <c>NO_COLOR</c> is the convention for opting out by hand.
+/// </summary>
 public static class Colors
 {
-    public const string Reset = "\e[0m";
-    public const string Bold = "\e[1m";
-    public const string Dim = "\e[2m";
+    private static readonly bool Enabled =
+        Environment.GetEnvironmentVariable("NO_COLOR") is not { Length: > 0 } && !Console.IsOutputRedirected && !Console.IsErrorRedirected;
 
-    public const string Red = "\e[38;5;9m";
-    public const string Yellow = "\e[38;5;11m";
-    public const string Orange = "\e[38;5;3m";
-    public const string Green = "\e[38;5;2m";
-    public const string Blue = "\e[38;5;12m";
-    public const string Cyan = "\e[38;5;38m";
-    public const string Magenta = "\e[38;5;135m";
-    public const string Pink = "\e[38;5;219m";
-    public const string White = "\e[38;5;231m";
-    public const string Gray = "\e[38;5;252m";
+    public static string Reset => Code("\e[0m");
+    public static string Bold => Code("\e[1m");
+    public static string Dim => Code("\e[2m");
+
+    public static string Red => Code("\e[38;5;9m");
+    public static string Yellow => Code("\e[38;5;11m");
+    public static string Orange => Code("\e[38;5;3m");
+    public static string Green => Code("\e[38;5;2m");
+    public static string Blue => Code("\e[38;5;12m");
+    public static string Cyan => Code("\e[38;5;38m");
+    public static string Magenta => Code("\e[38;5;135m");
+    public static string Pink => Code("\e[38;5;219m");
+    public static string White => Code("\e[38;5;231m");
+    public static string Gray => Code("\e[38;5;252m");
+
+    private static string Code(string code) => Enabled ? code : "";
 }
