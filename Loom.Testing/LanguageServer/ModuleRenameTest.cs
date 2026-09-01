@@ -166,7 +166,7 @@ public class ModuleRenameTest
             }
         );
 
-    /// <summary>Like <see cref="WithProjectAsync(System.Action{DocumentStore,string})" />, but with extra files already on disk before the unit is first built, so they are part of its roots from the start.</summary>
+    /// <summary>Like <see cref="WithProjectAsync(Action{DocumentStore,string})" />, but with extra files already on disk before the unit is first built, so they are part of its roots from the start.</summary>
     private static void WithFilesOnDisk(IReadOnlyList<(string Path, string Source)> extraFiles, Action<DocumentStore, string> act)
     {
         var directory = Path.Combine(Path.GetTempPath(), "loom-rename-test-" + Guid.NewGuid());

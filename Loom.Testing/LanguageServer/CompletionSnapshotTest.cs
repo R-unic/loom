@@ -67,8 +67,8 @@ public class CompletionSnapshotTest
                 var candidates = state.Completions.At(insideBraces);
                 var double_ = Assert.Single(candidates, symbol => symbol.Name == "double");
 
-                Assert.Equal("(n: number): number", double_.Detail!());
-                Assert.Contains("fn double(n: number): number", double_.Documentation!());
+                Assert.Equal("(n: number): number", double_.Detail());
+                Assert.Contains("fn double(n: number): number", double_.Documentation());
                 return Task.CompletedTask;
             },
             "import {  } from \"./util/math\";",
@@ -125,7 +125,7 @@ public class CompletionSnapshotTest
                 Assert.Contains(members, symbol => symbol.Name == "name");
 
                 var name = Assert.Single(members, symbol => symbol.Name == "name");
-                Assert.Equal("string", name.Detail!());
+                Assert.Equal("string", name.Detail());
                 return Task.CompletedTask;
             },
             """

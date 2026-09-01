@@ -277,7 +277,7 @@ public class CallHierarchyTest
             (store, uri) =>
             {
                 Assert.True(store.TryGetState(uri, out var state));
-                Assert.Empty(CallHierarchy.OutgoingCalls(symbol!, state.Unit));
+                Assert.Empty(CallHierarchy.OutgoingCalls(symbol, state.Unit));
                 return Task.CompletedTask;
             },
             "fn other(): void { }"
