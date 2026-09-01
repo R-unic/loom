@@ -1,1 +1,2 @@
 Loom.Testing/Snapshots/** linguist-vendored
+*.loom linguist-language=TypeScript

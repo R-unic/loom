@@ -325,6 +325,39 @@ public class CompletionHandlerTest
         );
 
     /// <summary>
+    ///     A relative specifier is written with <c>.</c> and <c>/</c>, neither of which is an identifier
+    ///     character - the plain word-prefix scan would see only the "m" after the last slash and drop every
+    ///     candidate, since none of them start with "m".
+    /// </summary>
+    [Fact]
+    public async Task Handle_InsideAnImportSpecifier_FiltersByAPrefixContainingASlash() =>
+        await Utility.WithLspProjectAsync(
+            async (store, uri) =>
+            {
+                Assert.True(store.TryGetState(uri, out var state));
+                var text = state.File.SourceFile.SourceText;
+                var prefixStart = text.IndexOf("./util/m", StringComparison.Ordinal);
+                var afterPrefix = prefixStart + "./util/m".Length;
+
+                var completions = await new CompletionHandler(store).Handle(
+                    new CompletionParams { TextDocument = new TextDocumentIdentifier(uri), Position = new Position(0, afterPrefix) },
+                    TestContext.Current.CancellationToken
+                );
+
+                var specifier = Assert.Single(completions);
+                Assert.Equal("./util/math", specifier.Label);
+
+                var edit = specifier.TextEdit?.TextEdit;
+                Assert.NotNull(edit);
+                Assert.Equal("./util/math", edit.NewText);
+                Assert.Equal(prefixStart, edit.Range.Start.Character);
+                Assert.Equal(afterPrefix, edit.Range.End.Character);
+            },
+            "import { double } from \"./util/m\";",
+            ("util/math.loom", "export fn double(n: number): number { return n * 2; }")
+        );
+
+    /// <summary>
     ///     A name typed inside a plain string literal is text, not an identifier - offering the file's scope
     ///     there put every declaration and keyword inside the quotes, which is never what a string's own
     ///     content could mean.

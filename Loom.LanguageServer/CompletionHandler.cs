@@ -1,8 +1,11 @@
+using Loom.Core.Text;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Location = Loom.Core.Text.Location;
+using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Loom.LanguageServer;
 
@@ -13,6 +16,9 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
     private const string OffsetKey = "loomOffset";
     private const string NameKey = "loomName";
 
+    /// <summary>The replacement a module specifier's own completions need: `/` and `.` aren't identifier characters, so the normal word-prefix logic never covers them.</summary>
+    private sealed record SpecifierReplacement(LspRange Range, string Prefix);
+
     public override Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
     {
         if (!documents.TryGetState(request.TextDocument.Uri, out var state))
@@ -21,15 +27,43 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
         var text = state.File.SourceFile.SourceText;
         var offset = IncrementalText.ToOffset(text, request.Position);
         var candidates = state.Completions.At(offset);
-        var prefix = PrefixAt(text, offset);
+        var replacement = SpecifierRangeAt(state.Completions.ModuleSpecifierRanges, offset) is { } range
+            ? SpecifierReplacementAt(state.File.SourceFile, text, range, offset)
+            : null;
+        var prefix = replacement?.Prefix ?? PrefixAt(text, offset);
         var matches = candidates
             .Where(symbol => symbol.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(symbol => symbol.IsLocal)
             .ThenBy(symbol => symbol.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var items = matches.Take(MaximumItems).Select(symbol => ToCompletionItem(symbol, request.TextDocument.Uri, offset));
+        var items = matches.Take(MaximumItems).Select(symbol => ToCompletionItem(symbol, request.TextDocument.Uri, offset, replacement));
         return Task.FromResult(new CompletionList(items, matches.Length > MaximumItems));
+    }
+
+    private static TextSpan? SpecifierRangeAt(IReadOnlyList<TextSpan> ranges, int offset)
+    {
+        foreach (var range in ranges)
+            if (range.Contains(offset))
+                return range;
+
+        return null;
+    }
+
+    /// <summary>
+    ///     The already-written text from just past the opening quote to the cursor, and the range that
+    ///     text occupies - both measured in the string's own content, since a specifier like
+    ///     <c>./util/math</c> is written with characters (<c>.</c>, <c>/</c>) the identifier-prefix scan
+    ///     would stop at.
+    /// </summary>
+    private static SpecifierReplacement SpecifierReplacementAt(SourceFile file, string text, TextSpan quoted, int offset)
+    {
+        var start = Math.Min(quoted.Position + 1, text.Length);
+        var end = Math.Max(start, offset);
+        return new SpecifierReplacement(
+            new LspRange(Conversion.ToPosition(new Location(file, start)), Conversion.ToPosition(new Location(file, end))),
+            text[start..end]
+        );
     }
 
     /// <summary>
@@ -103,7 +137,7 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
         return state.Completions.Find(offset, name) is { } symbol ? (symbol, state) : null;
     }
 
-    private static CompletionItem ToCompletionItem(VisibleSymbol symbol, DocumentUri uri, int offset) =>
+    private static CompletionItem ToCompletionItem(VisibleSymbol symbol, DocumentUri uri, int offset, SpecifierReplacement? replacement) =>
         new()
         {
             Label = symbol.Name,
@@ -112,6 +146,13 @@ public sealed class CompletionHandler(DocumentStore documents) : CompletionHandl
             // where a name the file itself declares should win over one of the thousands always in scope -
             // and where a name that is not in scope at all should come last, since taking it edits the file
             SortText = $"{SortRank(symbol)}{symbol.Name}",
+            // a client filters against this using the text already in the replaced range, and that range can
+            // hold '/' and '.' - falling back to the label would drop every module specifier as soon as one
+            // was typed
+            FilterText = replacement != null ? symbol.Name : null,
+            TextEdit = replacement is { } edit
+                ? new TextEdit { Range = edit.Range, NewText = symbol.Name }
+                : (TextEditOrInsertReplaceEdit?)null,
             Data = new JObject { [UriKey] = uri.ToString(), [OffsetKey] = offset, [NameKey] = symbol.Name }
         };
 

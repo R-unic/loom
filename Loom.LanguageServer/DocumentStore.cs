@@ -6,6 +6,8 @@ using Loom.Core.Pipeline;
 using Loom.Core.Text;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 
 namespace Loom.LanguageServer;
 
@@ -88,6 +90,21 @@ public sealed class DocumentStore
         public bool IsDirty { get; set; } = true;
         public CompilationUnit? Unit { get; set; }
     }
+
+    /// <summary>
+    ///     Told about an exception a compile threw - the compiler-bug path <c>Compiler.Compile</c> is supposed
+    ///     to catch itself. Null for the parameterless constructor every direct-construction test site uses;
+    ///     a caller that can reach the client wires <see cref="DocumentStore(ILanguageServerFacade)" /> instead,
+    ///     so the failure is visible somewhere instead of only freezing the diagnostics that were last published.
+    /// </summary>
+    private readonly Action<Exception>? _onCompileFailed;
+
+    public DocumentStore() { }
+
+    public DocumentStore(Action<Exception> onCompileFailed) => _onCompileFailed = onCompileFailed;
+
+    public DocumentStore(ILanguageServerFacade server)
+        : this(exception => server.Window.LogError($"Loom: compile failed unexpectedly: {exception}")) { }
 
     private readonly ConcurrentDictionary<DocumentUri, OpenDocument> _documents = [];
     // keyed the way the compiler compares paths, not ordinally: a client's file: URI round-trips a Windows
@@ -307,8 +324,9 @@ public sealed class DocumentStore
             RefreshStates(unit, result);
             return result;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            _onCompileFailed?.Invoke(exception);
             return null;
         }
     }
@@ -346,10 +364,11 @@ public sealed class DocumentStore
             RefreshStates(unit, result);
             return result;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
             // the buffers stay dirty, so the next request tries again rather than answering from a compile
             // that never finished
+            _onCompileFailed?.Invoke(exception);
             return null;
         }
     }
@@ -380,9 +399,10 @@ public sealed class DocumentStore
             _results[unit] = result;
             RefreshStates(unit, result);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
             // nothing to report against: the document that would have carried the failure just closed
+            _onCompileFailed?.Invoke(exception);
         }
     }
 
@@ -418,10 +438,11 @@ public sealed class DocumentStore
         {
             result = RunOnLargeStack(unit.Compile);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
             // a compile throwing here is the compiler-bug path Compiler.Compile is supposed to catch itself;
             // degrade the same way a later recompile would rather than crashing the request that opened the file
+            _onCompileFailed?.Invoke(exception);
             return null;
         }
 
