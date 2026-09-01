@@ -87,37 +87,40 @@ internal sealed class TypeMatcher(IReadOnlyList<TypeParameter> binders, TypePara
     ///     <c>string | let R</c> match <c>string | number</c> and not <c>number | string</c>.
     /// </summary>
     /// <remarks>
-    ///     Members with no binder in them are matched first, so a binder does not consume the partner a
-    ///     literal arm needed. A failed attempt has to put back whatever it bound on the way, since a
-    ///     later partner may still succeed.
+    ///     Members with no binder in them are tried first, so a binder does not consume the partner a
+    ///     literal arm needed - but two binders whose constraints both admit the same candidate still leaves
+    ///     a choice neither pattern member's position settles, so committing to the first fit isn't enough:
+    ///     <c>(let A: number | string) | let B: number</c> against <c>number | string</c> has to backtrack
+    ///     off "A takes number" once that leaves B nothing to take, and try "A takes string" instead. Each
+    ///     attempt restores whatever it bound before trying the next candidate, since a name bound while
+    ///     exploring a dead end must not leak into the next branch.
     /// </remarks>
-    private bool MatchUnion(UnionType subject, UnionType pattern)
+    private bool MatchUnion(UnionType subject, UnionType pattern) =>
+        subject.Types.Count == pattern.Types.Count
+        && TryMatchAll(pattern.Types.OrderBy(ContainsBinder).ToList(), new List<Type>(subject.Types));
+
+    private bool TryMatchAll(IReadOnlyList<Type> patterns, List<Type> unmatched)
     {
-        if (subject.Types.Count != pattern.Types.Count)
-            return false;
-
-        var unmatched = new List<Type>(subject.Types);
-        foreach (var member in pattern.Types.OrderBy(ContainsBinder))
-        {
-            var partner = unmatched.FindIndex(candidate => TryMatchMember(candidate, member));
-            if (partner < 0)
-                return false;
-
-            unmatched.RemoveAt(partner);
-        }
-
-        return true;
-    }
-
-    private bool TryMatchMember(Type subject, Type pattern)
-    {
-        var restore = new TypeParameterSubstitution(bindings);
-        if (Match(subject, pattern))
+        if (patterns.Count == 0)
             return true;
 
-        bindings.Clear();
-        foreach (var (binder, bound) in restore)
-            bindings[binder] = bound;
+        var pattern = patterns[0];
+        var rest = patterns.Skip(1).ToList();
+        for (var i = 0; i < unmatched.Count; i++)
+        {
+            var restore = new TypeParameterSubstitution(bindings);
+            if (Match(unmatched[i], pattern))
+            {
+                var remaining = new List<Type>(unmatched);
+                remaining.RemoveAt(i);
+                if (TryMatchAll(rest, remaining))
+                    return true;
+            }
+
+            bindings.Clear();
+            foreach (var (binder, bound) in restore)
+                bindings[binder] = bound;
+        }
 
         return false;
     }

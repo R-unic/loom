@@ -367,6 +367,18 @@ public class ConditionalTypeTest
     [Fact]
     public void Rejects_AUnionPatternOfADifferentWidth() => Assert.Equal("never", TypeOfAlias("type Other<T> = match T { number | let R -> R, _ -> never };", "Other<number | string | bool>"));
 
+    /// <summary>
+    ///     Committing to the first candidate that fits isn't enough when two binders' constraints overlap -
+    ///     'A' fits either member here, but only leaves 'B' something to take when it backs off 'number' and
+    ///     takes 'string' instead.
+    /// </summary>
+    [Fact]
+    public void Backtracks_WhenAnEarlierBinderTakesTheCandidateALaterOneNeeded() =>
+        Assert.Equal(
+            "string",
+            TypeOfAlias("type Test<T> = match T { (let A: number | string) | let B: number -> A, _ -> never };", "Test<number | string>")
+        );
+
     /// <summary>An arm list with no catch-all narrows to nothing when nothing matches.</summary>
     [Fact]
     public void Answers_Never_WhenNoArmMatches() => Assert.Equal("never", TypeOfAlias("type OnlyNumber<T> = match T { number -> true };", "OnlyNumber<string>"));
