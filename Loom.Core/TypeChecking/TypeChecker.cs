@@ -9,11 +9,10 @@ using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking.Solving;
 using Loom.Core.TypeChecking.Types;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
+using Type = Loom.Core.TypeChecking.Types.Type;
+using Loom.Core.TypeChecking.Intrinsic;
 
 namespace Loom.Core.TypeChecking;
-
-using Type = Types.Type;
-using Loom.Core.TypeChecking.Intrinsic;
 
 /// <summary>
 ///     Fifth stage of the compiler pipeline (Lexer -&gt; Parser -&gt; Resolver -&gt; FlowAnalyzer -&gt; TypeChecker
@@ -162,7 +161,7 @@ public sealed partial class TypeChecker
                 InternalCodes.RedundantCode,
                 $"Null-forgiving operator has no effect since '{expressionType}' is not optional."
             );
-        
+
         return BindType(nullForgiving, expressionType.NonNullable());
     }
 
@@ -274,8 +273,6 @@ public sealed partial class TypeChecker
             return BindType(identifier, declaredType);
         }
 
-        // a name the resolver already reported as unbound has no symbol by definition - its error is the one
-        // the user acts on, and repeating it here phrased as a failed symbol lookup only reads like a compiler bug
         if (!_semanticModel.IsUnresolved(identifier))
             _diagnostics.Error(identifier, InternalCodes.CannotFindSymbol, $"Cannot find symbol for declaration of variable '{identifier.Name.Text}'.");
 

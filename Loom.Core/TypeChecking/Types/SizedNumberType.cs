@@ -23,6 +23,5 @@ public sealed class SizedNumberType(NumberType numberType) : PrimitiveType(Primi
 
     public override int GetHashCode() => HashCode.Combine(typeof(SizedNumberType), Kind, NumberType);
     public override bool Equals(Type? other) => other is SizedNumberType sized && sized.NumberType == NumberType;
-
     public override string ToString() => NumberType.ToString().ToLower();
 }

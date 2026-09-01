@@ -93,7 +93,7 @@ public sealed partial class LuauGenerator
         RuntimeImport? runtimeImport,
         ModuleRequirePathResolver? moduleRequirePaths,
         DiagnosticBag? typeCheckerDiagnostics,
-        IReadOnlyCollection<Macros.IMacroProvider>? macroProviders)
+        IReadOnlyCollection<IMacroProvider>? macroProviders)
         : base(_ => new NoOpStatement())
     {
         _semanticModel = semanticModel;

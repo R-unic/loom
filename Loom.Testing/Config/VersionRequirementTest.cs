@@ -5,9 +5,9 @@ namespace Loom.Testing.Config;
 
 public class VersionRequirementTest
 {
-    private static readonly string[] AgreeingRequirementStrings = ["^1.2", ">=1.4, <2", "<1.9"];
-    private static readonly string[] DisagreeingRequirementStrings = ["^1.2", ">=1.4, <2", "<1.3"];
-    private static readonly string[] PublishedVersionStrings = ["1.0.0", "1.2.0", "1.4.0", "1.4.1-beta.1", "1.9.3", "2.0.0"];
+    private static readonly string[] _agreeingRequirementStrings = ["^1.2", ">=1.4, <2", "<1.9"];
+    private static readonly string[] _disagreeingRequirementStrings = ["^1.2", ">=1.4, <2", "<1.3"];
+    private static readonly string[] _publishedVersionStrings = ["1.0.0", "1.2.0", "1.4.0", "1.4.1-beta.1", "1.9.3", "2.0.0"];
 
     [Theory]
     [InlineData("*", null, null)]
@@ -33,11 +33,11 @@ public class VersionRequirementTest
     {
         var parsed = VersionRequirement.Parse(requirement);
 
-        Assert.Equal(lower, Describe(parsed.Lower, ">=", ">"));
-        Assert.Equal(upper, Describe(parsed.Upper, "<=", "<"));
+        Assert.Equal(lower, describe(parsed.Lower, ">=", ">"));
+        Assert.Equal(upper, describe(parsed.Upper, "<=", "<"));
         return;
 
-        static string? Describe(VersionRequirement.Bound? bound, string inclusive, string exclusive) =>
+        static string? describe(VersionRequirement.Bound? bound, string inclusive, string exclusive) =>
             bound is { } present ? $"{(present.IsInclusive ? inclusive : exclusive)}{present.Version}" : null;
     }
 
@@ -173,7 +173,7 @@ public class VersionRequirementTest
     [Fact]
     public void Intersect_IsWhatEveryDependentAccepts()
     {
-        var requirements = AgreeingRequirementStrings.Select(VersionRequirement.Parse).ToArray();
+        var requirements = _agreeingRequirementStrings.Select(VersionRequirement.Parse).ToArray();
         var intersection = VersionRequirement.Intersect(requirements);
 
         Assert.NotNull(intersection);
@@ -195,12 +195,12 @@ public class VersionRequirementTest
 
     [Fact]
     public void Intersect_WhenOneDependentDisagrees_HasNoAnswer() =>
-        Assert.Null(VersionRequirement.Intersect(DisagreeingRequirementStrings.Select(VersionRequirement.Parse)));
+        Assert.Null(VersionRequirement.Intersect(_disagreeingRequirementStrings.Select(VersionRequirement.Parse)));
 
     [Fact]
     public void Satisfies_PicksTheHighestPublishedVersion()
     {
-        var published = PublishedVersionStrings.Select(Version.Parse).ToArray();
+        var published = _publishedVersionStrings.Select(Version.Parse).ToArray();
         var requirement = VersionRequirement.Parse("^1.2");
 
         Assert.Equal(Version.Parse("1.9.3"), published.Where(requirement.Satisfies).Max());

@@ -73,7 +73,7 @@ public class LanguageServerConversionTest
     public void ToDiagnostic_PointsRelatedInformationAtTheFileItWasReportedIn()
     {
         var related = Assert.Single(Conversion.ToDiagnostic(OnDisk("boom", "try something else")).RelatedInformation!);
-        Assert.Equal(DocumentUri.FromFileSystemPath(RootedPath), related.Location.Uri);
+        Assert.Equal(DocumentUri.FromFileSystemPath(_rootedPath), related.Location.Uri);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class LanguageServerConversionTest
 
     [Fact]
     public void DiagnosticsFor_WithNoResult_IsEmptySoTheClientClearsWhatItHas() =>
-        Assert.Empty(Conversion.DiagnosticsFor(null, DocumentUri.FromFileSystemPath(RootedPath)));
+        Assert.Empty(Conversion.DiagnosticsFor(null, DocumentUri.FromFileSystemPath(_rootedPath)));
 
     [Fact]
     public void DiagnosticsFor_KeepsOnlyTheDiagnosticsRaisedInTheRequestedFile() =>
@@ -191,11 +191,11 @@ public class LanguageServerConversionTest
             (_, result) => Assert.All(Conversion.DiagnosticsByFile(result).Keys, uri => Assert.True(Path.IsPathRooted(uri.GetFileSystemPath())))
         );
 
-    private static readonly string RootedPath = Path.Combine(Path.GetTempPath(), "loom-conversion-test", "main.loom");
+    private static readonly string _rootedPath = Path.Combine(Path.GetTempPath(), "loom-conversion-test", "main.loom");
 
     private static LoomDiagnostic OnDisk(string message, string? hint)
     {
-        var file = new SourceFile(RootedPath, "let x = 1;");
+        var file = new SourceFile(_rootedPath, "let x = 1;");
         return new LoomDiagnostic(new LocationSpan(new Location(file, 0), new Location(file, 1)), InternalDiagnosticSeverity.Error, "L001", message, hint);
     }
 }

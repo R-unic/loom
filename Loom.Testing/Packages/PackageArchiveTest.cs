@@ -39,9 +39,7 @@ public class PackageArchiveTest
         var content = PackageArchive.Create(payload, out var written);
         Assert.Empty(written);
         Assert.NotNull(content);
-
         Assert.True(PackageArchive.Extract(content, directory.At("installed"), out var read));
-
         Assert.Empty(read);
         Assert.Equal("export let pi = 3;", File.ReadAllText(directory.At("installed", "src", "init.loom")));
         Assert.Equal("export let zero = 0;", File.ReadAllText(directory.At("installed", "src", "vector", "init.loom")));
@@ -53,9 +51,7 @@ public class PackageArchiveTest
     {
         using var directory = new TemporaryDirectory();
         var payload = new PackagePayload(PackageName.Parse("math"), Version.Parse("1.0.0"), directory.At("source"), ["missing.loom"]);
-
         Assert.Null(PackageArchive.Create(payload, out var diagnostics));
-
         Assert.Contains("could not read", Assert.Single(diagnostics).Message);
     }
 
@@ -66,9 +62,7 @@ public class PackageArchiveTest
         using var directory = new TemporaryDirectory();
         var destination = directory.At("installed");
         directory.Write(Path.Combine("installed", "left-behind.loom"), "let x = 1;");
-
         Assert.True(PackageArchive.Extract(Archive(("src/init.loom", "export let pi = 3;")), destination, out _));
-
         Assert.False(File.Exists(Path.Combine(destination, "left-behind.loom")));
         Assert.True(File.Exists(Path.Combine(destination, "src", "init.loom")));
     }
@@ -86,9 +80,7 @@ public class PackageArchiveTest
     public void Extract_RefusesAnEntryThatIsNotAPathInsideThePackage(string name)
     {
         using var directory = new TemporaryDirectory();
-
         Assert.False(PackageArchive.Extract(Archive((name, "let x = 1;")), directory.At("installed"), out var diagnostics));
-
         Assert.Contains("the package archive was refused", Assert.Single(diagnostics).Message);
         Assert.False(Directory.Exists(directory.At("installed")));
     }
@@ -102,9 +94,7 @@ public class PackageArchiveTest
     public void Extract_RefusesAnEntryNamedWithABackslash()
     {
         using var directory = new TemporaryDirectory();
-
         Assert.False(PackageArchive.Extract(Archive((@"src\init.loom", "let x = 1;")), directory.At("installed"), out var diagnostics));
-
         Assert.Contains("is not a path inside the package", Assert.Single(diagnostics).Message);
     }
 
@@ -129,7 +119,6 @@ public class PackageArchiveTest
         );
 
         Assert.False(PackageArchive.Extract(content, directory.At("installed"), out var diagnostics));
-
         Assert.Contains("rather than a file", Assert.Single(diagnostics).Message);
         Assert.False(Directory.Exists(directory.At("installed")));
     }
@@ -143,9 +132,7 @@ public class PackageArchiveTest
     {
         using var directory = new TemporaryDirectory();
         var content = Archive(("src/init.loom", "export let pi = 3;"), ("src/init.loom", "export let pi = 4;"));
-
         Assert.False(PackageArchive.Extract(content, directory.At("installed"), out var diagnostics));
-
         Assert.Contains("appears more than once", Assert.Single(diagnostics).Message);
     }
 
@@ -157,7 +144,6 @@ public class PackageArchiveTest
         var content = Bytes(archive => archive.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, "big.loom") { DataStream = new MemoryStream(new byte[65 * 1024 * 1024]) }));
 
         Assert.False(PackageArchive.Extract(content, directory.At("installed"), out var diagnostics));
-
         Assert.Contains("unpacks to more than", Assert.Single(diagnostics).Message);
         Assert.False(Directory.Exists(directory.At("installed")));
     }
@@ -177,7 +163,6 @@ public class PackageArchiveTest
         );
 
         Assert.False(PackageArchive.Extract(content, directory.At("installed"), out var diagnostics));
-
         Assert.Contains("more than 20000 entries", Assert.Single(diagnostics).Message);
     }
 
@@ -187,7 +172,6 @@ public class PackageArchiveTest
         using var directory = new TemporaryDirectory();
 
         Assert.False(PackageArchive.Extract("not a gzip stream at all"u8.ToArray(), directory.At("installed"), out var diagnostics));
-
         Assert.NotEmpty(diagnostics);
         Assert.False(Directory.Exists(directory.At("installed")));
     }
@@ -204,7 +188,6 @@ public class PackageArchiveTest
         var destination = directory.At("packages", "math");
 
         Assert.False(PackageArchive.Extract(Archive(("ok.loom", "let x = 1;"), ("../escaped.loom", "let x = 2;")), destination, out _));
-
         Assert.False(Directory.Exists(destination));
         Assert.Empty(Directory.GetFileSystemEntries(directory.At("packages")));
         Assert.False(File.Exists(directory.At("escaped.loom")));
@@ -224,7 +207,6 @@ public class PackageArchiveTest
         );
 
         Assert.True(PackageArchive.Extract(content, directory.At("installed"), out var diagnostics));
-
         Assert.Empty(diagnostics);
         Assert.True(Directory.Exists(directory.At("installed", "src", "empty")));
         Assert.Equal("let x = 1;", File.ReadAllText(directory.At("installed", "src", "init.loom")));
@@ -244,8 +226,8 @@ public class PackageArchiveTest
     {
         using var buffer = new MemoryStream();
         using (var compressed = new GZipStream(buffer, CompressionLevel.Fastest, leaveOpen: true))
-        using (var archive = new TarWriter(compressed, format, leaveOpen: true))
-            write(archive);
+            using (var archive = new TarWriter(compressed, format, leaveOpen: true))
+                write(archive);
 
         return buffer.ToArray();
     }

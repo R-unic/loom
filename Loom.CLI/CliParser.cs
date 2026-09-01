@@ -11,7 +11,7 @@ internal static class CliParser
 {
     private const string ProductName = "loom";
 
-    private static readonly (string Label, string Description)[] TopLevelVerbs =
+    private static readonly (string Label, string Description)[] _topLevelVerbs =
     [
         ("build", "Build a Loom project."),
         ("watch", "Build a Loom project and watch for changes."),
@@ -23,46 +23,42 @@ internal static class CliParser
         ("version", "Display version information.")
     ];
 
-    private static readonly (string Label, string Description)[] GlobalOptions =
+    private static readonly (string Label, string Description)[] _globalOptions =
     [
         ("--help", "Display this help screen."),
         ("--version", "Display version information.")
     ];
+    
+    private static readonly (string Label, string Description)[] _projectOptions =
+    [
+        .._globalOptions,
+        ("directory (pos. 0)", "(Default: .) The project directory.")
+    ];
 
-    private static readonly (string Label, string Description)[] BuildWatchOptions =
+    private static readonly (string Label, string Description)[] _buildWatchOptions =
     [
         ("-d, --dependency-diagnostics", "Report a dependency's own diagnostics instead of collapsing them into one error per file."),
-        ("--help", "Display this help screen."),
-        ("--version", "Display version information."),
-        ("directory (pos. 0)", "(Default: .) The project directory.")
+        .._projectOptions
     ];
 
-    private static readonly (string Label, string Description)[] NewCommandOptions =
-    [
-        ("--help", "Display this help screen."),
-        ("--version", "Display version information."),
-        ("directory (pos. 0)", "(Default: .) The project directory.")
-    ];
+    private static readonly (string Label, string Description)[] _newCommandOptions = _projectOptions;
 
-    private static readonly (string Label, string Description)[] AddCommandOptions =
+    private static readonly (string Label, string Description)[] _addCommandOptions =
     [
         ("-D, --dev", "Add the packages as development-only dependencies."),
         ("-p, --project", "(Default: .) The project directory."),
-        ("--help", "Display this help screen."),
-        ("--version", "Display version information."),
+        .._globalOptions,
         ("packages (pos. 0..)", "The packages to add, each written 'name' or 'name@requirement'.")
     ];
 
-    private static readonly (string Label, string Description)[] PublishCommandOptions =
+    private static readonly (string Label, string Description)[] _publishCommandOptions =
     [
         ("-n, --dry-run", "List what would be published, without publishing it."),
         ("--allow-dirty", "Publish without checking that the project compiles."),
-        ("--help", "Display this help screen."),
-        ("--version", "Display version information."),
-        ("directory (pos. 0)", "(Default: .) The project directory.")
+        .._projectOptions
     ];
 
-    private static readonly (string Label, string Description)[] LoginCommandOptions =
+    private static readonly (string Label, string Description)[] _loginCommandOptions =
     [
         ("-p, --project", "(Default: .) The project whose registry to sign in to."),
         ("-t, --token", "The token to store; '-' reads it from standard input."),
@@ -77,7 +73,7 @@ internal static class CliParser
     public static CliCommand Parse(string[] args)
     {
         if (args.Length == 0)
-            return Error("No verb selected.", TopLevelVerbs);
+            return Error("No verb selected.", _topLevelVerbs);
 
         var rest = args[1..];
         switch (args[0])
@@ -98,10 +94,10 @@ internal static class CliParser
                 return new CliCommand.Done(0);
 
             case "build":
-                return ParseBuildLike(rest, BuildWatchOptions, (directory, dependencyDiagnostics) => new CliCommand.RunBuild(new BuildOptions(directory, dependencyDiagnostics)));
+                return ParseBuildLike(rest, _buildWatchOptions, (directory, dependencyDiagnostics) => new CliCommand.RunBuild(new BuildOptions(directory, dependencyDiagnostics)));
 
             case "watch":
-                return ParseBuildLike(rest, BuildWatchOptions, (directory, dependencyDiagnostics) => new CliCommand.RunWatch(new WatchOptions(directory, dependencyDiagnostics)));
+                return ParseBuildLike(rest, _buildWatchOptions, (directory, dependencyDiagnostics) => new CliCommand.RunWatch(new WatchOptions(directory, dependencyDiagnostics)));
 
             case "new":
                 return ParseNew(rest);
@@ -116,7 +112,7 @@ internal static class CliParser
                 return ParseLogin(rest);
 
             case var verb:
-                return Error($"Verb '{verb}' is not recognized.", TopLevelVerbs);
+                return Error($"Verb '{verb}' is not recognized.", _topLevelVerbs);
         }
     }
 
@@ -125,19 +121,19 @@ internal static class CliParser
         switch (verb)
         {
             case "build" or "watch":
-                options = BuildWatchOptions;
+                options = _buildWatchOptions;
                 return true;
             case "new":
-                options = NewCommandOptions;
+                options = _newCommandOptions;
                 return true;
             case "add":
-                options = AddCommandOptions;
+                options = _addCommandOptions;
                 return true;
             case "publish":
-                options = PublishCommandOptions;
+                options = _publishCommandOptions;
                 return true;
             case "login":
-                options = LoginCommandOptions;
+                options = _loginCommandOptions;
                 return true;
             default:
                 options = [];
@@ -170,13 +166,13 @@ internal static class CliParser
                     dependencyDiagnostics = true;
                     break;
 
-                case var flag when flag.StartsWith('-'):
-                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", options);
+                case var _ when arg.StartsWith('-'):
+                    return Error($"Option '{arg.TrimStart('-')}' is unknown.", options);
 
-                case var positional:
+                case var _:
                     if (!directorySet)
                     {
-                        directory = positional;
+                        directory = arg;
                         directorySet = true;
                     }
 
@@ -197,20 +193,20 @@ internal static class CliParser
             switch (arg)
             {
                 case "--help":
-                    PrintVerbHelp(NewCommandOptions);
+                    PrintVerbHelp(_newCommandOptions);
                     return new CliCommand.Done(0);
 
                 case "--version":
                     PrintVersion();
                     return new CliCommand.Done(0);
 
-                case var flag when flag.StartsWith('-'):
-                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", NewCommandOptions);
+                case var _ when arg.StartsWith('-'):
+                    return Error($"Option '{arg.TrimStart('-')}' is unknown.", _newCommandOptions);
 
-                case var positional:
+                case var _:
                     if (!directorySet)
                     {
-                        directory = positional;
+                        directory = arg;
                         directorySet = true;
                     }
 
@@ -236,7 +232,7 @@ internal static class CliParser
             switch (rest[index])
             {
                 case "--help":
-                    PrintVerbHelp(AddCommandOptions);
+                    PrintVerbHelp(_addCommandOptions);
                     return new CliCommand.Done(0);
 
                 case "--version":
@@ -249,13 +245,13 @@ internal static class CliParser
 
                 case "-p" or "--project":
                     if (index + 1 >= rest.Length)
-                        return Error("Option 'project' has no value.", AddCommandOptions);
+                        return Error("Option 'project' has no value.", _addCommandOptions);
 
                     directory = rest[++index];
                     break;
 
                 case var flag when flag.StartsWith('-'):
-                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", AddCommandOptions);
+                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", _addCommandOptions);
 
                 case var positional:
                     packages.Add(positional);
@@ -264,7 +260,7 @@ internal static class CliParser
         }
 
         if (packages.Count == 0)
-            return Error("No package to add was named.", AddCommandOptions);
+            return Error("No package to add was named.", _addCommandOptions);
 
         return new CliCommand.RunAdd(new AddOptions(packages, developmentOnly, directory));
     }
@@ -281,7 +277,7 @@ internal static class CliParser
             switch (arg)
             {
                 case "--help":
-                    PrintVerbHelp(PublishCommandOptions);
+                    PrintVerbHelp(_publishCommandOptions);
                     return new CliCommand.Done(0);
 
                 case "--version":
@@ -297,7 +293,7 @@ internal static class CliParser
                     break;
 
                 case var flag when flag.StartsWith('-'):
-                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", PublishCommandOptions);
+                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", _publishCommandOptions);
 
                 case var positional:
                     if (!directorySet)
@@ -328,7 +324,7 @@ internal static class CliParser
             switch (rest[index])
             {
                 case "--help":
-                    PrintVerbHelp(LoginCommandOptions);
+                    PrintVerbHelp(_loginCommandOptions);
                     return new CliCommand.Done(0);
 
                 case "--version":
@@ -337,20 +333,20 @@ internal static class CliParser
 
                 case "-p" or "--project":
                     if (index + 1 >= rest.Length)
-                        return Error("Option 'project' has no value.", LoginCommandOptions);
+                        return Error("Option 'project' has no value.", _loginCommandOptions);
 
                     directory = rest[++index];
                     break;
 
                 case "-t" or "--token":
                     if (index + 1 >= rest.Length)
-                        return Error("Option 'token' has no value.", LoginCommandOptions);
+                        return Error("Option 'token' has no value.", _loginCommandOptions);
 
                     token = rest[++index];
                     break;
 
                 case var flag when flag.StartsWith('-') && flag.Length > 1:
-                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", LoginCommandOptions);
+                    return Error($"Option '{flag.TrimStart('-')}' is unknown.", _loginCommandOptions);
 
                 case var positional:
                     registry ??= positional;
@@ -374,7 +370,7 @@ internal static class CliParser
     private static void PrintTopHelp()
     {
         PrintHeader();
-        PrintEntries(TopLevelVerbs);
+        PrintEntries(_topLevelVerbs);
     }
 
     private static void PrintVerbHelp((string Label, string Description)[] options)

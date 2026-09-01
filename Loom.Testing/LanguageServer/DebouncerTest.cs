@@ -12,8 +12,8 @@ namespace Loom.Testing.LanguageServer;
 /// </remarks>
 public class DebouncerTest
 {
-    private static readonly DocumentUri First = DocumentUri.From("file:///first.loom");
-    private static readonly DocumentUri Second = DocumentUri.From("file:///second.loom");
+    private static readonly DocumentUri _first = DocumentUri.From("file:///first.loom");
+    private static readonly DocumentUri _second = DocumentUri.From("file:///second.loom");
 
     [Fact]
     public async Task Schedule_RunsTheWorkAfterTheDelay()
@@ -22,7 +22,7 @@ public class DebouncerTest
         var ran = new TaskCompletionSource();
 
         debouncer.Schedule(
-            First,
+            _first,
             _ =>
             {
                 ran.TrySetResult();
@@ -48,7 +48,7 @@ public class DebouncerTest
         {
             var value = keystroke;
             debouncer.Schedule(
-                First,
+                _first,
                 _ =>
                 {
                     Interlocked.Increment(ref runs.Value);
@@ -69,7 +69,7 @@ public class DebouncerTest
         var both = new TaskCompletionSource();
         var seen = 0;
 
-        foreach (var uri in new[] { First, Second })
+        foreach (var uri in new[] { _first, _second })
             debouncer.Schedule(
                 uri,
                 _ =>
@@ -91,7 +91,7 @@ public class DebouncerTest
         var ran = new StrongBox<bool>(false);
 
         debouncer.Schedule(
-            First,
+            _first,
             _ =>
             {
                 Volatile.Write(ref ran.Value, true);
@@ -99,7 +99,7 @@ public class DebouncerTest
             }
         );
 
-        debouncer.Cancel(First);
+        debouncer.Cancel(_first);
         await Task.Delay(TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken);
 
         Assert.False(Volatile.Read(ref ran.Value));
@@ -111,7 +111,7 @@ public class DebouncerTest
         var ran = new StrongBox<bool>(false);
         using (var debouncer = new Debouncer(TimeSpan.FromMilliseconds(50)))
             debouncer.Schedule(
-                First,
+                _first,
                 _ =>
                 {
                     Volatile.Write(ref ran.Value, true);
@@ -129,11 +129,11 @@ public class DebouncerTest
         using var debouncer = new Debouncer(TimeSpan.FromMilliseconds(10));
         var second = new TaskCompletionSource();
 
-        debouncer.Schedule(First, _ => throw new InvalidOperationException("boom"));
+        debouncer.Schedule(_first, _ => throw new InvalidOperationException("boom"));
         await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
 
         debouncer.Schedule(
-            First,
+            _first,
             _ =>
             {
                 second.TrySetResult();

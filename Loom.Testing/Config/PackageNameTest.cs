@@ -112,6 +112,7 @@ public class PackageNameTest
         Assert.NotNull(packageName);
         Assert.NotNull(packageName);
         Assert.NotNull(packageName);
+        // ReSharper disable once RedundantCast
         Assert.Null((PackageName?)null);
     }
 

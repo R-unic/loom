@@ -166,11 +166,9 @@ public sealed class RemotePackageIndex(
         if (content == null)
             return false;
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, _client.Endpoint("v1/publish"))
-        {
-            Content = new ByteArrayContent(content) { Headers = { ContentType = new MediaTypeHeaderValue("application/gzip") } },
-            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", token) }
-        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, _client.Endpoint("v1/publish"));
+        request.Content = new ByteArrayContent(content) { Headers = { ContentType = new MediaTypeHeaderValue("application/gzip") } };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var response = _client.Send(request, out diagnostics);
         if (response == null)

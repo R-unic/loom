@@ -155,7 +155,7 @@ public class DocumentStoreTest
     [Fact]
     public void ReloadFromDisk_AFileReportedAsExistingButAlreadyGone_SkipsItRatherThanThrowing() =>
         WithProject(
-            (store, uri, path) =>
+            (store, _, path) =>
             {
                 var directory = Path.GetDirectoryName(path)!;
                 var ghostPath = Path.Combine(directory, "ghost.loom");
@@ -169,7 +169,7 @@ public class DocumentStoreTest
     [Fact]
     public void ReloadFromDisk_ADeletionOfAFileTheUnitNeverHeld_DoesNotThrow() =>
         WithProject(
-            (store, uri, path) =>
+            (store, _, path) =>
             {
                 var directory = Path.GetDirectoryName(path)!;
                 var neverHeldPath = Path.Combine(directory, "never-held.loom");

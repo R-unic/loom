@@ -2,6 +2,7 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving;
 using Loom.Core.Resolving.Symbols;
+
 // ReSharper disable InvalidXmlDocComment
 
 namespace Loom.Core.TypeChecking.Serialization;
@@ -32,12 +33,9 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
     {
         var isPacked = HasIntrinsicAttribute(interfaceSymbol, "packed");
         var fields = new List<SerializationField>();
-        if (!TryFlatten(interfaceSymbol, ResolveInterfaceType(interfaceSymbol), "", isPacked, fields))
-            return null;
-
-        // isPacked shapes the fields rather than surviving alongside them: the generator reads widths off
-        // SerializationField, so carrying the flag onto the schema only invited it to be read instead.
-        return new SerializationSchema(interfaceSymbol, fields);
+        return !TryFlatten(interfaceSymbol, ResolveInterfaceType(interfaceSymbol), "", isPacked, fields)
+            ? null
+            : new SerializationSchema(interfaceSymbol, fields);
     }
 
     /// <summary>
@@ -109,41 +107,47 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
         }
     }
 
-    private SerializationField? TryBuildField(string path, Type type, FieldOptions options, bool isPacked, Node reportNode)
-    {
-        return type switch
+    private SerializationField? TryBuildField(string path, Type type, FieldOptions options, bool isPacked, Node reportNode) =>
+        type switch
         {
-            // LiteralType derives from PrimitiveType, so it has to be matched first - the value is pinned
-            // by the type and costs nothing on the wire.
             Types.LiteralType literal => new ConstantField(path, type, literal.Value),
-            // OptionalType derives from UnionType; matching it first keeps 'T?' from falling into the
-            // general union path, where 'none' would become just another variant.
             Types.OptionalType optional => TryBuildField(path, optional.NonNullableType, options, isPacked, reportNode) is { } inner
-                                ? new OptionalField(path, type, inner)
-                                : null,
+                ? new OptionalField(path, type, inner)
+                : null,
             Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.Bool } => new BoolField(path, type),
             Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.Number } => BuildNumberField(path, type, options, reportNode),
-            // length_type is gone - a sized string carries its own length width; anything else defaults.
-            Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.String } => new StringField(path, type, type is Types.SizedStringType sized ? sized.LengthType : DefaultLengthType),
-            // 'unknown' is the deliberate escape hatch: nothing can be checked about it, so it rides along
-            // in the blobs array with only a count check on the way back.
+            Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.String } => new StringField(
+                path,
+                type,
+                type is Types.SizedStringType sized ? sized.LengthType : DefaultLengthType
+            ),
+
             Types.PrimitiveType { Kind: Types.PrimitiveTypeKind.Unknown } => new BlobField(path, type, null, null),
             Types.FunctionType => new BlobField(path, type, "function", null),
-            // Bracket syntax always means the default length now - a non-default width only ever
-            // reaches here through Array<T, L>, handled in TryBuildInstantiatedField below. Elements do
-            // not take sentinels: those resolve once per field before the allocation, which cannot
-            // express a different choice for every entry.
             Types.ArrayType array => TryBuildField(path + "[]", array.ElementType, options, false, reportNode) is { } element
-                                ? new ArrayField(path, type, DefaultLengthType, element)
-                                : null,
-            // Tuple length is static, so unlike an array it writes no length prefix at all.
-            Types.TupleType tuple => BuildTupleField(path, type, tuple, options, isPacked, reportNode),
-            Types.UnionType union => BuildUnionField(path, type, union, options, isPacked, reportNode),
+                ? new ArrayField(path, type, DefaultLengthType, element)
+                : null,
+
+            Types.TupleType tuple => BuildTupleField(
+                path,
+                type,
+                tuple,
+                options,
+                isPacked,
+                reportNode
+            ),
+            Types.UnionType union => BuildUnionField(
+                path,
+                type,
+                union,
+                options,
+                isPacked,
+                reportNode
+            ),
             Types.InstantiatedType instantiated => TryBuildInstantiatedField(path, instantiated, options, isPacked, reportNode),
             Types.InterfaceType interfaceType => BuildInterfaceField(path, interfaceType, options, isPacked, reportNode),
             _ => ReportNotSerializable(path, type, reportNode),
         };
-    }
 
     /// <summary>
     ///     Vector3/Vector2/CFrame's width and Array's length width are both phantom generic parameters
@@ -157,40 +161,40 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
     private SerializationField? TryBuildInstantiatedField(string path, Types.InstantiatedType instantiated, FieldOptions options, bool isPacked, Node reportNode)
     {
         var declarationName = instantiated.GenericType.Declaration.Name.Text;
-        if (declarationName is "Vector3" or "Vector2" or "CFrame")
+        switch (declarationName)
         {
-            if (ArgumentByName(instantiated, "T", path, reportNode) is not { } typeArgument)
-                return null;
+            case "Vector3" or "Vector2" or "CFrame":
+            {
+                if (ArgumentByName(instantiated, "T", path, reportNode) is not { } typeArgument)
+                    return null;
 
-            if (ResolveSizedTypeArgument(typeArgument, path, "component", reportNode) is not { } width)
-                return null;
+                if (ResolveSizedTypeArgument(typeArgument, path, "component", reportNode) is not { } width)
+                    return null;
 
-            if (declarationName == "CFrame")
-                return new CFrameField(path, instantiated, options.CFrameEncoding ?? CFrameEncoding.Compressed, width, isPacked);
+                if (declarationName == "CFrame")
+                    return new CFrameField(path, instantiated, options.CFrameEncoding ?? CFrameEncoding.Compressed, width, isPacked);
 
-            if (!RobloxDatatype.TryGet(declarationName, out var datatype))
-                return ReportNotSerializable(path, instantiated, reportNode);
+                if (!RobloxDatatype.TryGet(declarationName, out var datatype))
+                    return ReportNotSerializable(path, instantiated, reportNode);
 
-            return new DatatypeField(path, instantiated, datatype, width, isPacked && datatype.Sentinels.Count > 0);
+                return new DatatypeField(path, instantiated, datatype, width, isPacked && datatype.Sentinels.Count > 0);
+            }
+            case "Array":
+            {
+                if (ArgumentByName(instantiated, "T", path, reportNode) is not { } elementType
+                    || ArgumentByName(instantiated, "L", path, reportNode) is not { } lengthArgument)
+                    return null;
+
+                if (ResolveSizedTypeArgument(lengthArgument, path, "length", reportNode, requireUnsigned: true) is not { } lengthType)
+                    return null;
+
+                return TryBuildField(path + "[]", elementType, options, false, reportNode) is { } element
+                    ? new ArrayField(path, instantiated, lengthType, element)
+                    : null;
+            }
+            default:
+                return TryBuildField(path, instantiated.Expand(), options, isPacked, reportNode);
         }
-
-        if (declarationName == "Array")
-        {
-            if (ArgumentByName(instantiated, "T", path, reportNode) is not { } elementType
-                || ArgumentByName(instantiated, "L", path, reportNode) is not { } lengthArgument)
-                return null;
-
-            if (ResolveSizedTypeArgument(lengthArgument, path, "length", reportNode, requireUnsigned: true) is not { } lengthType)
-                return null;
-
-            return TryBuildField(path + "[]", elementType, options, false, reportNode) is { } element
-                ? new ArrayField(path, instantiated, lengthType, element)
-                : null;
-        }
-
-        // A generic instantiation carries its arguments unsubstituted; expanding gives the shape the
-        // rest of this switch can actually read - Record<K, V> is an indexer once expanded.
-        return TryBuildField(path, instantiated.Expand(), options, isPacked, reportNode);
     }
 
     /// <summary>
@@ -203,20 +207,16 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
     private Type? ArgumentByName(Types.InstantiatedType instantiated, string parameterName, string path, Node reportNode)
     {
         var index = instantiated.GenericType.Parameters.FindIndex(p => p.Name == parameterName);
-        if (index < 0)
-        {
-            diagnostics.Error(
-                reportNode,
-                InternalCodes.NotSerializable,
-                $"'{path}' references '{instantiated.GenericType.Declaration.Name.Text}', which has no type parameter named '{parameterName}' - this is a compiler bug."
-            );
+        if (index >= 0)
+            return instantiated.Arguments.ElementAtOrDefault(index) ?? instantiated.GenericType.Parameters[index].DefaultType;
 
-            return null;
-        }
+        diagnostics.Error(
+            reportNode,
+            InternalCodes.NotSerializable,
+            $"'{path}' references '{instantiated.GenericType.Declaration.Name.Text}', which has no type parameter named '{parameterName}' - this is a compiler bug."
+        );
 
-        // The default is read the same way InstantiatedType.Expand() itself falls back when an
-        // argument was omitted, since InstantiateGenericType should already have filled it in.
-        return instantiated.Arguments.ElementAtOrDefault(index) ?? instantiated.GenericType.Parameters[index].DefaultType;
+        return null;
     }
 
     private NumberType? ResolveSizedTypeArgument(Type argument, string path, string what, Node reportNode, bool requireUnsigned = false)
@@ -227,25 +227,21 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
             return null;
         }
 
-        if (requireUnsigned && !sized.NumberType.IsUnsigned())
-        {
-            diagnostics.Error(
-                reportNode,
-                InternalCodes.InvalidTypeArguments,
-                $"'{path}' needs an unsigned length type, but got '{sized.NumberType}'.",
-                "lengths are never negative; use U8, U16, or U32."
-            );
+        if (!requireUnsigned || sized.NumberType.IsUnsigned())
+            return sized.NumberType;
 
-            return null;
-        }
+        diagnostics.Error(
+            reportNode,
+            InternalCodes.InvalidTypeArguments,
+            $"'{path}' needs an unsigned length type, but got '{sized.NumberType}'.",
+            "lengths are never negative; use U8, U16, or U32."
+        );
 
-        return sized.NumberType;
+        return null;
     }
 
     private SerializationField? BuildNumberField(string path, Type type, FieldOptions options, Node reportNode)
     {
-        // The type checker refuses 'number_range' on a sized type outright, so reaching here with one
-        // means the width comes from the type itself, not from FieldOptions.
         if (type is Types.SizedNumberType sized)
             return new NumberField(path, type, sized.NumberType);
 
@@ -411,7 +407,14 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
         if (TryBuildDiscriminatedUnion(path, type, members, isPacked) is { } discriminated)
             return discriminated;
 
-        if (TryBuildRuntimeKindUnion(path, type, members, options, isPacked, reportNode) is { } byKind)
+        if (TryBuildRuntimeKindUnion(
+                path,
+                type,
+                members,
+                options,
+                isPacked,
+                reportNode
+            ) is { } byKind)
             return byKind;
 
         diagnostics.Error(
@@ -434,7 +437,8 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
             return null;
 
         var interfaceTypes = members.ConvertAll(m => (Types.InterfaceType)m);
-        var candidateNames = interfaceTypes[0].Properties
+        var candidateNames = interfaceTypes[0]
+            .Properties
             .FindAll(p => p.ValueType is Types.LiteralType)
             .ConvertAll(p => p.Name);
 
@@ -513,8 +517,7 @@ internal sealed class SerializationSchemaBuilder(SemanticModel semanticModel, Di
         return null;
     }
 
-    private static bool IsInstanceType(Types.InterfaceType interfaceType) =>
-        interfaceType.Name == "Instance" || interfaceType.Constraints.Any(IsInstanceType);
+    private static bool IsInstanceType(Types.InterfaceType interfaceType) => interfaceType.Name == "Instance" || interfaceType.Constraints.Any(IsInstanceType);
 
     /// <summary>
     ///     Resolves an interface by name, preferring a declared one over an intrinsic. Plenty of Roblox

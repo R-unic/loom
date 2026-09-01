@@ -41,7 +41,7 @@ public class IntrinsicsTest
     {
         Utility.AssertNoErrors(Utility.GetAnalysisDiagnostics("let x: Plugin = plugin;", ProjectType.Plugin));
 
-        var diagnostics = Utility.GetAnalysisDiagnostics("let x = plugin;", ProjectType.Game);
+        var diagnostics = Utility.GetAnalysisDiagnostics("let x = plugin;");
         Utility.AssertDiagnostic(diagnostics, InternalCodes.CannotFindName, "Cannot find name 'plugin'.");
     }
 

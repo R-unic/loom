@@ -38,11 +38,11 @@ public static class PackageArchive
         {
             using var buffer = new MemoryStream();
             using (var compressed = new GZipStream(buffer, CompressionLevel.Optimal, leaveOpen: true))
-            using (var archive = new TarWriter(compressed, TarEntryFormat.Pax, leaveOpen: true))
-            {
-                foreach (var file in payload.Files)
-                    archive.WriteEntry(Path.Combine(payload.Root, file), EntryName(file));
-            }
+                using (var archive = new TarWriter(compressed, TarEntryFormat.Pax, leaveOpen: true))
+                {
+                    foreach (var file in payload.Files)
+                        archive.WriteEntry(Path.Combine(payload.Root, file), EntryName(file));
+                }
 
             return buffer.ToArray();
         }

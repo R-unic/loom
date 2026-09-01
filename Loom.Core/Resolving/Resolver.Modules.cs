@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using Loom.Config;
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
@@ -131,14 +130,10 @@ public sealed partial class Resolver
             // module exports, so unlike a named re-export (which names the member and can say why it was
             // rejected) this one just quietly does not pick it up, the same as a name collision below
             var crossesRoot = CrossesRootBoundary(module);
-            foreach (var binding in moduleModel.Exports)
+            foreach (var binding in moduleModel.Exports
+                         .Where(binding => !export.IsTypeOnly || binding.Symbol.IsTypeSymbol)
+                         .Where(binding => !binding.IsInternal || !crossesRoot))
             {
-                if (export.IsTypeOnly && !binding.Symbol.IsTypeSymbol)
-                    continue;
-
-                if (binding.IsInternal && crossesRoot)
-                    continue;
-
                 ForwardType(binding.Symbol, moduleModel);
                 AddStarExport(export, binding, module);
             }
@@ -170,7 +165,17 @@ public sealed partial class Resolver
                 return; // an export the file makes itself wins over one a star forwards
 
             default:
-                _semanticModel.AddExport(new ExportBinding(binding.Name, binding.Name, binding.Symbol, export, module, export.IsInternal));
+                _semanticModel.AddExport(
+                    new ExportBinding(
+                        binding.Name,
+                        binding.Name,
+                        binding.Symbol,
+                        export,
+                        module,
+                        export.IsInternal
+                    )
+                );
+
                 return;
         }
     }
@@ -198,18 +203,11 @@ public sealed partial class Resolver
 
         if (HasDuplicateSymbol(import, name, SymbolNamespace.Value, $"Variable '{name}' is already declared in this scope."))
             return true;
-
-        // A namespace import brings the whole module into reach rather than a chosen list, so every
-        // visible export has to be reachable - naming one this realm may not have is what a named import
-        // would have been rejected for, and the form it is written in does not change who may call it. An
-        // internal one is not "reachable but rejected" the way a realm-narrowed one is, though - it is not
-        // part of the namespace at all here, the same as it would not appear in a named import's own
-        // "it exports" listing.
+        
         var visibleExports = VisibleExports(moduleModel, module);
         foreach (var export in visibleExports)
             ReportRealmNarrowing(import, export.Name, export.Symbol);
 
-        // the symbol stands for the required table, so unlike a named import it is declared on this node
         var symbol = new VariableSymbol(import, name);
         DeclareSymbol(symbol);
         _semanticModel.AddNamespaceImport(new NamespaceImportBinding(import, symbol, module, moduleModel));
@@ -374,7 +372,17 @@ public sealed partial class Resolver
         foreach (var binding in exports)
         {
             ForwardType(binding.Symbol, moduleModel);
-            AddExport(specifier, new ExportBinding(specifier.ExportedName.Text, name, binding.Symbol, export, module, export.IsInternal));
+            AddExport(
+                specifier,
+                new ExportBinding(
+                    specifier.ExportedName.Text,
+                    name,
+                    binding.Symbol,
+                    export,
+                    module,
+                    export.IsInternal
+                )
+            );
         }
     }
 
@@ -463,9 +471,7 @@ public sealed partial class Resolver
             _diagnostics.Error(specifier, InternalCodes.DuplicateImport, $"'{localName}' is imported more than once.");
             return false;
         }
-
-        // Only for an import that brings something to run. A type-only import is erased, so there is
-        // nothing of the other realm left at runtime for the boundary to be protecting.
+        
         if (!import.IsTypeOnly)
         {
             foreach (var export in exports)

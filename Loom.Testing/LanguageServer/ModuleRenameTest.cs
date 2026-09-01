@@ -185,7 +185,7 @@ public class ModuleRenameTest
             File.WriteAllText(mainPath, mainSource);
 
             var store = new DocumentStore();
-            store.Open(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri.FromFileSystemPath(mainPath), mainSource);
+            store.Open(DocumentUri.FromFileSystemPath(mainPath), mainSource);
 
             act(store, sourceDirectory);
         }

@@ -50,11 +50,7 @@ internal sealed class MacroExpander(
         _context.Node = invocation;
         if (!TryDecomposeInvocationTarget(invocation.Expression, luauCall.Callee, out var provider, out var member))
             return false;
-
-        // A provider is written against the arity/shape its intrinsic declares, which the type checker
-        // validates - but a call site that fails that check still reaches here, since diagnostics never
-        // stop the pipeline. Falling back to the plain, unexpanded call is exactly what happens whenever
-        // no provider matches at all, so it is a safe answer for "this one matched but could not expand" too.
+        
         try
         {
             return provider.TryInvocation(_context, member.Trim(), invocation.TypeArguments, luauCall, out expression);
@@ -77,10 +73,6 @@ internal sealed class MacroExpander(
         if (!InvocationMacroReference.TryClassify(semanticModel, expression, out var provider, out var memberName))
             return false;
 
-        // The callee of a call is being called, not referenced, and TryGetInvocationMacro handles it.
-        // IsValidReferenceContext only asks whether some ancestor is an argument list, which is true of
-        // 'xs.has(1)' inside 'print(...)' too - so the callee was wrapped in a reference lambda and then
-        // expanded again as an invocation on top of it, emitting 'table.find(function(argument0) ... end, 1)'.
         if (InvocationMacroReference.IsDirectInvocationCallee(expression))
             return false;
 
@@ -345,7 +337,7 @@ internal sealed class MacroExpander(
     ///     caller above already treats as a silent unexpanded fallback. A provider throwing when nothing
     ///     else flagged the call site is a genuine bug in the provider - reported here rather than let the
     ///     exception vanish, which used to let the build exit 0 while emitting a call to a member that
-    ///     doesn't exist on a plain table. <paramref name="typeCheckerDiagnostics" /> is null for callers
+    ///     doesn't exist on a plain table. <see cref="typeCheckerDiagnostics" /> is null for callers
     ///     (tooling, tests exercising generation on its own) that never ran a type checker over this file at
     ///     all - nothing here can tell "validated" apart from "never checked" then, so the exception is
     ///     swallowed exactly as it always was.

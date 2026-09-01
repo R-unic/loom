@@ -64,7 +64,7 @@ public sealed class LocalPackageIndex(string rootDirectory, string? source = nul
     public bool Install(PublishedPackage package, string directory, out IReadOnlyList<ConfigDiagnostic> diagnostics)
     {
         diagnostics = [];
-        var source = Path.Combine(_root, package.Name.Scope ?? string.Empty, package.Name.Name, package.Version.ToString());
+        var packageSource = Path.Combine(_root, package.Name.Scope ?? string.Empty, package.Name.Name, package.Version.ToString());
         if (!Directory.Exists(source))
         {
             diagnostics = [new ConfigDiagnostic($"'{package}' is not published in '{_root}'.")];
@@ -73,12 +73,10 @@ public sealed class LocalPackageIndex(string rootDirectory, string? source = nul
 
         try
         {
-            // replaced rather than merged: what is installed has to be one version of the package, not the union
-            // of the two that were there
             if (Directory.Exists(directory))
                 Directory.Delete(directory, true);
 
-            CopyDirectory(source, directory);
+            CopyDirectory(packageSource, directory);
             return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

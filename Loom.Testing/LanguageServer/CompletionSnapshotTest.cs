@@ -65,10 +65,10 @@ public class CompletionSnapshotTest
                 var insideBraces = state.File.SourceFile.SourceText.IndexOf('{') + 1;
 
                 var candidates = state.Completions.At(insideBraces);
-                var double_ = Assert.Single(candidates, symbol => symbol.Name == "double");
+                var @double = Assert.Single(candidates, symbol => symbol.Name == "double");
 
-                Assert.Equal("(n: number): number", double_.Detail());
-                Assert.Contains("fn double(n: number): number", double_.Documentation());
+                Assert.Equal("(n: number): number", @double.Detail());
+                Assert.Contains("fn double(n: number): number", @double.Documentation());
                 return Task.CompletedTask;
             },
             "import {  } from \"./util/math\";",

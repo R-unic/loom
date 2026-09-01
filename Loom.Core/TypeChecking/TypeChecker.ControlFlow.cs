@@ -1,12 +1,12 @@
 using Loom.Core.FlowAnalysis;
 using Loom.Core.Parsing.AST;
 using Loom.Core.TypeChecking.Types;
+using Type = Loom.Core.TypeChecking.Types.Type;
+using Loom.Core.TypeChecking.Solving;
+using Loom.Core.TypeChecking.Intrinsic;
 
 namespace Loom.Core.TypeChecking;
 
-using Type = Types.Type;
-using Loom.Core.TypeChecking.Solving;
-using Loom.Core.TypeChecking.Intrinsic;
 
 public sealed partial class TypeChecker
 {

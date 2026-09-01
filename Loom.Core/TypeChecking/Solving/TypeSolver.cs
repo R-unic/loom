@@ -68,38 +68,21 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
     {
         var changed = false;
 
-        Type Map(Type original)
-        {
-            var mapped = fn(original);
-            changed |= !ReferenceEquals(mapped, original);
-            return mapped;
-        }
-
-        Type MapDefault()
-        {
-            if (defaultValue == null || ReferenceEquals(defaultValue, type))
-                return type;
-
-            changed = true;
-            return defaultValue;
-        }
-
         var transformed = type switch
         {
-            IndexedType indexedType => new IndexedType(Map(indexedType.Target), Map(indexedType.Index)),
-            KeyOfType keyOfType => new KeyOfType(Map(keyOfType.Target)),
-            // The binder is not mapped: it is bound by the mapped type itself, one key at a time.
-            MappedType mappedType => new MappedType(mappedType.Binder, Map(mappedType.Source), Map(mappedType.ValueType), mappedType.IsMutable),
+            IndexedType indexedType => new IndexedType(map(indexedType.Target), map(indexedType.Index)),
+            KeyOfType keyOfType => new KeyOfType(map(keyOfType.Target)),
+            MappedType mappedType => new MappedType(mappedType.Binder, map(mappedType.Source), map(mappedType.ValueType), mappedType.IsMutable),
             ConditionalType conditionalType => new ConditionalType(
-                Map(conditionalType.Subject),
-                conditionalType.Arms.ConvertAll(arm => new ConditionalArm(Map(arm.Pattern), Map(arm.Result), arm.Binders)),
+                map(conditionalType.Subject),
+                conditionalType.Arms.ConvertAll(arm => new ConditionalArm(map(arm.Pattern), map(arm.Result), arm.Binders)),
                 conditionalType.Distributes
             ),
-            ArrayType arrayType => new ArrayType(Map(arrayType.ElementType), arrayType.IsMutable),
+            ArrayType arrayType => new ArrayType(map(arrayType.ElementType), arrayType.IsMutable),
             InterfaceType interfaceType => new InterfaceType(
                 interfaceType.Name,
-                [.. interfaceType.Constraints.ConvertAll(Map).OfType<InterfaceType>()],
-                (ObjectType)Map(interfaceType.ObjectType),
+                [.. interfaceType.Constraints.ConvertAll(map).OfType<InterfaceType>()],
+                (ObjectType)map(interfaceType.ObjectType),
                 interfaceType.TraitMethodNames
             )
             {
@@ -109,34 +92,50 @@ public sealed class TypeSolver(DiagnosticBag diagnostics)
             },
             ObjectType objectType => new ObjectType(
                 objectType.Indexer != null
-                    ? new ObjectIndexer(objectType.Indexer.IsMutable, Map(objectType.Indexer.KeyType), Map(objectType.Indexer.ValueType))
+                    ? new ObjectIndexer(objectType.Indexer.IsMutable, map(objectType.Indexer.KeyType), map(objectType.Indexer.ValueType))
                     : null,
-                objectType.Properties.ConvertAll(p => new ObjectProperty(p.IsMutable, p.Name, Map(p.ValueType), p.IsStatic))
+                objectType.Properties.ConvertAll(p => new ObjectProperty(p.IsMutable, p.Name, map(p.ValueType), p.IsStatic))
             ),
-            TupleType tupleType => new TupleType(tupleType.ElementTypes.ConvertAll(Map)),
-            IntersectionType intersectionType => new IntersectionType(intersectionType.Types.ConvertAll(Map)),
-            UnionType unionType => new UnionType(unionType.Types.ConvertAll(Map)),
+            TupleType tupleType => new TupleType(tupleType.ElementTypes.ConvertAll(map)),
+            IntersectionType intersectionType => new IntersectionType(intersectionType.Types.ConvertAll(map)),
+            UnionType unionType => new UnionType(unionType.Types.ConvertAll(map)),
             FunctionType functionType => new FunctionType(
                 functionType.TypeParameters,
-                functionType.ParameterTypes.ConvertAll(Map),
-                Map(functionType.ReturnType),
+                functionType.ParameterTypes.ConvertAll(map),
+                map(functionType.ReturnType),
                 functionType.HasRestParameter,
                 functionType.IsAsync
             ),
-            TypePredicateType predicate => new TypePredicateType(predicate.ParameterIndex, Map(predicate.TargetType)),
+            TypePredicateType predicate => new TypePredicateType(predicate.ParameterIndex, map(predicate.TargetType)),
             GenericType genericType => new GenericType(
                 genericType.Declaration,
                 genericType.Parameters,
-                Map(genericType.UnderlyingType)
+                map(genericType.UnderlyingType)
             ),
-            InstantiatedType instantiatedType => instantiatedType.GenericType.Construct(instantiatedType.Arguments.ConvertAll(Map)),
-            _ => MapDefault()
+            InstantiatedType instantiatedType => instantiatedType.GenericType.Construct(instantiatedType.Arguments.ConvertAll(map)),
+            _ => mapDefault()
         };
 
         if (!changed)
             transformed = type;
 
         return simplify ? TypeSimplifier.Simplify(transformed) : transformed;
+
+        Type map(Type original)
+        {
+            var mapped = fn(original);
+            changed |= !ReferenceEquals(mapped, original);
+            return mapped;
+        }
+
+        Type mapDefault()
+        {
+            if (defaultValue == null || ReferenceEquals(defaultValue, type))
+                return type;
+
+            changed = true;
+            return defaultValue;
+        }
     }
 
     public void SetType(Node node, Type type) => _nodeTypes[node.Id] = type;

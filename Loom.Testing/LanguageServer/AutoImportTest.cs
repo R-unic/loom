@@ -6,7 +6,7 @@ namespace Loom.Testing.LanguageServer;
 [Collection("Assembly")]
 public class AutoImportTest
 {
-    private static readonly (string Path, string Source) Math =
+    private static readonly (string Path, string Source) _math =
         ("util/math.loom", "export fn double(n: number): number { return n * 2; }\nexport interface Vec { x: number; }");
 
     [Fact]
@@ -136,6 +136,6 @@ public class AutoImportTest
         Utility.WithLspProjectAsync(
             (store, uri) => act(new CompletionHandler(store), uri, store),
             source,
-            [Math, ..extraFiles]
+            [_math, ..extraFiles]
         );
 }

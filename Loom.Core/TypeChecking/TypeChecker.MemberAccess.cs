@@ -3,12 +3,11 @@ using Loom.Core.Generation.Macros;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
-
-namespace Loom.Core.TypeChecking;
-
-using Type = Types.Type;
+using Type = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Solving;
 using Loom.Core.TypeChecking.Intrinsic;
+
+namespace Loom.Core.TypeChecking;
 
 public sealed partial class TypeChecker
 {

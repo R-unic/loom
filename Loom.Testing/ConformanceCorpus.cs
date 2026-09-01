@@ -30,17 +30,19 @@ internal static class ConformanceCorpus
         return document.RootElement.GetProperty(section).EnumerateArray().Select(element => element.Clone()).ToArray();
     }
 
-    public static string String(this JsonElement element, string property) => element.GetProperty(property).GetString()!;
+    extension(JsonElement element)
+    {
+        public string String(string property) => element.GetProperty(property).GetString()!;
+        public bool Bool(string property) => element.GetProperty(property).GetBoolean();
 
-    public static bool Bool(this JsonElement element, string property) => element.GetProperty(property).GetBoolean();
+        public string[] Strings(string property) =>
+            element.GetProperty(property).EnumerateArray().Select(item => item.GetString()!).ToArray();
 
-    public static string[] Strings(this JsonElement element, string property) =>
-        element.GetProperty(property).EnumerateArray().Select(item => item.GetString()!).ToArray();
-
-    /// <summary>
-    ///     <paramref name="subject" /> followed by the case's <c>note</c>, as the name it is reported under — a
-    ///     corpus case that fails has to say what it was asserting without anyone opening the JSON.
-    /// </summary>
-    public static string Describe(this JsonElement element, string subject) =>
-        element.TryGetProperty("note", out var note) ? $"{subject} — {note.GetString()}" : subject;
+        /// <summary>
+        ///     <paramref name="subject" /> followed by the case's <c>note</c>, as the name it is reported under — a
+        ///     corpus case that fails has to say what it was asserting without anyone opening the JSON.
+        /// </summary>
+        public string Describe(string subject) =>
+            element.TryGetProperty("note", out var note) ? $"{subject} — {note.GetString()}" : subject;
+    }
 }

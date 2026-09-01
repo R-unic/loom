@@ -23,7 +23,7 @@ public sealed partial class LuauGenerator
     /// <summary>
     ///     Emits every leaf binding under <paramref name="target" />, reading each one off <paramref name="subject" />
     ///     - the value this target destructures. A field or element that renames into a nested pattern instead
-    ///     of a plain name contributes no local of its own here: <see cref="PropertyAccess" />/<see cref="Luau.AST.ElementAccess" />
+    ///     of a plain name contributes no local of its own here: <see cref="Luau.AST.PropertyAccess" />/<see cref="Luau.AST.ElementAccess" />
     ///     already nest (<c>user.address.city</c> is just a <c>PropertyAccess</c> whose own target is another
     ///     <c>PropertyAccess</c>), so recursing with the deeper access expression as the new subject is enough to
     ///     flatten arbitrarily nested patterns into one local per leaf, exactly as a top-level one already was.
@@ -45,10 +45,6 @@ public sealed partial class LuauGenerator
                 break;
 
             case TupleDestructuringTarget tupleTarget:
-                // Only reachable nested inside an object/array field - a top-level tuple target goes through
-                // EmitTupleDestructuring instead, which can special-case a literal tuple or a multi-return call.
-                // Nested, the value is always already sitting in a table read off the outer subject, so it is
-                // always table.unpack, never those two faster paths.
                 var names = tupleTarget.Elements.ConvertAll(e => e.Name?.Text ?? "_");
                 foreach (var name in names)
                     _state.Scope.AddIdentifier(name);
@@ -122,8 +118,6 @@ public sealed partial class LuauGenerator
     /// </summary>
     private NoOpStatement EmitTupleDestructuring(TupleDestructuringTarget target, Expression initializerExpression)
     {
-        // A nested pattern is already rejected here by the parser (tuple destructuring does not support one),
-        // so this only ever falls back to the placeholder for a program that already has that error.
         var names = target.Elements.ConvertAll(e => e.Name?.Text ?? "_");
         foreach (var name in names)
             _state.Scope.AddIdentifier(name);

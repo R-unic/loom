@@ -7,7 +7,7 @@ namespace Loom.Core.Diagnostics;
 /// </summary>
 public static class Colors
 {
-    private static readonly bool Enabled =
+    private static readonly bool _enabled =
         Environment.GetEnvironmentVariable("NO_COLOR") is not { Length: > 0 } && !Console.IsOutputRedirected && !Console.IsErrorRedirected;
 
     public static string Reset => Code("\e[0m");
@@ -25,5 +25,5 @@ public static class Colors
     public static string White => Code("\e[38;5;231m");
     public static string Gray => Code("\e[38;5;252m");
 
-    private static string Code(string code) => Enabled ? code : "";
+    private static string Code(string code) => _enabled ? code : "";
 }

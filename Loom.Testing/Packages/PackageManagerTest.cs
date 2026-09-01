@@ -190,7 +190,7 @@ public class PackageManagerTest
     public void Restore_ReportsAnUnresolvedProject_AlongsideWhyTheIndexCouldNotOpen()
     {
         using var fixture = new PackageIndexFixture().Publish("math", "1.0.0");
-        var project = fixture.WriteProject("math = \"^1.0\"");
+        fixture.WriteProject("math = \"^1.0\"");
         var manifest = Path.Combine(fixture.ProjectDirectory, ConfigReader.ConfigFileName);
         File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("index = \"../index\"", "index = \"../nowhere\""));
         var broken = ConfigReader.LocateFromDirectory(fixture.ProjectDirectory, out _)!;

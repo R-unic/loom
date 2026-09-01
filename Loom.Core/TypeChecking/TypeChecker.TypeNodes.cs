@@ -14,12 +14,11 @@ using TypeName = Loom.Core.Parsing.AST.TypeName;
 using TypeParameter = Loom.Core.Parsing.AST.TypeParameter;
 using TypePredicateType = Loom.Core.Parsing.AST.TypePredicateType;
 using UnionType = Loom.Core.Parsing.AST.UnionType;
-
-namespace Loom.Core.TypeChecking;
-
-using Type = Types.Type;
+using Type = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Solving;
 using Loom.Core.TypeChecking.Intrinsic;
+
+namespace Loom.Core.TypeChecking;
 
 public sealed partial class TypeChecker
 {

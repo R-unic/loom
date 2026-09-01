@@ -82,15 +82,13 @@ internal static class AuthCommands
     }
 
     /// <summary>The token a script supplied, read off standard input when it is written <c>-</c>.</summary>
-    private static string? Supplied(string token)
+    private static string Supplied(string token)
     {
-        if (token != "-")
-        {
-            Log.Info($"{Colors.Dim}A token written on the command line is kept in your shell's history; '--token -' reads it from standard input.{Colors.Reset}");
-            return token;
-        }
+        if (token == "-")
+            return Console.In.ReadToEnd().Trim();
 
-        return Console.In.ReadToEnd().Trim();
+        Log.Info($"{Colors.Dim}A token written on the command line is kept in your shell's history; '--token -' reads it from standard input.{Colors.Reset}");
+        return token;
     }
 
     /// <summary>

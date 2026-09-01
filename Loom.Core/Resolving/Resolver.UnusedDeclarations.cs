@@ -14,8 +14,7 @@ public sealed partial class Resolver
     private void ReportUnusedDeclarations()
     {
         var used = _allReferences.Values.SelectMany(symbols => symbols).ToHashSet();
-        var declared = _allDeclarations.Values.SelectMany(symbols => symbols);
-
+        var declared = _allDeclarations.Values.SelectMany(symbols => symbols).ToList();
         ReportUnusedVariables(declared, used);
         ReportUnusedParameters(declared, used);
         ReportUnusedTypeParameters(declared, used);

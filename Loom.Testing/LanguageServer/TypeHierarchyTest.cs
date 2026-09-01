@@ -179,7 +179,7 @@ public class TypeHierarchyTest
                 var stale = new TypeHierarchyItem
                 {
                     Name = "Base",
-                    Kind = OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolKind.Interface,
+                    Kind = SymbolKind.Interface,
                     Uri = uri,
                     Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(0, 0), new Position(0, 1)),
                     SelectionRange = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(0, 0), new Position(0, 1)),
@@ -200,7 +200,7 @@ public class TypeHierarchyTest
                 var stale = new TypeHierarchyItem
                 {
                     Name = "Base",
-                    Kind = OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolKind.Interface,
+                    Kind = SymbolKind.Interface,
                     Uri = uri,
                     Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(0, 0), new Position(0, 1)),
                     SelectionRange = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(new Position(0, 0), new Position(0, 1)),

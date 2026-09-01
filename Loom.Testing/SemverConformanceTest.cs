@@ -6,7 +6,7 @@ namespace Loom.Testing;
 /// <summary>
 ///     Runs <c>Conformance/semver.json</c>, the corpus <c>rbx-loom/loom-pm</c> executes against its Go port of
 ///     <see cref="Version" /> and <see cref="VersionRequirement" />. Everything here is also asserted by
-///     <see cref="VersionTest" /> and <see cref="VersionRequirementTest" /> in the forms this codebase cares about;
+///     <see cref="Testing.Config.VersionTest" /> and <see cref="Testing.Config.VersionRequirementTest" /> in the forms this codebase cares about;
 ///     what this adds is that the *other* implementation is being held to the same cases, so the two cannot drift
 ///     on what <c>^1.2</c> means without a failure on one side or the other.
 /// </summary>

@@ -5,7 +5,7 @@ namespace Loom.Testing.TypeChecking;
 
 /// <summary>
 ///     Types the <c>Set</c>/<c>MutSet</c> intrinsics declared in <c>loom.loom</c>.
-///     <see cref="SetRuntimeTest" /> covers what they lower to and that it computes the right answer.
+///     <see cref="Testing.Runtime.SetRuntimeTest" /> covers what they lower to and that it computes the right answer.
 /// </summary>
 [Collection("Assembly")]
 public class SetIntrinsicTest

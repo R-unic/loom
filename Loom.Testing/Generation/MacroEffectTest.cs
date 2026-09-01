@@ -66,7 +66,6 @@ public class MacroEffectTest
     private static string Run(string source, string read)
     {
         var luau = Utility.GetLuauAST(source, typeCheck: true).Render().Replace("const ", "local ");
-
         using var state = LuauState.Create();
         state.OpenLibraries();
 

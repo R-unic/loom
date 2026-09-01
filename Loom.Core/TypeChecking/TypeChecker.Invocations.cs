@@ -3,11 +3,10 @@ using Loom.Core.Generation.Macros;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
+using Type = Loom.Core.TypeChecking.Types.Type;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.TypeChecking;
-
-using Type = Types.Type;
-using Loom.Core.TypeChecking.Solving;
 
 public sealed partial class TypeChecker
 {
@@ -18,8 +17,6 @@ public sealed partial class TypeChecker
         CheckDeprecation(invocation);
         CheckSimplifiableToSet(invocation);
 
-        // a?.b() short-circuits to nil at runtime before ever calling 'b', so the callee is
-        // checked against its non-nullable type and the call's own result gains '| none' back.
         var isOptionalChainCallee = IsOptionalChainAccess(invocation.Expression);
         if (isOptionalChainCallee)
             type = type.NonNullable();
@@ -32,34 +29,43 @@ public sealed partial class TypeChecker
 
         if (_semanticModel.TryGetIntrinsicAttribute(invocation.Expression, "luau_metamethod", out _))
         {
-            _diagnostics.Error(invocation, InternalCodes.InvalidInvocation, "Cannot call a metamethod-backed property directly; use the corresponding operator instead.");
+            _diagnostics.Error(
+                invocation,
+                InternalCodes.InvalidInvocation,
+                "Cannot call a metamethod-backed property directly; use the corresponding operator instead."
+            );
+
             return BindType(invocation, Types.PrimitiveType.Never);
         }
 
         Type resultType;
-        if (type is Types.FunctionType functionType)
+        switch (type)
         {
-            resultType = functionType.TypeParameters.Count == 0
-                ? CheckNonGenericInvocation(invocation, functionType)
-                : CheckGenericInvocation(invocation, functionType);
-        }
-        else if (type is Types.IntersectionType { Types.Count: > 0 } intersection && intersection.Types.TrueForAll(t => t is Types.FunctionType))
-        {
-            resultType = CheckOverloadedInvocation(invocation, intersection.Types.ConvertAll(t => (Types.FunctionType)t));
-        }
-        else if (IsEventType(invocation, type, false, out var eventType))
-        {
-            resultType = CheckEventInvocation(invocation, eventType);
-        }
-        else
-        {
-            _diagnostics.Error(invocation, InternalCodes.InvalidInvocation, $"Cannot call value of type '{type}'.");
-            return BindType(invocation, Types.PrimitiveType.Never);
+            case Types.FunctionType functionType:
+                resultType = functionType.TypeParameters.Count == 0
+                    ? CheckNonGenericInvocation(invocation, functionType)
+                    : CheckGenericInvocation(invocation, functionType);
+
+                break;
+            case Types.IntersectionType { Types.Count: > 0 } intersection when intersection.Types.TrueForAll(t => t is Types.FunctionType):
+                resultType = CheckOverloadedInvocation(invocation, intersection.Types.ConvertAll(t => (Types.FunctionType)t));
+                break;
+            default:
+            {
+                if (IsEventType(invocation, type, false, out var eventType))
+                {
+                    resultType = CheckEventInvocation(invocation, eventType);
+                }
+                else
+                {
+                    _diagnostics.Error(invocation, InternalCodes.InvalidInvocation, $"Cannot call value of type '{type}'.");
+                    return BindType(invocation, Types.PrimitiveType.Never);
+                }
+
+                break;
+            }
         }
 
-        // calling an 'async fn' starts it and hands back the future it settles, so the call is typed as a
-        // Future over the declared return type rather than as the return type itself - 'await' is what
-        // takes the value back out
         if (IsAsyncCallee(type) && !Type.IsNever(resultType))
             resultType = BindType(invocation, InstantiateFutureType(invocation, resultType));
 
@@ -124,34 +130,27 @@ public sealed partial class TypeChecker
                 return argumentTypes.Count >= requiredCount
                     && arityOk
                     && !argumentTypes.Where((argumentType, i) =>
-                    {
-                        var expected = Types.FunctionType.ParameterTypeAt(candidate.ParameterTypes, candidate.HasRestParameter, i);
-
-                        // A position naming one of the candidate's own type parameters has nothing to check
-                        // yet - what it would accept depends on the substitution CheckGenericInvocation is
-                        // about to infer for whichever candidate arity picks, not the bare, unbound parameter
-                        // sitting here. Measuring assignability against that rejects every generic candidate
-                        // whose inference would have succeeded, which is the whole overload set whenever more
-                        // than one arity is generic.
-                        return expected != null && !ContainsTypeParameter(expected, candidate.TypeParameters) && !argumentType.IsAssignableTo(expected);
-                    }).Any();
+                            {
+                                var expected = Types.FunctionType.ParameterTypeAt(candidate.ParameterTypes, candidate.HasRestParameter, i);
+                                return expected != null && !ContainsTypeParameter(expected, candidate.TypeParameters) && !argumentType.IsAssignableTo(expected);
+                            }
+                        )
+                        .Any();
             }
         );
 
-        if (match == null)
-        {
-            _diagnostics.Error(
-                invocation,
-                InternalCodes.NoOverloadMatch,
-                $"No overload matches this call. Candidates:\n{string.Join("\n", candidates.Select(c => "  " + c))}"
-            );
+        if (match != null)
+            return match.TypeParameters.Count == 0
+                ? CheckNonGenericInvocation(invocation, match)
+                : CheckGenericInvocation(invocation, match);
 
-            return BindType(invocation, Types.PrimitiveType.Never);
-        }
+        _diagnostics.Error(
+            invocation,
+            InternalCodes.NoOverloadMatch,
+            $"No overload matches this call. Candidates:\n{string.Join("\n", candidates.Select(c => "  " + c))}"
+        );
 
-        return match.TypeParameters.Count == 0
-            ? CheckNonGenericInvocation(invocation, match)
-            : CheckGenericInvocation(invocation, match);
+        return BindType(invocation, Types.PrimitiveType.Never);
     }
 
     /// <summary>
@@ -213,7 +212,6 @@ public sealed partial class TypeChecker
         var canonicalized = CanonicalizeArguments(invocation.Arguments, declaration?.Parameters, functionType.HasRestParameter);
         var argumentList = canonicalized ?? invocation.Arguments.ArgumentList;
         var argumentTypes = BuildArgumentTypes(argumentList, substitutedParameterTypes, functionType.HasRestParameter);
-
         if (canonicalized == null)
             CheckArity(invocation.Arguments, declaration?.Parameters, argumentTypes, substitutedParameterTypes, functionType.HasRestParameter);
 
@@ -236,7 +234,15 @@ public sealed partial class TypeChecker
 
         if (deferred.Contains(true))
         {
-            TypeDeferredArguments(invocation, functionType, substitution, argumentList, argumentTypes, deferred);
+            TypeDeferredArguments(
+                invocation,
+                functionType,
+                substitution,
+                argumentList,
+                argumentTypes,
+                deferred
+            );
+
             substitution = ResolveTypeArguments(invocation, functionType, argumentTypes, expectedReturnType);
             if (substitution == null)
                 return BindType(invocation, Types.PrimitiveType.Never);
@@ -262,8 +268,8 @@ public sealed partial class TypeChecker
         {
             Parenthesized parenthesized => IsContextSensitive(parenthesized.Expression),
             NamedArgument namedArgument => IsContextSensitive(namedArgument.Value),
-            FunctionExpression { Parameters: { } parameters } => parameters.ParameterList.Exists(
-                parameter => parameter.ColonTypeClause == null && parameter.EqualsValueClause == null
+            FunctionExpression { Parameters: { } parameters } => parameters.ParameterList.Exists(parameter => parameter.ColonTypeClause == null
+                && parameter.EqualsValueClause == null
             ),
 
             _ => false
@@ -294,9 +300,6 @@ public sealed partial class TypeChecker
         var canonicalized = CanonicalizeArguments(invocation.Arguments, declaration?.Parameters, hasRestParameter);
         var argumentList = canonicalized ?? invocation.Arguments.ArgumentList;
         var argumentTypes = argumentList.ConvertAll(Visit);
-
-        // The declared parameters alone: Event<T1..T8> pads to eight, and the unused ones are 'none', which
-        // a rest parameter would otherwise be measured against as seven more parameters to fill first.
         CheckArguments(
             invocation.Arguments,
             declaration?.Parameters,
@@ -350,7 +353,7 @@ public sealed partial class TypeChecker
     ///     <para>
     ///         Ill-formed placement (a positional argument after a named one, a named argument alongside a
     ///         spread, a duplicate name) was already reported by the parser
-    ///         (<see cref="Parser.ValidateNamedArgumentPlacement" />) from the token shapes alone, so this only
+    ///         (<see cref="Parsing.Parser.ValidateNamedArgumentPlacement" />) from the token shapes alone, so this only
     ///         tolerates it well enough not to crash - it does not re-report it.
     ///     </para>
     /// </remarks>
@@ -477,10 +480,11 @@ public sealed partial class TypeChecker
         var argumentTypes = new List<Type>(argumentList.Count);
         argumentTypes.AddRange(
             argumentList.Select((t, i) =>
-            {
-                var expected = ExpectedArgumentType(argumentList, i, parameterTypes, hasRestParameter);
-                return expected != null ? Check(t, expected) : Visit(t);
-            })
+                {
+                    var expected = ExpectedArgumentType(argumentList, i, parameterTypes, hasRestParameter);
+                    return expected != null ? Check(t, expected) : Visit(t);
+                }
+            )
         );
 
         return argumentTypes;
@@ -671,8 +675,7 @@ public sealed partial class TypeChecker
                 && arguments.Parent is Invocation invocation =>
                 GetInvocationArgumentType(invocation, expression),
 
-            NamedArgument namedArgument when namedArgument.Parent is Arguments arguments
-                && arguments.Parent is Invocation invocation =>
+            NamedArgument { Parent: Arguments { Parent: Invocation invocation } } namedArgument =>
                 GetInvocationArgumentType(invocation, namedArgument),
 
             _ => null
@@ -716,9 +719,6 @@ public sealed partial class TypeChecker
 
         if (InvocationMacroReference.IsValidReferenceContext(expression, _semanticModel))
         {
-            // Referencing a macro emits a lambda with one parameter per declared parameter, which cannot
-            // stand for a variadic one - the lambda would take a single argument and silently drop the
-            // rest. There is nothing to fall back on, since the macro has no runtime definition to pass.
             if (_semanticModel.GetType(expression) is not Types.FunctionType { HasRestParameter: true })
                 return true;
 

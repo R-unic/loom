@@ -7,12 +7,12 @@ namespace Loom.Testing.LanguageServer;
 [Collection("Assembly")]
 public class CodeActionHandlerTest
 {
-    private static readonly (string Path, string Source) Math = ("util/math.loom", "export fn double(n: number): number { return n * 2; }");
+    private static readonly (string Path, string Source) _math = ("util/math.loom", "export fn double(n: number): number { return n * 2; }");
 
     [Fact]
     public async Task Handle_ForAnUnknownName_OffersTheImportThatWouldResolveIt()
     {
-        var actions = await ActionsAsync("let four = double(2);", 0, 11, Math);
+        var actions = await ActionsAsync("let four = double(2);", 0, 11, _math);
         var action = Assert.Single(actions, entry => entry.Kind == CodeActionKind.QuickFix);
 
         Assert.Equal("Import 'double' from \"./util/math\"", action.Title);
@@ -22,12 +22,12 @@ public class CodeActionHandlerTest
 
     [Fact]
     public async Task Handle_ForAnUnknownNameNothingExports_OffersNothing() =>
-        Assert.Empty(await ActionsAsync("let four = nowhere(2);", 0, 11, Math));
+        Assert.Empty(await ActionsAsync("let four = nowhere(2);", 0, 11, _math));
 
     [Fact]
     public async Task Handle_ForAnUnusedImport_OffersToRemoveTheWholeStatement()
     {
-        var actions = await ActionsAsync("import { double } from \"./util/math\";\nlet x = 1;", 0, 9, Math);
+        var actions = await ActionsAsync("import { double } from \"./util/math\";\nlet x = 1;", 0, 9, _math);
         var action = Assert.Single(actions, entry => entry.Title == "Remove unused import");
 
         var edit = Assert.Single(Assert.Single(action.Edit!.Changes!).Value);
@@ -162,7 +162,7 @@ public class CodeActionHandlerTest
             "import { double } from \"./util/math\";\nimport { triple } from \"./util/more\";\nlet x = 1;",
             2,
             0,
-            Math,
+            _math,
             ("util/more.loom", "export fn triple(n: number): number { return n * 3; }")
         );
 
@@ -174,7 +174,7 @@ public class CodeActionHandlerTest
     [Fact]
     public async Task OrganizeImports_IsNotOfferedWhenEveryImportIsUsed() =>
         Assert.DoesNotContain(
-            await ActionsAsync("import { double } from \"./util/math\";\nlet four = double(2);", 1, 0, Math),
+            await ActionsAsync("import { double } from \"./util/math\";\nlet four = double(2);", 1, 0, _math),
             entry => entry.Kind == CodeActionKind.SourceOrganizeImports
         );
 
@@ -196,7 +196,7 @@ public class CodeActionHandlerTest
                 "let four = double(2);",
                 0,
                 11,
-                Math,
+                _math,
                 ("util/more.loom", "export fn double(n: number): number { return n * 2; }")
             ),
             entry => entry.Kind == CodeActionKind.SourceFixAll
@@ -211,7 +211,7 @@ public class CodeActionHandlerTest
             2,
             8,
             new Container<CodeActionKind>(CodeActionKind.SourceOrganizeImports),
-            Math
+            _math
         );
 
         Assert.All(actions, action => Assert.Equal(CodeActionKind.SourceOrganizeImports, action.Kind));

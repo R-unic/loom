@@ -2,13 +2,12 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Text;
 using Loom.Core.TypeChecking.Types;
-
-namespace Loom.Core.TypeChecking;
-
-using Type = Types.Type;
+using Type = Loom.Core.TypeChecking.Types.Type;
 using Loom.Core.TypeChecking.Operators;
 using Loom.Core.TypeChecking.Solving;
 using Loom.Core.TypeChecking.Intrinsic;
+
+namespace Loom.Core.TypeChecking;
 
 public sealed partial class TypeChecker
 {
@@ -21,8 +20,6 @@ public sealed partial class TypeChecker
         }
         else
         {
-            // Without narrowing: checking a fresh value needs the target's full declared type, not
-            // whatever a prior `??=`/etc. last narrowed it to (else a legal `n = none` could wrongly fail).
             var targetState = _narrower.WithoutNarrowing(assignmentOperator.Left, _flowState);
             var targetType = Visit(assignmentOperator.Left, targetState);
             var valueType = Check(assignmentOperator.Right, targetType);
@@ -35,16 +32,10 @@ public sealed partial class TypeChecker
 
     private void NarrowAfterAssignment(AssignmentOperator assignmentOperator, Type resultType)
     {
-        // Only CheckStatements can thread a narrowed state forward via _exitStates, and only for an
-        // assignment that's its own statement - one nested in a larger expression has no entry to attach to.
-        if (assignmentOperator.Parent is not ExpressionStatement statement)
-            return;
+        if (assignmentOperator.Parent is not ExpressionStatement statement) return;
 
-        // Skip if resultType isn't even assignable to the target's type - e.g. `handler += callback` on
-        // an event field returns a ScriptConnection, not a new value for `handler`.
         var targetType = _semanticModel.GetType(assignmentOperator.Left);
-        if (!resultType.IsAssignableTo(targetType))
-            return;
+        if (!resultType.IsAssignableTo(targetType)) return;
 
         if (_narrower.TryNarrowAfterAssignment(assignmentOperator.Left, resultType, _flowState) is { } narrowed)
             _exitStates[statement] = narrowed;
@@ -62,9 +53,7 @@ public sealed partial class TypeChecker
             QualifiedName name => name.Identifier,
             _ => null!
         };
-
-        // Expanded, since what is being asked is whether the member written through is mutable, and a
-        // target written as an instantiation ('ImmutRecord<string, bool>') only has members once expanded.
+        
         var expressionType = TypeSimplifier.Expanded(_semanticModel.GetType(expression));
         if (expressionType is Types.PrimitiveType { Kind: PrimitiveTypeKind.String })
             expressionType = IntrinsicTypes.StringMembers;
@@ -80,7 +69,6 @@ public sealed partial class TypeChecker
         if (expressionType is not NativelyIndexableType indexableType)
             return BindType(assignmentOperator, valueType);
 
-        // read only, so the node's own list is walked rather than copied
         IReadOnlyList<DotName> names = assignmentOperator.Left switch
         {
             PropertyAccess propertyAccess => propertyAccess.Names,
@@ -114,8 +102,6 @@ public sealed partial class TypeChecker
         };
 
         _diagnostics.Error(assignmentOperator, InternalCodes.AssignToImmutable, $"Cannot assign to immutable {display}");
-
-        // Dropping AddConstraint here because the Check method already does it
         return BindType(assignmentOperator, valueType);
     }
 
@@ -134,7 +120,6 @@ public sealed partial class TypeChecker
     public override Type VisitBinaryOperator(BinaryOperator binaryOperator)
     {
         var leftType = Visit(binaryOperator.Left);
-
         if (binaryOperator.Operator.Kind is SyntaxKind.PlusEquals or SyntaxKind.MinusEquals or SyntaxKind.CaretEquals
             && TryGetEventParameterTypes(binaryOperator, leftType, out var eventParameters))
         {
@@ -159,7 +144,7 @@ public sealed partial class TypeChecker
                 rightType = Visit(binaryOperator.Right);
                 break;
         }
-        
+
         if (TryBindBinaryOperatorOverload(binaryOperator, leftType, rightType, out var overloadType))
             return BindType(binaryOperator, overloadType);
 
@@ -218,7 +203,7 @@ public sealed partial class TypeChecker
 
         return BindType(unaryOperator, Types.PrimitiveType.Never);
     }
-    
+
     private static bool TryBindBinaryOperatorOverload(BinaryOperator binaryOperator, Type leftType, Type rightType, out Type resultType)
     {
         resultType = Types.PrimitiveType.Never;
@@ -247,7 +232,8 @@ public sealed partial class TypeChecker
         {
             QualifiedName name when _semanticModel.GetDeclaringSymbol(name.Identifier) is { Declaration: EnumDeclaration declaration } => declaration,
             PropertyAccess access when _semanticModel.GetDeclaringSymbol(access.Expression) is { Declaration: EnumDeclaration declaration } => declaration,
-            ElementAccess elementAccess when _semanticModel.GetDeclaringSymbol(elementAccess.Expression) is { Declaration: EnumDeclaration declaration } => declaration,
+            ElementAccess elementAccess when _semanticModel.GetDeclaringSymbol(elementAccess.Expression) is { Declaration: EnumDeclaration declaration } =>
+                declaration,
             _ => null
         };
 }

@@ -3,7 +3,7 @@ using Loom.TypeGenerator.ApiTypes;
 using Loom.TypeGenerator.Generators;
 using ValueType = Loom.TypeGenerator.ApiTypes.ValueType;
 
-namespace Loom.Testing.Generation;
+namespace Loom.Testing;
 
 [Collection("Assembly")]
 public class ClassGeneratorTest

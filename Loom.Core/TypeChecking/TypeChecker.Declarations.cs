@@ -2,11 +2,10 @@ using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Loom.Core.Resolving.Symbols;
 using Loom.Core.TypeChecking.Types;
+using Type = Loom.Core.TypeChecking.Types.Type;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.TypeChecking;
-
-using Type = Types.Type;
-using Loom.Core.TypeChecking.Solving;
 
 public sealed partial class TypeChecker
 {
@@ -316,18 +315,18 @@ public sealed partial class TypeChecker
         if (declaredType != null && parameter.EqualsValueClause != null)
             _semanticModel.TypeSolver.AddConstraint(initializerType!, declaredType, parameter.EqualsValueClause.Value);
 
-        // Not inside a type pattern: '..let P' there binds the whole remainder of the signature as a tuple,
-        // so what it stands for is a pack rather than the array a real rest parameter is passed.
         if (parameter.DotDot != null
             && declaredType != null
             && parameter.ColonTypeClause?.Type is not InferType
             && !IsArrayType(declaredType)
             && !IsTupleRestType(declaredType))
+        {
             _diagnostics.Error(
                 parameter,
                 InternalCodes.InvalidRestParameterType,
                 $"Rest parameter '{parameter.Name.Text}' must have an array type, but got '{declaredType}'."
             );
+        }
 
         return BindType(parameter, declaredType ?? initializerType ?? Types.PrimitiveType.Unknown);
     }
@@ -392,13 +391,13 @@ public sealed partial class TypeChecker
     }
 
     /// <summary>
-    ///     A cross-file global's type, preferring whatever <see cref="Resolver.DeclareGlobalSymbols" />
+    ///     A cross-file global's type, preferring whatever <see cref="Resolving.Resolver.DeclareGlobalSymbols">Resolver.DeclareGlobalSymbols</see>
     ///     already seeded over recomputing it. A global's declaration node belongs to another file's tree,
     ///     so <see cref="Visit(Node)" />ing it here - the current file's checker, against the current
-    ///     file's <see cref="SemanticModel" /> - would walk symbol references that model was never told
+    ///     file's <see cref="Resolving.SemanticModel">SemanticModel</see> - would walk symbol references that model was never told
     ///     about and fail to resolve names its own file resolves without issue. Only when nothing seeded
     ///     it yet (declaration files that reference each other are still mid-analysis together, before
-    ///     <see cref="Pipeline.CompilationUnit.PopulateGlobals" /> runs) does the risk of that mismatch
+    ///     <see cref="Pipeline.CompilationUnit.PopulateGlobals">CompilationUnit.PopulateGlobals</see> runs) does the risk of that mismatch
     ///     become the lesser one.
     /// </summary>
     private Type GetTypeFromSymbol(Symbol symbol)

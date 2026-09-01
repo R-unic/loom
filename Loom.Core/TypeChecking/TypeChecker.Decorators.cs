@@ -1,11 +1,10 @@
 using Loom.Core.Diagnostics;
 using Loom.Core.Parsing.AST;
 using Attribute = Loom.Core.Parsing.AST.Attribute;
+using Type = Loom.Core.TypeChecking.Types.Type;
+using Loom.Core.TypeChecking.Solving;
 
 namespace Loom.Core.TypeChecking;
-
-using Type = Types.Type;
-using Loom.Core.TypeChecking.Solving;
 
 public sealed partial class TypeChecker
 {
