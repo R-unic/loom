@@ -28,7 +28,7 @@ This pins the compiler in the project's `rokit.toml`, so everyone working on it 
 
 ```toml
 [tools]
-loom = "rbx-loom/loom@0.1.0"
+loom = "rbx-loom/loom@2.0.0"
 ```
 
 The published binaries are self-contained — there is no runtime or SDK to install alongside them — and cover Windows, macOS
@@ -65,6 +65,9 @@ says so and still takes a token issued another way, since pasting one is the who
 are kept outside every project, one per registry host, so nothing you commit or publish can carry one; `LOOM_TOKEN`
 supplies one instead for a machine with nobody at the keyboard. A token is never sent over plain `http` to anything
 but a loopback address.
+
+`loom build`/`loom watch --dependency-diagnostics` reports a dependency's own diagnostics instead of collapsing them
+into one error per file, for debugging a package from a project consuming it.
 
 ## Quick look
 
@@ -229,10 +232,7 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
 
 - `defer` statements (#73)
 - Pipe operators (#64)
-- Generic `event` declarations (#132)
-- Mapped object types (#75)
-- Package management & installation pipeline (#111 & #112 respectively)
-- Linter AST visitor (#18)
+- Linter AST visitor (#18, on hold)
 
 ---
 
