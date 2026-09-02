@@ -29,19 +29,36 @@ public sealed class ModuleRequirePathResolver(SourceRootSet roots)
 
     /// <param name="importingFile">The file whose <c>require</c> this is, which decides whether the module is one of its own project's.</param>
     /// <param name="module">The module file to resolve.</param>
-    /// <param name="specifier">The specifier as written, used when Rojo cannot name the module.</param>
+    /// <param name="specifier">The specifier as written, used for a fallback that crosses a project boundary, where no path of this project's own names the module.</param>
     public ModuleRequirePath Resolve(SourceFile importingFile, SourceFile module, string specifier)
     {
         var package = PackageCrossedBy(importingFile, module);
         if (_rojoResolver == null)
-            return ModuleRequirePath.Fallback(ModuleRequirePathStatus.RojoMissing, specifier, package, PackagesPath);
+            return Fallback(ModuleRequirePathStatus.RojoMissing, importingFile, module, specifier, package);
 
         if (!_instancePaths.TryGetValue(module, out var instancePath))
             _instancePaths[module] = instancePath = _rojoResolver.ResolvePath(roots.OutputPathOf(module));
 
         return instancePath == null
-            ? ModuleRequirePath.Fallback(ModuleRequirePathStatus.NotFoundInRojo, specifier, package, PackagesPath)
+            ? Fallback(ModuleRequirePathStatus.NotFoundInRojo, importingFile, module, specifier, package)
             : ModuleRequirePath.Resolved(instancePath);
+    }
+
+    /// <summary>
+    ///     The specifier as written, unless it reached the module by folding a folder into a <c>main.loom</c> -
+    ///     the one fold Luau's own require-by-string resolver cannot do on its own (see
+    ///     <see cref="ModuleResolver.FoldedThroughSecondaryIndex" />). In that one case the module's own file is
+    ///     named outright instead (see <see cref="ModuleResolver.LiteralRequirePath" />), since the specifier
+    ///     alone would otherwise name a path nothing is actually at. A require crossing into another project has
+    ///     no file of this project's own to name it by, so the specifier is what is left to report there too.
+    /// </summary>
+    private ModuleRequirePath Fallback(ModuleRequirePathStatus status, SourceFile importingFile, SourceFile module, string specifier, PackageName? package)
+    {
+        var path = package == null && ModuleResolver.FoldedThroughSecondaryIndex(importingFile, specifier, module)
+            ? ModuleResolver.LiteralRequirePath(importingFile, module)
+            : specifier;
+
+        return ModuleRequirePath.Fallback(status, path, package, PackagesPath);
     }
 
     /// <summary>

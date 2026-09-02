@@ -9,8 +9,10 @@ namespace Loom.Core.Modules;
 ///     Maps a module specifier as written in source (<c>"./math"</c>, <c>"serio"</c>) onto a
 ///     <see cref="SourceFile" /> of the compilation unit. Specifiers are extension-less; a relative one is read
 ///     from the importing file's directory and a bare one from the source directory of the root publishing the
-///     package it names. Either way <c>"./math"</c> matches <c>math.loom</c> or <c>math/init.loom</c>,
-///     mirroring how Rojo folds an <c>init</c> file into its folder.
+///     package it names. Either way <c>"./math"</c> matches <c>math.loom</c>, <c>math/init.loom</c> or
+///     <c>math/main.loom</c> — a folder folds into whichever index file it has, the same way Rojo folds an
+///     <c>init</c> file into its folder, or a <c>main</c> file into its package the way <c>index.js</c> or
+///     <c>__init__.py</c> would. <c>init</c> is tried first where a folder somehow has both.
 /// </summary>
 /// <remarks>
 ///     Paths are compared case-sensitively even where the file system is not, because Roblox requires are.
@@ -25,6 +27,14 @@ namespace Loom.Core.Modules;
 public sealed class ModuleResolver
 {
     private const string IndexFileName = "init";
+
+    /// <summary>
+    ///     A second folder-index name, tried after <see cref="IndexFileName" /> — the <c>index.js</c> /
+    ///     <c>__init__.py</c> convention rather than Rojo's own, for a package authored without Rojo's folding
+    ///     in mind. Kept second rather than replacing <c>init</c> so a Rojo project's own convention is never
+    ///     shadowed by it.
+    /// </summary>
+    private const string SecondaryIndexFileName = "main";
 
     /// <summary>How many leading segments of a specifier may name the package: <c>name</c> or <c>scope/name</c>.</summary>
     private const int MaximumPackageSegments = 2;
@@ -71,9 +81,51 @@ public sealed class ModuleResolver
         }
 
         var importingDirectory = Path.GetDirectoryName(Path.GetFullPath(importingFile.AbsolutePath)) ?? "";
-        var specifier = ModulePath(importingDirectory, module);
-        return specifier.StartsWith("./", StringComparison.Ordinal) || specifier.StartsWith("../", StringComparison.Ordinal) ? specifier : "./" + specifier;
+        return PrefixDot(ModulePath(importingDirectory, module));
     }
+
+    /// <summary>
+    ///     The require path naming <paramref name="module" />'s own file, with no folder-index folded away —
+    ///     used only where a relative require has to resolve on its own, without a Rojo mapping to say where
+    ///     the file actually landed. Luau's require-by-string resolver folds a directory into an <c>init</c>
+    ///     file on its own; folding through <see cref="SecondaryIndexFileName" /> is a Loom-only convention it
+    ///     does not know about, so a require reaching one has to name the file outright either way.
+    /// </summary>
+    public static string LiteralRequirePath(SourceFile importingFile, SourceFile module)
+    {
+        var importingDirectory = Path.GetDirectoryName(Path.GetFullPath(importingFile.AbsolutePath)) ?? "";
+        return PrefixDot(ModulePath(importingDirectory, module, foldIndexFile: false));
+    }
+
+    /// <summary>
+    ///     Whether resolving <paramref name="specifier" /> from <paramref name="importingFile" /> reached
+    ///     <paramref name="module" /> by folding a folder into a <see cref="SecondaryIndexFileName" /> file -
+    ///     the one fold Luau's own require-by-string resolver cannot do on its own, unlike an
+    ///     <see cref="IndexFileName" /> fold or a direct file reference, both of which it resolves correctly
+    ///     without help. Only this case needs <see cref="LiteralRequirePath" /> in a fallback require; every
+    ///     other relative require already works unresolved, specifier as written.
+    /// </summary>
+    public static bool FoldedThroughSecondaryIndex(SourceFile importingFile, string specifier, SourceFile module)
+    {
+        if (!IsRelativeSpecifier(specifier))
+            return false;
+
+        var importingDirectory = Path.GetDirectoryName(Path.GetFullPath(importingFile.AbsolutePath));
+        if (importingDirectory == null)
+            return false;
+
+        var basePath = Path.GetFullPath(Path.Combine(importingDirectory, specifier));
+        var moduleDirectory = Path.GetDirectoryName(Path.GetFullPath(module.AbsolutePath));
+        if (!string.Equals(basePath, moduleDirectory, StringComparison.Ordinal))
+            return false; // named directly, not folded - the specifier already names this exact file
+
+        var extensionLength = module.IsDeclaration ? FileManager.DeclarationExtension.Length : FileManager.LoomExtension.Length;
+        var stem = Path.GetFileName(module.AbsolutePath)[..^extensionLength];
+        return stem == SecondaryIndexFileName;
+    }
+
+    private static string PrefixDot(string specifier) =>
+        specifier.StartsWith("./", StringComparison.Ordinal) || specifier.StartsWith("../", StringComparison.Ordinal) ? specifier : "./" + specifier;
 
     private ModuleResolution ResolveRelative(SourceFile importingFile, string specifier)
     {
@@ -172,22 +224,32 @@ public sealed class ModuleResolver
         return package != null;
     }
 
-    /// <summary>The path naming <paramref name="module" /> from <paramref name="directory" />, extension-less and <c>/</c>-separated, an <c>init</c> file folded into its folder.</summary>
-    private static string ModulePath(string directory, SourceFile module)
+    /// <param name="directory">The directory the path is written relative to.</param>
+    /// <param name="module">The module the path names.</param>
+    /// <param name="foldIndexFile">
+    ///     Whether a folder-index file (<c>init</c> or <c>main</c>) folds into its folder, as it does for a
+    ///     specifier a person writes. Off for <see cref="LiteralRequirePath" />, which names the file Luau
+    ///     itself has to find without any folding it does not already know how to do.
+    /// </param>
+    /// <returns>The path naming <paramref name="module" /> from <paramref name="directory" />, extension-less and <c>/</c>-separated.</returns>
+    private static string ModulePath(string directory, SourceFile module, bool foldIndexFile = true)
     {
         var relativePath = Path.GetRelativePath(directory, Path.GetFullPath(module.AbsolutePath));
         var extensionLength = module.IsDeclaration ? FileManager.DeclarationExtension.Length : FileManager.LoomExtension.Length;
         var withoutExtension = relativePath[..^extensionLength];
-        if (Path.GetFileName(withoutExtension) == IndexFileName)
+        if (foldIndexFile && IsIndexFileName(Path.GetFileName(withoutExtension)))
             withoutExtension = Path.GetDirectoryName(withoutExtension) ?? withoutExtension;
 
         return withoutExtension == "." ? "" : withoutExtension.Replace(Path.DirectorySeparatorChar, '/');
     }
 
+    private static bool IsIndexFileName(string name) => name is IndexFileName or SecondaryIndexFileName;
+
     /// <remarks>
     ///     A <c>.loom</c> candidate is tried before its <c>.d.loom</c> counterpart at the same base path, so a
     ///     project that somehow has both is not ambiguous - the compiled module wins, the same way it would if
-    ///     the two just happened to be tried in directory order.
+    ///     the two just happened to be tried in directory order. <c>init</c> is tried before <c>main</c> for the
+    ///     same reason, so a folder carrying both resolves to the Rojo-native one rather than being ambiguous.
     /// </remarks>
     private static IEnumerable<string> GetCandidatePaths(string basePath, bool indexOnly)
     {
@@ -199,5 +261,7 @@ public sealed class ModuleResolver
 
         yield return Path.Combine(basePath, IndexFileName + FileManager.LoomExtension);
         yield return Path.Combine(basePath, IndexFileName + FileManager.DeclarationExtension);
+        yield return Path.Combine(basePath, SecondaryIndexFileName + FileManager.LoomExtension);
+        yield return Path.Combine(basePath, SecondaryIndexFileName + FileManager.DeclarationExtension);
     }
 }

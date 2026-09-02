@@ -46,6 +46,41 @@ public class ModuleGraphTest
             }
         );
 
+    /// <remarks>The <c>index.js</c>/<c>__init__.py</c> convention: a folder with no <c>init.loom</c> still folds through a <c>main.loom</c>.</remarks>
+    [Fact]
+    public void Resolves_Import_ToMainFileOfDirectory() =>
+        Utility.WithTempProject(
+            [("app.loom", "import { helper } from \"./util\""), (Path.Combine("util", "main.loom"), "export let helper = 1;")],
+            (unit, result) =>
+            {
+                var graph = Assert.IsType<ModuleGraph>(unit.ModuleGraph);
+                var app = graph.Order.First(parsed => parsed.File.Name == "app.loom");
+                var import = Assert.Single(app.Imports);
+
+                Assert.Equal("main.loom", graph.GetResolvedModule(import)?.Name);
+                Assert.DoesNotContain(result.Diagnostics.Set, diagnostic => diagnostic.Code == InternalCodes.ModuleNotFound);
+            }
+        );
+
+    /// <remarks>Deterministic rather than ambiguous when a folder somehow carries both: the Rojo-native convention wins.</remarks>
+    [Fact]
+    public void Resolves_Import_ToInitFile_WhenTheDirectoryHasBothInitAndMain() =>
+        Utility.WithTempProject(
+            [
+                ("app.loom", "import { helper } from \"./util\""),
+                (Path.Combine("util", "init.loom"), "export let helper = 1;"),
+                (Path.Combine("util", "main.loom"), "export let helper = 2;")
+            ],
+            (unit, _) =>
+            {
+                var graph = Assert.IsType<ModuleGraph>(unit.ModuleGraph);
+                var app = graph.Order.First(parsed => parsed.File.Name == "app.loom");
+                var import = Assert.Single(app.Imports);
+
+                Assert.Equal("init.loom", graph.GetResolvedModule(import)?.Name);
+            }
+        );
+
     [Fact]
     public void Reports_ModuleNotFound() =>
         AssertModuleDiagnostic(

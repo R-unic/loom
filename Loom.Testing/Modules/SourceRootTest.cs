@@ -278,6 +278,21 @@ public partial class SourceRootTest
             rojoProject: AppRojoProject
         );
 
+    /// <remarks>A dependency published without Rojo's own convention in mind still has an entry module - the <c>index.js</c>/<c>__init__.py</c> one.</remarks>
+    [Fact]
+    public void Resolves_ABareSpecifier_ToTheDependencysMainFile()
+        => WithWorkspace((_, unit) =>
+            {
+                var result = unit.Compile();
+                Utility.AssertNoErrors(result);
+
+                Assert.Equal("main.loom", ResolvedModuleOf(unit, "app.loom")?.Name);
+            },
+            appFiles: [("app.loom", "import { pi } from \"math\"\nprint(pi);")],
+            packageFiles: [("main.loom", "export let pi = 3;")],
+            rojoProject: AppRojoProject
+        );
+
     [Fact]
     public void Resolves_ABareSpecifier_WithASubpath_ToAModuleInsideTheDependency()
         => WithWorkspace((_, unit) =>
