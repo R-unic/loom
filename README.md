@@ -149,6 +149,8 @@ More in [Destructuring](#destructuring) and [Tuples](#tuples) below.
   - [Once Event Operator](#once-event-operator)
   - [Exports](#exports)
   - [Imports & Modules](#imports--modules)
+    - [Folder Imports](#folder-imports)
+    - [Declaring Typings for Luau Files](#declaring-typings-for-luau-files)
   - [Realms](#realms)
   - [`in` operator](#in-operator)
   - [`type_is`](#type_is)
@@ -2624,6 +2626,61 @@ print(tau)
 A bare specifier names a package instead of a path. `import { clamp } from "math"` reaches the root publishing that package, and only a package listed in the
 importing project's `[dependencies]` is importable. A dependency's compiled Luau is written into the *consuming* project's output, under
 `<output>/packages/<scope>/<name>`.
+
+### Folder Imports
+
+A specifier naming a folder resolves to whichever index file the folder has — the way `require("./util")` finds `util/index.js` in Node, or `import util`
+finds `util/__init__.py` in Python. Loom recognizes two index names: `init.loom`, mirroring the file Rojo itself folds into its folder, and `main.loom`, for a
+folder authored without Rojo's own convention in mind. Where a folder somehow has both, `init.loom` wins.
+
+```rs
+// util/init.loom  (or util/main.loom — either name folds the same way)
+export let helper = 1;
+```
+
+```rs
+// main.loom
+import { helper } from "./util";
+```
+
+This works the same for a bare package specifier: `import { clamp } from "math"` reaches the `init.loom` (or `main.loom`) at the top of the `math` package's
+own source directory. A `main.loom` fold is a purely source-level convenience — Rojo itself only folds a literal `init.lua`/`init.server.lua`/`init.client.lua`
+into its folder, so a `main.loom` file still shows up in the Roblox instance tree as its own `ModuleScript` sitting inside the folder, and the compiler emits
+whichever require actually reaches it.
+
+### Declaring Typings for Luau Files
+
+A `.d.loom` file declares types for something the compiler does not generate — most commonly a hand-written Luau module, such as a native binding or a
+third-party library with no Loom source of its own. A bare `declare` introduces an *ambient* name, visible everywhere in the same root without an import, the
+same way a global already is. Prefixing it with `export` makes it an ordinary export of the module instead, importable like any other:
+
+```rs
+// jecs.d.loom
+export declare let world: number;
+declare let internalOnly: number;  ## ambient only — not importable, just visible everywhere in this root
+```
+
+```luau
+-- jecs.luau (hand-written, alongside jecs.d.loom)
+local jecs = {}
+jecs.world = 42
+return jecs
+```
+
+```rs
+// main.loom
+import { world } from "./jecs";
+print(world);
+```
+
+A declaration file emits nothing of its own — every `declare` vanishes at compile time — but an exported one names a value that has to exist somewhere at
+runtime, so the compiler copies `jecs.luau` into the output tree in `jecs.d.loom`'s place instead. The two files travel together: whichever module resolution
+finds — a relative specifier, a folder import, or a bare package specifier — the sibling `.luau` is what actually ends up requireable.
+
+This is the shape a third-party package takes when it wraps a pure-Luau library rather than being written in Loom: a `loom-config.toml` with a `[package]`
+table, an `init.d.loom` (or `main.d.loom`) declaring its exports, and the hand-written `.luau` files beside them. `loom add`/`loom publish` (see
+[Contributing](#contributing) and `Loom.Packages`) carry every file under `source_directory` — not just `.loom` ones — so the `.luau` siblings travel through
+publish and install exactly like any other source file.
 
 ---
 

@@ -56,7 +56,13 @@ before claiming done.
     - `Modules/` — import/export graphing, resolution, and Luau require() path resolution. A relative specifier
       resolves inside the importing file's own root; a bare one (`math`, `scope/math`, `math/vector`) names the root
       publishing that package — its `init.loom` when no subpath follows — and only a package the importing root
-      declares in `[dependencies]` is importable
+      declares in `[dependencies]` is importable. A folder folds into whichever index file it has (`ModuleResolver
+      .IndexFileName`/`.SecondaryIndexFileName`) — `init.loom`, mirroring Rojo's own folding, or `main.loom` for a
+      package authored without Rojo's convention in mind; `init` wins where a folder has both. Luau's own
+      require-by-string resolver only knows how to fold `init` on its own, so a fallback require (no Rojo project to
+      say where the output landed) that reached a module through a `main` fold has to name the file outright —
+      `ModuleResolver.LiteralRequirePath`/`.FoldedThroughSecondaryIndex`, used only by `ModuleRequirePathResolver`'s
+      fallback branch, everything else still resolves by specifier text alone
     - `Diagnostics/` — `DiagnosticBag`, severities, `InternalCodes.cs`. Errors flow through diagnostics, never exceptions (top-level `Compiler.Compile` catch =
       compiler bug path).
     - `Pipeline/` — `Compiler.cs` pipeline orchestration; `CompilationUnit.cs` multi-file compile with a two-phase parse-analyze step to support modules.
