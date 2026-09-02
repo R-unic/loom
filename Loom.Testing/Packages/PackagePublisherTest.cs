@@ -101,6 +101,55 @@ public class PackagePublisherTest
         Utility.AssertNoErrors(new CompilationUnit(roots!).Compile());
     }
 
+    /// <remarks>
+    ///     Models a third-party package published through the custom package manager: a native binding with no
+    ///     <c>.loom</c> implementation at all, just a <c>.d.loom</c> naming what its hand-written <c>.luau</c>
+    ///     sibling exports. Publishing does not filter by extension, so the sibling travels with the rest of the
+    ///     source; installing it into a consumer and compiling against it is the proof it actually arrived,
+    ///     rather than only the manifest and the declarations.
+    /// </remarks>
+    [Fact]
+    public void Publish_CarriesAThirdPartyPackagesLuauSibling_ThroughToTheConsumer()
+    {
+        using var fixture = new PackageIndexFixture();
+        var library = fixture.WriteLibrary("jecs", "1.0.0");
+        File.Delete(Path.Combine(fixture.LibraryDirectory, "src", "init.loom"));
+        File.WriteAllText(Path.Combine(fixture.LibraryDirectory, "src", "init.d.loom"), "export declare let world: number;");
+        File.WriteAllText(Path.Combine(fixture.LibraryDirectory, "src", "init.luau"), "local jecs = {}\njecs.world = 42\nreturn jecs\n");
+        var index = new LocalPackageIndex(fixture.IndexDirectory);
+
+        var payload = PackagePublisher.Prepare(library, out var prepareDiagnostics)!;
+        Assert.Empty(prepareDiagnostics);
+        Assert.Contains(Path.Combine("src", "init.luau"), payload.Files);
+        Assert.True(PackagePublisher.Publish(payload, index, out var publishDiagnostics));
+        Assert.Empty(publishDiagnostics);
+
+        var consumer = fixture.WriteProject("jecs = \"^1.0\"", "import { world } from \"jecs\";\nlet x: number = world;");
+        consumer.NoEmit = false; // codegen has to actually run to prove the require and the copied sibling land right
+        File.WriteAllText(
+            Path.Combine(fixture.ProjectDirectory, RojoResolver.ProjectFileName),
+            """{ "tree": { "$className": "DataModel", "ReplicatedStorage": { "Shared": { "$path": "dist" } } } }"""
+        );
+        Assert.True(PackageManager.Restore(consumer, out var restoreDiagnostics));
+        Assert.Empty(restoreDiagnostics);
+
+        var installedSibling = Path.Combine(fixture.ProjectDirectory, "packages", "jecs", "src", "init.luau");
+        Assert.True(File.Exists(installedSibling));
+        Assert.Equal("local jecs = {}\njecs.world = 42\nreturn jecs\n", File.ReadAllText(installedSibling));
+
+        var roots = ProjectLoader.Load(consumer, out var loadDiagnostics);
+        Assert.Empty(loadDiagnostics);
+        var result = new CompilationUnit(roots!).Compile();
+        Utility.AssertNoErrors(result);
+
+        var main = result.Files.Single(file => file.SourceFile.Name == "main.loom");
+        Assert.Contains("jecs.world", main.RenderedLuau);
+
+        var copiedRuntime = Path.Combine(consumer.Files.OutputDirectory, "packages", "jecs", "init.luau");
+        Assert.True(File.Exists(copiedRuntime));
+        Assert.Equal("local jecs = {}\njecs.world = 42\nreturn jecs\n", File.ReadAllText(copiedRuntime));
+    }
+
     [Fact]
     public void Publish_PublishesTheRequirementsTheVersionDeclares()
     {
